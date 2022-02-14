@@ -1,0 +1,13 @@
+tasks:
+  - name: Build users guide
+    init: >
+      make users-guide
+      gp sync-done guide
+
+  - name: Start web server
+    init: gp sync-await guide
+    command: python -m http.server 8000 --directory=dist-newstyle/doc/users-guide
+
+ports:
+  - port: 8000
+    onOpen: open-preview
