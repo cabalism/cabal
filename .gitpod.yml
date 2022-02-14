@@ -4,7 +4,7 @@ image:
 tasks:
   - name: Build users guide
     init: >
-      make users-guide
+      make users-guide &&
       gp sync-done guide
 
   - name: Start web server
