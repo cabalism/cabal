@@ -16,4 +16,4 @@ FROM gitpod/workspace-base
 # Failing command: ['/workspace/cabal/.python-sphinx-virtualenv/bin/python3', '-Im', 'ensurepip', '--upgrade', '--default-pip']
 
 # make: *** [Makefile:242: .python-sphinx-virtualenv] Error 1
-RUN sudo apt-get update && sudo apt-get install -y python3.8-venv
+RUN sudo apt-get update && sudo apt install -y python3.8-venv
