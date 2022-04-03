@@ -137,17 +137,22 @@ describeState (IndexStateTime time) = "historical state as of " ++ prettyShow ti
 
 repoPkgss :: Verbosity -> RepoContext -> Maybe TotalIndexState -> IO [RepoData]
 repoPkgss verbosity repoCtxt mb_idxState =
-  for
-    (repoContextRepos repoCtxt)
-    (repoPkgs verbosity repoCtxt (whichIdxState verbosity mb_idxState))
+  for (repoContextRepos repoCtxt) (repoPkgs verbosity repoCtxt reindex)
+  where
+    reindex :: RepoName -> Index -> IO RepoIndexState
+    reindex = case mb_idxState of
+      Just idxState -> totalIdxState verbosity idxState
+      Nothing -> const $ recentIdxState verbosity
 
-whichIdxState :: Verbosity -> Maybe TotalIndexState -> RepoName -> Index -> IO RepoIndexState
-whichIdxState verbosity (Just totalIdxState) rname = const $ do
-  let idxState = lookupIndexState rname totalIdxState
-  info verbosity $ "Using " ++ describeState idxState ++
+totalIdxState :: Verbosity -> TotalIndexState -> RepoName -> Index -> IO RepoIndexState
+totalIdxState verbosity idxState rname = const $ do
+  let idxState' = lookupIndexState rname idxState
+  info verbosity $ "Using " ++ describeState idxState' ++
     " as explicitly requested (via command line / project configuration)"
-  return idxState
-whichIdxState verbosity Nothing _ = \index -> readIndexTimestamp verbosity index >>= \case
+  return idxState'
+
+recentIdxState :: Verbosity -> Index -> IO RepoIndexState
+recentIdxState verbosity index = readIndexTimestamp verbosity index >>= \case
   Nothing -> do
     info verbosity "Using most recent state (could not read timestamp file)"
     return IndexStateHead
