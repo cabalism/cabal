@@ -30,6 +30,7 @@ import Distribution.Simple.Setup
 import Distribution.Client.IndexUtils
 import System.IO (hSetBuffering, stdout, BufferMode (NoBuffering))
 import Distribution.Client.Init.FileCreators
+import Distribution.Client.IndexUtils.GetPkg (getSourcePackages)
 
 -- | This is the main driver for the init script.
 --

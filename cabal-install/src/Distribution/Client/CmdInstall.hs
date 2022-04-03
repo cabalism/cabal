@@ -76,8 +76,8 @@ import Distribution.Types.VersionRange
          ( thisVersion )
 import Distribution.Solver.Types.PackageConstraint
          ( PackageProperty(..) )
-import Distribution.Client.IndexUtils
-         ( getSourcePackages, getInstalledPackages )
+import Distribution.Client.IndexUtils ( getInstalledPackages )
+import Distribution.Client.IndexUtils.GetPkg ( getSourcePackages )
 import Distribution.Client.ProjectPlanning
          ( storePackageInstallDirs' )
 import Distribution.Client.ProjectPlanning.Types

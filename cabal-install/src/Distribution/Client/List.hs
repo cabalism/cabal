@@ -58,8 +58,8 @@ import Distribution.Client.Setup
          , RepoContext(..) )
 import Distribution.Client.Utils
          ( mergeBy, MergeResult(..) )
-import Distribution.Client.IndexUtils as IndexUtils
-         ( getSourcePackages, getInstalledPackages )
+import Distribution.Client.IndexUtils as IndexUtils ( getInstalledPackages )
+import Distribution.Client.IndexUtils.GetPkg as IndexUtils ( getSourcePackages )
 import Distribution.Client.FetchUtils
          ( isFetched )
 

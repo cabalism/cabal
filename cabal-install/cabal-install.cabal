@@ -120,6 +120,7 @@ library
         Distribution.Client.IndexUtils.ActiveRepos
         Distribution.Client.IndexUtils.IndexState
         Distribution.Client.IndexUtils.Timestamp
+        Distribution.Client.IndexUtils.GetPkg
         Distribution.Client.Init
         Distribution.Client.Init.Defaults
         Distribution.Client.Init.FileCreators

@@ -59,8 +59,8 @@ import Distribution.Client.HttpUtils
          ( HttpTransport (..) )
 import Distribution.Solver.Types.PackageFixedDeps
 import qualified Distribution.Client.Haddock as Haddock (regenerateHaddockIndex)
-import Distribution.Client.IndexUtils as IndexUtils
-         ( getSourcePackagesAtIndexState, getInstalledPackages )
+import Distribution.Client.IndexUtils as IndexUtils ( getInstalledPackages )
+import Distribution.Client.IndexUtils.GetPkg as IndexUtils ( getSourcePackagesAtIndexState )
 import qualified Distribution.Client.InstallPlan as InstallPlan
 import qualified Distribution.Client.SolverInstallPlan as SolverInstallPlan
 import Distribution.Client.InstallPlan (InstallPlan)

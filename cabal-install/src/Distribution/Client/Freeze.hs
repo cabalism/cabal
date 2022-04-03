@@ -22,8 +22,8 @@ import Distribution.Client.Config ( SavedConfig(..) )
 import Distribution.Client.Types
 import Distribution.Client.Targets
 import Distribution.Client.Dependency
-import Distribution.Client.IndexUtils as IndexUtils
-         ( getSourcePackages, getInstalledPackages )
+import Distribution.Client.IndexUtils as IndexUtils ( getInstalledPackages )
+import Distribution.Client.IndexUtils.GetPkg as IndexUtils ( getSourcePackages )
 import Distribution.Client.SolverInstallPlan
          ( SolverInstallPlan, SolverPlanPackage )
 import qualified Distribution.Client.SolverInstallPlan as SolverInstallPlan

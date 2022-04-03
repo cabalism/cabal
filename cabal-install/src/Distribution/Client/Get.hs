@@ -46,8 +46,8 @@ import Distribution.Client.Dependency
 import Distribution.Client.VCS
 import Distribution.Client.FetchUtils
 import qualified Distribution.Client.Tar as Tar (extractTarGzFile)
-import Distribution.Client.IndexUtils
-        ( getSourcePackagesAtIndexState, TotalIndexState, ActiveRepos )
+import Distribution.Client.IndexUtils ( TotalIndexState, ActiveRepos )
+import Distribution.Client.IndexUtils.GetPkg ( getSourcePackagesAtIndexState )
 import Distribution.Solver.Types.SourcePackage
 
 import qualified Data.Map as Map

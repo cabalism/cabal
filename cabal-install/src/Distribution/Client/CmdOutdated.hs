@@ -24,7 +24,7 @@ import Prelude ()
 import Distribution.Client.Config
     ( SavedConfig(savedGlobalFlags, savedConfigureFlags
                  , savedConfigureExFlags) )
-import Distribution.Client.IndexUtils as IndexUtils
+import Distribution.Client.IndexUtils.GetPkg as IndexUtils
 import Distribution.Client.DistDirLayout
     ( defaultDistDirLayout
     , DistDirLayout(distProjectRootDirectory, distProjectFile) )

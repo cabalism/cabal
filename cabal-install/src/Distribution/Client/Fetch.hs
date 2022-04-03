@@ -21,8 +21,8 @@ import Distribution.Client.Types
 import Distribution.Client.Targets
 import Distribution.Client.FetchUtils hiding (fetchPackage)
 import Distribution.Client.Dependency
-import Distribution.Client.IndexUtils as IndexUtils
-         ( getSourcePackages, getInstalledPackages )
+import Distribution.Client.IndexUtils as IndexUtils ( getInstalledPackages )
+import Distribution.Client.IndexUtils.GetPkg as IndexUtils ( getSourcePackages )
 import qualified Distribution.Client.SolverInstallPlan as SolverInstallPlan
 import Distribution.Client.Setup
          ( GlobalFlags(..), FetchFlags(..), RepoContext(..) )

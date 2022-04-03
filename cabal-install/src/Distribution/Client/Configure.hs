@@ -29,8 +29,8 @@ import Distribution.Utils.Generic (safeHead)
 import Distribution.Client.Dependency
 import qualified Distribution.Client.InstallPlan as InstallPlan
 import Distribution.Client.SolverInstallPlan (SolverInstallPlan)
-import Distribution.Client.IndexUtils as IndexUtils
-         ( getSourcePackages, getInstalledPackages )
+import Distribution.Client.IndexUtils as IndexUtils ( getInstalledPackages )
+import Distribution.Client.IndexUtils.GetPkg as IndexUtils ( getSourcePackages )
 import Distribution.Client.Setup
          ( ConfigExFlags(..), RepoContext(..)
          , configureCommand, configureExCommand, filterConfigureFlags )
