@@ -2,6 +2,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE ViewPatterns #-}
 {-# LANGUAGE TupleSections #-}
+{-# LANGUAGE LambdaCase #-}
 
 module Distribution.Client.IndexUtils.GetPkg (
   getSourcePackages,
@@ -135,31 +136,34 @@ describeState IndexStateHead        = "most recent state"
 describeState (IndexStateTime time) = "historical state as of " ++ prettyShow time
 
 repoPkgss :: Verbosity -> RepoContext -> Maybe TotalIndexState -> IO [RepoData]
-repoPkgss verbosity repoCtxt mb_idxState = for (repoContextRepos repoCtxt) (repoPkgs verbosity repoCtxt mb_idxState)
+repoPkgss verbosity repoCtxt mb_idxState =
+  for
+    (repoContextRepos repoCtxt)
+    (repoPkgs verbosity repoCtxt (whichIdxState verbosity mb_idxState))
 
-repoPkgs :: Verbosity -> RepoContext -> Maybe TotalIndexState -> Repo -> IO RepoData
-repoPkgs verbosity repoCtxt mb_idxState r = do
+whichIdxState :: Verbosity -> Maybe TotalIndexState -> RepoName -> Index -> IO RepoIndexState
+whichIdxState verbosity (Just totalIdxState) rname = const $ do
+  let idxState = lookupIndexState rname totalIdxState
+  info verbosity $ "Using " ++ describeState idxState ++
+    " as explicitly requested (via command line / project configuration)"
+  return idxState
+whichIdxState verbosity Nothing _ = \index -> readIndexTimestamp verbosity index >>= \case
+  Nothing -> do
+    info verbosity "Using most recent state (could not read timestamp file)"
+    return IndexStateHead
+  Just idxState -> do
+    info verbosity $ "Using " ++ describeState idxState ++
+      " specified from most recent cabal update"
+    return idxState
+
+repoPkgs :: Verbosity -> RepoContext -> (RepoName -> Index -> IO RepoIndexState) -> Repo -> IO RepoData
+repoPkgs verbosity repoCtxt reIdxState r = do
   let rname :: RepoName
       rname = repoName r
 
   info verbosity ("Reading available packages of " ++ unRepoName rname ++ "...")
 
-  idxState <- case mb_idxState of
-    Just totalIdxState -> do
-      let idxState = lookupIndexState rname totalIdxState
-      info verbosity $ "Using " ++ describeState idxState ++
-        " as explicitly requested (via command line / project configuration)"
-      return idxState
-    Nothing -> do
-      mb_idxState' <- readIndexTimestamp verbosity (RepoIndex repoCtxt r)
-      case mb_idxState' of
-        Nothing -> do
-          info verbosity "Using most recent state (could not read timestamp file)"
-          return IndexStateHead
-        Just idxState -> do
-          info verbosity $ "Using " ++ describeState idxState ++
-            " specified from most recent cabal update"
-          return idxState
+  idxState <- reIdxState rname (RepoIndex repoCtxt r)
 
   unless (idxState == IndexStateHead) $
       case r of
