@@ -3,18 +3,6 @@
 {-# LANGUAGE ViewPatterns #-}
 {-# LANGUAGE TupleSections #-}
 
------------------------------------------------------------------------------
--- |
--- Module      :  Distribution.Client.IndexUtils
--- Copyright   :  (c) Duncan Coutts 2008
--- License     :  BSD-like
---
--- Maintainer  :  duncan@community.haskell.org
--- Stability   :  provisional
--- Portability :  portable
---
--- Extra utils related to the package indexes.
------------------------------------------------------------------------------
 module Distribution.Client.IndexUtils.GetPkg (
   getSourcePackages,
   getSourcePackagesAtIndexState,
