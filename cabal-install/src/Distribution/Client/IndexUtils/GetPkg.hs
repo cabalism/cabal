@@ -172,31 +172,33 @@ repoPkgs verbosity repoCtxt mb_idxState r = do
         _             -> IndexStateHead
 
   (pis,deps,isi) <- readRepoIndex verbosity repoCtxt r idxState'
-  explainRepoFromIndexState verbosity idxState' rname isi
-  pure $ RepoData {rdRepoName = rname , rdTimeStamp = isiMaxTime isi, rdIndex = pis, rdPreferences = deps }
 
-explainRepoFromIndexState :: Verbosity -> RepoIndexState -> RepoName -> IndexStateInfo -> IO ()
-explainRepoFromIndexState verbosity idxState rname isi = do
-  case idxState of
-    IndexStateHead -> do
-        info verbosity ("index-state("++ unRepoName rname ++") = " ++ prettyShow (isiHeadTime isi))
-        return ()
-    IndexStateTime ts0 -> do
-        when (isiMaxTime isi /= ts0) $
-            if ts0 > isiMaxTime isi
-                then die' verbosity $
-                                "Stopping this command as the requested index-state=" ++ prettyShow ts0
-                            ++ " is newer than (" ++ prettyShow (isiMaxTime isi)
-                            ++ "), the most recent state of '" ++ unRepoName rname
-                            ++ "'. You could try 'cabal update' to bring down a later state or request an earlier timestamp for index-state."
-                else info verbosity $
-                                "Requested index-state " ++ prettyShow ts0
-                            ++ " does not exist in '"++ unRepoName rname ++"'!"
-                            ++ " Falling back to older state ("
-                            ++ prettyShow (isiMaxTime isi) ++ ")."
-        info verbosity ("index-state("++ unRepoName rname ++") = " ++
-                          prettyShow (isiMaxTime isi) ++ " (HEAD = " ++
-                          prettyShow (isiHeadTime isi) ++ ")")
+  case explainRepoFromIndexState idxState' rname isi of
+    Left err -> die' verbosity err
+    Right msg -> do
+      info verbosity msg
+      pure $ RepoData {rdRepoName = rname , rdTimeStamp = isiMaxTime isi, rdIndex = pis, rdPreferences = deps }
+
+explainRepoFromIndexState :: RepoIndexState -> RepoName -> IndexStateInfo -> Either String String
+explainRepoFromIndexState IndexStateHead rname isi =
+  Right ("index-state("++ unRepoName rname ++") = " ++ prettyShow (isiHeadTime isi))
+explainRepoFromIndexState (IndexStateTime ts0) rname isi = 
+  if isiMaxTime isi /= ts0 then
+      if ts0 > isiMaxTime isi
+          then Left $
+            "Stopping this command as the requested index-state=" ++ prettyShow ts0
+            ++ " is newer than (" ++ prettyShow (isiMaxTime isi)
+            ++ "), the most recent state of '" ++ unRepoName rname
+            ++ "'. You could try 'cabal update' to bring down a later state or request an earlier timestamp for index-state."
+          else Right $
+            "Requested index-state " ++ prettyShow ts0
+            ++ " does not exist in '"++ unRepoName rname ++"'!"
+            ++ " Falling back to older state ("
+            ++ prettyShow (isiMaxTime isi) ++ ")."
+  else Right
+    ("index-state("++ unRepoName rname ++") = " ++
+    prettyShow (isiMaxTime isi) ++ " (HEAD = " ++
+    prettyShow (isiHeadTime isi) ++ ")")
 
 -- auxiliary data used in getSourcePackagesAtIndexState
 data RepoData = RepoData
