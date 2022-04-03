@@ -47,7 +47,7 @@ import Distribution.Client.VCS
 import Distribution.Client.FetchUtils
 import qualified Distribution.Client.Tar as Tar (extractTarGzFile)
 import Distribution.Client.IndexUtils ( TotalIndexState, ActiveRepos )
-import Distribution.Client.IndexUtils.GetPkg ( getSourcePackagesAtIndexState )
+import Distribution.Client.IndexUtils.GetPkg ( getSourcePackagesAtIndexState, getSourcePackagesAtAnyState )
 import Distribution.Solver.Types.SourcePackage
 
 import qualified Data.Map as Map
@@ -81,7 +81,11 @@ get verbosity repoCtxt _ getFlags userTargets = do
       activeRepos :: Maybe ActiveRepos
       activeRepos = flagToMaybe $ getActiveRepos getFlags
 
-  (sourcePkgDb, _, _) <- getSourcePackagesAtIndexState verbosity repoCtxt idxState activeRepos
+  let getPkgs = maybe (getSourcePackagesAtAnyState verbosity repoCtxt)
+                      (getSourcePackagesAtIndexState verbosity repoCtxt)
+                      idxState
+
+  (sourcePkgDb, _, _) <- getPkgs activeRepos
 
   pkgSpecifiers <- resolveUserTargets verbosity repoCtxt
                    (packageIndex sourcePkgDb)

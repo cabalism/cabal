@@ -7,6 +7,7 @@
 module Distribution.Client.IndexUtils.GetPkg (
   getSourcePackages,
   getSourcePackagesAtIndexState,
+  getSourcePackagesAtAnyState,
   ) where
 
 import Prelude ()
@@ -46,7 +47,7 @@ import Distribution.Client.IndexUtils (IndexStateInfo(..), Index (RepoIndex), re
 -- This is a higher level wrapper used internally in cabal-install.
 getSourcePackages :: Verbosity -> RepoContext -> IO SourcePackageDb
 getSourcePackages verbosity repoCtxt =
-    fstOf3 <$> getSourcePackagesAtIndexState verbosity repoCtxt Nothing Nothing
+    fstOf3 <$> getSourcePackagesAtAnyState verbosity repoCtxt Nothing
 
 -- | Variant of 'getSourcePackages' which allows getting the source
 -- packages at a particular 'IndexState'.
@@ -60,7 +61,7 @@ getSourcePackages verbosity repoCtxt =
 getSourcePackagesAtIndexState
     :: Verbosity
     -> RepoContext
-    -> Maybe TotalIndexState
+    -> TotalIndexState
     -> Maybe ActiveRepos
     -> IO (SourcePackageDb, TotalIndexState, ActiveRepos)
 getSourcePackagesAtIndexState verbosity (repoContextRepos -> []) _ _ = do
@@ -73,22 +74,35 @@ getSourcePackagesAtIndexState verbosity (repoContextRepos -> []) _ _ = do
         packageIndex       = mempty,
         packagePreferences = mempty
       }, headTotalIndexState, ActiveRepos [])
-getSourcePackagesAtIndexState verbosity repoCtxt i@(Just _) mb_activeRepos = do
-  getSourcePackagesAtIndexState' verbosity repoCtxt i mb_activeRepos
-getSourcePackagesAtIndexState verbosity repoCtxt i@Nothing mb_activeRepos = do
-  getSourcePackagesAtIndexState' verbosity repoCtxt i mb_activeRepos
+getSourcePackagesAtIndexState verbosity repoCtxt idxState mb_activeRepos = do
+  pkgss <- repoPkgss verbosity repoCtxt (Just idxState)
+  getRepoPackages verbosity (fromMaybe defaultActiveRepos mb_activeRepos) pkgss
 
-getSourcePackagesAtIndexState'
+getSourcePackagesAtAnyState
+    :: Verbosity
+    -> RepoContext
+    -> Maybe ActiveRepos
+    -> IO (SourcePackageDb, TotalIndexState, ActiveRepos)
+getSourcePackagesAtAnyState verbosity (repoContextRepos -> []) _ = do
+      -- In the test suite, we routinely don't have any remote package
+      -- servers, so don't bleat about it
+      warn (verboseUnmarkOutput verbosity) $
+        "No remote package servers have been specified. Usually " ++
+        "you would have one specified in the config file."
+      return (SourcePackageDb {
+        packageIndex       = mempty,
+        packagePreferences = mempty
+      }, headTotalIndexState, ActiveRepos [])
+getSourcePackagesAtAnyState verbosity repoCtxt mb_activeRepos = do
+  pkgss <- repoPkgss verbosity repoCtxt Nothing
+  getRepoPackages verbosity (fromMaybe defaultActiveRepos mb_activeRepos) pkgss
+
+getRepoPackages
   :: Verbosity
-  -> RepoContext
-  -> Maybe TotalIndexState
-  -> Maybe ActiveRepos
+  -> ActiveRepos
+  -> [RepoData]
   -> IO (SourcePackageDb, TotalIndexState, ActiveRepos)
-getSourcePackagesAtIndexState' verbosity repoCtxt mb_idxState mb_activeRepos = do
-  let activeRepos :: ActiveRepos
-      activeRepos = fromMaybe defaultActiveRepos mb_activeRepos
-
-  pkgss <- repoPkgss verbosity repoCtxt mb_idxState
+getRepoPackages verbosity activeRepos pkgss = do
   pkgss' <- case organizeByRepos activeRepos rdRepoName pkgss of
     Right x  -> return x
     Left err -> warn verbosity err >> return (map (, CombineStrategyMerge) pkgss)

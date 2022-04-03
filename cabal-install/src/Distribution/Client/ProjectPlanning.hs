@@ -842,9 +842,13 @@ getSourcePackages
 getSourcePackages verbosity withRepoCtx idxState activeRepos = do
     (sourcePkgDbWithTIS, repos) <-
       liftIO $
-        withRepoCtx $ \repoctx -> do
-          sourcePkgDbWithTIS <- IndexUtils.getSourcePackagesAtIndexState verbosity repoctx idxState activeRepos
-          return (sourcePkgDbWithTIS, repoContextRepos repoctx)
+        withRepoCtx $ \repoCtxt -> do
+          let getPkgs = maybe (IndexUtils.getSourcePackagesAtAnyState verbosity repoCtxt)
+                              (IndexUtils.getSourcePackagesAtIndexState verbosity repoCtxt)
+                              idxState
+
+          sourcePkgDbWithTIS <- getPkgs activeRepos
+          return (sourcePkgDbWithTIS, repoContextRepos repoCtxt)
 
     traverse_ needIfExists
         . IndexUtils.getSourcePackagesMonitorFiles
