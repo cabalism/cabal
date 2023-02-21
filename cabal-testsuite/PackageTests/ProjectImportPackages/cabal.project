@@ -1,0 +1,5 @@
+import: ./dep/cabal.project
+
+packages:
+  main.cabal
+  dep2/dep2.cabal

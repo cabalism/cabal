@@ -1,0 +1,4 @@
+packages:
+  dep/dep.cabal
+package dep
+  ghc-options: -O2

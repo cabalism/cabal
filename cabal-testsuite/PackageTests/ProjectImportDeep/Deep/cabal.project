@@ -1,0 +1,6 @@
+import: ./dep/cabal.project
+
+packages:
+  ./Deep/main.cabal
+  ./Deep/dep/dep.cabal
+  ./Deep/dep2/dep2.cabal
