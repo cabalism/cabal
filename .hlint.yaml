@@ -16,7 +16,6 @@
 - ignore: {name: "Monoid law, right identity"} # 3 hints
 - ignore: {name: "Move brackets to avoid $"} # 25 hints
 - ignore: {name: "Move guards forward"} # 4 hints
-- ignore: {name: "Parse error: on input `%'"} # 1 hint
 - ignore: {name: "Parse error: on input `{'"} # 2 hints
 - ignore: {name: "Redundant $"} # 125 hints
 - ignore: {name: "Redundant $!"} # 4 hints
@@ -105,3 +104,4 @@
     - --ignore-glob=cabal-testsuite/PackageTests/CmmSources/src/Demo.hs
     - --ignore-glob=cabal-testsuite/PackageTests/CmmSourcesDyn/src/Demo.hs
     - --ignore-glob=Cabal-syntax/src/Distribution/Fields/Lexer.hs
+    - --ignore-glob=templates/Paths_pkg.template.hs
