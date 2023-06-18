@@ -55,7 +55,6 @@
 - ignore: {name: "Use concatMap"} # 1 hint
 - ignore: {name: "Use const"} # 38 hints
 - ignore: {name: "Use elem"} # 3 hints
-- ignore: {name: "Use fewer LANGUAGE pragmas"} # 1 hint
 - ignore: {name: "Use fewer imports"} # 13 hints
 - ignore: {name: "Use first"} # 2 hints
 - ignore: {name: "Use fmap"} # 30 hints
@@ -105,3 +104,4 @@
 - arguments:
     - --ignore-glob=cabal-testsuite/PackageTests/CmmSources/src/Demo.hs
     - --ignore-glob=cabal-testsuite/PackageTests/CmmSourcesDyn/src/Demo.hs
+    - --ignore-glob=Cabal-syntax/src/Distribution/Fields/Lexer.hs
