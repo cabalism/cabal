@@ -1075,6 +1075,34 @@ disableTestsBenchsByDefault configFlags =
     , configBenchmarks = Flag False <> configBenchmarks configFlags
     }
 
+symlink :: OverwritePolicy -> InstallExe -> UnitId -> UnqualComponentName -> Symlink
+symlink
+  overwritePolicy
+  InstallExe{installDir, mkSourceBinDir, mkExeName, mkFinalExeName}
+  unit
+  exe =
+    Symlink
+      overwritePolicy
+      installDir
+      (mkSourceBinDir unit)
+      (mkExeName exe)
+      (mkFinalExeName exe)
+
+errorMessage :: Pretty a => OverwritePolicy -> InstallMethod -> FilePath -> a -> String
+errorMessage overwritePolicy installMethod installdir exe = case overwritePolicy of
+  NeverOverwrite ->
+    "Path '"
+      <> (installdir </> prettyShow exe)
+      <> "' already exists. "
+      <> "Use --overwrite-policy=always to overwrite."
+  -- This shouldn't even be possible, but we keep it in case
+  -- symlinking/copying logic changes
+  _ ->
+    case installMethod of
+      InstallMethodSymlink -> "Symlinking"
+      InstallMethodCopy ->
+        "Copying" <> " '" <> prettyShow exe <> "' failed."
+
 -- | Check if we can Symlink/copy every exe from a package from the store to a given location
 installableUnitExes
   :: Verbosity
@@ -1087,9 +1115,9 @@ installableUnitExes
 installableUnitExes
   verbosity
   overwritePolicy
-  InstallExe{installMethod, installDir, mkSourceBinDir, mkExeName, mkFinalExeName}
+  installExe@InstallExe{installMethod, installDir}
   (unit, components) = do
-    symlinkables :: [Bool] <- traverse (symlinkable overwritePolicy mkSourceBinDir mkExeName mkFinalExeName installDir unit) exes
+    symlinkables :: [Bool] <- traverse (symlinkableBinary . symlink overwritePolicy installExe unit) exes
     traverse_ warnAbout (zip symlinkables exes)
     where
       exes = catMaybes $ (exeMaybe . fst) <$> components
@@ -1112,9 +1140,9 @@ installUnitExes
 installUnitExes
   verbosity
   overwritePolicy
-  InstallExe{installMethod, installDir, mkSourceBinDir, mkExeName, mkFinalExeName}
+  installExe@InstallExe{installMethod, installDir, mkSourceBinDir, mkExeName, mkFinalExeName}
   (unit, components) = do
-    symlinkables :: [Bool] <- traverse (symlinkable overwritePolicy mkSourceBinDir mkExeName mkFinalExeName installDir unit) exes
+    symlinkables :: [Bool] <- traverse (symlinkableBinary . symlink overwritePolicy installExe unit) exes
     if and symlinkables
       then traverse_ installAndWarn exes
       else traverse_ warnAbout (zip symlinkables exes)
@@ -1137,39 +1165,6 @@ installUnitExes
             installDir
             installMethod
         unless success $ dieWithException verbosity $ InstallUnitExes (errorMessage overwritePolicy installMethod installDir exe)
-
-symlinkable
-  :: OverwritePolicy
-  -> (UnitId -> FilePath)
-  -> (UnqualComponentName -> FilePath)
-  -> (UnqualComponentName -> FilePath)
-  -> FilePath
-  -> UnitId
-  -> UnqualComponentName
-  -> IO Bool
-symlinkable overwritePolicy mkSourceBinDir mkExeName mkFinalExeName installdir unit exe =
-    symlinkableBinary
-      (Symlink
-        overwritePolicy
-        installdir
-        (mkSourceBinDir unit)
-        (mkExeName exe)
-        (mkFinalExeName exe))
-
-errorMessage :: Pretty a => OverwritePolicy -> InstallMethod -> FilePath -> a -> String
-errorMessage overwritePolicy installMethod installdir exe = case overwritePolicy of
-  NeverOverwrite ->
-    "Path '"
-      <> (installdir </> prettyShow exe)
-      <> "' already exists. "
-      <> "Use --overwrite-policy=always to overwrite."
-  -- This shouldn't even be possible, but we keep it in case
-  -- symlinking/copying logic changes
-  _ ->
-    case installMethod of
-      InstallMethodSymlink -> "Symlinking"
-      InstallMethodCopy ->
-        "Copying" <> " '" <> prettyShow exe <> "' failed."
 
 -- | Install a specific exe.
 installBuiltExe
