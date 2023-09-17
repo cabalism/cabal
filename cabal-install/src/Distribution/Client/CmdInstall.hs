@@ -53,7 +53,7 @@ import Distribution.Client.IndexUtils
   )
 import qualified Distribution.Client.InstallPlan as InstallPlan
 import Distribution.Client.InstallSymlink
-  ( Symlink(..)
+  ( Symlink (..)
   , promptRun
   , symlinkBinary
   , symlinkableBinary
@@ -568,15 +568,17 @@ installAction flags@NixStyleFlags{extraFlags = clientInstallFlags', ..} targetSt
           || buildSettingOnlyDownload (buildSettings baseCtx)
 
     -- Before building, check if we can do the install.
-    unless (dryRun || installLibs)
-      (installableExes
-        verbosity
-        baseCtx
-        buildCtx
-        platform
-        compiler
-        configFlags
-        clientInstallFlags)
+    unless
+      (dryRun || installLibs)
+      ( installableExes
+          verbosity
+          baseCtx
+          buildCtx
+          platform
+          compiler
+          configFlags
+          clientInstallFlags
+      )
 
     buildOutcomes <- runProjectBuildPhase verbosity baseCtx buildCtx
     runProjectPostBuildPhase verbosity baseCtx buildCtx buildOutcomes
@@ -807,18 +809,17 @@ constructProjectBuildContext verbosity baseCtx targetSelectors = do
 
     return (prunedElaboratedPlan, targets)
 
-data InstallExe =
-  InstallExe
-    { installMethod :: InstallMethod
-    , installDir :: FilePath
-    , mkSourceBinDir :: UnitId -> FilePath
-    -- ^ A function to get an UnitId's store directory.
-    , mkExeName :: UnqualComponentName -> FilePath
-    -- ^ A function to get an exe's filename.
-    , mkFinalExeName :: UnqualComponentName -> FilePath
-    -- ^ A function to get an exe's final possibly different to the name in the
-    -- store.
-    }
+data InstallExe = InstallExe
+  { installMethod :: InstallMethod
+  , installDir :: FilePath
+  , mkSourceBinDir :: UnitId -> FilePath
+  -- ^ A function to get an UnitId's store directory.
+  , mkExeName :: UnqualComponentName -> FilePath
+  -- ^ A function to get an exe's filename.
+  , mkFinalExeName :: UnqualComponentName -> FilePath
+  -- ^ A function to get an exe's final possibly different to the name in the
+  -- store.
+  }
 
 installExesPrep
   :: Verbosity
@@ -962,7 +963,7 @@ defaultMethod verbosity
       return $ if symlinks then InstallMethodSymlink else InstallMethodCopy
   | otherwise = return InstallMethodSymlink
   where
-      isWindows = buildOS == Windows
+    isWindows = buildOS == Windows
 
 -- | Install any built library by adding it to the default ghc environment
 installLibraries
@@ -1204,12 +1205,13 @@ installBuiltExe
   InstallMethodSymlink = do
     notice verbosity $ "Symlinking '" <> exeName <> "' to '" <> destination <> "'"
     symlinkBinary
-      (Symlink
-        overwritePolicy
-        installdir
-        sourceDir
-        finalExeName
-        exeName)
+      ( Symlink
+          overwritePolicy
+          installdir
+          sourceDir
+          finalExeName
+          exeName
+      )
     where
       destination = installdir </> finalExeName
 installBuiltExe

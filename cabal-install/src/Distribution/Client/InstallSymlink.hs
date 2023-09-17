@@ -17,7 +17,7 @@
 --
 -- Managing installing binaries with symlinks.
 module Distribution.Client.InstallSymlink
-  ( Symlink(..)
+  ( Symlink (..)
   , symlinkBinaries
   , symlinkBinary
   , symlinkableBinary
@@ -153,12 +153,13 @@ symlinkBinaries
                   privateBinDir <- pkgBinDir pkg ipid
                   ok <-
                     symlinkBinary
-                      (Symlink
-                        overwritePolicy
-                        publicBinDir
-                        privateBinDir
-                        (prettyShow publicExeName)
-                        privateExeName)
+                      ( Symlink
+                          overwritePolicy
+                          publicBinDir
+                          privateBinDir
+                          (prettyShow publicExeName)
+                          privateExeName
+                      )
                   if ok
                     then return Nothing
                     else
@@ -251,43 +252,48 @@ symlinkBinaries
       cinfo = compilerInfo comp
       (CompilerId compilerFlavor _) = compilerInfoId cinfo
 
-data Symlink =
-  Symlink
-    { overwritePolicy :: OverwritePolicy
-    -- ^ Whether to force overwrite an existing file.
-    , publicBindir :: FilePath
-    -- ^ The canonical path of the public bin dir eg @/home/user/bin@.
-    , privateBindir :: FilePath
-    -- ^ The canonical path of the private bin dir eg @/home/user/.cabal/bin@.
-    , publicName :: FilePath
-    -- ^ The name of the executable to go in the public bin dir, eg @foo@.
-    , privateName :: String
-    -- ^ The name of the executable to in the private bin dir, eg @foo-1.0@.
-    }
+data Symlink = Symlink
+  { overwritePolicy :: OverwritePolicy
+  -- ^ Whether to force overwrite an existing file.
+  , publicBindir :: FilePath
+  -- ^ The canonical path of the public bin dir eg @/home/user/bin@.
+  , privateBindir :: FilePath
+  -- ^ The canonical path of the private bin dir eg @/home/user/.cabal/bin@.
+  , publicName :: FilePath
+  -- ^ The name of the executable to go in the public bin dir, eg @foo@.
+  , privateName :: String
+  -- ^ The name of the executable to in the private bin dir, eg @foo-1.0@.
+  }
 
 -- | How to handle symlinking a binary.
 onSymlinkBinary
-  :: IO a -- ^ Missing action
-  -> IO a -- ^ Overwrite action
-  -> IO a -- ^ Never action
+  :: IO a
+  -- ^ Missing action
+  -> IO a
+  -- ^ Overwrite action
+  -> IO a
+  -- ^ Never action
   -> IO a
   -> Symlink
   -> IO a
 onSymlinkBinary
-  onMissing onOverwrite onNever onPrompt
-  Symlink{ overwritePolicy, publicBindir, privateBindir, publicName, privateName } = do
-  ok <-
-    targetOkToOverwrite
-      (publicBindir </> publicName)
-      (privateBindir </> privateName)
-  case ok of
-    NotExists -> onMissing
-    OkToOverwrite -> onOverwrite
-    NotOurFile ->
-      case overwritePolicy of
-        NeverOverwrite -> onNever
-        AlwaysOverwrite -> onOverwrite
-        PromptOverwrite -> onPrompt
+  onMissing
+  onOverwrite
+  onNever
+  onPrompt
+  Symlink{overwritePolicy, publicBindir, privateBindir, publicName, privateName} = do
+    ok <-
+      targetOkToOverwrite
+        (publicBindir </> publicName)
+        (privateBindir </> privateName)
+    case ok of
+      NotExists -> onMissing
+      OkToOverwrite -> onOverwrite
+      NotOurFile ->
+        case overwritePolicy of
+          NeverOverwrite -> onNever
+          AlwaysOverwrite -> onOverwrite
+          PromptOverwrite -> onPrompt
 
 -- | Can we symlink a binary?
 --
@@ -303,7 +309,7 @@ symlinkableBinary = onSymlinkBinary (return True) (return True) (return False) (
 -- file there already that we did not own. Other errors like permission errors
 -- just propagate as exceptions.
 symlinkBinary :: Symlink -> IO Bool
-symlinkBinary inputs@Symlink{publicBindir, privateBindir, publicName, privateName } = do
+symlinkBinary inputs@Symlink{publicBindir, privateBindir, publicName, privateName} = do
   onSymlinkBinary mkLink overwrite (return False) maybeOverwrite inputs
   where
     relativeBindir = makeRelative publicBindir privateBindir
