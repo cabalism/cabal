@@ -55,6 +55,7 @@ import qualified Distribution.Client.InstallPlan as InstallPlan
 import Distribution.Client.InstallSymlink
   ( promptRun
   , symlinkBinary
+  , symlinkableBinary
   , trySymlink
   )
 import Distribution.Client.NixStyleOptions
@@ -1016,12 +1017,27 @@ installUnitExes
   mkFinalExeName
   installdir
   installMethod
-  (unit, components) =
-    traverse_ installAndWarn exes
+  (unit, components) = do
+    symlinkables :: [Bool] <- traverse symlinkable exes
+    if and symlinkables
+      then traverse_ installAndWarn exes
+      else traverse_ warnAbout (zip symlinkables exes)
     where
       exes = catMaybes $ (exeMaybe . fst) <$> components
       exeMaybe (ComponentTarget (CExeName exe) _) = Just exe
       exeMaybe _ = Nothing
+
+      symlinkable exe =
+          symlinkableBinary
+            overwritePolicy
+            installdir
+            (mkSourceBinDir unit)
+            (mkExeName exe)
+            (mkFinalExeName exe)
+
+      warnAbout (True, _) = return ()
+      warnAbout (False, exe) = die' verbosity (errorMessage exe)
+
       installAndWarn exe = do
         success <-
           installBuiltExe
@@ -1032,20 +1048,21 @@ installUnitExes
             (mkFinalExeName exe)
             installdir
             installMethod
-        let errorMessage = case overwritePolicy of
-              NeverOverwrite ->
-                "Path '"
-                  <> (installdir </> prettyShow exe)
-                  <> "' already exists. "
-                  <> "Use --overwrite-policy=always to overwrite."
-              -- This shouldn't even be possible, but we keep it in case
-              -- symlinking/copying logic changes
-              _ ->
-                case installMethod of
-                  InstallMethodSymlink -> "Symlinking"
-                  InstallMethodCopy ->
-                    "Copying" <> " '" <> prettyShow exe <> "' failed."
-        unless success $ dieWithException verbosity $ InstallUnitExes errorMessage
+        unless success $ dieWithException verbosity $ InstallUnitExes (errorMessage exe)
+
+      errorMessage exe = case overwritePolicy of
+        NeverOverwrite ->
+          "Path '"
+            <> (installdir </> prettyShow exe)
+            <> "' already exists. "
+            <> "Use --overwrite-policy=always to overwrite."
+        -- This shouldn't even be possible, but we keep it in case
+        -- symlinking/copying logic changes
+        _ ->
+          case installMethod of
+            InstallMethodSymlink -> "Symlinking"
+            InstallMethodCopy ->
+              "Copying" <> " '" <> prettyShow exe <> "' failed."
 
 -- | Install a specific exe.
 installBuiltExe
