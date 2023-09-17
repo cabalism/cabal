@@ -1,0 +1,4 @@
+synopsis: Warn early that overwrite policy is needed
+packages: cabal-install
+prs: #9268
+issues: #5993
