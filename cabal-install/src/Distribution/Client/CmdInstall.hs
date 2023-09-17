@@ -53,7 +53,8 @@ import Distribution.Client.IndexUtils
   )
 import qualified Distribution.Client.InstallPlan as InstallPlan
 import Distribution.Client.InstallSymlink
-  ( promptRun
+  ( Symlink(..)
+  , promptRun
   , symlinkBinary
   , symlinkableBinary
   , trySymlink
@@ -806,6 +807,19 @@ constructProjectBuildContext verbosity baseCtx targetSelectors = do
 
     return (prunedElaboratedPlan, targets)
 
+data InstallExe =
+  InstallExe
+    { installMethod :: InstallMethod
+    , installDir :: FilePath
+    , mkSourceBinDir :: UnitId -> FilePath
+    -- ^ A function to get an UnitId's store directory.
+    , mkExeName :: UnqualComponentName -> FilePath
+    -- ^ A function to get an exe's filename.
+    , mkFinalExeName :: UnqualComponentName -> FilePath
+    -- ^ A function to get an exe's final possibly different to the name in the
+    -- store.
+    }
+
 installExesPrep
   :: Verbosity
   -> ProjectBaseContext
@@ -814,13 +828,7 @@ installExesPrep
   -> Compiler
   -> ConfigFlags
   -> ClientInstallFlags
-  -> IO
-      ( InstallMethod
-      , FilePath
-      , UnitId -> FilePath
-      , UnqualComponentName -> FilePath
-      , UnqualComponentName -> FilePath
-      )
+  -> IO InstallExe
 installExesPrep
   verbosity
   baseCtx
@@ -861,7 +869,7 @@ installExesPrep
       flagElim (defaultMethod verbosity) return $
         cinstInstallMethod clientInstallFlags
 
-    return (installMethod, installdir, mkUnitBinDir, mkExeName, mkFinalExeName)
+    return $ InstallExe installMethod installdir mkUnitBinDir mkExeName mkFinalExeName
 
 -- | Can we install any built exe by symlinking/copying it?
 installableExes
@@ -881,7 +889,7 @@ installableExes
   compiler
   configFlags
   clientInstallFlags = do
-    (installMethod, installdir, mkUnitBinDir, mkExeName, mkFinalExeName) <-
+    installExe <-
       installExesPrep
         verbosity
         baseCtx
@@ -896,11 +904,7 @@ installableExes
         installableUnitExes
           verbosity
           (mkOverwritePolicy clientInstallFlags)
-          mkUnitBinDir
-          mkExeName
-          mkFinalExeName
-          installdir
-          installMethod
+          installExe
      in
       traverse_ installable $ Map.toList $ targetsMap buildCtx
 
@@ -923,7 +927,7 @@ installExes
   compiler
   configFlags
   clientInstallFlags = do
-    (installMethod, installdir, mkUnitBinDir, mkExeName, mkFinalExeName) <-
+    installExe <-
       installExesPrep
         verbosity
         baseCtx
@@ -938,11 +942,7 @@ installExes
         installUnitExes
           verbosity
           (mkOverwritePolicy clientInstallFlags)
-          mkUnitBinDir
-          mkExeName
-          mkFinalExeName
-          installdir
-          installMethod
+          installExe
      in
       traverse_ doInstall $ Map.toList $ targetsMap buildCtx
 
@@ -1092,19 +1092,7 @@ disableTestsBenchsByDefault configFlags =
 installableUnitExes
   :: Verbosity
   -> OverwritePolicy
-  -- ^ Whether to overwrite existing files
-  -> (UnitId -> FilePath)
-  -- ^ A function to get an UnitId's
-  -- ^ store directory
-  -> (UnqualComponentName -> FilePath)
-  -- ^ A function to get an
-  -- ^ exe's filename
-  -> (UnqualComponentName -> FilePath)
-  -- ^ A function to get an
-  -- ^ exe's final possibly
-  -- ^ different to the name in the store.
-  -> FilePath
-  -> InstallMethod
+  -> InstallExe
   -> ( UnitId
      , [(ComponentTarget, NonEmpty TargetSelector)]
      )
@@ -1112,13 +1100,9 @@ installableUnitExes
 installableUnitExes
   verbosity
   overwritePolicy
-  mkSourceBinDir
-  mkExeName
-  mkFinalExeName
-  installdir
-  installMethod
+  InstallExe{installMethod, installDir, mkSourceBinDir, mkExeName, mkFinalExeName}
   (unit, components) = do
-    symlinkables :: [Bool] <- traverse (symlinkable overwritePolicy mkSourceBinDir mkExeName mkFinalExeName installdir unit) exes
+    symlinkables :: [Bool] <- traverse (symlinkable overwritePolicy mkSourceBinDir mkExeName mkFinalExeName installDir unit) exes
     traverse_ warnAbout (zip symlinkables exes)
     where
       exes = catMaybes $ (exeMaybe . fst) <$> components
@@ -1126,25 +1110,14 @@ installableUnitExes
       exeMaybe _ = Nothing
 
       warnAbout (True, _) = return ()
-      warnAbout (False, exe) = die' verbosity (errorMessage overwritePolicy installMethod installdir exe)
+      warnAbout (False, exe) = die' verbosity (errorMessage overwritePolicy installMethod installDir exe)
 
 -- | Symlink/copy every exe from a package from the store to a given location
 installUnitExes
   :: Verbosity
   -> OverwritePolicy
   -- ^ Whether to overwrite existing files
-  -> (UnitId -> FilePath)
-  -- ^ A function to get an UnitId's
-  -- ^ store directory
-  -> (UnqualComponentName -> FilePath)
-  -- ^ A function to get an
-  -- ^ exe's filename
-  -> (UnqualComponentName -> FilePath)
-  -- ^ A function to get an
-  -- ^ exe's final possibly
-  -- ^ different to the name in the store.
-  -> FilePath
-  -> InstallMethod
+  -> InstallExe
   -> ( UnitId
      , [(ComponentTarget, NonEmpty TargetSelector)]
      )
@@ -1152,13 +1125,9 @@ installUnitExes
 installUnitExes
   verbosity
   overwritePolicy
-  mkSourceBinDir
-  mkExeName
-  mkFinalExeName
-  installdir
-  installMethod
+  InstallExe{installMethod, installDir, mkSourceBinDir, mkExeName, mkFinalExeName}
   (unit, components) = do
-    symlinkables :: [Bool] <- traverse (symlinkable overwritePolicy mkSourceBinDir mkExeName mkFinalExeName installdir unit) exes
+    symlinkables :: [Bool] <- traverse (symlinkable overwritePolicy mkSourceBinDir mkExeName mkFinalExeName installDir unit) exes
     if and symlinkables
       then traverse_ installAndWarn exes
       else traverse_ warnAbout (zip symlinkables exes)
@@ -1168,7 +1137,7 @@ installUnitExes
       exeMaybe _ = Nothing
 
       warnAbout (True, _) = return ()
-      warnAbout (False, exe) = die' verbosity (errorMessage overwritePolicy installMethod installdir exe)
+      warnAbout (False, exe) = die' verbosity (errorMessage overwritePolicy installMethod installDir exe)
 
       installAndWarn exe = do
         success <-
@@ -1178,9 +1147,9 @@ installUnitExes
             (mkSourceBinDir unit)
             (mkExeName exe)
             (mkFinalExeName exe)
-            installdir
+            installDir
             installMethod
-        unless success $ die' verbosity (errorMessage overwritePolicy installMethod installdir exe)
+        unless success $ die' verbosity (errorMessage overwritePolicy installMethod installDir exe)
 
 symlinkable
   :: OverwritePolicy
@@ -1193,11 +1162,12 @@ symlinkable
   -> IO Bool
 symlinkable overwritePolicy mkSourceBinDir mkExeName mkFinalExeName installdir unit exe =
     symlinkableBinary
-      overwritePolicy
-      installdir
-      (mkSourceBinDir unit)
-      (mkExeName exe)
-      (mkFinalExeName exe)
+      (Symlink
+        overwritePolicy
+        installdir
+        (mkSourceBinDir unit)
+        (mkExeName exe)
+        (mkFinalExeName exe))
 
 errorMessage :: Pretty a => OverwritePolicy -> InstallMethod -> FilePath -> a -> String
 errorMessage overwritePolicy installMethod installdir exe = case overwritePolicy of
@@ -1239,11 +1209,12 @@ installBuiltExe
   InstallMethodSymlink = do
     notice verbosity $ "Symlinking '" <> exeName <> "' to '" <> destination <> "'"
     symlinkBinary
-      overwritePolicy
-      installdir
-      sourceDir
-      finalExeName
-      exeName
+      (Symlink
+        overwritePolicy
+        installdir
+        sourceDir
+        finalExeName
+        exeName)
     where
       destination = installdir </> finalExeName
 installBuiltExe
