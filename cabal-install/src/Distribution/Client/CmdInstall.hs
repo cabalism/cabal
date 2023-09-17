@@ -561,17 +561,26 @@ installAction flags@NixStyleFlags{extraFlags = clientInstallFlags', ..} targetSt
 
     printPlan verbosity baseCtx buildCtx
 
-    buildOutcomes <- runProjectBuildPhase verbosity baseCtx buildCtx
-    runProjectPostBuildPhase verbosity baseCtx buildCtx buildOutcomes
-
-    -- Now that we built everything we can do the installation part.
-    -- First, figure out if / what parts we want to install:
     let
       dryRun =
         buildSettingDryRun (buildSettings baseCtx)
           || buildSettingOnlyDownload (buildSettings baseCtx)
 
-    -- Then, install!
+    -- Before building, check if we can do the install.
+    unless (dryRun || installLibs)
+      (installableExes
+        verbosity
+        baseCtx
+        buildCtx
+        platform
+        compiler
+        configFlags
+        clientInstallFlags)
+
+    buildOutcomes <- runProjectBuildPhase verbosity baseCtx buildCtx
+    runProjectPostBuildPhase verbosity baseCtx buildCtx buildOutcomes
+
+    -- Having built everything, do the install.
     unless dryRun $
       if installLibs
         then
@@ -799,6 +808,86 @@ constructProjectBuildContext verbosity baseCtx targetSelectors = do
 
 -- | Install any built exe by symlinking/copying it
 -- we don't use BuildOutcomes because we also need the component names
+installableExes
+  :: Verbosity
+  -> ProjectBaseContext
+  -> ProjectBuildContext
+  -> Platform
+  -> Compiler
+  -> ConfigFlags
+  -> ClientInstallFlags
+  -> IO ()
+installableExes
+  verbosity
+  baseCtx
+  buildCtx
+  platform
+  compiler
+  configFlags
+  clientInstallFlags = do
+    installPath <- defaultInstallPath
+    let storeDirLayout = cabalStoreDirLayout $ cabalDirLayout baseCtx
+
+        prefix = fromFlagOrDefault "" (fmap InstallDirs.fromPathTemplate (configProgPrefix configFlags))
+        suffix = fromFlagOrDefault "" (fmap InstallDirs.fromPathTemplate (configProgSuffix configFlags))
+
+        mkUnitBinDir :: UnitId -> FilePath
+        mkUnitBinDir =
+          InstallDirs.bindir
+            . storePackageInstallDirs' storeDirLayout (compilerId compiler)
+
+        mkExeName :: UnqualComponentName -> FilePath
+        mkExeName exe = unUnqualComponentName exe <.> exeExtension platform
+
+        mkFinalExeName :: UnqualComponentName -> FilePath
+        mkFinalExeName exe = prefix <> unUnqualComponentName exe <> suffix <.> exeExtension platform
+        installdirUnknown =
+          "installdir is not defined. Set it in your cabal config file "
+            ++ "or use --installdir=<path>. Using default installdir: "
+            ++ show installPath
+
+    installdir <-
+      fromFlagOrDefault
+        (warn verbosity installdirUnknown >> pure installPath)
+        $ pure <$> cinstInstalldir clientInstallFlags
+    createDirectoryIfMissingVerbose verbosity True installdir
+    warnIfNoExes verbosity buildCtx
+
+    installMethod <-
+      flagElim defaultMethod return $
+        cinstInstallMethod clientInstallFlags
+
+    let
+      doInstall =
+        installableUnitExes
+          verbosity
+          overwritePolicy
+          mkUnitBinDir
+          mkExeName
+          mkFinalExeName
+          installdir
+          installMethod
+     in
+      traverse_ doInstall $ Map.toList $ targetsMap buildCtx
+    where
+      overwritePolicy =
+        fromFlagOrDefault NeverOverwrite $
+          cinstOverwritePolicy clientInstallFlags
+      isWindows = buildOS == Windows
+
+      -- This is in IO as we will make environment checks,
+      -- to decide which method is best
+      defaultMethod :: IO InstallMethod
+      defaultMethod
+        -- Try symlinking in temporary directory, if it works default to
+        -- symlinking even on windows
+        | isWindows = do
+            symlinks <- trySymlink verbosity
+            return $ if symlinks then InstallMethodSymlink else InstallMethodCopy
+        | otherwise = return InstallMethodSymlink
+
+-- | Install any built exe by symlinking/copying it
+-- we don't use BuildOutcomes because we also need the component names
 installExes
   :: Verbosity
   -> ProjectBaseContext
@@ -1001,6 +1090,46 @@ disableTestsBenchsByDefault configFlags =
     , configBenchmarks = Flag False <> configBenchmarks configFlags
     }
 
+-- | Check if we can Symlink/copy every exe from a package from the store to a given location
+installableUnitExes
+  :: Verbosity
+  -> OverwritePolicy
+  -- ^ Whether to overwrite existing files
+  -> (UnitId -> FilePath)
+  -- ^ A function to get an UnitId's
+  -- ^ store directory
+  -> (UnqualComponentName -> FilePath)
+  -- ^ A function to get an
+  -- ^ exe's filename
+  -> (UnqualComponentName -> FilePath)
+  -- ^ A function to get an
+  -- ^ exe's final possibly
+  -- ^ different to the name in the store.
+  -> FilePath
+  -> InstallMethod
+  -> ( UnitId
+     , [(ComponentTarget, NonEmpty TargetSelector)]
+     )
+  -> IO ()
+installableUnitExes
+  verbosity
+  overwritePolicy
+  mkSourceBinDir
+  mkExeName
+  mkFinalExeName
+  installdir
+  installMethod
+  (unit, components) = do
+    symlinkables :: [Bool] <- traverse (symlinkable overwritePolicy mkSourceBinDir mkExeName mkFinalExeName installdir unit) exes
+    traverse_ warnAbout (zip symlinkables exes)
+    where
+      exes = catMaybes $ (exeMaybe . fst) <$> components
+      exeMaybe (ComponentTarget (CExeName exe) _) = Just exe
+      exeMaybe _ = Nothing
+
+      warnAbout (True, _) = return ()
+      warnAbout (False, exe) = die' verbosity (errorMessage overwritePolicy installMethod installdir exe)
+
 -- | Symlink/copy every exe from a package from the store to a given location
 installUnitExes
   :: Verbosity
@@ -1031,7 +1160,7 @@ installUnitExes
   installdir
   installMethod
   (unit, components) = do
-    symlinkables :: [Bool] <- traverse symlinkable exes
+    symlinkables :: [Bool] <- traverse (symlinkable overwritePolicy mkSourceBinDir mkExeName mkFinalExeName installdir unit) exes
     if and symlinkables
       then traverse_ installAndWarn exes
       else traverse_ warnAbout (zip symlinkables exes)
@@ -1040,16 +1169,8 @@ installUnitExes
       exeMaybe (ComponentTarget (CExeName exe) _) = Just exe
       exeMaybe _ = Nothing
 
-      symlinkable exe =
-          symlinkableBinary
-            overwritePolicy
-            installdir
-            (mkSourceBinDir unit)
-            (mkExeName exe)
-            (mkFinalExeName exe)
-
       warnAbout (True, _) = return ()
-      warnAbout (False, exe) = die' verbosity (errorMessage exe)
+      warnAbout (False, exe) = die' verbosity (errorMessage overwritePolicy installMethod installdir exe)
 
       installAndWarn exe = do
         success <-
@@ -1061,21 +1182,39 @@ installUnitExes
             (mkFinalExeName exe)
             installdir
             installMethod
-        unless success $ die' verbosity (errorMessage exe)
+        unless success $ die' verbosity (errorMessage overwritePolicy installMethod installdir exe)
 
-      errorMessage exe = case overwritePolicy of
-        NeverOverwrite ->
-          "Path '"
-            <> (installdir </> prettyShow exe)
-            <> "' already exists. "
-            <> "Use --overwrite-policy=always to overwrite."
-        -- This shouldn't even be possible, but we keep it in case
-        -- symlinking/copying logic changes
-        _ ->
-          case installMethod of
-            InstallMethodSymlink -> "Symlinking"
-            InstallMethodCopy ->
-              "Copying" <> " '" <> prettyShow exe <> "' failed."
+symlinkable
+  :: OverwritePolicy
+  -> (UnitId -> FilePath)
+  -> (UnqualComponentName -> FilePath)
+  -> (UnqualComponentName -> FilePath)
+  -> FilePath
+  -> UnitId
+  -> UnqualComponentName
+  -> IO Bool
+symlinkable overwritePolicy mkSourceBinDir mkExeName mkFinalExeName installdir unit exe =
+    symlinkableBinary
+      overwritePolicy
+      installdir
+      (mkSourceBinDir unit)
+      (mkExeName exe)
+      (mkFinalExeName exe)
+
+errorMessage :: Pretty a => OverwritePolicy -> InstallMethod -> FilePath -> a -> String
+errorMessage overwritePolicy installMethod installdir exe = case overwritePolicy of
+  NeverOverwrite ->
+    "Path '"
+      <> (installdir </> prettyShow exe)
+      <> "' already exists. "
+      <> "Use --overwrite-policy=always to overwrite."
+  -- This shouldn't even be possible, but we keep it in case
+  -- symlinking/copying logic changes
+  _ ->
+    case installMethod of
+      InstallMethodSymlink -> "Symlinking"
+      InstallMethodCopy ->
+        "Copying" <> " '" <> prettyShow exe <> "' failed."
 
 -- | Install a specific exe.
 installBuiltExe
