@@ -793,9 +793,7 @@ constructProjectBuildContext verbosity baseCtx targetSelectors = do
 
     return (prunedElaboratedPlan, targets)
 
--- | Install any built exe by symlinking/copying it
--- we don't use BuildOutcomes because we also need the component names
-installableExes
+installExesPrep
   :: Verbosity
   -> ProjectBaseContext
   -> ProjectBuildContext
@@ -803,8 +801,14 @@ installableExes
   -> Compiler
   -> ConfigFlags
   -> ClientInstallFlags
-  -> IO ()
-installableExes
+  -> IO
+      ( InstallMethod
+      , FilePath
+      , UnitId -> FilePath
+      , UnqualComponentName -> FilePath
+      , UnqualComponentName -> FilePath
+      )
+installExesPrep
   verbosity
   baseCtx
   buildCtx
@@ -841,37 +845,51 @@ installableExes
     warnIfNoExes verbosity buildCtx
 
     installMethod <-
-      flagElim defaultMethod return $
+      flagElim (defaultMethod verbosity) return $
         cinstInstallMethod clientInstallFlags
 
+    return (installMethod, installdir, mkUnitBinDir, mkExeName, mkFinalExeName)
+
+-- | Can we install any built exe by symlinking/copying it?
+installableExes
+  :: Verbosity
+  -> ProjectBaseContext
+  -> ProjectBuildContext
+  -> Platform
+  -> Compiler
+  -> ConfigFlags
+  -> ClientInstallFlags
+  -> IO ()
+installableExes
+  verbosity
+  baseCtx
+  buildCtx
+  platform
+  compiler
+  configFlags
+  clientInstallFlags = do
+    (installMethod, installdir, mkUnitBinDir, mkExeName, mkFinalExeName) <-
+      installExesPrep
+        verbosity
+        baseCtx
+        buildCtx
+        platform
+        compiler
+        configFlags
+        clientInstallFlags
+
     let
-      doInstall =
+      installable =
         installableUnitExes
           verbosity
-          overwritePolicy
+          (mkOverwritePolicy clientInstallFlags)
           mkUnitBinDir
           mkExeName
           mkFinalExeName
           installdir
           installMethod
      in
-      traverse_ doInstall $ Map.toList $ targetsMap buildCtx
-    where
-      overwritePolicy =
-        fromFlagOrDefault NeverOverwrite $
-          cinstOverwritePolicy clientInstallFlags
-      isWindows = buildOS == Windows
-
-      -- This is in IO as we will make environment checks,
-      -- to decide which method is best
-      defaultMethod :: IO InstallMethod
-      defaultMethod
-        -- Try symlinking in temporary directory, if it works default to
-        -- symlinking even on windows
-        | isWindows = do
-            symlinks <- trySymlink verbosity
-            return $ if symlinks then InstallMethodSymlink else InstallMethodCopy
-        | otherwise = return InstallMethodSymlink
+      traverse_ installable $ Map.toList $ targetsMap buildCtx
 
 -- | Install any built exe by symlinking/copying it
 -- we don't use BuildOutcomes because we also need the component names
@@ -892,43 +910,21 @@ installExes
   compiler
   configFlags
   clientInstallFlags = do
-    installPath <- defaultInstallPath
-    let storeDirLayout = cabalStoreDirLayout $ cabalDirLayout baseCtx
-
-        prefix = fromFlagOrDefault "" (fmap InstallDirs.fromPathTemplate (configProgPrefix configFlags))
-        suffix = fromFlagOrDefault "" (fmap InstallDirs.fromPathTemplate (configProgSuffix configFlags))
-
-        mkUnitBinDir :: UnitId -> FilePath
-        mkUnitBinDir =
-          InstallDirs.bindir
-            . storePackageInstallDirs' storeDirLayout (compilerId compiler)
-
-        mkExeName :: UnqualComponentName -> FilePath
-        mkExeName exe = unUnqualComponentName exe <.> exeExtension platform
-
-        mkFinalExeName :: UnqualComponentName -> FilePath
-        mkFinalExeName exe = prefix <> unUnqualComponentName exe <> suffix <.> exeExtension platform
-        installdirUnknown =
-          "installdir is not defined. Set it in your cabal config file "
-            ++ "or use --installdir=<path>. Using default installdir: "
-            ++ show installPath
-
-    installdir <-
-      fromFlagOrDefault
-        (warn verbosity installdirUnknown >> pure installPath)
-        $ pure <$> cinstInstalldir clientInstallFlags
-    createDirectoryIfMissingVerbose verbosity True installdir
-    warnIfNoExes verbosity buildCtx
-
-    installMethod <-
-      flagElim defaultMethod return $
-        cinstInstallMethod clientInstallFlags
+    (installMethod, installdir, mkUnitBinDir, mkExeName, mkFinalExeName) <-
+      installExesPrep
+        verbosity
+        baseCtx
+        buildCtx
+        platform
+        compiler
+        configFlags
+        clientInstallFlags
 
     let
       doInstall =
         installUnitExes
           verbosity
-          overwritePolicy
+          (mkOverwritePolicy clientInstallFlags)
           mkUnitBinDir
           mkExeName
           mkFinalExeName
@@ -936,22 +932,24 @@ installExes
           installMethod
      in
       traverse_ doInstall $ Map.toList $ targetsMap buildCtx
-    where
-      overwritePolicy =
-        fromFlagOrDefault NeverOverwrite $
-          cinstOverwritePolicy clientInstallFlags
-      isWindows = buildOS == Windows
 
-      -- This is in IO as we will make environment checks,
-      -- to decide which method is best
-      defaultMethod :: IO InstallMethod
-      defaultMethod
-        -- Try symlinking in temporary directory, if it works default to
-        -- symlinking even on windows
-        | isWindows = do
-            symlinks <- trySymlink verbosity
-            return $ if symlinks then InstallMethodSymlink else InstallMethodCopy
-        | otherwise = return InstallMethodSymlink
+mkOverwritePolicy :: ClientInstallFlags -> OverwritePolicy
+mkOverwritePolicy clientInstallFlags =
+  fromFlagOrDefault NeverOverwrite $
+    cinstOverwritePolicy clientInstallFlags
+
+-- This is in IO as we will make environment checks,
+-- to decide which method is best
+defaultMethod :: Verbosity -> IO InstallMethod
+defaultMethod verbosity
+  -- Try symlinking in temporary directory, if it works default to
+  -- symlinking even on windows
+  | isWindows = do
+      symlinks <- trySymlink verbosity
+      return $ if symlinks then InstallMethodSymlink else InstallMethodCopy
+  | otherwise = return InstallMethodSymlink
+  where
+      isWindows = buildOS == Windows
 
 -- | Install any built library by adding it to the default ghc environment
 installLibraries
