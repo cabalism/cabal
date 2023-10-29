@@ -1,0 +1,18 @@
+# cabal v2-install
+Wrote tarball sdist to <ROOT>/first-install.dist/work/./dist/sdist/InstallOneOfManyExes-0.1.0.0.tar.gz
+Resolving dependencies...
+Build profile: -w ghc-<GHCVER> -O1
+In order, the following will be built:
+ - InstallOneOfManyExes-0.1.0.0 (exe:first-of-many-exes) (requires build)
+ - InstallOneOfManyExes-0.1.0.0 (exe:second-of-many-exes) (requires build)
+Error: [Cabal-7149]
+Path '<GBLTMPDIR>/second-of-many-exes' already exists. Use --overwrite-policy=always to overwrite.
+# cabal v2-install
+Wrote tarball sdist to <ROOT>/first-install.dist/work/./dist/sdist/InstallOneOfManyExes-0.1.0.0.tar.gz
+Resolving dependencies...
+Build profile: -w ghc-<GHCVER> -O1
+In order, the following will be built:
+ - InstallOneOfManyExes-0.1.0.0 (exe:first-of-many-exes) (requires build)
+ - InstallOneOfManyExes-0.1.0.0 (exe:second-of-many-exes) (requires build)
+Error: [Cabal-7149]
+Path '<GBLTMPDIR>/second-of-many-exes' already exists. Use --overwrite-policy=always to overwrite.
