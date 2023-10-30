@@ -23,9 +23,11 @@ constraints: rere -rere-cfg
 constraints: these -assoc
 
 -- Andreas, 2022-08-19, https://github.com/haskell/cabal/issues/8377
--- Force latest dependencies in the development version:
-constraints: text >= 2.0
-constraints: time >= 1.12
+-- Force latest dependencies in the development version
+-- Skip time-1.12.2 so that we can use base >=4.13 and ghc >=8.8
+constraints:
+    text >= 2.0
+  , time >= 1.12 && (< 1.12.2 || > 1.12.2)
 
 program-options
   ghc-options: -fno-ignore-asserts
