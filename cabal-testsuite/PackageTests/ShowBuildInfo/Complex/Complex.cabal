@@ -67,6 +67,6 @@ benchmark complex-benchmarks
   build-depends:
     , base
     , Complex
-    , criterion  ^>=1.1.4
+    , criterion  >=1.1.4 && <1.7
 
   default-language: Haskell2010

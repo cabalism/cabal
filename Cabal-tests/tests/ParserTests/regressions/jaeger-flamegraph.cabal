@@ -46,7 +46,7 @@ executable jaeger-flamegraph
                     , containers           ^>= 0.6.0.1
                     , extra                ^>= 1.6.13
                     , aeson                ^>= 1.4.1.0
-                    , optparse-applicative ^>= 0.14.3.0
+                    , optparse-applicative  >= 0.14.3.0
                     , text                 ^>= 1.2.3.1
   ghc-options:        -threaded
 

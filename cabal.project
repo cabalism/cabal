@@ -29,3 +29,8 @@ constraints: time >= 1.12
 
 program-options
   ghc-options: -fno-ignore-asserts
+
+source-repository-package
+  type: git
+  location: https://github.com/phadej/rere
+  tag: dd78e2945a67f9cd32d16560c49780ae6227eed9
