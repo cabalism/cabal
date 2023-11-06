@@ -81,15 +81,15 @@ buildOrReplLib mReplFlags verbosity numJobs pkg_descr lbi lib clbi = do
   (ghcProg, _) <- requireProgram verbosity ghcProgram (withPrograms lbi)
   let runGhcProg = runGHC verbosity ghcProg comp platform
 
-  let libBi = libBuildInfo lib
+  let bi = libBuildInfo lib
 
   -- ensure extra lib dirs exist before passing to ghc
-  cleanedExtraLibDirs <- filterM doesDirectoryExist (extraLibDirs libBi)
-  cleanedExtraLibDirsStatic <- filterM doesDirectoryExist (extraLibDirsStatic libBi)
+  cleanedExtraLibDirs <- filterM doesDirectoryExist (extraLibDirs bi)
+  cleanedExtraLibDirsStatic <- filterM doesDirectoryExist (extraLibDirsStatic bi)
 
   let isGhcDynamic = isDynamic comp
       dynamicTooSupported = supportsDynamicToo comp
-      doingTH = usesTemplateHaskellOrQQ libBi
+      doingTH = usesTemplateHaskellOrQQ bi
       forceVanillaLib = doingTH && not isGhcDynamic
       forceSharedLib = doingTH && isGhcDynamic
   -- TH always needs default libs, even when building for profiling
@@ -114,20 +114,20 @@ buildOrReplLib mReplFlags verbosity numJobs pkg_descr lbi lib clbi = do
   let cLikeSources =
         fromNubListR $
           mconcat
-            [ toNubListR (cSources libBi)
-            , toNubListR (cxxSources libBi)
-            , toNubListR (cmmSources libBi)
-            , toNubListR (asmSources libBi)
+            [ toNubListR (cSources bi)
+            , toNubListR (cxxSources bi)
+            , toNubListR (cmmSources bi)
+            , toNubListR (asmSources bi)
             , if hasJsSupport
                 then -- JS files are C-like with GHC's JS backend: they are
                 -- "compiled" into `.o` files (renamed with a header).
                 -- This is a difference from GHCJS, for which we only
                 -- pass the JS files at link time.
-                  toNubListR (jsSources libBi)
+                  toNubListR (jsSources bi)
                 else mempty
             ]
       cLikeObjs = map (`replaceExtension` objExtension) cLikeSources
-      baseOpts = componentGhcOptions verbosity lbi libBi clbi libTargetDir
+      baseOpts = componentGhcOptions verbosity lbi bi clbi libTargetDir
       vanillaOpts =
         baseOpts
           `mappend` mempty
@@ -147,7 +147,7 @@ buildOrReplLib mReplFlags verbosity numJobs pkg_descr lbi lib clbi = do
                   (withProfLibDetail lbi)
             , ghcOptHiSuffix = toFlag "p_hi"
             , ghcOptObjSuffix = toFlag "p_o"
-            , ghcOptExtra = hcProfOptions GHC libBi
+            , ghcOptExtra = hcProfOptions GHC bi
             , ghcOptHPCDir = hpcdir Hpc.Prof
             }
 
@@ -158,13 +158,13 @@ buildOrReplLib mReplFlags verbosity numJobs pkg_descr lbi lib clbi = do
             , ghcOptFPic = toFlag True
             , ghcOptHiSuffix = toFlag "dyn_hi"
             , ghcOptObjSuffix = toFlag "dyn_o"
-            , ghcOptExtra = hcSharedOptions GHC libBi
+            , ghcOptExtra = hcSharedOptions GHC bi
             , ghcOptHPCDir = hpcdir Hpc.Dyn
             }
       linkerOpts =
         mempty
           { ghcOptLinkOptions =
-              PD.ldOptions libBi
+              PD.ldOptions bi
                 ++ [ "-static"
                    | withFullyStaticExe lbi
                    ]
@@ -176,17 +176,17 @@ buildOrReplLib mReplFlags verbosity numJobs pkg_descr lbi lib clbi = do
                   (lookupProgram ldProgram (withPrograms lbi))
           , ghcOptLinkLibs =
               if withFullyStaticExe lbi
-                then extraLibsStatic libBi
-                else extraLibs libBi
+                then extraLibsStatic bi
+                else extraLibs bi
           , ghcOptLinkLibPath =
               toNubListR $
                 if withFullyStaticExe lbi
                   then cleanedExtraLibDirsStatic
                   else cleanedExtraLibDirs
-          , ghcOptLinkFrameworks = toNubListR $ PD.frameworks libBi
+          , ghcOptLinkFrameworks = toNubListR $ PD.frameworks bi
           , ghcOptLinkFrameworkDirs =
               toNubListR $
-                PD.extraFrameworkDirs libBi
+                PD.extraFrameworkDirs bi
           , ghcOptInputFiles =
               toNubListR
                 [relLibTargetDir </> x | x <- cLikeObjs]
@@ -225,7 +225,7 @@ buildOrReplLib mReplFlags verbosity numJobs pkg_descr lbi lib clbi = do
             dynamicTooSupported
               && (forceVanillaLib || withVanillaLib lbi)
               && (forceSharedLib || withSharedLib lbi)
-              && null (hcSharedOptions GHC libBi)
+              && null (hcSharedOptions GHC bi)
       if not has_code
         then vanilla
         else
@@ -256,7 +256,7 @@ buildOrReplLib mReplFlags verbosity numJobs pkg_descr lbi lib clbi = do
               verbosity
               implInfo
               lbi
-              libBi
+              bi
               clbi
               relLibTargetDir
               filename
@@ -291,36 +291,36 @@ buildOrReplLib mReplFlags verbosity numJobs pkg_descr lbi lib clbi = do
         whenProfLib (runGhcProgIfNeeded profSrcOpts)
 
   -- Build any C++ sources separately.
-  unless (not has_code || null (cxxSources libBi)) $ do
+  unless (not has_code || null (cxxSources bi)) $ do
     info verbosity "Building C++ Sources..."
-    buildExtraSources Internal.componentCxxGhcOptions True (cxxSources libBi)
+    buildExtraSources Internal.componentCxxGhcOptions True (cxxSources bi)
 
   -- build any C sources
-  unless (not has_code || null (cSources libBi)) $ do
+  unless (not has_code || null (cSources bi)) $ do
     info verbosity "Building C Sources..."
-    buildExtraSources Internal.componentCcGhcOptions True (cSources libBi)
+    buildExtraSources Internal.componentCcGhcOptions True (cSources bi)
 
   -- build any JS sources
-  unless (not has_code || not hasJsSupport || null (jsSources libBi)) $ do
+  unless (not has_code || not hasJsSupport || null (jsSources bi)) $ do
     info verbosity "Building JS Sources..."
-    buildExtraSources Internal.componentJsGhcOptions False (jsSources libBi)
+    buildExtraSources Internal.componentJsGhcOptions False (jsSources bi)
 
   -- build any ASM sources
-  unless (not has_code || null (asmSources libBi)) $ do
+  unless (not has_code || null (asmSources bi)) $ do
     info verbosity "Building Assembler Sources..."
-    buildExtraSources Internal.componentAsmGhcOptions True (asmSources libBi)
+    buildExtraSources Internal.componentAsmGhcOptions True (asmSources bi)
 
   -- build any Cmm sources
-  unless (not has_code || null (cmmSources libBi)) $ do
+  unless (not has_code || null (cmmSources bi)) $ do
     info verbosity "Building C-- Sources..."
-    buildExtraSources Internal.componentCmmGhcOptions True (cmmSources libBi)
+    buildExtraSources Internal.componentCmmGhcOptions True (cmmSources bi)
 
   -- TODO: problem here is we need the .c files built first, so we can load them
   -- with ghci, but .c files can depend on .h files generated by ghc by ffi
   -- exports.
   whenReplLib $ \rflags -> do
     when (null (allLibModules lib clbi)) $ warn verbosity "No exposed modules"
-    runReplOrWriteFlags verbosity ghcProg comp platform rflags replOpts libBi clbi (pkgName (PD.package pkg_descr))
+    runReplOrWriteFlags verbosity ghcProg comp platform rflags replOpts bi clbi (pkgName (PD.package pkg_descr))
 
   -- link:
   when has_code . unless forRepl $ do
@@ -444,7 +444,7 @@ buildOrReplLib mReplFlags verbosity numJobs pkg_descr lbi lib clbi = do
               , ghcOptDynLinkMode = toFlag GhcDynamicOnly
               , ghcOptInputFiles = toNubListR dynamicObjectFiles
               , ghcOptOutputFile = toFlag sharedLibFilePath
-              , ghcOptExtra = hcSharedOptions GHC libBi
+              , ghcOptExtra = hcSharedOptions GHC bi
               , -- For dynamic libs, Mac OS/X needs to know the install location
                 -- at build time. This only applies to GHC < 7.8 - see the
                 -- discussion in #1660.
@@ -477,11 +477,11 @@ buildOrReplLib mReplFlags verbosity numJobs pkg_descr lbi lib clbi = do
               , ghcOptPackages =
                   toNubListR $
                     Internal.mkGhcOptPackages mempty clbi
-              , ghcOptLinkLibs = extraLibs libBi
+              , ghcOptLinkLibs = extraLibs bi
               , ghcOptLinkLibPath = toNubListR $ cleanedExtraLibDirs
-              , ghcOptLinkFrameworks = toNubListR $ PD.frameworks libBi
+              , ghcOptLinkFrameworks = toNubListR $ PD.frameworks bi
               , ghcOptLinkFrameworkDirs =
-                  toNubListR $ PD.extraFrameworkDirs libBi
+                  toNubListR $ PD.extraFrameworkDirs bi
               , ghcOptRPaths = rpaths
               }
           ghcStaticLinkArgs =
@@ -489,7 +489,7 @@ buildOrReplLib mReplFlags verbosity numJobs pkg_descr lbi lib clbi = do
               { ghcOptStaticLib = toFlag True
               , ghcOptInputFiles = toNubListR staticObjectFiles
               , ghcOptOutputFile = toFlag staticLibFilePath
-              , ghcOptExtra = hcStaticOptions GHC libBi
+              , ghcOptExtra = hcStaticOptions GHC bi
               , ghcOptHideAllPackages = toFlag True
               , ghcOptNoAutoLinkPackages = toFlag True
               , ghcOptPackageDBs = withPackageDB lbi
@@ -514,7 +514,7 @@ buildOrReplLib mReplFlags verbosity numJobs pkg_descr lbi lib clbi = do
               , ghcOptPackages =
                   toNubListR $
                     Internal.mkGhcOptPackages mempty clbi
-              , ghcOptLinkLibs = extraLibs libBi
+              , ghcOptLinkLibs = extraLibs bi
               , ghcOptLinkLibPath = toNubListR $ cleanedExtraLibDirs
               }
 
