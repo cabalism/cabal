@@ -1,3 +1,5 @@
+{-# LANGUAGE ScopedTypeVariables #-}
+
 module Distribution.Simple.GHC.BuildGeneric
   ( GBuildMode (..)
   , gbuild
@@ -432,7 +434,7 @@ gbuild verbosity numJobs pkg_descr lbi bm clbi = do
       hasJsSupport = hostArch == JavaScript
 
       -- build executables
-      baseOpts =
+      baseOpts :: GhcOptions =
         (componentGhcOptions verbosity lbi bi clbi tmpDir)
           `mappend` mempty
             { ghcOptMode = toFlag GhcModeMake
@@ -448,13 +450,13 @@ gbuild verbosity numJobs pkg_descr lbi bm clbi = do
                     else []
             , ghcOptInputModules = toNubListR inputModules
             }
-      staticOpts =
+      staticOpts :: GhcOptions =
         baseOpts
           `mappend` mempty
             { ghcOptDynLinkMode = toFlag GhcStaticOnly
             , ghcOptHPCDir = hpcdir Hpc.Vanilla
             }
-      profOpts =
+      profOpts :: GhcOptions =
         baseOpts
           `mappend` mempty
             { ghcOptProfilingMode = toFlag True
@@ -467,7 +469,7 @@ gbuild verbosity numJobs pkg_descr lbi bm clbi = do
             , ghcOptExtra = hcProfOptions GHC bi
             , ghcOptHPCDir = hpcdir Hpc.Prof
             }
-      dynOpts =
+      dynOpts :: GhcOptions =
         baseOpts
           `mappend` mempty
             { ghcOptDynLinkMode = toFlag GhcDynamicOnly
@@ -478,7 +480,7 @@ gbuild verbosity numJobs pkg_descr lbi bm clbi = do
             , ghcOptExtra = hcSharedOptions GHC bi
             , ghcOptHPCDir = hpcdir Hpc.Dyn
             }
-      dynTooOpts =
+      dynTooOpts :: GhcOptions =
         staticOpts
           `mappend` mempty
             { ghcOptDynLinkMode = toFlag GhcStaticAndDynamic
@@ -486,7 +488,7 @@ gbuild verbosity numJobs pkg_descr lbi bm clbi = do
             , ghcOptDynObjSuffix = toFlag "dyn_o"
             , ghcOptHPCDir = hpcdir Hpc.Dyn
             }
-      linkerOpts =
+      linkerOpts :: GhcOptions =
         mempty
           { ghcOptLinkOptions =
               PD.ldOptions bi
@@ -518,14 +520,14 @@ gbuild verbosity numJobs pkg_descr lbi bm clbi = do
               toNubListR
                 [tmpDir </> x | x <- cLikeObjs ++ cxxObjs ++ jsObjs ++ cmmObjs ++ asmObjs]
           }
-      dynLinkerOpts =
+      dynLinkerOpts :: GhcOptions =
         mempty
           { ghcOptRPaths = rpaths
           , ghcOptInputFiles =
               toNubListR
                 [tmpDir </> x | x <- cLikeObjs ++ cxxObjs ++ cmmObjs ++ asmObjs]
           }
-      replOpts =
+      replOpts :: GhcOptions =
         baseOpts
           { ghcOptExtra =
               Internal.filterGhciFlags
@@ -544,11 +546,11 @@ gbuild verbosity numJobs pkg_descr lbi bm clbi = do
             { ghcOptMode = toFlag GhcModeInteractive
             , ghcOptOptimisation = toFlag GhcNoOptimisation
             }
-      commonOpts
+      commonOpts :: GhcOptions
         | needProfiling = profOpts
         | needDynamic = dynOpts
         | otherwise = staticOpts
-      compileOpts
+      compileOpts :: GhcOptions
         | useDynToo = dynTooOpts
         | otherwise = commonOpts
       withStaticExe = not needProfiling && not needDynamic
@@ -568,7 +570,7 @@ gbuild verbosity numJobs pkg_descr lbi bm clbi = do
           && doingTH
           && withStaticExe
           && null (hcSharedOptions GHC bi)
-      compileTHOpts
+      compileTHOpts :: GhcOptions
         | isGhcDynamic = dynOpts
         | otherwise = staticOpts
       compileForTH
@@ -601,7 +603,7 @@ gbuild verbosity numJobs pkg_descr lbi bm clbi = do
   let
     buildExtraSources mkSrcOpts wantDyn = traverse_ $ buildExtraSource mkSrcOpts wantDyn
     buildExtraSource mkSrcOpts wantDyn filename = do
-      let baseSrcOpts =
+      let baseSrcOpts :: GhcOptions =
             mkSrcOpts
               verbosity
               implInfo
@@ -610,24 +612,24 @@ gbuild verbosity numJobs pkg_descr lbi bm clbi = do
               clbi
               tmpDir
               filename
-          vanillaSrcOpts =
+          vanillaSrcOpts :: GhcOptions =
             if isGhcDynamic && wantDyn
               then -- Dynamic GHC requires C/C++ sources to be built
               -- with -fPIC for REPL to work. See #2207.
                 baseSrcOpts{ghcOptFPic = toFlag True}
               else baseSrcOpts
-          profSrcOpts =
+          profSrcOpts :: GhcOptions =
             vanillaSrcOpts
               `mappend` mempty
                 { ghcOptProfilingMode = toFlag True
                 }
-          sharedSrcOpts =
+          sharedSrcOpts :: GhcOptions =
             vanillaSrcOpts
               `mappend` mempty
                 { ghcOptFPic = toFlag True
                 , ghcOptDynLinkMode = toFlag GhcDynamicOnly
                 }
-          opts
+          opts :: GhcOptions
             | needProfiling = profSrcOpts
             | needDynamic && wantDyn = sharedSrcOpts
             | otherwise = vanillaSrcOpts
@@ -674,7 +676,7 @@ gbuild verbosity numJobs pkg_descr lbi bm clbi = do
     GReplExe _ _ -> runReplOrWriteFlags verbosity ghcProg comp platform replFlags replOpts bi clbi (pkgName (PD.package pkg_descr))
     GReplFLib _ _ -> runReplOrWriteFlags verbosity ghcProg comp platform replFlags replOpts bi clbi (pkgName (PD.package pkg_descr))
     GBuildExe _ -> do
-      let linkOpts =
+      let linkOpts :: GhcOptions =
             commonOpts
               `mappend` linkerOpts
               `mappend` mempty
