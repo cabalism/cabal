@@ -434,8 +434,9 @@ gbuild verbosity numJobs pkg_descr lbi bm clbi = do
       hasJsSupport = hostArch == JavaScript
 
       -- build executables
-      baseOpts :: GhcOptions =
-        (componentGhcOptions verbosity lbi bi clbi tmpDir)
+      baseOpts :: GhcOptions = componentGhcOptions verbosity lbi bi clbi tmpDir
+      vanillaOpts :: GhcOptions =
+        baseOpts
           `mappend` mempty
             { ghcOptMode = toFlag GhcModeMake
             , ghcOptInputFiles =
@@ -451,13 +452,13 @@ gbuild verbosity numJobs pkg_descr lbi bm clbi = do
             , ghcOptInputModules = toNubListR inputModules
             }
       staticOpts :: GhcOptions =
-        baseOpts
+        vanillaOpts
           `mappend` mempty
             { ghcOptDynLinkMode = toFlag GhcStaticOnly
             , ghcOptHPCDir = hpcdir Hpc.Vanilla
             }
       profOpts :: GhcOptions =
-        baseOpts
+        vanillaOpts
           `mappend` mempty
             { ghcOptProfilingMode = toFlag True
             , ghcOptProfilingAuto =
@@ -470,7 +471,7 @@ gbuild verbosity numJobs pkg_descr lbi bm clbi = do
             , ghcOptHPCDir = hpcdir Hpc.Prof
             }
       dynOpts :: GhcOptions =
-        baseOpts
+        vanillaOpts
           `mappend` mempty
             { ghcOptDynLinkMode = toFlag GhcDynamicOnly
             , -- TODO: Does it hurt to set -fPIC for executables?
@@ -528,13 +529,13 @@ gbuild verbosity numJobs pkg_descr lbi bm clbi = do
                 [tmpDir </> x | x <- cLikeObjs ++ cxxObjs ++ cmmObjs ++ asmObjs]
           }
       replOpts :: GhcOptions =
-        baseOpts
+        vanillaOpts
           { ghcOptExtra =
               Internal.filterGhciFlags
-                (ghcOptExtra baseOpts)
+                (ghcOptExtra vanillaOpts)
                 <> replOptionsFlags replFlags
-          , ghcOptInputModules = replNoLoad replFlags (ghcOptInputModules baseOpts)
-          , ghcOptInputFiles = replNoLoad replFlags (ghcOptInputFiles baseOpts)
+          , ghcOptInputModules = replNoLoad replFlags (ghcOptInputModules vanillaOpts)
+          , ghcOptInputFiles = replNoLoad replFlags (ghcOptInputFiles vanillaOpts)
           }
           -- For a normal compile we do separate invocations of ghc for
           -- compiling as for linking. But for repl we have to do just
