@@ -140,14 +140,15 @@ buildOrReplLib mReplFlags verbosity numJobs pkg_descr lbi lib clbi = do
             , ghcOptHPCDir = hpcdir Hpc.Vanilla
             }
 
+      profOptAuto :: Flag GhcProfAuto =
+        Internal.profDetailLevelFlag
+          True
+          (withProfLibDetail lbi)
       profOpts :: GhcOptions =
         vanillaOpts
           `mappend` mempty
             { ghcOptProfilingMode = toFlag True
-            , ghcOptProfilingAuto =
-                Internal.profDetailLevelFlag
-                  True
-                  (withProfLibDetail lbi)
+            , ghcOptProfilingAuto = profOptAuto
             , ghcOptHiSuffix = toFlag "p_hi"
             , ghcOptObjSuffix = toFlag "p_o"
             , ghcOptExtra = hcProfOptions GHC bi

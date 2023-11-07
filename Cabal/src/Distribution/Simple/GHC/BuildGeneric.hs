@@ -458,19 +458,22 @@ gbuild verbosity numJobs pkg_descr lbi bm clbi = do
             { ghcOptDynLinkMode = toFlag GhcStaticOnly
             , ghcOptHPCDir = hpcdir Hpc.Vanilla
             }
+
+      profOptAuto :: Flag GhcProfAuto =
+        Internal.profDetailLevelFlag
+          False
+          (withProfExeDetail lbi)
       profOpts :: GhcOptions =
         vanillaOpts
           `mappend` mempty
             { ghcOptProfilingMode = toFlag True
-            , ghcOptProfilingAuto =
-                Internal.profDetailLevelFlag
-                  False
-                  (withProfExeDetail lbi)
+            , ghcOptProfilingAuto = profOptAuto
             , ghcOptHiSuffix = toFlag "p_hi"
             , ghcOptObjSuffix = toFlag "p_o"
             , ghcOptExtra = hcProfOptions GHC bi
             , ghcOptHPCDir = hpcdir Hpc.Prof
             }
+
       dynOpts :: GhcOptions =
         vanillaOpts
           `mappend` mempty
