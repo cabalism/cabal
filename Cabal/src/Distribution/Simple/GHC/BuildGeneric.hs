@@ -403,6 +403,7 @@ gbuild verbosity numJobs pkg_descr lbi bm clbi = do
   -- '-hpcdir' should be.
   let isCoverageEnabled = exeCoverage lbi
       distPref = fromFlag $ configDistPref $ configFlags lbi
+      hpcdir :: Hpc.Way -> Flag FilePath
       hpcdir way
         | gbuildIsRepl bm = mempty -- HPC is not supported in ghci
         | isCoverageEnabled = toFlag $ Hpc.mixDir distPref way (gbuildName bm)

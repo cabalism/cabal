@@ -106,6 +106,7 @@ buildOrReplLib mReplFlags verbosity numJobs pkg_descr lbi lib clbi = do
       -- component ID instead...
       pkg_name = prettyShow (PD.package pkg_descr)
       distPref = fromFlag $ configDistPref $ configFlags lbi
+      hpcdir :: Hpc.Way -> Flag FilePath
       hpcdir way
         | forRepl = mempty -- HPC is not supported in ghci
         | isCoverageEnabled = toFlag $ Hpc.mixDir distPref way pkg_name
