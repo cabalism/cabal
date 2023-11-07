@@ -489,6 +489,12 @@ gbuild verbosity numJobs pkg_descr lbi bm clbi = do
             , ghcOptDynObjSuffix = toFlag "dyn_o"
             , ghcOptHPCDir = hpcdir Hpc.Dyn
             }
+
+      linkerLibs :: [FilePath] =
+        if withFullyStaticExe lbi
+          then cleanedExtraLibDirsStatic
+          else cleanedExtraLibDirs
+      linkerObjs :: [FilePath] = [tmpDir </> x | x <- cLikeObjs ++ cxxObjs ++ jsObjs ++ cmmObjs ++ asmObjs]
       linkerOpts :: GhcOptions =
         mempty
           { ghcOptLinkOptions =
@@ -506,21 +512,14 @@ gbuild verbosity numJobs pkg_descr lbi bm clbi = do
               if withFullyStaticExe lbi
                 then extraLibsStatic bi
                 else extraLibs bi
-          , ghcOptLinkLibPath =
-              toNubListR $
-                if withFullyStaticExe lbi
-                  then cleanedExtraLibDirsStatic
-                  else cleanedExtraLibDirs
-          , ghcOptLinkFrameworks =
-              toNubListR $
-                PD.frameworks bi
+          , ghcOptLinkLibPath = toNubListR linkerLibs
+          , ghcOptLinkFrameworks = toNubListR $ PD.frameworks bi
           , ghcOptLinkFrameworkDirs =
               toNubListR $
                 PD.extraFrameworkDirs bi
-          , ghcOptInputFiles =
-              toNubListR
-                [tmpDir </> x | x <- cLikeObjs ++ cxxObjs ++ jsObjs ++ cmmObjs ++ asmObjs]
+          , ghcOptInputFiles = toNubListR linkerObjs
           }
+
       dynLinkerOpts :: GhcOptions =
         mempty
           { ghcOptRPaths = rpaths

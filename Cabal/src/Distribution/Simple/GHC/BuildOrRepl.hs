@@ -163,6 +163,12 @@ buildOrReplLib mReplFlags verbosity numJobs pkg_descr lbi lib clbi = do
             , ghcOptExtra = hcSharedOptions GHC bi
             , ghcOptHPCDir = hpcdir Hpc.Dyn
             }
+
+      linkerLibs :: [FilePath] =
+        if withFullyStaticExe lbi
+          then cleanedExtraLibDirsStatic
+          else cleanedExtraLibDirs
+      linkerObjs :: [FilePath] = [relLibTargetDir </> x | x <- cLikeObjs]
       linkerOpts :: GhcOptions =
         mempty
           { ghcOptLinkOptions =
@@ -180,19 +186,12 @@ buildOrReplLib mReplFlags verbosity numJobs pkg_descr lbi lib clbi = do
               if withFullyStaticExe lbi
                 then extraLibsStatic bi
                 else extraLibs bi
-          , ghcOptLinkLibPath =
-              toNubListR $
-                if withFullyStaticExe lbi
-                  then cleanedExtraLibDirsStatic
-                  else cleanedExtraLibDirs
+          , ghcOptLinkLibPath = toNubListR linkerLibs
           , ghcOptLinkFrameworks = toNubListR $ PD.frameworks bi
-          , ghcOptLinkFrameworkDirs =
-              toNubListR $
-                PD.extraFrameworkDirs bi
-          , ghcOptInputFiles =
-              toNubListR
-                [relLibTargetDir </> x | x <- cLikeObjs]
+          , ghcOptLinkFrameworkDirs = toNubListR $ PD.extraFrameworkDirs bi
+          , ghcOptInputFiles = toNubListR linkerObjs
           }
+
       replOpts :: GhcOptions =
         vanillaOpts
           { ghcOptExtra =
