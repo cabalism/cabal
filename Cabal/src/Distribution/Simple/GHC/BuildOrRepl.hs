@@ -22,7 +22,7 @@ import Distribution.Simple.GHC.Build
   , runReplOrWriteFlags
   , supportsDynamicToo
   )
-import Distribution.Simple.GHC.BuildOptions (mkLinkerOpts)
+import Distribution.Simple.GHC.BuildOptions (mkProfOpts, mkLinkerOpts)
 import Distribution.Simple.GHC.ImplInfo
 import qualified Distribution.Simple.GHC.Internal as Internal
 import qualified Distribution.Simple.Hpc as Hpc
@@ -141,20 +141,8 @@ buildOrReplLib mReplFlags verbosity numJobs pkg_descr lbi lib clbi = do
             , ghcOptHPCDir = hpcdir Hpc.Vanilla
             }
 
-      profOptAuto :: Flag GhcProfAuto =
-        Internal.profDetailLevelFlag
-          True
-          (withProfLibDetail lbi)
-      profOpts :: GhcOptions =
-        vanillaOpts
-          `mappend` mempty
-            { ghcOptProfilingMode = toFlag True
-            , ghcOptProfilingAuto = profOptAuto
-            , ghcOptHiSuffix = toFlag "p_hi"
-            , ghcOptObjSuffix = toFlag "p_o"
-            , ghcOptExtra = hcProfOptions GHC bi
-            , ghcOptHPCDir = hpcdir Hpc.Prof
-            }
+      profOptAuto = Internal.profDetailLevelFlag True (withProfLibDetail lbi)
+      profOpts :: GhcOptions = mkProfOpts bi hpcdir profOptAuto vanillaOpts
 
       sharedOpts :: GhcOptions =
         vanillaOpts
