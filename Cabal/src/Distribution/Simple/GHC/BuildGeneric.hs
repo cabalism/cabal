@@ -34,6 +34,7 @@ import Distribution.Simple.GHC.Build
   , runReplOrWriteFlags
   , supportsDynamicToo
   )
+import Distribution.Simple.GHC.BuildOptions (mkLinkerOpts)
 import Distribution.Simple.GHC.ImplInfo
 import qualified Distribution.Simple.GHC.Internal as Internal
 import qualified Distribution.Simple.Hpc as Hpc
@@ -495,30 +496,7 @@ gbuild verbosity numJobs pkg_descr lbi bm clbi = do
           then cleanedExtraLibDirsStatic
           else cleanedExtraLibDirs
       linkerObjs :: [FilePath] = [tmpDir </> x | x <- cLikeObjs ++ cxxObjs ++ jsObjs ++ cmmObjs ++ asmObjs]
-      linkerOpts :: GhcOptions =
-        mempty
-          { ghcOptLinkOptions =
-              PD.ldOptions bi
-                ++ [ "-static"
-                   | withFullyStaticExe lbi
-                   ]
-                -- Pass extra `ld-options` given
-                -- through to GHC's linker.
-                ++ maybe
-                  []
-                  programOverrideArgs
-                  (lookupProgram ldProgram (withPrograms lbi))
-          , ghcOptLinkLibs =
-              if withFullyStaticExe lbi
-                then extraLibsStatic bi
-                else extraLibs bi
-          , ghcOptLinkLibPath = toNubListR linkerLibs
-          , ghcOptLinkFrameworks = toNubListR $ PD.frameworks bi
-          , ghcOptLinkFrameworkDirs =
-              toNubListR $
-                PD.extraFrameworkDirs bi
-          , ghcOptInputFiles = toNubListR linkerObjs
-          }
+      linkerOpts :: GhcOptions = mkLinkerOpts lbi bi linkerObjs linkerLibs
 
       dynLinkerOpts :: GhcOptions =
         mempty

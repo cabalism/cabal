@@ -326,6 +326,7 @@ library
     Distribution.Simple.Build.PackageInfoModule.Z
     Distribution.Simple.Build.PathsModule.Z
     Distribution.Simple.GHC.Build
+    Distribution.Simple.GHC.BuildOptions
     Distribution.Simple.GHC.BuildOrRepl
     Distribution.Simple.GHC.BuildGeneric
     Distribution.Simple.GHC.EnvironmentParser
