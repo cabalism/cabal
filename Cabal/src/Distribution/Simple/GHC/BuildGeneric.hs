@@ -376,7 +376,7 @@ gbuild
   -> IO ()
 gbuild verbosity numJobs pkg_descr lbi bm clbi = do
   (ghcProg, _) <- requireProgram verbosity ghcProgram (withPrograms lbi)
-  let replFlags = case bm of
+  let replFlags :: ReplOptions = case bm of
         GReplExe flags _ -> flags
         GReplFLib flags _ -> flags
         GBuildExe{} -> mempty
