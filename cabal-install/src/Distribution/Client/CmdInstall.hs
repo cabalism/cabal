@@ -256,7 +256,7 @@ installCommand =
     , commandDescription = Just $ \_ ->
         wrapText $
           "Installs one or more packages. This is done by installing them "
-            ++ "in the store and symlinking/copying the executables in the directory "
+            ++ "in the store and symlinking or copying the executables in the directory "
             ++ "specified by the --installdir flag (`~/.local/bin/` by default). "
             ++ "If you want the installed executables to be available globally, "
             ++ "make sure that the PATH environment variable contains that directory. "
@@ -859,7 +859,7 @@ installExesPrep
 
     return $ InstallExe installMethod installdir mkUnitBinDir mkExeName mkFinalExeName
 
--- | Can we install any built exe by symlinking/copying it?
+-- | Can we install any built exe by symlinking or copying it?
 installableExes
   :: Verbosity
   -> ProjectBaseContext
@@ -896,7 +896,7 @@ installableExes
      in
       traverse_ installable $ Map.toList $ targetsMap buildCtx
 
--- | Install any built exe by symlinking/copying it
+-- | Install any built exe by symlinking or copying it
 -- we don't use BuildOutcomes because we also need the component names
 installExes
   :: Verbosity
@@ -1096,15 +1096,16 @@ errorMessage overwritePolicy installMethod installdir exe = case overwritePolicy
       <> (installdir </> prettyShow exe)
       <> "' already exists. "
       <> "Use --overwrite-policy=always to overwrite."
-  -- This shouldn't even be possible, but we keep it in case
-  -- symlinking/copying logic changes
+  -- This shouldn't even be possible, but we keep it in case symlinking or
+  -- copying logic changes.
   _ ->
     case installMethod of
       InstallMethodSymlink -> "Symlinking"
       InstallMethodCopy ->
         "Copying" <> " '" <> prettyShow exe <> "' failed."
 
--- | Check if we can Symlink/copy every exe from a package from the store to a given location
+-- | Check if we can symlink or copy every exe from a package from the store to
+-- a given location.
 installableUnitExes
   :: Verbosity
   -> OverwritePolicy
@@ -1128,7 +1129,8 @@ installableUnitExes
       warnAbout (True, _) = return ()
       warnAbout (False, exe) = dieWithException verbosity $ InstallUnitExes (errorMessage overwritePolicy installMethod installDir exe)
 
--- | Symlink/copy every exe from a package from the store to a given location
+-- | Symlink or copy every exe from a package from the store to a given
+-- location.
 installUnitExes
   :: Verbosity
   -> OverwritePolicy
