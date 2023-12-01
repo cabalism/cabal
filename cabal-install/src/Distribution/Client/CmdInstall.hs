@@ -859,9 +859,15 @@ installExesPrep
 
     return $ InstallExe installMethod installdir mkUnitBinDir mkExeName mkFinalExeName
 
--- | Can we install any built exe by symlinking or copying it?
-installableExes
-  :: Verbosity
+type InstallAction =
+  Verbosity
+  -> OverwritePolicy
+  -> InstallExe
+  -> (UnitId, [(ComponentTarget, NonEmpty TargetSelector)])
+  -> IO ()
+
+type TraverseInstall =
+  Verbosity
   -> ProjectBaseContext
   -> ProjectBuildContext
   -> Platform
@@ -869,45 +875,19 @@ installableExes
   -> ConfigFlags
   -> ClientInstallFlags
   -> IO ()
-installableExes
-  verbosity
-  baseCtx
-  buildCtx
-  platform
-  compiler
-  configFlags
-  clientInstallFlags = do
-    installExe <-
-      installExesPrep
-        verbosity
-        baseCtx
-        buildCtx
-        platform
-        compiler
-        configFlags
-        clientInstallFlags
 
-    let
-      installable =
-        installableUnitExes
-          verbosity
-          (mkOverwritePolicy clientInstallFlags)
-          installExe
-     in
-      traverse_ installable $ Map.toList $ targetsMap buildCtx
+-- | Can we install any built exe by symlinking or copying it?
+installableExes :: TraverseInstall
+installableExes = traverseInstall installableUnitExes
 
 -- | Install any built exe by symlinking or copying it
 -- we don't use BuildOutcomes because we also need the component names
-installExes
-  :: Verbosity
-  -> ProjectBaseContext
-  -> ProjectBuildContext
-  -> Platform
-  -> Compiler
-  -> ConfigFlags
-  -> ClientInstallFlags
-  -> IO ()
-installExes
+installExes :: TraverseInstall
+installExes = traverseInstall installUnitExes
+
+traverseInstall :: InstallAction -> TraverseInstall
+traverseInstall
+  action
   verbosity
   baseCtx
   buildCtx
@@ -925,14 +905,8 @@ installExes
         configFlags
         clientInstallFlags
 
-    let
-      doInstall =
-        installUnitExes
-          verbosity
-          (mkOverwritePolicy clientInstallFlags)
-          installExe
-     in
-      traverse_ doInstall $ Map.toList $ targetsMap buildCtx
+    let actionOnExe = action verbosity (mkOverwritePolicy clientInstallFlags) installExe
+    traverse_ actionOnExe . Map.toList $ targetsMap buildCtx
 
 mkOverwritePolicy :: ClientInstallFlags -> OverwritePolicy
 mkOverwritePolicy clientInstallFlags =
@@ -1106,14 +1080,7 @@ errorMessage overwritePolicy installMethod installdir exe = case overwritePolicy
 
 -- | Try to symlink or copy every package exe from the store to a given
 -- location. When not permitted by the overwrite policy, stop with a message.
-installableUnitExes
-  :: Verbosity
-  -> OverwritePolicy
-  -> InstallExe
-  -> ( UnitId
-     , [(ComponentTarget, NonEmpty TargetSelector)]
-     )
-  -> IO ()
+installableUnitExes :: InstallAction
 installableUnitExes
   verbosity
   overwritePolicy
@@ -1131,15 +1098,7 @@ installableUnitExes
 
 -- | Symlink or copy every exe from a package from the store to a given
 -- location.
-installUnitExes
-  :: Verbosity
-  -> OverwritePolicy
-  -- ^ Whether to overwrite existing files
-  -> InstallExe
-  -> ( UnitId
-     , [(ComponentTarget, NonEmpty TargetSelector)]
-     )
-  -> IO ()
+installUnitExes :: InstallAction
 installUnitExes
   verbosity
   overwritePolicy
