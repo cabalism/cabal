@@ -812,33 +812,33 @@ type InstallAction =
   -> IO ()
 
 data InstallCfg = InstallCfg
-  { cfgVerbosity :: Verbosity
-  , cfgBaseCtx :: ProjectBaseContext
-  , cfgBuildCtx :: ProjectBuildContext
-  , cfgPlatform :: Platform
-  , cfgCompiler :: Compiler
-  , cfgConfigFlags :: ConfigFlags
-  , cfgClientInstallFlags :: ClientInstallFlags
+  { verbosity :: Verbosity
+  , baseCtx :: ProjectBaseContext
+  , buildCtx :: ProjectBuildContext
+  , platform :: Platform
+  , compiler :: Compiler
+  , installConfigFlags :: ConfigFlags
+  , installClientFlags :: ClientInstallFlags
   }
 
 installExesPrep :: InstallCfg -> IO InstallExe
-installExesPrep InstallCfg{cfgVerbosity, cfgBaseCtx, cfgBuildCtx, cfgPlatform, cfgCompiler, cfgConfigFlags, cfgClientInstallFlags} = do
+installExesPrep InstallCfg{verbosity, baseCtx, buildCtx, platform, compiler, installConfigFlags, installClientFlags} = do
   installPath <- defaultInstallPath
-  let storeDirLayout = cabalStoreDirLayout $ cabalDirLayout cfgBaseCtx
+  let storeDirLayout = cabalStoreDirLayout $ cabalDirLayout baseCtx
 
-      prefix = fromFlagOrDefault "" (fmap InstallDirs.fromPathTemplate (configProgPrefix cfgConfigFlags))
-      suffix = fromFlagOrDefault "" (fmap InstallDirs.fromPathTemplate (configProgSuffix cfgConfigFlags))
+      prefix = fromFlagOrDefault "" (fmap InstallDirs.fromPathTemplate (configProgPrefix installConfigFlags))
+      suffix = fromFlagOrDefault "" (fmap InstallDirs.fromPathTemplate (configProgSuffix installConfigFlags))
 
       mkUnitBinDir :: UnitId -> FilePath
       mkUnitBinDir =
         InstallDirs.bindir
-          . storePackageInstallDirs' storeDirLayout (compilerId cfgCompiler)
+          . storePackageInstallDirs' storeDirLayout (compilerId compiler)
 
       mkExeName :: UnqualComponentName -> FilePath
-      mkExeName exe = unUnqualComponentName exe <.> exeExtension cfgPlatform
+      mkExeName exe = unUnqualComponentName exe <.> exeExtension platform
 
       mkFinalExeName :: UnqualComponentName -> FilePath
-      mkFinalExeName exe = prefix <> unUnqualComponentName exe <> suffix <.> exeExtension cfgPlatform
+      mkFinalExeName exe = prefix <> unUnqualComponentName exe <> suffix <.> exeExtension platform
       installdirUnknown =
         "installdir is not defined. Set it in your cabal config file "
           ++ "or use --installdir=<path>. Using default installdir: "
@@ -846,21 +846,21 @@ installExesPrep InstallCfg{cfgVerbosity, cfgBaseCtx, cfgBuildCtx, cfgPlatform, c
 
   installdir <-
     fromFlagOrDefault
-      (warn cfgVerbosity installdirUnknown >> pure installPath)
-      $ pure <$> cinstInstalldir cfgClientInstallFlags
-  createDirectoryIfMissingVerbose cfgVerbosity True installdir
-  warnIfNoExes cfgVerbosity cfgBuildCtx
+      (warn verbosity installdirUnknown >> pure installPath)
+      $ pure <$> cinstInstalldir installClientFlags
+  createDirectoryIfMissingVerbose verbosity True installdir
+  warnIfNoExes verbosity buildCtx
 
   installMethod <-
-    flagElim (defaultMethod cfgVerbosity) return $
-      cinstInstallMethod cfgClientInstallFlags
+    flagElim (defaultMethod verbosity) return $
+      cinstInstallMethod installClientFlags
 
   return $ InstallExe installMethod installdir mkUnitBinDir mkExeName mkFinalExeName
 
 traverseInstall :: InstallAction -> InstallCfg -> IO ()
-traverseInstall action cfg@InstallCfg{cfgVerbosity, cfgBuildCtx, cfgClientInstallFlags} = do
-  actionOnExe <- action cfgVerbosity (mkOverwritePolicy cfgClientInstallFlags) <$> installExesPrep cfg
-  traverse_ actionOnExe . Map.toList $ targetsMap cfgBuildCtx
+traverseInstall action cfg@InstallCfg{verbosity, buildCtx, installClientFlags} = do
+  actionOnExe <- action verbosity (mkOverwritePolicy installClientFlags) <$> installExesPrep cfg
+  traverse_ actionOnExe . Map.toList $ targetsMap buildCtx
 
 mkOverwritePolicy :: ClientInstallFlags -> OverwritePolicy
 mkOverwritePolicy clientInstallFlags =
