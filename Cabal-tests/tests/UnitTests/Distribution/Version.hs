@@ -1,8 +1,7 @@
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE StandaloneDeriving #-}
-{-# OPTIONS_GHC -fno-warn-incomplete-patterns
-                -fno-warn-deprecations
-                -fno-warn-unused-binds #-} --FIXME
+{-# OPTIONS_GHC -Wno-incomplete-patterns #-}
+{-# OPTIONS_GHC -Wno-deprecations #-}
 module UnitTests.Distribution.Version (versionTests) where
 
 import Distribution.Compat.Prelude.Internal
@@ -36,10 +35,23 @@ versionTests =
     , tp "compare = compare `on` versionNumbers"               prop_VersionOrd
     , tp "compare = compare `on` mkVersion"                    prop_VersionOrd2
 
+    , tp "isAnyVersion1"                                       prop_isAnyVersion1
+    , tp "isAnyVersion2"                                       prop_isAnyVersion2
+    , tp "isNoVersion"                                         prop_isNoVersion
+
+    , tp "isSpecificVersion1"                                  prop_isSpecificVersion1
+    , tp "isSpecificVersion2"                                  prop_isSpecificVersion2
+
     , tp "readMaybe . show = Just"                             prop_ShowRead
     , tp "read example"                                        prop_ShowRead_example
 
     , tp "parsec . prettyShow involutive"                      prop_parsec_disp_inv
+
+    , tp "parsec . display #1"                                 prop_parse_disp1
+    , tp "parsec . display #2"                                 prop_parse_disp2
+    , tp "parsec . display #3"                                 prop_parse_disp3
+    , tp "parsec . display #4"                                 prop_parse_disp4
+    , tp "parsec . display #5"                                 prop_parse_disp5
 
     , tp "normaliseVersionRange involutive"                    prop_normalise_inv
     , tp "normaliseVersionRange equivalent"                    prop_normalise_equiv
@@ -269,10 +281,6 @@ prop_foldVersionRange range =
       IntersectVersionRanges (expandVR v1) (expandVR v2)
     expandVR v = v
 
-    upper = alterVersion $ \numbers -> case unsnoc numbers of
-      Nothing      -> []
-      Just (xs, x) -> xs ++ [x + 1]
-
 prop_isAnyVersion1 :: VersionRange -> Version -> Property
 prop_isAnyVersion1 range version =
   isAnyVersion range ==> withinRange version range
@@ -412,8 +420,3 @@ displayRaw =
     alg (MajorBoundVersionF v)          = Disp.text "^>=" <<>> pretty v
     alg (UnionVersionRangesF r1 r2)     = r1 <+> Disp.text "||" <+> r2
     alg (IntersectVersionRangesF r1 r2) = r1 <+> Disp.text "&&" <+> r2
-
-    dispWild v =
-           Disp.hcat (Disp.punctuate (Disp.char '.')
-                                     (map Disp.int (versionNumbers v)))
-        <<>> Disp.text ".*"
