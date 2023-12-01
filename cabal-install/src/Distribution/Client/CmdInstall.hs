@@ -558,24 +558,26 @@ installAction flags@NixStyleFlags{extraFlags = clientInstallFlags', ..} targetSt
     buildCtx <- constructProjectBuildContext verbosity (baseCtx{installedPackages = Just installedIndex'}) targetSelectors
 
     printPlan verbosity baseCtx buildCtx
+    let installCfg =
+          InstallCfg
+            verbosity
+            baseCtx
+            buildCtx
+            platform
+            compiler
+            configFlags
+            clientInstallFlags
 
     let
       dryRun =
         buildSettingDryRun (buildSettings baseCtx)
           || buildSettingOnlyDownload (buildSettings baseCtx)
 
-    -- Before building, check if we can do the install.
+    -- Before building, check if we could install any built exe by symlinking or
+    -- copying it?
     unless
       (dryRun || installLibs)
-      ( installableExes
-          verbosity
-          baseCtx
-          buildCtx
-          platform
-          compiler
-          configFlags
-          clientInstallFlags
-      )
+      (traverseInstall installableUnitExes installCfg)
 
     buildOutcomes <- runProjectBuildPhase verbosity baseCtx buildCtx
     runProjectPostBuildPhase verbosity baseCtx buildCtx buildOutcomes
@@ -592,15 +594,9 @@ installAction flags@NixStyleFlags{extraFlags = clientInstallFlags', ..} targetSt
             packageDbs
             envFile
             nonGlobalEnvEntries'
-        else
-          installExes
-            verbosity
-            baseCtx
-            buildCtx
-            platform
-            compiler
-            configFlags
-            clientInstallFlags
+        else -- Install any built exe by symlinking or copying it we don't use
+        -- BuildOutcomes because we also need the component names
+          traverseInstall installUnitExes installCfg
   where
     configFlags' = disableTestsBenchsByDefault configFlags
     verbosity = fromFlagOrDefault normal (configVerbosity configFlags')
@@ -808,57 +804,6 @@ data InstallExe = InstallExe
   -- store.
   }
 
-installExesPrep
-  :: Verbosity
-  -> ProjectBaseContext
-  -> ProjectBuildContext
-  -> Platform
-  -> Compiler
-  -> ConfigFlags
-  -> ClientInstallFlags
-  -> IO InstallExe
-installExesPrep
-  verbosity
-  baseCtx
-  buildCtx
-  platform
-  compiler
-  configFlags
-  clientInstallFlags = do
-    installPath <- defaultInstallPath
-    let storeDirLayout = cabalStoreDirLayout $ cabalDirLayout baseCtx
-
-        prefix = fromFlagOrDefault "" (fmap InstallDirs.fromPathTemplate (configProgPrefix configFlags))
-        suffix = fromFlagOrDefault "" (fmap InstallDirs.fromPathTemplate (configProgSuffix configFlags))
-
-        mkUnitBinDir :: UnitId -> FilePath
-        mkUnitBinDir =
-          InstallDirs.bindir
-            . storePackageInstallDirs' storeDirLayout (compilerId compiler)
-
-        mkExeName :: UnqualComponentName -> FilePath
-        mkExeName exe = unUnqualComponentName exe <.> exeExtension platform
-
-        mkFinalExeName :: UnqualComponentName -> FilePath
-        mkFinalExeName exe = prefix <> unUnqualComponentName exe <> suffix <.> exeExtension platform
-        installdirUnknown =
-          "installdir is not defined. Set it in your cabal config file "
-            ++ "or use --installdir=<path>. Using default installdir: "
-            ++ show installPath
-
-    installdir <-
-      fromFlagOrDefault
-        (warn verbosity installdirUnknown >> pure installPath)
-        $ pure <$> cinstInstalldir clientInstallFlags
-    createDirectoryIfMissingVerbose verbosity True installdir
-    warnIfNoExes verbosity buildCtx
-
-    installMethod <-
-      flagElim (defaultMethod verbosity) return $
-        cinstInstallMethod clientInstallFlags
-
-    return $ InstallExe installMethod installdir mkUnitBinDir mkExeName mkFinalExeName
-
 type InstallAction =
   Verbosity
   -> OverwritePolicy
@@ -866,47 +811,56 @@ type InstallAction =
   -> (UnitId, [(ComponentTarget, NonEmpty TargetSelector)])
   -> IO ()
 
-type TraverseInstall =
-  Verbosity
-  -> ProjectBaseContext
-  -> ProjectBuildContext
-  -> Platform
-  -> Compiler
-  -> ConfigFlags
-  -> ClientInstallFlags
-  -> IO ()
+data InstallCfg = InstallCfg
+  { cfgVerbosity :: Verbosity
+  , cfgBaseCtx :: ProjectBaseContext
+  , cfgBuildCtx :: ProjectBuildContext
+  , cfgPlatform :: Platform
+  , cfgCompiler :: Compiler
+  , cfgConfigFlags :: ConfigFlags
+  , cfgClientInstallFlags :: ClientInstallFlags
+  }
 
--- | Can we install any built exe by symlinking or copying it?
-installableExes :: TraverseInstall
-installableExes = traverseInstall installableUnitExes
+installExesPrep :: InstallCfg -> IO InstallExe
+installExesPrep InstallCfg{cfgVerbosity, cfgBaseCtx, cfgBuildCtx, cfgPlatform, cfgCompiler, cfgConfigFlags, cfgClientInstallFlags} = do
+  installPath <- defaultInstallPath
+  let storeDirLayout = cabalStoreDirLayout $ cabalDirLayout cfgBaseCtx
 
--- | Install any built exe by symlinking or copying it
--- we don't use BuildOutcomes because we also need the component names
-installExes :: TraverseInstall
-installExes = traverseInstall installUnitExes
+      prefix = fromFlagOrDefault "" (fmap InstallDirs.fromPathTemplate (configProgPrefix cfgConfigFlags))
+      suffix = fromFlagOrDefault "" (fmap InstallDirs.fromPathTemplate (configProgSuffix cfgConfigFlags))
 
-traverseInstall :: InstallAction -> TraverseInstall
-traverseInstall
-  action
-  verbosity
-  baseCtx
-  buildCtx
-  platform
-  compiler
-  configFlags
-  clientInstallFlags = do
-    installExe <-
-      installExesPrep
-        verbosity
-        baseCtx
-        buildCtx
-        platform
-        compiler
-        configFlags
-        clientInstallFlags
+      mkUnitBinDir :: UnitId -> FilePath
+      mkUnitBinDir =
+        InstallDirs.bindir
+          . storePackageInstallDirs' storeDirLayout (compilerId cfgCompiler)
 
-    let actionOnExe = action verbosity (mkOverwritePolicy clientInstallFlags) installExe
-    traverse_ actionOnExe . Map.toList $ targetsMap buildCtx
+      mkExeName :: UnqualComponentName -> FilePath
+      mkExeName exe = unUnqualComponentName exe <.> exeExtension cfgPlatform
+
+      mkFinalExeName :: UnqualComponentName -> FilePath
+      mkFinalExeName exe = prefix <> unUnqualComponentName exe <> suffix <.> exeExtension cfgPlatform
+      installdirUnknown =
+        "installdir is not defined. Set it in your cabal config file "
+          ++ "or use --installdir=<path>. Using default installdir: "
+          ++ show installPath
+
+  installdir <-
+    fromFlagOrDefault
+      (warn cfgVerbosity installdirUnknown >> pure installPath)
+      $ pure <$> cinstInstalldir cfgClientInstallFlags
+  createDirectoryIfMissingVerbose cfgVerbosity True installdir
+  warnIfNoExes cfgVerbosity cfgBuildCtx
+
+  installMethod <-
+    flagElim (defaultMethod cfgVerbosity) return $
+      cinstInstallMethod cfgClientInstallFlags
+
+  return $ InstallExe installMethod installdir mkUnitBinDir mkExeName mkFinalExeName
+
+traverseInstall :: InstallAction -> InstallCfg -> IO ()
+traverseInstall action cfg@InstallCfg{cfgVerbosity, cfgBuildCtx, cfgClientInstallFlags} = do
+  actionOnExe <- action cfgVerbosity (mkOverwritePolicy cfgClientInstallFlags) <$> installExesPrep cfg
+  traverse_ actionOnExe . Map.toList $ targetsMap cfgBuildCtx
 
 mkOverwritePolicy :: ClientInstallFlags -> OverwritePolicy
 mkOverwritePolicy clientInstallFlags =
@@ -1075,8 +1029,7 @@ errorMessage overwritePolicy installMethod installdir exe = case overwritePolicy
   _ ->
     case installMethod of
       InstallMethodSymlink -> "Symlinking"
-      InstallMethodCopy ->
-        "Copying" <> " '" <> prettyShow exe <> "' failed."
+      InstallMethodCopy -> "Copying" <> " '" <> prettyShow exe <> "' failed."
 
 -- | Try to symlink or copy every package exe from the store to a given
 -- location. When not permitted by the overwrite policy, stop with a message.
