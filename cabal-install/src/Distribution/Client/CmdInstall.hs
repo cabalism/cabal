@@ -1104,8 +1104,8 @@ errorMessage overwritePolicy installMethod installdir exe = case overwritePolicy
       InstallMethodCopy ->
         "Copying" <> " '" <> prettyShow exe <> "' failed."
 
--- | Check if we can symlink or copy every exe from a package from the store to
--- a given location.
+-- | Try to symlink or copy every package exe from the store to a given
+-- location. When not permitted by the overwrite policy, stop with a message.
 installableUnitExes
   :: Verbosity
   -> OverwritePolicy
