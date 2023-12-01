@@ -577,7 +577,7 @@ installAction flags@NixStyleFlags{extraFlags = clientInstallFlags', ..} targetSt
     -- copying it?
     unless
       (dryRun || installLibs)
-      (traverseInstall installableUnitExes installCfg)
+      (traverseInstall (installCheckUnitExes InstallCheckOnly) installCfg)
 
     buildOutcomes <- runProjectBuildPhase verbosity baseCtx buildCtx
     runProjectPostBuildPhase verbosity baseCtx buildCtx buildOutcomes
@@ -596,7 +596,7 @@ installAction flags@NixStyleFlags{extraFlags = clientInstallFlags', ..} targetSt
             nonGlobalEnvEntries'
         else -- Install any built exe by symlinking or copying it we don't use
         -- BuildOutcomes because we also need the component names
-          traverseInstall installUnitExes installCfg
+          traverseInstall (installCheckUnitExes InstallCheckInstall) installCfg
   where
     configFlags' = disableTestsBenchsByDefault configFlags
     verbosity = fromFlagOrDefault normal (configVerbosity configFlags')
@@ -1017,57 +1017,35 @@ symlink
       (mkExeName exe)
       (mkFinalExeName exe)
 
-errorMessage :: Pretty a => OverwritePolicy -> InstallMethod -> FilePath -> a -> String
-errorMessage overwritePolicy installMethod installdir exe = case overwritePolicy of
-  NeverOverwrite ->
-    "Path '"
-      <> (installdir </> prettyShow exe)
-      <> "' already exists. "
-      <> "Use --overwrite-policy=always to overwrite."
-  -- This shouldn't even be possible, but we keep it in case symlinking or
-  -- copying logic changes.
-  _ ->
-    case installMethod of
-      InstallMethodSymlink -> "Symlinking"
-      InstallMethodCopy -> "Copying" <> " '" <> prettyShow exe <> "' failed."
+data InstallCheck = InstallCheckOnly | InstallCheckInstall
 
--- | Try to symlink or copy every package exe from the store to a given
--- location. When not permitted by the overwrite policy, stop with a message.
-installableUnitExes :: InstallAction
-installableUnitExes
-  verbosity
-  overwritePolicy
-  installExe@InstallExe{installMethod, installDir}
-  (unit, components) = do
-    symlinkables :: [Bool] <- traverse (symlinkableBinary . symlink overwritePolicy installExe unit) exes
-    traverse_ warnAbout (zip symlinkables exes)
-    where
-      exes = catMaybes $ (exeMaybe . fst) <$> components
-      exeMaybe (ComponentTarget (CExeName exe) _) = Just exe
-      exeMaybe _ = Nothing
-
-      warnAbout (True, _) = return ()
-      warnAbout (False, exe) = dieWithException verbosity $ InstallUnitExes (errorMessage overwritePolicy installMethod installDir exe)
-
--- | Symlink or copy every exe from a package from the store to a given
--- location.
-installUnitExes :: InstallAction
-installUnitExes
+-- |
+-- -- * When 'InstallCheckOnly', warn if install would fail overwrite policy
+--      checks but don't install anything.
+-- -- * When 'InstallCheckInstall', try to symlink or copy every package exe
+--      from the store to a given location. When not permitted by the overwrite
+--      policy, stop with a message.
+installCheckUnitExes :: InstallCheck -> InstallAction
+installCheckUnitExes
+  installCheck
   verbosity
   overwritePolicy
   installExe@InstallExe{installMethod, installDir, mkSourceBinDir, mkExeName, mkFinalExeName}
   (unit, components) = do
     symlinkables :: [Bool] <- traverse (symlinkableBinary . symlink overwritePolicy installExe unit) exes
-    if and symlinkables
-      then traverse_ installAndWarn exes
-      else traverse_ warnAbout (zip symlinkables exes)
+    case installCheck of
+      InstallCheckOnly -> traverse_ warnAbout (zip symlinkables exes)
+      InstallCheckInstall ->
+        if and symlinkables
+          then traverse_ installAndWarn exes
+          else traverse_ warnAbout (zip symlinkables exes)
     where
       exes = catMaybes $ (exeMaybe . fst) <$> components
       exeMaybe (ComponentTarget (CExeName exe) _) = Just exe
       exeMaybe _ = Nothing
 
       warnAbout (True, _) = return ()
-      warnAbout (False, exe) = dieWithException verbosity $ InstallUnitExes (errorMessage overwritePolicy installMethod installDir exe)
+      warnAbout (False, exe) = dieWithException verbosity $ InstallUnitExes (errorMessage installDir exe)
 
       installAndWarn exe = do
         success <-
@@ -1079,7 +1057,20 @@ installUnitExes
             (mkFinalExeName exe)
             installDir
             installMethod
-        unless success $ dieWithException verbosity $ InstallUnitExes (errorMessage overwritePolicy installMethod installDir exe)
+        unless success $ dieWithException verbosity $ InstallUnitExes (errorMessage installDir exe)
+
+      errorMessage installdir exe = case overwritePolicy of
+        NeverOverwrite ->
+          "Path '"
+            <> (installdir </> prettyShow exe)
+            <> "' already exists. "
+            <> "Use --overwrite-policy=always to overwrite."
+        -- This shouldn't even be possible, but we keep it in case symlinking or
+        -- copying logic changes.
+        _ ->
+          case installMethod of
+            InstallMethodSymlink -> "Symlinking"
+            InstallMethodCopy -> "Copying" <> " '" <> prettyShow exe <> "' failed."
 
 -- | Install a specific exe.
 installBuiltExe
