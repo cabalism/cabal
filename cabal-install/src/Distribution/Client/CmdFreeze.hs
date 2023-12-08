@@ -173,7 +173,7 @@ projectFreezeConfig
   -> TotalIndexState
   -> ActiveRepos
   -> ProjectConfig
-projectFreezeConfig elaboratedPlan totalIndexState activeRepos0 =
+projectFreezeConfig elaboratedPlan totalIndexState activeRepos0 = trace (InstallPlan.showInstallPlan elaboratedPlan) $
   mempty
     { projectConfigShared =
         mempty
