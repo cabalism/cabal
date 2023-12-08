@@ -8,6 +8,7 @@
 module Distribution.Client.ProjectConfig.Legacy
   ( -- Project config skeletons
     ProjectConfigSkeleton
+  , ProjectConfigImport(..)
   , parseProjectSkeleton
   , instantiateProjectConfigSkeletonFetchingCompiler
   , instantiateProjectConfigSkeletonWithCompiler
@@ -194,7 +195,12 @@ import System.FilePath (isAbsolute, isPathSeparator, makeValid, takeDirectory, (
 -- and then resolving and downloading the imports
 type ProjectConfigSkeleton = CondTree ConfVar [ProjectConfigImport] ProjectConfig
 
-type ProjectConfigImport = String
+data ProjectConfigImport =
+  ProjectConfigImport
+    { importDepth :: Int
+    , importPath :: String
+    }
+    deriving Show
 
 singletonProjectConfigSkeleton :: ProjectConfig -> ProjectConfigSkeleton
 singletonProjectConfigSkeleton x = CondNode x mempty mempty
@@ -232,11 +238,12 @@ parseProjectSkeleton cacheDir httpTransport verbosity seenImports source bs = (s
     go :: [ParseUtils.Field] -> [ParseUtils.Field] -> IO (ParseResult ProjectConfigSkeleton)
     go acc (x : xs) = case x of
       (ParseUtils.F l "import" importLoc) ->
-        if importLoc `elem` seenImports
+        if importLoc `elem` (importPath <$> seenImports)
           then pure . parseFail $ ParseUtils.FromString ("cyclical import of " ++ importLoc) (Just l)
           else do
-            let fs = fmap (\z -> CondNode z [importLoc] mempty) $ fieldsToConfig (reverse acc)
-            res <- parseProjectSkeleton cacheDir httpTransport verbosity (importLoc : seenImports) importLoc =<< fetchImportConfig importLoc
+            let depthImport = ProjectConfigImport 0 importLoc
+            let fs = fmap (\z -> CondNode z [depthImport] mempty) $ fieldsToConfig (reverse acc)
+            res <- parseProjectSkeleton cacheDir httpTransport verbosity (depthImport : seenImports) importLoc =<< fetchImportConfig depthImport
             rest <- go [] xs
             pure . fmap mconcat . sequence $ [fs, res, rest]
       (ParseUtils.Section l "if" p xs') -> do
@@ -285,7 +292,7 @@ parseProjectSkeleton cacheDir httpTransport verbosity seenImports source bs = (s
     liftPR _ (ParseFailed e) = pure $ ParseFailed e
 
     fetchImportConfig :: ProjectConfigImport -> IO BS.ByteString
-    fetchImportConfig pci = case parseURI pci of
+    fetchImportConfig ProjectConfigImport{importPath = pci} = case parseURI pci of
       Just uri -> do
         let fp = cacheDir </> map (\x -> if isPathSeparator x then '_' else x) (makeValid $ show uri)
         createDirectoryIfMissing True cacheDir
