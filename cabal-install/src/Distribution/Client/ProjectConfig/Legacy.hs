@@ -3,12 +3,12 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE TupleSections #-}
 
 -- | Project configuration, implementation in terms of legacy types.
 module Distribution.Client.ProjectConfig.Legacy
   ( -- Project config skeletons
     ProjectConfigSkeleton
-  , ProjectConfigImport(..)
   , parseProjectSkeleton
   , instantiateProjectConfigSkeletonFetchingCompiler
   , instantiateProjectConfigSkeletonWithCompiler
@@ -195,13 +195,6 @@ import System.FilePath (isAbsolute, isPathSeparator, makeValid, takeDirectory, (
 -- and then resolving and downloading the imports
 type ProjectConfigSkeleton = CondTree ConfVar [ProjectConfigImport] ProjectConfig
 
-data ProjectConfigImport =
-  ProjectConfigImport
-    { importDepth :: Int
-    , importPath :: String
-    }
-    deriving Show
-
 singletonProjectConfigSkeleton :: ProjectConfig -> ProjectConfigSkeleton
 singletonProjectConfigSkeleton x = CondNode x mempty mempty
 
@@ -232,22 +225,26 @@ instantiateProjectConfigSkeletonWithCompiler os arch impl _flags skel = go $ map
 projectSkeletonImports :: ProjectConfigSkeleton -> [ProjectConfigImport]
 projectSkeletonImports = view traverseCondTreeC
 
-parseProjectSkeleton :: FilePath -> HttpTransport -> Verbosity -> [ProjectConfigImport] -> FilePath -> BS.ByteString -> IO (ParseResult ProjectConfigSkeleton)
-parseProjectSkeleton cacheDir httpTransport verbosity seenImports source bs = (sanityWalkPCS False =<<) <$> liftPR (go []) (ParseUtils.readFields bs)
+parseProjectSkeleton :: FilePath -> HttpTransport -> Verbosity -> [ProjectConfigImport] -> FilePath -> (Int, BS.ByteString) -> IO (ParseResult ProjectConfigSkeleton)
+parseProjectSkeleton cacheDir httpTransport verbosity seenImports source (depthInitial, bs) =
+  (sanityWalkPCS False =<<) <$> liftPR (go (depthInitial, [])) (ParseUtils.readFields bs)
   where
-    go :: [ParseUtils.Field] -> [ParseUtils.Field] -> IO (ParseResult ProjectConfigSkeleton)
-    go acc (x : xs) = case x of
+    go :: (Int, [ParseUtils.Field]) -> [ParseUtils.Field] -> IO (ParseResult ProjectConfigSkeleton)
+    go (depth, acc) (x : xs) = case x of
       (ParseUtils.F l "import" importLoc) ->
         if importLoc `elem` (importPath <$> seenImports)
           then pure . parseFail $ ParseUtils.FromString ("cyclical import of " ++ importLoc) (Just l)
           else do
             let depthImport = ProjectConfigImport 0 importLoc
             let fs = fmap (\z -> CondNode z [depthImport] mempty) $ fieldsToConfig (reverse acc)
-            res <- parseProjectSkeleton cacheDir httpTransport verbosity (depthImport : seenImports) importLoc =<< fetchImportConfig depthImport
-            rest <- go [] xs
+            res <-
+              fetchImportConfig depthImport >>= (\cfg@(depthBump, _) ->
+                let depthImport' = ProjectConfigImport (depth + depthBump) importLoc
+                in parseProjectSkeleton cacheDir httpTransport verbosity (depthImport' : seenImports) importLoc cfg)
+            rest <- go (depth + 1, []) xs
             pure . fmap mconcat . sequence $ [fs, res, rest]
       (ParseUtils.Section l "if" p xs') -> do
-        subpcs <- go [] xs'
+        subpcs <- go (depth, []) xs'
         let fs = fmap singletonProjectConfigSkeleton $ fieldsToConfig (reverse acc)
         (elseClauses, rest) <- parseElseClauses xs
         let condNode =
@@ -258,17 +255,17 @@ parseProjectSkeleton cacheDir httpTransport verbosity seenImports source bs = (s
                 <*> subpcs
                 <*> elseClauses
         pure . fmap mconcat . sequence $ [fs, condNode, rest]
-      _ -> go (x : acc) xs
-    go acc [] = pure . fmap singletonProjectConfigSkeleton . fieldsToConfig $ reverse acc
+      _ -> go (depth, (x : acc)) xs
+    go (_depth, acc) [] = pure . fmap singletonProjectConfigSkeleton . fieldsToConfig $ reverse acc
 
     parseElseClauses :: [ParseUtils.Field] -> IO (ParseResult (Maybe ProjectConfigSkeleton), ParseResult ProjectConfigSkeleton)
     parseElseClauses x = case x of
       (ParseUtils.Section _l "else" _p xs' : xs) -> do
-        subpcs <- go [] xs'
-        rest <- go [] xs
+        subpcs <- go (0, []) xs'
+        rest <- go (0, []) xs
         pure (Just <$> subpcs, rest)
       (ParseUtils.Section l "elif" p xs' : xs) -> do
-        subpcs <- go [] xs'
+        subpcs <- go (0, []) xs'
         (elseClauses, rest) <- parseElseClauses xs
         let condNode =
               (\c pcs e -> CondNode mempty mempty [CondBranch c pcs e])
@@ -276,7 +273,7 @@ parseProjectSkeleton cacheDir httpTransport verbosity seenImports source bs = (s
                 <*> subpcs
                 <*> elseClauses
         pure (Just <$> condNode, rest)
-      _ -> (\r -> (pure Nothing, r)) <$> go [] x
+      _ -> (\r -> (pure Nothing, r)) <$> go (0, []) x
 
     fieldsToConfig xs = fmap (addProvenance . convertLegacyProjectConfig) $ parseLegacyProjectConfigFields source xs
     addProvenance x = x{projectConfigProvenance = Set.singleton (Explicit source)}
@@ -291,14 +288,15 @@ parseProjectSkeleton cacheDir httpTransport verbosity seenImports source bs = (s
         addWarnings x' = x'
     liftPR _ (ParseFailed e) = pure $ ParseFailed e
 
-    fetchImportConfig :: ProjectConfigImport -> IO BS.ByteString
+    fetchImportConfig :: ProjectConfigImport -> IO (Int, BS.ByteString)
     fetchImportConfig ProjectConfigImport{importPath = pci} = case parseURI pci of
       Just uri -> do
         let fp = cacheDir </> map (\x -> if isPathSeparator x then '_' else x) (makeValid $ show uri)
         createDirectoryIfMissing True cacheDir
         _ <- downloadURI httpTransport verbosity uri fp
-        BS.readFile fp
+        (fmap (1,)) $ BS.readFile fp
       Nothing ->
+        (fmap (0,)) $
         BS.readFile $
           if isAbsolute pci then pci else takeDirectory source </> pci
 
@@ -1189,7 +1187,9 @@ parseLegacyProjectConfigFields source =
     legacyPackageConfigFGSectionDescrs
     mempty
   where
-    constraintSrc = ConstraintSourceProjectConfig source
+    constraintSrc =
+      let bump = if isJust (parseURI source) then 1 else 0
+      in ConstraintSourceProjectConfig $ ProjectConfigImport bump source
 
 parseLegacyProjectConfig :: FilePath -> BS.ByteString -> ParseResult LegacyProjectConfig
 parseLegacyProjectConfig source bs = parseLegacyProjectConfigFields source =<< ParseUtils.readFields bs
@@ -1207,7 +1207,7 @@ showLegacyProjectConfig config =
     -- Note: ConstraintSource is unused when pretty-printing. We fake
     -- it here to avoid having to pass it on call-sites. It's not great
     -- but requires re-work of how we annotate provenance.
-    constraintSrc = ConstraintSourceProjectConfig "unused"
+    constraintSrc = ConstraintSourceProjectConfig $ ProjectConfigImport 1 "unused"
 
 legacyProjectConfigFieldDescrs :: ConstraintSource -> [FieldDescr LegacyProjectConfig]
 legacyProjectConfigFieldDescrs constraintSrc =

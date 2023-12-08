@@ -3,6 +3,7 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE TupleSections #-}
 
 -- | Handling project configuration.
 module Distribution.Client.ProjectConfig
@@ -222,6 +223,8 @@ import System.IO
   ( IOMode (ReadMode)
   , withBinaryFile
   )
+
+import Distribution.Solver.Types.ConstraintSource (ProjectConfigImport (..))
 
 ----------------------------------------
 -- Resolving configuration to settings
@@ -759,7 +762,7 @@ readProjectFileSkeleton
       readExtensionFile =
         reportParseResult verbosity extensionDescription extensionFile
           =<< parseProjectSkeleton distDownloadSrcDirectory httpTransport verbosity [] extensionFile
-          =<< BS.readFile extensionFile
+          =<< (fmap (0,) $ BS.readFile extensionFile)
 
 -- | Render the 'ProjectConfig' format.
 --
