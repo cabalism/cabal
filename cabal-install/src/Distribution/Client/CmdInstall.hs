@@ -242,6 +242,16 @@ import System.FilePath
   , (</>)
   )
 
+data InstallCfg = InstallCfg
+  { verbosity :: Verbosity
+  , baseCtx :: ProjectBaseContext
+  , buildCtx :: ProjectBuildContext
+  , platform :: Platform
+  , compiler :: Compiler
+  , installConfigFlags :: ConfigFlags
+  , installClientFlags :: ClientInstallFlags
+  }
+
 installCommand :: CommandUI (NixStyleFlags ClientInstallFlags)
 installCommand =
   CommandUI
@@ -556,6 +566,7 @@ installAction flags@NixStyleFlags{extraFlags = clientInstallFlags', ..} targetSt
     buildCtx <- constructProjectBuildContext verbosity (baseCtx{installedPackages = Just installedIndex'}) targetSelectors
 
     printPlan verbosity baseCtx buildCtx
+    let installCfg = InstallCfg verbosity baseCtx buildCtx platform compiler configFlags clientInstallFlags
 
     buildOutcomes <- runProjectBuildPhase verbosity baseCtx buildCtx
     runProjectPostBuildPhase verbosity baseCtx buildCtx buildOutcomes
@@ -580,14 +591,7 @@ installAction flags@NixStyleFlags{extraFlags = clientInstallFlags', ..} targetSt
             envFile
             nonGlobalEnvEntries'
         else
-          installExes
-            verbosity
-            baseCtx
-            buildCtx
-            platform
-            compiler
-            configFlags
-            clientInstallFlags
+          installExes installCfg
   where
     configFlags' = disableTestsBenchsByDefault configFlags
     verbosity = fromFlagOrDefault normal (configVerbosity configFlags')
@@ -785,28 +789,14 @@ constructProjectBuildContext verbosity baseCtx targetSelectors = do
 
 -- | Install any built exe by symlinking/copying it
 -- we don't use BuildOutcomes because we also need the component names
+installExes :: InstallCfg -> IO ()
 installExes
-  :: Verbosity
-  -> ProjectBaseContext
-  -> ProjectBuildContext
-  -> Platform
-  -> Compiler
-  -> ConfigFlags
-  -> ClientInstallFlags
-  -> IO ()
-installExes
-  verbosity
-  baseCtx
-  buildCtx
-  platform
-  compiler
-  configFlags
-  clientInstallFlags = do
+  InstallCfg{verbosity, baseCtx, buildCtx, platform, compiler, installConfigFlags, installClientFlags} = do
     installPath <- defaultInstallPath
     let storeDirLayout = cabalStoreDirLayout $ cabalDirLayout baseCtx
 
-        prefix = fromFlagOrDefault "" (fmap InstallDirs.fromPathTemplate (configProgPrefix configFlags))
-        suffix = fromFlagOrDefault "" (fmap InstallDirs.fromPathTemplate (configProgSuffix configFlags))
+        prefix = fromFlagOrDefault "" (fmap InstallDirs.fromPathTemplate (configProgPrefix installConfigFlags))
+        suffix = fromFlagOrDefault "" (fmap InstallDirs.fromPathTemplate (configProgSuffix installConfigFlags))
 
         mkUnitBinDir :: UnitId -> FilePath
         mkUnitBinDir =
@@ -826,13 +816,13 @@ installExes
     installdir <-
       fromFlagOrDefault
         (warn verbosity installdirUnknown >> pure installPath)
-        $ pure <$> cinstInstalldir clientInstallFlags
+        $ pure <$> cinstInstalldir installClientFlags
     createDirectoryIfMissingVerbose verbosity True installdir
     warnIfNoExes verbosity buildCtx
 
     installMethod <-
       flagElim defaultMethod return $
-        cinstInstallMethod clientInstallFlags
+        cinstInstallMethod installClientFlags
 
     let
       doInstall =
@@ -849,7 +839,7 @@ installExes
     where
       overwritePolicy =
         fromFlagOrDefault NeverOverwrite $
-          cinstOverwritePolicy clientInstallFlags
+          cinstOverwritePolicy installClientFlags
       isWindows = buildOS == Windows
 
       -- This is in IO as we will make environment checks,
