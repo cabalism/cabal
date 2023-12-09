@@ -799,10 +799,8 @@ constructProjectBuildContext verbosity baseCtx targetSelectors = do
 
     return (prunedElaboratedPlan, targets)
 
--- | Install any built exe by symlinking/copying it
--- we don't use BuildOutcomes because we also need the component names
-installExes :: InstallCfg -> IO ()
-installExes
+installExesPrep :: InstallCfg -> IO InstallExe
+installExesPrep
   InstallCfg{verbosity, baseCtx, buildCtx, platform, compiler, installConfigFlags, installClientFlags} = do
     installPath <- defaultInstallPath
     let storeDirLayout = cabalStoreDirLayout $ cabalDirLayout baseCtx
@@ -832,12 +830,27 @@ installExes
     createDirectoryIfMissingVerbose verbosity True installdir
     warnIfNoExes verbosity buildCtx
 
-    installMethod <-
-      flagElim defaultMethod return $
-        cinstInstallMethod installClientFlags
+    -- This is in IO as we will make environment checks, to decide which install
+    -- method is best.
+    let defaultMethod :: IO InstallMethod
+        defaultMethod
+          -- Try symlinking in temporary directory, if it works default to
+          -- symlinking even on windows.
+          | buildOS == Windows = do
+              symlinks <- trySymlink verbosity
+              return $ if symlinks then InstallMethodSymlink else InstallMethodCopy
+          | otherwise = return InstallMethodSymlink
 
-    let installExe = InstallExe installMethod installdir mkUnitBinDir mkExeName mkFinalExeName
+    installMethod <- flagElim defaultMethod return $ cinstInstallMethod installClientFlags
 
+    return $ InstallExe installMethod installdir mkUnitBinDir mkExeName mkFinalExeName
+
+-- | Install any built exe by symlinking/copying it
+-- we don't use BuildOutcomes because we also need the component names
+installExes :: InstallCfg -> IO ()
+installExes
+  installCfg@InstallCfg{verbosity, buildCtx, installClientFlags} = do
+    installExe <- installExesPrep installCfg
     let
       doInstall =
         installUnitExes
@@ -850,17 +863,6 @@ installExes
       overwritePolicy =
         fromFlagOrDefault NeverOverwrite $
           cinstOverwritePolicy installClientFlags
-
-      -- This is in IO as we will make environment checks,
-      -- to decide which method is best
-      defaultMethod :: IO InstallMethod
-      defaultMethod
-        -- Try symlinking in temporary directory, if it works default to
-        -- symlinking even on windows
-        | buildOS == Windows = do
-            symlinks <- trySymlink verbosity
-            return $ if symlinks then InstallMethodSymlink else InstallMethodCopy
-        | otherwise = return InstallMethodSymlink
 
 -- | Install any built library by adding it to the default ghc environment
 installLibraries
