@@ -850,7 +850,6 @@ installExes
       overwritePolicy =
         fromFlagOrDefault NeverOverwrite $
           cinstOverwritePolicy installClientFlags
-      isWindows = buildOS == Windows
 
       -- This is in IO as we will make environment checks,
       -- to decide which method is best
@@ -858,7 +857,7 @@ installExes
       defaultMethod
         -- Try symlinking in temporary directory, if it works default to
         -- symlinking even on windows
-        | isWindows = do
+        | buildOS == Windows = do
             symlinks <- trySymlink verbosity
             return $ if symlinks then InstallMethodSymlink else InstallMethodCopy
         | otherwise = return InstallMethodSymlink
