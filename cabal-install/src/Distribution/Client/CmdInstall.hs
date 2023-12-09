@@ -252,6 +252,18 @@ data InstallCfg = InstallCfg
   , installClientFlags :: ClientInstallFlags
   }
 
+data InstallExe = InstallExe
+  { installMethod :: InstallMethod
+  , installdir :: FilePath
+  , mkSourceBinDir :: UnitId -> FilePath
+  -- ^ A function to get an UnitId's store directory.
+  , mkExeName :: UnqualComponentName -> FilePath
+  -- ^ A function to get an exe's filename.
+  , mkFinalExeName :: UnqualComponentName -> FilePath
+  -- ^ A function to get an exe's final possibly different to the name in the
+  -- store.
+  }
+
 installCommand :: CommandUI (NixStyleFlags ClientInstallFlags)
 installCommand =
   CommandUI
@@ -824,16 +836,14 @@ installExes
       flagElim defaultMethod return $
         cinstInstallMethod installClientFlags
 
+    let installExe = InstallExe installMethod installdir mkUnitBinDir mkExeName mkFinalExeName
+
     let
       doInstall =
         installUnitExes
           verbosity
           overwritePolicy
-          mkUnitBinDir
-          mkExeName
-          mkFinalExeName
-          installdir
-          installMethod
+          installExe
      in
       traverse_ doInstall $ Map.toList $ targetsMap buildCtx
     where
@@ -981,19 +991,7 @@ disableTestsBenchsByDefault configFlags =
 installUnitExes
   :: Verbosity
   -> OverwritePolicy
-  -- ^ Whether to overwrite existing files
-  -> (UnitId -> FilePath)
-  -- ^ A function to get an UnitId's
-  -- ^ store directory
-  -> (UnqualComponentName -> FilePath)
-  -- ^ A function to get an
-  -- ^ exe's filename
-  -> (UnqualComponentName -> FilePath)
-  -- ^ A function to get an
-  -- ^ exe's final possibly
-  -- ^ different to the name in the store.
-  -> FilePath
-  -> InstallMethod
+  -> InstallExe
   -> ( UnitId
      , [(ComponentTarget, NonEmpty TargetSelector)]
      )
@@ -1001,11 +999,7 @@ installUnitExes
 installUnitExes
   verbosity
   overwritePolicy
-  mkSourceBinDir
-  mkExeName
-  mkFinalExeName
-  installdir
-  installMethod
+  installExe@InstallExe{installMethod, installdir}
   (unit, components) =
     traverse_ installAndWarn exes
     where
@@ -1017,11 +1011,9 @@ installUnitExes
           installBuiltExe
             verbosity
             overwritePolicy
-            (mkSourceBinDir unit)
-            (mkExeName exe)
-            (mkFinalExeName exe)
-            installdir
-            installMethod
+            installExe
+            unit
+            exe
         let errorMessage = case overwritePolicy of
               NeverOverwrite ->
                 "Path '"
@@ -1041,25 +1033,18 @@ installUnitExes
 installBuiltExe
   :: Verbosity
   -> OverwritePolicy
-  -> FilePath
-  -- ^ The directory where the built exe is located
-  -> FilePath
-  -- ^ The exe's filename
-  -> FilePath
-  -- ^ The exe's filename in the public install directory
-  -> FilePath
-  -- ^ the directory where it should be installed
-  -> InstallMethod
+  -> InstallExe
+  -> UnitId
+  -> UnqualComponentName
   -> IO Bool
   -- ^ Whether the installation was successful
 installBuiltExe
   verbosity
   overwritePolicy
-  sourceDir
-  exeName
-  finalExeName
-  installdir
-  InstallMethodSymlink = do
+  InstallExe{installMethod = InstallMethodSymlink , installdir, mkSourceBinDir, mkExeName, mkFinalExeName}
+  unit
+  exe
+  = do
     notice verbosity $ "Symlinking '" <> exeName <> "' to '" <> destination <> "'"
     symlinkBinary
       overwritePolicy
@@ -1068,15 +1053,17 @@ installBuiltExe
       finalExeName
       exeName
     where
+      sourceDir = mkSourceBinDir unit
+      exeName = mkExeName exe
+      finalExeName = mkFinalExeName exe
       destination = installdir </> finalExeName
 installBuiltExe
   verbosity
   overwritePolicy
-  sourceDir
-  exeName
-  finalExeName
-  installdir
-  InstallMethodCopy = do
+  InstallExe{installMethod = InstallMethodCopy, installdir, mkSourceBinDir, mkExeName, mkFinalExeName}
+  unit
+  exe
+  = do
     notice verbosity $ "Copying '" <> exeName <> "' to '" <> destination <> "'"
     exists <- doesPathExist destination
     case (exists, overwritePolicy) of
@@ -1085,6 +1072,9 @@ installBuiltExe
       (True, PromptOverwrite) -> maybeOverwrite
       (False, _) -> copy
     where
+      sourceDir = mkSourceBinDir unit
+      exeName = mkExeName exe
+      finalExeName = mkFinalExeName exe
       source = sourceDir </> exeName
       destination = installdir </> finalExeName
       remove = do
