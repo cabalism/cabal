@@ -4,6 +4,8 @@
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TupleSections #-}
+{-# LANGUAGE ViewPatterns #-}
+{-# LANGUAGE BangPatterns #-}
 
 -- | Project configuration, implementation in terms of legacy types.
 module Distribution.Client.ProjectConfig.Legacy
@@ -232,20 +234,26 @@ parseProjectSkeleton cacheDir httpTransport verbosity seenImports source (depthI
     go :: (Int, [ParseUtils.Field]) -> [ParseUtils.Field] -> IO (ParseResult ProjectConfigSkeleton)
     go (depth, acc) (x : xs) = case x of
       (ParseUtils.F l "import" importLoc) ->
+        trace ("ZZZ importing " ++ importLoc ++ " at depth " ++ show depth) $
         if importLoc `elem` (importPath <$> seenImports)
           then pure . parseFail $ ParseUtils.FromString ("cyclical import of " ++ importLoc) (Just l)
           else do
-            let depthImport = ProjectConfigImport 0 importLoc
-            let fs = fmap (\z -> CondNode z [depthImport] mempty) $ fieldsToConfig (reverse acc)
+            let depthNext = depth + 1
+            let !depthImport =
+                  trace ("XXX importing " ++ importLoc ++ " at depth 0") $
+                  ProjectConfigImport 101 {-- depth --} importLoc
+            let fs = fmap (\z -> CondNode z [depthImport] mempty) $ fieldsToConfig depth (reverse acc)
             res <-
-              fetchImportConfig depthImport >>= (\cfg@(depthBump, _) ->
-                let depthImport' = ProjectConfigImport (depth + depthBump) importLoc
-                in parseProjectSkeleton cacheDir httpTransport verbosity (depthImport' : seenImports) importLoc cfg)
-            rest <- go (depth + 1, []) xs
+              fetchImportConfig depthImport >>= (\cfg@(depthBump, sourceNext) ->
+                let !depthImport' =
+                      trace ("YYY importing " ++ importLoc ++ " at next depth " ++ show depth ++ " with bump " ++ show depthBump ++ ", effective depth = " ++ show (depth + depthBump)) $
+                      ProjectConfigImport 202 {-- (depth + depthBump) --} importLoc
+                in parseProjectSkeleton cacheDir httpTransport verbosity (depthImport' : seenImports) importLoc (depth + depthBump, sourceNext))
+            rest <- go (depth, []) xs
             pure . fmap mconcat . sequence $ [fs, res, rest]
       (ParseUtils.Section l "if" p xs') -> do
         subpcs <- go (depth, []) xs'
-        let fs = fmap singletonProjectConfigSkeleton $ fieldsToConfig (reverse acc)
+        let fs = fmap singletonProjectConfigSkeleton $ fieldsToConfig depth (reverse acc)
         (elseClauses, rest) <- parseElseClauses xs
         let condNode =
               (\c pcs e -> CondNode mempty mempty [CondBranch c pcs e])
@@ -256,7 +264,7 @@ parseProjectSkeleton cacheDir httpTransport verbosity seenImports source (depthI
                 <*> elseClauses
         pure . fmap mconcat . sequence $ [fs, condNode, rest]
       _ -> go (depth, (x : acc)) xs
-    go (_depth, acc) [] = pure . fmap singletonProjectConfigSkeleton . fieldsToConfig $ reverse acc
+    go (_depth, acc) [] = pure . fmap singletonProjectConfigSkeleton . fieldsToConfig 707 $ reverse acc
 
     parseElseClauses :: [ParseUtils.Field] -> IO (ParseResult (Maybe ProjectConfigSkeleton), ParseResult ProjectConfigSkeleton)
     parseElseClauses x = case x of
@@ -275,7 +283,7 @@ parseProjectSkeleton cacheDir httpTransport verbosity seenImports source (depthI
         pure (Just <$> condNode, rest)
       _ -> (\r -> (pure Nothing, r)) <$> go (0, []) x
 
-    fieldsToConfig xs = fmap (addProvenance . convertLegacyProjectConfig) $ parseLegacyProjectConfigFields source xs
+    fieldsToConfig depth xs = fmap (addProvenance . convertLegacyProjectConfig) $ parseLegacyProjectConfigFields (depth, source) xs
     addProvenance x = x{projectConfigProvenance = Set.singleton (Explicit source)}
 
     adaptParseError _ (Right x) = pure x
@@ -294,9 +302,9 @@ parseProjectSkeleton cacheDir httpTransport verbosity seenImports source (depthI
         let fp = cacheDir </> map (\x -> if isPathSeparator x then '_' else x) (makeValid $ show uri)
         createDirectoryIfMissing True cacheDir
         _ <- downloadURI httpTransport verbosity uri fp
-        (fmap (1,)) $ BS.readFile fp
+        (fmap (303,)) $ BS.readFile fp
       Nothing ->
-        (fmap (0,)) $
+        (fmap (404,)) $
         BS.readFile $
           if isAbsolute pci then pci else takeDirectory source </> pci
 
@@ -1179,8 +1187,8 @@ convertToLegacyPerPackageConfig PackageConfig{..} =
 -- Parsing and showing the project config file
 --
 
-parseLegacyProjectConfigFields :: FilePath -> [ParseUtils.Field] -> ParseResult LegacyProjectConfig
-parseLegacyProjectConfigFields source =
+parseLegacyProjectConfigFields :: (Int, FilePath) -> [ParseUtils.Field] -> ParseResult LegacyProjectConfig
+parseLegacyProjectConfigFields (depth, source) =
   parseFieldsAndSections
     (legacyProjectConfigFieldDescrs constraintSrc)
     legacyPackageConfigSectionDescrs
@@ -1188,11 +1196,11 @@ parseLegacyProjectConfigFields source =
     mempty
   where
     constraintSrc =
-      let bump = if isJust (parseURI source) then 1 else 0
-      in ConstraintSourceProjectConfig $ ProjectConfigImport bump source
+      let bump = if isJust (parseURI source) then 100 else 1
+      in ConstraintSourceProjectConfig $ ProjectConfigImport (depth + bump) source
 
 parseLegacyProjectConfig :: FilePath -> BS.ByteString -> ParseResult LegacyProjectConfig
-parseLegacyProjectConfig source bs = parseLegacyProjectConfigFields source =<< ParseUtils.readFields bs
+parseLegacyProjectConfig source bs = parseLegacyProjectConfigFields (1000, source) =<< ParseUtils.readFields bs
 
 showLegacyProjectConfig :: LegacyProjectConfig -> String
 showLegacyProjectConfig config =
