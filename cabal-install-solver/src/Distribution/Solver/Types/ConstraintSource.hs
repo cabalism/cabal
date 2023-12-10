@@ -5,6 +5,7 @@ module Distribution.Solver.Types.ConstraintSource
     , showConstraintSource
     , mkProjectConfigImport
     , setProjectImportDepth
+    , getProjectImportDepth
     , getProjectImportPath
     ) where
 
@@ -26,6 +27,11 @@ mkProjectConfigImport tag = ProjectConfigImport [(tag, 0)]
 
 setProjectImportDepth :: String -> Int -> ProjectConfigImport -> ProjectConfigImport
 setProjectImportDepth tag depth pci = pci { importDepth = (tag, depth) : importDepth pci }
+
+getProjectImportDepth :: ProjectConfigImport -> Int
+getProjectImportDepth pci = case importDepth pci of
+    [] -> maxBound
+    (_, depth) : _ -> depth
 
 getProjectImportPath :: ProjectConfigImport -> FilePath
 getProjectImportPath = importPath
