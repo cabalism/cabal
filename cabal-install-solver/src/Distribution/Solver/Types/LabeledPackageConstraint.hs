@@ -3,6 +3,7 @@
 module Distribution.Solver.Types.LabeledPackageConstraint
     ( LabeledPackageConstraint(..)
     , unlabelPackageConstraint
+    , weedLabeledPackageConstraints
     ) where
 
 import Distribution.Compat.Prelude
@@ -32,3 +33,9 @@ showLabeledPackageConstraint _ = ""
 
 unlabelPackageConstraint :: LabeledPackageConstraint -> PackageConstraint
 unlabelPackageConstraint (LabeledPackageConstraint pc _) = pc
+
+weedLabeledPackageConstraints :: [LabeledPackageConstraint] -> [LabeledPackageConstraint]
+weedLabeledPackageConstraints =
+    take 1 .
+    sortBy (comparing (\(LabeledPackageConstraint _ src) ->
+        showConstraintSource src))
