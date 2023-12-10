@@ -238,24 +238,25 @@ parseProjectSkeleton cacheDir httpTransport verbosity seenImports source (depthI
         if importLoc `elem` (getProjectImportPath <$> seenImports)
           then pure . parseFail $ ParseUtils.FromString ("cyclical import of " ++ importLoc) (Just l)
           else do
-            --let depthNext = depth + 1
-            let depthNext = depth
+            let depthNext = depth + 1
             let !depthImport =
-                  trace ("XX " ++ show depth ++ " @" ++ show depthNext ++ " import " ++ importLoc) $
+                  trace ("XX " ++ show depth ++ " @" ++ show depth ++ " import " ++ importLoc) $
                   trace ("XX _ src " ++ src) $
-                  setProjectImportDepth "XXX" depthNext $
-                  mkProjectConfigImport "XXX" importLoc
+                  setProjectImportDepth "XX" depth $
+                  mkProjectConfigImport "XX" importLoc
 
             let fs = fmap (\z -> CondNode z [depthImport] mempty) $ fieldsToConfig "WW" depth (reverse acc)
             res <-
               fetchImportConfig depthImport >>= (\(depthBump, sourceNext) ->
-                let !depthImport' =
-                      trace ("YY " ++ show depth ++ " @" ++ show (depthNext + depthBump + 1) ++ " import " ++ importLoc) $
-                      trace ("YY _ src " ++ src) $
-                      setProjectImportDepth "YYY" (depthNext + depthBump + 1) $
-                      mkProjectConfigImport "YYY" importLoc
+                let depthNextBump = depthNext + depthBump
 
-                in parseProjectSkeleton cacheDir httpTransport verbosity (depthImport' : seenImports) importLoc (depth + depthBump + 1, sourceNext))
+                    !depthImport' =
+                      trace ("YY " ++ show depth ++ " @" ++ show depthNextBump ++ " import " ++ importLoc) $
+                      trace ("YY _ src " ++ src) $
+                      setProjectImportDepth "YY" depthNextBump $
+                      mkProjectConfigImport "YY" importLoc
+
+                in parseProjectSkeleton cacheDir httpTransport verbosity (depthImport' : seenImports) importLoc (depthNextBump, sourceNext))
             rest <- go src depth [] xs
             pure . fmap mconcat . sequence $ [fs, res, rest]
       (ParseUtils.Section l "if" p xs') -> do
@@ -277,9 +278,9 @@ parseProjectSkeleton cacheDir httpTransport verbosity seenImports source (depthI
             trace ("GO _ XS " ++ show (length xs)) $
             go src depth (x : acc) xs
           else
-            trace ("GO " ++ show (depth + 1) ++ " X:ACC=" ++ show (length acc) ++ "  " ++ src) $
+            trace ("GO " ++ show depth ++ " X:ACC=" ++ show (length acc) ++ "  " ++ src) $
             trace ("GO _ XS " ++ show (length xs)) $
-            go src (depth + 1) (x : acc) xs
+            go src depth (x : acc) xs
     go src depth acc [] =
       trace ("GO " ++ show depth ++ " [] " ++ src) $
       pure . fmap singletonProjectConfigSkeleton . fieldsToConfig "UU" depth $ reverse acc
