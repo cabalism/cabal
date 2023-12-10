@@ -14,8 +14,11 @@ import Prelude ()
 
 data ProjectConfigImport =
   ProjectConfigImport
-    { importDepth :: [Int]
+    { importDepth :: Int
+    -- ^ Depth of the import. The main project config file has depth 0, and each
+    -- import increases the depth by 1.
     , importPath :: FilePath
+    -- ^ Path to the imported file contributing to the project config.
     }
     deriving (Eq, Show, Generic)
 
@@ -23,15 +26,13 @@ instance Binary ProjectConfigImport
 instance Structured ProjectConfigImport
 
 mkProjectConfigImport :: FilePath -> ProjectConfigImport
-mkProjectConfigImport = ProjectConfigImport []
+mkProjectConfigImport = ProjectConfigImport 0
 
 setProjectImportDepth :: Int -> ProjectConfigImport -> ProjectConfigImport
-setProjectImportDepth depth pci = pci { importDepth = depth : importDepth pci }
+setProjectImportDepth depth pci = pci { importDepth = depth }
 
 getProjectImportDepth :: ProjectConfigImport -> Int
-getProjectImportDepth pci = case importDepth pci of
-    [] -> maxBound
-    depth : _ -> depth
+getProjectImportDepth pci = importDepth pci
 
 getProjectImportPath :: ProjectConfigImport -> FilePath
 getProjectImportPath = importPath
