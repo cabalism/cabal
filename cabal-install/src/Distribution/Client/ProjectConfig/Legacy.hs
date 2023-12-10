@@ -1,3 +1,4 @@
+{-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleInstances #-}
@@ -5,7 +6,6 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE ViewPatterns #-}
-{-# LANGUAGE BangPatterns #-}
 
 -- | Project configuration, implementation in terms of legacy types.
 module Distribution.Client.ProjectConfig.Legacy
@@ -240,10 +240,12 @@ parseProjectSkeleton cacheDir httpTransport verbosity seenImports source (depthI
             let depthImport = setProjectImportDepth depth $ mkProjectConfigImport importLoc
             let fs = fmap (\z -> CondNode z [depthImport] mempty) $ fieldsToConfig depth (reverse acc)
             res <-
-              fetchImportConfig depthImport >>= (\sourceNext ->
-                let depthNext = depth + 1
-                    depthImport' = setProjectImportDepth depthNext $ mkProjectConfigImport importLoc
-                in parseProjectSkeleton cacheDir httpTransport verbosity (depthImport' : seenImports) importLoc (depthNext, sourceNext))
+              fetchImportConfig depthImport
+                >>= ( \sourceNext ->
+                        let depthNext = depth + 1
+                            depthImport' = setProjectImportDepth depthNext $ mkProjectConfigImport importLoc
+                         in parseProjectSkeleton cacheDir httpTransport verbosity (depthImport' : seenImports) importLoc (depthNext, sourceNext)
+                    )
             rest <- go src depth [] xs
             pure . fmap mconcat . sequence $ [fs, res, rest]
       (ParseUtils.Section l "if" p xs') -> do
@@ -1191,7 +1193,7 @@ parseLegacyProjectConfigFields (depth, source) =
   where
     constraintSrc =
       let bump = if isJust (parseURI source) then 0 else 0
-      in ConstraintSourceProjectConfig $ setProjectImportDepth (depth + bump) $ mkProjectConfigImport source
+       in ConstraintSourceProjectConfig $ setProjectImportDepth (depth + bump) $ mkProjectConfigImport source
 
 parseLegacyProjectConfig :: FilePath -> BS.ByteString -> ParseResult LegacyProjectConfig
 parseLegacyProjectConfig source bs = parseLegacyProjectConfigFields (1000, source) =<< ParseUtils.readFields bs
