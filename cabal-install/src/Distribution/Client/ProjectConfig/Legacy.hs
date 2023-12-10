@@ -188,7 +188,6 @@ import Distribution.Client.HttpUtils
 import Distribution.Client.ReplFlags (multiReplOption)
 import System.Directory (createDirectoryIfMissing)
 import System.FilePath (isAbsolute, isPathSeparator, makeValid, takeDirectory, (</>))
-import Distribution.Solver.Types.ConstraintSource (mkProjectConfigImport)
 
 ------------------------------------------------------------------
 -- Handle extended project config files with conditionals and imports.
@@ -240,28 +239,24 @@ parseProjectSkeleton cacheDir httpTransport verbosity seenImports source (depthI
           else do
             let depthNext = depth + 1
             let !depthImport =
-                  trace ("XX " ++ show depth ++ " @" ++ show depth ++ " import " ++ importLoc) $
-                  trace ("XX _ src " ++ src) $
-                  setProjectImportDepth "XX" depth $
-                  mkProjectConfigImport "XX" importLoc
+                  setProjectImportDepth depth $
+                  mkProjectConfigImport importLoc
 
-            let fs = fmap (\z -> CondNode z [depthImport] mempty) $ fieldsToConfig "WW" depth (reverse acc)
+            let fs = fmap (\z -> CondNode z [depthImport] mempty) $ fieldsToConfig depth (reverse acc)
             res <-
               fetchImportConfig depthImport >>= (\(depthBump, sourceNext) ->
                 let depthNextBump = depthNext + depthBump
 
                     !depthImport' =
-                      trace ("YY " ++ show depth ++ " @" ++ show depthNextBump ++ " import " ++ importLoc) $
-                      trace ("YY _ src " ++ src) $
-                      setProjectImportDepth "YY" depthNextBump $
-                      mkProjectConfigImport "YY" importLoc
+                      setProjectImportDepth depthNextBump $
+                      mkProjectConfigImport importLoc
 
                 in parseProjectSkeleton cacheDir httpTransport verbosity (depthImport' : seenImports) importLoc (depthNextBump, sourceNext))
             rest <- go src depth [] xs
             pure . fmap mconcat . sequence $ [fs, res, rest]
       (ParseUtils.Section l "if" p xs') -> do
         subpcs <- go src depth [] xs'
-        let fs = fmap singletonProjectConfigSkeleton $ fieldsToConfig "VV" depth (reverse acc)
+        let fs = fmap singletonProjectConfigSkeleton $ fieldsToConfig depth (reverse acc)
         (elseClauses, rest) <- parseElseClauses src xs
         let condNode =
               (\c pcs e -> CondNode mempty mempty [CondBranch c pcs e])
@@ -271,19 +266,9 @@ parseProjectSkeleton cacheDir httpTransport verbosity seenImports source (depthI
                 <*> subpcs
                 <*> elseClauses
         pure . fmap mconcat . sequence $ [fs, condNode, rest]
-      _ ->
-        if null acc
-          then
-            trace ("GO " ++ show depth ++ " X:ACC@[] " ++ src) $
-            trace ("GO _ XS " ++ show (length xs)) $
-            go src depth (x : acc) xs
-          else
-            trace ("GO " ++ show depth ++ " X:ACC=" ++ show (length acc) ++ "  " ++ src) $
-            trace ("GO _ XS " ++ show (length xs)) $
-            go src depth (x : acc) xs
-    go src depth acc [] =
-      trace ("GO " ++ show depth ++ " [] " ++ src) $
-      pure . fmap singletonProjectConfigSkeleton . fieldsToConfig "UU" depth $ reverse acc
+      _ -> go src depth (x : acc) xs
+    go _ depth acc [] =
+      pure . fmap singletonProjectConfigSkeleton . fieldsToConfig depth $ reverse acc
 
     parseElseClauses :: FilePath -> [ParseUtils.Field] -> IO (ParseResult (Maybe ProjectConfigSkeleton), ParseResult ProjectConfigSkeleton)
     parseElseClauses src x = case x of
@@ -302,7 +287,7 @@ parseProjectSkeleton cacheDir httpTransport verbosity seenImports source (depthI
         pure (Just <$> condNode, rest)
       _ -> (\r -> (pure Nothing, r)) <$> go src 0 [] x
 
-    fieldsToConfig tag depth xs = fmap (addProvenance . convertLegacyProjectConfig) $ parseLegacyProjectConfigFields tag (depth, source) xs
+    fieldsToConfig depth xs = fmap (addProvenance . convertLegacyProjectConfig) $ parseLegacyProjectConfigFields (depth, source) xs
     addProvenance x = x{projectConfigProvenance = Set.singleton (Explicit source)}
 
     adaptParseError _ (Right x) = pure x
@@ -1206,8 +1191,8 @@ convertToLegacyPerPackageConfig PackageConfig{..} =
 -- Parsing and showing the project config file
 --
 
-parseLegacyProjectConfigFields :: String -> (Int, FilePath) -> [ParseUtils.Field] -> ParseResult LegacyProjectConfig
-parseLegacyProjectConfigFields tag (depth, source) =
+parseLegacyProjectConfigFields :: (Int, FilePath) -> [ParseUtils.Field] -> ParseResult LegacyProjectConfig
+parseLegacyProjectConfigFields (depth, source) =
   parseFieldsAndSections
     (legacyProjectConfigFieldDescrs constraintSrc)
     legacyPackageConfigSectionDescrs
@@ -1216,10 +1201,10 @@ parseLegacyProjectConfigFields tag (depth, source) =
   where
     constraintSrc =
       let bump = if isJust (parseURI source) then 0 else 0
-      in ConstraintSourceProjectConfig $ setProjectImportDepth tag (depth + bump) $ mkProjectConfigImport tag source
+      in ConstraintSourceProjectConfig $ setProjectImportDepth (depth + bump) $ mkProjectConfigImport source
 
 parseLegacyProjectConfig :: FilePath -> BS.ByteString -> ParseResult LegacyProjectConfig
-parseLegacyProjectConfig source bs = parseLegacyProjectConfigFields "AAA" (1000, source) =<< ParseUtils.readFields bs
+parseLegacyProjectConfig source bs = parseLegacyProjectConfigFields (1000, source) =<< ParseUtils.readFields bs
 
 showLegacyProjectConfig :: LegacyProjectConfig -> String
 showLegacyProjectConfig config =
@@ -1234,7 +1219,7 @@ showLegacyProjectConfig config =
     -- Note: ConstraintSource is unused when pretty-printing. We fake
     -- it here to avoid having to pass it on call-sites. It's not great
     -- but requires re-work of how we annotate provenance.
-    constraintSrc = ConstraintSourceProjectConfig $ mkProjectConfigImport "BBB" "unused"
+    constraintSrc = ConstraintSourceProjectConfig $ mkProjectConfigImport "unused"
 
 legacyProjectConfigFieldDescrs :: ConstraintSource -> [FieldDescr LegacyProjectConfig]
 legacyProjectConfigFieldDescrs constraintSrc =
