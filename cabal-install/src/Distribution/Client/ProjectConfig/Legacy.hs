@@ -244,14 +244,12 @@ parseProjectSkeleton cacheDir httpTransport verbosity seenImports source (depthI
 
             let fs = fmap (\z -> CondNode z [depthImport] mempty) $ fieldsToConfig depth (reverse acc)
             res <-
-              fetchImportConfig depthImport >>= (\(depthBump, sourceNext) ->
-                let depthNextBump = depthNext + depthBump
-
-                    !depthImport' =
-                      setProjectImportDepth depthNextBump $
+              fetchImportConfig depthImport >>= (\sourceNext ->
+                let !depthImport' =
+                      setProjectImportDepth depthNext $
                       mkProjectConfigImport importLoc
 
-                in parseProjectSkeleton cacheDir httpTransport verbosity (depthImport' : seenImports) importLoc (depthNextBump, sourceNext))
+                in parseProjectSkeleton cacheDir httpTransport verbosity (depthImport' : seenImports) importLoc (depthNext, sourceNext))
             rest <- go src depth [] xs
             pure . fmap mconcat . sequence $ [fs, res, rest]
       (ParseUtils.Section l "if" p xs') -> do
@@ -300,15 +298,14 @@ parseProjectSkeleton cacheDir httpTransport verbosity seenImports source (depthI
         addWarnings x' = x'
     liftPR _ (ParseFailed e) = pure $ ParseFailed e
 
-    fetchImportConfig :: ProjectConfigImport -> IO (Int, BS.ByteString)
+    fetchImportConfig :: ProjectConfigImport -> IO BS.ByteString
     fetchImportConfig (getProjectImportPath -> pci) = case parseURI pci of
       Just uri -> do
         let fp = cacheDir </> map (\x -> if isPathSeparator x then '_' else x) (makeValid $ show uri)
         createDirectoryIfMissing True cacheDir
         _ <- downloadURI httpTransport verbosity uri fp
-        (fmap (0,)) $ BS.readFile fp
+        BS.readFile fp
       Nothing ->
-        (fmap (0,)) $
         BS.readFile $
           if isAbsolute pci then pci else takeDirectory source </> pci
 
