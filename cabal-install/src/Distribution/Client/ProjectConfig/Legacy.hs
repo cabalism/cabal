@@ -229,10 +229,10 @@ projectSkeletonImports = view traverseCondTreeC
 
 parseProjectSkeleton :: FilePath -> HttpTransport -> Verbosity -> [ProjectConfigImport] -> FilePath -> (Int, BS.ByteString) -> IO (ParseResult ProjectConfigSkeleton)
 parseProjectSkeleton cacheDir httpTransport verbosity seenImports source (depthInitial, bs) =
-  (sanityWalkPCS False =<<) <$> liftPR (go source depthInitial []) (ParseUtils.readFields bs)
+  (sanityWalkPCS False =<<) <$> liftPR (go depthInitial []) (ParseUtils.readFields bs)
   where
-    go :: FilePath -> Int -> [ParseUtils.Field] -> [ParseUtils.Field] -> IO (ParseResult ProjectConfigSkeleton)
-    go src depth acc (x : xs) = case x of
+    go :: Int -> [ParseUtils.Field] -> [ParseUtils.Field] -> IO (ParseResult ProjectConfigSkeleton)
+    go depth acc (x : xs) = case x of
       (ParseUtils.F l "import" importLoc) ->
         if importLoc `elem` (getProjectImportPath <$> seenImports)
           then pure . parseFail $ ParseUtils.FromString ("cyclical import of " ++ importLoc) (Just l)
@@ -246,12 +246,12 @@ parseProjectSkeleton cacheDir httpTransport verbosity seenImports source (depthI
                             depthImport' = setProjectImportDepth depthNext $ mkProjectConfigImport importLoc
                          in parseProjectSkeleton cacheDir httpTransport verbosity (depthImport' : seenImports) importLoc (depthNext, sourceNext)
                     )
-            rest <- go src depth [] xs
+            rest <- go depth [] xs
             pure . fmap mconcat . sequence $ [fs, res, rest]
       (ParseUtils.Section l "if" p xs') -> do
-        subpcs <- go src depth [] xs'
+        subpcs <- go depth [] xs'
         let fs = fmap singletonProjectConfigSkeleton $ fieldsToConfig depth (reverse acc)
-        (elseClauses, rest) <- parseElseClauses src xs
+        (elseClauses, rest) <- parseElseClauses xs
         let condNode =
               (\c pcs e -> CondNode mempty mempty [CondBranch c pcs e])
                 <$>
@@ -260,25 +260,25 @@ parseProjectSkeleton cacheDir httpTransport verbosity seenImports source (depthI
                 <*> subpcs
                 <*> elseClauses
         pure . fmap mconcat . sequence $ [fs, condNode, rest]
-      _ -> go src depth (x : acc) xs
-    go _ depth acc [] = pure . fmap singletonProjectConfigSkeleton . fieldsToConfig depth $ reverse acc
+      _ -> go depth (x : acc) xs
+    go depth acc [] = pure . fmap singletonProjectConfigSkeleton . fieldsToConfig depth $ reverse acc
 
-    parseElseClauses :: FilePath -> [ParseUtils.Field] -> IO (ParseResult (Maybe ProjectConfigSkeleton), ParseResult ProjectConfigSkeleton)
-    parseElseClauses src x = case x of
+    parseElseClauses :: [ParseUtils.Field] -> IO (ParseResult (Maybe ProjectConfigSkeleton), ParseResult ProjectConfigSkeleton)
+    parseElseClauses x = case x of
       (ParseUtils.Section _l "else" _p xs' : xs) -> do
-        subpcs <- go src 0 [] xs'
-        rest <- go src 0 [] xs
+        subpcs <- go 0 [] xs'
+        rest <- go 0 [] xs
         pure (Just <$> subpcs, rest)
       (ParseUtils.Section l "elif" p xs' : xs) -> do
-        subpcs <- go src 0 [] xs'
-        (elseClauses, rest) <- parseElseClauses src xs
+        subpcs <- go 0 [] xs'
+        (elseClauses, rest) <- parseElseClauses xs
         let condNode =
               (\c pcs e -> CondNode mempty mempty [CondBranch c pcs e])
                 <$> adaptParseError l (parseConditionConfVarFromClause . BS.pack $ "else(" <> p <> ")")
                 <*> subpcs
                 <*> elseClauses
         pure (Just <$> condNode, rest)
-      _ -> (\r -> (pure Nothing, r)) <$> go src 0 [] x
+      _ -> (\r -> (pure Nothing, r)) <$> go 0 [] x
 
     fieldsToConfig depth xs = fmap (addProvenance . convertLegacyProjectConfig) $ parseLegacyProjectConfigFields (depth, source) xs
     addProvenance x = x{projectConfigProvenance = Set.singleton (Explicit source)}
