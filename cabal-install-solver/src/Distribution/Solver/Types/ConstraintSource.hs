@@ -1,8 +1,11 @@
 {-# LANGUAGE DeriveGeneric #-}
 module Distribution.Solver.Types.ConstraintSource
     ( ConstraintSource(..)
-    , ProjectConfigImport(..)
+    , ProjectConfigImport
     , showConstraintSource
+    , mkProjectConfigImport
+    , setProjectImportDepth
+    , getProjectImportPath
     ) where
 
 import Distribution.Solver.Compat.Prelude
@@ -10,13 +13,22 @@ import Prelude ()
 
 data ProjectConfigImport =
   ProjectConfigImport
-    { importDepth :: Int
+    { importDepth :: [(String, Int)]
     , importPath :: FilePath
     }
     deriving (Eq, Show, Generic)
 
 instance Binary ProjectConfigImport
 instance Structured ProjectConfigImport
+
+mkProjectConfigImport :: String -> FilePath -> ProjectConfigImport
+mkProjectConfigImport tag = ProjectConfigImport [(tag, 0)]
+
+setProjectImportDepth :: String -> Int -> ProjectConfigImport -> ProjectConfigImport
+setProjectImportDepth tag depth pci = pci { importDepth = (tag, depth) : importDepth pci }
+
+getProjectImportPath :: ProjectConfigImport -> FilePath
+getProjectImportPath = importPath
 
 -- | Source of a 'PackageConstraint'.
 data ConstraintSource =
