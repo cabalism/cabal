@@ -230,10 +230,10 @@ projectSkeletonImports = view traverseCondTreeC
 
 parseProjectSkeleton :: FilePath -> HttpTransport -> Verbosity -> [ProjectConfigImport] -> FilePath -> (Int, BS.ByteString) -> IO (ParseResult ProjectConfigSkeleton)
 parseProjectSkeleton cacheDir httpTransport verbosity seenImports source (depthInitial, bs) =
-  (sanityWalkPCS False =<<) <$> liftPR (go (depthInitial, [])) (ParseUtils.readFields bs)
+  (sanityWalkPCS False =<<) <$> liftPR (go depthInitial []) (ParseUtils.readFields bs)
   where
-    go :: (Int, [ParseUtils.Field]) -> [ParseUtils.Field] -> IO (ParseResult ProjectConfigSkeleton)
-    go (depth, acc) (x : xs) = case x of
+    go :: Int -> [ParseUtils.Field] -> [ParseUtils.Field] -> IO (ParseResult ProjectConfigSkeleton)
+    go depth acc (x : xs) = case x of
       (ParseUtils.F l "import" importLoc) ->
         trace ("ZZZ importing " ++ importLoc ++ " at depth " ++ show depth) $
         if importLoc `elem` (getProjectImportPath <$> seenImports)
@@ -241,24 +241,23 @@ parseProjectSkeleton cacheDir httpTransport verbosity seenImports source (depthI
           else do
             let depthNext = depth + 1
             let !depthImport =
-                  trace ("XXX importing " ++ importLoc ++ " at depthNext " ++ show depthNext) $
+                  trace ("XXX importing " ++ importLoc ++ " at next depth " ++ show depthNext) $
                   setProjectImportDepth "XXX" depthNext $
                   mkProjectConfigImport "XXX" importLoc
 
-                  --ProjectConfigImport 101 {-- depth --} importLoc
             let fs = fmap (\z -> CondNode z [depthImport] mempty) $ fieldsToConfig "WWW" depth (reverse acc)
             res <-
-              fetchImportConfig depthImport >>= (\cfg@(depthBump, sourceNext) ->
+              fetchImportConfig depthImport >>= (\(depthBump, sourceNext) ->
                 let !depthImport' =
-                      trace ("YYY importing " ++ importLoc ++ " at next depth " ++ show depth ++ " with bump " ++ show depthBump ++ ", effective depth = " ++ show (depth + depthBump)) $
+                      trace ("YYY importing " ++ importLoc ++ " at next depth " ++ show depthNext ++ " with bump " ++ show depthBump ++ ", effective depth = " ++ show (depthNext + depthBump)) $
                       setProjectImportDepth "YYY" (depthNext + depthBump) $
                       mkProjectConfigImport "YYY" importLoc
 
                 in parseProjectSkeleton cacheDir httpTransport verbosity (depthImport' : seenImports) importLoc (depth + depthBump, sourceNext))
-            rest <- go (depth, []) xs
+            rest <- go depth [] xs
             pure . fmap mconcat . sequence $ [fs, res, rest]
       (ParseUtils.Section l "if" p xs') -> do
-        subpcs <- go (depth, []) xs'
+        subpcs <- go depth [] xs'
         let fs = fmap singletonProjectConfigSkeleton $ fieldsToConfig "VVV" depth (reverse acc)
         (elseClauses, rest) <- parseElseClauses xs
         let condNode =
@@ -269,17 +268,18 @@ parseProjectSkeleton cacheDir httpTransport verbosity seenImports source (depthI
                 <*> subpcs
                 <*> elseClauses
         pure . fmap mconcat . sequence $ [fs, condNode, rest]
-      _ -> go (depth, (x : acc)) xs
-    go (depth, acc) [] = pure . fmap singletonProjectConfigSkeleton . fieldsToConfig "UUU" (depth + 1) $ reverse acc
+      _ -> go depth (x : acc) xs
+    go depth acc [] =
+      pure . fmap singletonProjectConfigSkeleton . fieldsToConfig "UUU" depth $ reverse acc
 
     parseElseClauses :: [ParseUtils.Field] -> IO (ParseResult (Maybe ProjectConfigSkeleton), ParseResult ProjectConfigSkeleton)
     parseElseClauses x = case x of
       (ParseUtils.Section _l "else" _p xs' : xs) -> do
-        subpcs <- go (0, []) xs'
-        rest <- go (0, []) xs
+        subpcs <- go 0 [] xs'
+        rest <- go 0 [] xs
         pure (Just <$> subpcs, rest)
       (ParseUtils.Section l "elif" p xs' : xs) -> do
-        subpcs <- go (0, []) xs'
+        subpcs <- go 0 [] xs'
         (elseClauses, rest) <- parseElseClauses xs
         let condNode =
               (\c pcs e -> CondNode mempty mempty [CondBranch c pcs e])
@@ -287,7 +287,7 @@ parseProjectSkeleton cacheDir httpTransport verbosity seenImports source (depthI
                 <*> subpcs
                 <*> elseClauses
         pure (Just <$> condNode, rest)
-      _ -> (\r -> (pure Nothing, r)) <$> go (0, []) x
+      _ -> (\r -> (pure Nothing, r)) <$> go 0 [] x
 
     fieldsToConfig tag depth xs = fmap (addProvenance . convertLegacyProjectConfig) $ parseLegacyProjectConfigFields tag (depth, source) xs
     addProvenance x = x{projectConfigProvenance = Set.singleton (Explicit source)}
