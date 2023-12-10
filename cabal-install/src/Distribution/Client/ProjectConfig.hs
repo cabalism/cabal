@@ -224,7 +224,7 @@ import System.IO
   , withBinaryFile
   )
 
-import Distribution.Solver.Types.ConstraintSource (getProjectImportPath)
+import Distribution.Solver.Types.ConstraintSource (ProjectConfigImport(importPath))
 
 ----------------------------------------
 -- Resolving configuration to settings
@@ -751,7 +751,7 @@ readProjectFileSkeleton
       then do
         monitorFiles [monitorFileHashed extensionFile]
         pcs <- liftIO readExtensionFile
-        monitorFiles $ map monitorFileHashed (getProjectImportPath <$> projectSkeletonImports pcs)
+        monitorFiles $ map monitorFileHashed (importPath <$> projectSkeletonImports pcs)
         pure pcs
       else do
         monitorFiles [monitorNonExistentFile extensionFile]
@@ -798,7 +798,7 @@ readGlobalConfig verbosity configFileFlag = do
 reportParseResult :: Verbosity -> String -> FilePath -> OldParser.ParseResult ProjectConfigSkeleton -> IO ProjectConfigSkeleton
 reportParseResult verbosity _filetype filename (OldParser.ParseOk warnings x) = do
   unless (null warnings) $
-    let msg = unlines (map (OldParser.showPWarning (intercalate ", " $ filename : (getProjectImportPath <$> projectSkeletonImports x))) warnings)
+    let msg = unlines (map (OldParser.showPWarning (intercalate ", " $ filename : (importPath <$> projectSkeletonImports x))) warnings)
      in warn verbosity msg
   return x
 reportParseResult verbosity filetype filename (OldParser.ParseFailed err) =

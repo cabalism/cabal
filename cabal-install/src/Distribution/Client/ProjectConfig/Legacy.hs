@@ -234,16 +234,16 @@ parseProjectSkeleton cacheDir httpTransport verbosity seenImports source (depthI
     go :: Int -> [ParseUtils.Field] -> [ParseUtils.Field] -> IO (ParseResult ProjectConfigSkeleton)
     go depth acc (x : xs) = case x of
       (ParseUtils.F l "import" importLoc) ->
-        if importLoc `elem` (getProjectImportPath <$> seenImports)
+        if importLoc `elem` (importPath <$> seenImports)
           then pure . parseFail $ ParseUtils.FromString ("cyclical import of " ++ importLoc) (Just l)
           else do
-            let depthImport = setProjectImportDepth depth $ mkProjectConfigImport importLoc
+            let depthImport = ProjectConfigImport depth importLoc
             let fs = fmap (\z -> CondNode z [depthImport] mempty) $ fieldsToConfig depth (reverse acc)
             res <-
               fetchImportConfig depthImport
                 >>= ( \sourceNext ->
                         let depthNext = depth + 1
-                            depthImport' = setProjectImportDepth depthNext $ mkProjectConfigImport importLoc
+                            depthImport' = ProjectConfigImport depthNext importLoc
                          in parseProjectSkeleton cacheDir httpTransport verbosity (depthImport' : seenImports) importLoc (depthNext, sourceNext)
                     )
             rest <- go depth [] xs
@@ -294,7 +294,7 @@ parseProjectSkeleton cacheDir httpTransport verbosity seenImports source (depthI
     liftPR _ (ParseFailed e) = pure $ ParseFailed e
 
     fetchImportConfig :: ProjectConfigImport -> IO BS.ByteString
-    fetchImportConfig (getProjectImportPath -> pci) = case parseURI pci of
+    fetchImportConfig (importPath -> pci) = case parseURI pci of
       Just uri -> do
         let fp = cacheDir </> map (\x -> if isPathSeparator x then '_' else x) (makeValid $ show uri)
         createDirectoryIfMissing True cacheDir
@@ -1193,7 +1193,7 @@ parseLegacyProjectConfigFields (depth, source) =
   where
     constraintSrc =
       let bump = if isJust (parseURI source) then 0 else 0
-       in ConstraintSourceProjectConfig $ setProjectImportDepth (depth + bump) $ mkProjectConfigImport source
+       in ConstraintSourceProjectConfig $ ProjectConfigImport (depth + bump) source
 
 parseLegacyProjectConfig :: FilePath -> BS.ByteString -> ParseResult LegacyProjectConfig
 parseLegacyProjectConfig source bs = parseLegacyProjectConfigFields (1000, source) =<< ParseUtils.readFields bs
@@ -1211,7 +1211,7 @@ showLegacyProjectConfig config =
     -- Note: ConstraintSource is unused when pretty-printing. We fake
     -- it here to avoid having to pass it on call-sites. It's not great
     -- but requires re-work of how we annotate provenance.
-    constraintSrc = ConstraintSourceProjectConfig $ mkProjectConfigImport "unused"
+    constraintSrc = ConstraintSourceProjectConfig $ ProjectConfigImport 0 "unused"
 
 legacyProjectConfigFieldDescrs :: ConstraintSource -> [FieldDescr LegacyProjectConfig]
 legacyProjectConfigFieldDescrs constraintSrc =
