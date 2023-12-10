@@ -14,7 +14,7 @@ import Prelude ()
 
 data ProjectConfigImport =
   ProjectConfigImport
-    { importDepth :: [(String, Int)]
+    { importDepth :: [Int]
     , importPath :: FilePath
     }
     deriving (Eq, Show, Generic)
@@ -22,16 +22,16 @@ data ProjectConfigImport =
 instance Binary ProjectConfigImport
 instance Structured ProjectConfigImport
 
-mkProjectConfigImport :: String -> FilePath -> ProjectConfigImport
-mkProjectConfigImport tag = ProjectConfigImport [(tag, 0)]
+mkProjectConfigImport :: FilePath -> ProjectConfigImport
+mkProjectConfigImport = ProjectConfigImport []
 
-setProjectImportDepth :: String -> Int -> ProjectConfigImport -> ProjectConfigImport
-setProjectImportDepth tag depth pci = pci { importDepth = (tag, depth) : importDepth pci }
+setProjectImportDepth :: Int -> ProjectConfigImport -> ProjectConfigImport
+setProjectImportDepth depth pci = pci { importDepth = depth : importDepth pci }
 
 getProjectImportDepth :: ProjectConfigImport -> Int
 getProjectImportDepth pci = case importDepth pci of
     [] -> maxBound
-    (_, depth) : _ -> depth
+    depth : _ -> depth
 
 getProjectImportPath :: ProjectConfigImport -> FilePath
 getProjectImportPath = importPath
