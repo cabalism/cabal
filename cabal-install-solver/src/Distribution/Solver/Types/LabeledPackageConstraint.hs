@@ -38,7 +38,7 @@ weedLabeledPackageConstraints :: [LabeledPackageConstraint] -> [LabeledPackageCo
 weedLabeledPackageConstraints =
     -- Partition into ConstraintSourceProjectConfig and rest, pick one of former.
     (\(xs, ys) -> take 1 (sortBy (comparing (\(LabeledPackageConstraint _ src) -> case src of
-        ConstraintSourceProjectConfig pci -> getProjectImportDepth pci
+        ConstraintSourceProjectConfig pci -> importDepth pci
         _ -> maxBound)) xs) ++ ys
     )
     . partition (\(LabeledPackageConstraint _ src) -> case src of
