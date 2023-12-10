@@ -36,6 +36,11 @@ unlabelPackageConstraint (LabeledPackageConstraint pc _) = pc
 
 weedLabeledPackageConstraints :: [LabeledPackageConstraint] -> [LabeledPackageConstraint]
 weedLabeledPackageConstraints =
-    take 1 .
-    sortBy (comparing (\(LabeledPackageConstraint _ src) ->
-        showConstraintSource src))
+    -- Partition into ConstraintSourceProjectConfig and rest, pick one of former.
+    (\(xs, ys) -> take 1 (sortBy (comparing (\(LabeledPackageConstraint _ src) -> case src of
+        ConstraintSourceProjectConfig pci -> getProjectImportDepth pci
+        _ -> maxBound)) xs) ++ ys
+    )
+    . partition (\(LabeledPackageConstraint _ src) -> case src of
+            ConstraintSourceProjectConfig{} -> True
+            _ -> False)
