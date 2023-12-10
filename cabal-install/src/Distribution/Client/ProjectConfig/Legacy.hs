@@ -270,11 +270,16 @@ parseProjectSkeleton cacheDir httpTransport verbosity seenImports source (depthI
                 <*> elseClauses
         pure . fmap mconcat . sequence $ [fs, condNode, rest]
       _ ->
-        trace ("GO " ++ show depth ++ " X:ACC " ++ src) $
-        go src (depth + 1) (x : acc) xs
+        if null acc
+          then
+            trace ("GO " ++ show depth ++ " X:ACC@[]" ++ src) $
+            go src depth (x : acc) xs
+          else
+            trace ("GO " ++ show (depth + 1) ++ " X:ACC " ++ src) $
+            go src (depth + 1) (x : acc) xs
     go src depth acc [] =
       trace ("GO " ++ show depth ++ " [] " ++ src) $
-      pure . fmap singletonProjectConfigSkeleton . fieldsToConfig "UUU" (depth + 1) $ reverse acc
+      pure . fmap singletonProjectConfigSkeleton . fieldsToConfig "UUU" depth $ reverse acc
 
     parseElseClauses :: FilePath -> [ParseUtils.Field] -> IO (ParseResult (Maybe ProjectConfigSkeleton), ParseResult ProjectConfigSkeleton)
     parseElseClauses src x = case x of
