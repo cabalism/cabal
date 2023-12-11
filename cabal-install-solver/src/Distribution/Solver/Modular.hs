@@ -1,6 +1,5 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE ViewPatterns #-}
 
 module Distribution.Solver.Modular
          ( modularResolver, SolverConfig(..), PruneAfterFirstSuccess(..) ) where
@@ -122,14 +121,14 @@ solve' :: SolverConfig
        -> Map PN [LabeledPackageConstraint]
        -> Set PN
        -> Progress String String (Assignment, RevDepMap)
-solve' sc cinfo idx pkgConfigDB pprefs (fmap weedLabeledPackageConstraints -> gcs) pns =
+solve' sc cinfo idx pkgConfigDB pprefs gcs pns =
     toProgress $ retry (runSolver printFullLog sc) createErrorMsg
   where
     runSolver :: Bool -> SolverConfig
               -> RetryLog String SolverFailure (Assignment, RevDepMap)
     runSolver keepLog sc' =
         displayLogMessages keepLog $
-        solve sc' cinfo idx pkgConfigDB pprefs gcs pns
+        solve sc' cinfo idx pkgConfigDB pprefs (weedLabeledPackageConstraints <$> gcs) pns
 
     createErrorMsg :: SolverFailure
                    -> RetryLog String String (Assignment, RevDepMap)
