@@ -66,7 +66,7 @@ modularResolver sc (Platform arch os) cinfo iidx sidx pkgConfigDB pprefs pcs pns
       -- Indices have to be converted into solver-specific uniform index.
       idx    = convPIs os arch cinfo gcs (shadowPkgs sc) (strongFlags sc) (solveExecutables sc) iidx sidx
       -- Constraints have to be converted into a finite map indexed by PN.
-      gcs    = M.fromListWith (++) (map pair $ traceShowId pcs)
+      gcs    = M.fromListWith (++) (map pair pcs)
         where
           pair lpc = (pcName $ unlabelPackageConstraint lpc, [lpc])
 
