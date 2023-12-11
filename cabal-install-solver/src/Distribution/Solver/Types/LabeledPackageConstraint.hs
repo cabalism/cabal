@@ -35,15 +35,33 @@ showLabeledPackageConstraint _ = ""
 unlabelPackageConstraint :: LabeledPackageConstraint -> PackageConstraint
 unlabelPackageConstraint (LabeledPackageConstraint pc _) = pc
 
--- | Weed out potential package version conflicts by picking one version
--- equality constraint with the lowest import depth and discarding the rest.
--- Constraints such as installed, source, flags and stanzas are untouched by
--- weeding.
+-- | Weed out potential package version conflicts for each package by picking
+-- version equality constraints with the lowest import depth and discarding the
+-- rest.  Constraints such as installed, source, flags and stanzas are untouched
+-- by weeding.
+--
+-- Flags that may have applied to weeded version equality constraints may be
+-- orphaned.
 weedLabeledPackageConstraints :: [LabeledPackageConstraint] -> [LabeledPackageConstraint]
 weedLabeledPackageConstraints =
-    (\(xs, ys) -> take 1 (sortBy (comparing (\(LabeledPackageConstraint _ src) -> case src of
-        ConstraintSourceProjectConfig pci -> importDepth pci
-        _ -> maxBound)) xs) ++ ys
+    (\(xs, ys) ->
+        let xsSorted = sortBy (comparing (\(LabeledPackageConstraint _ src) -> case src of
+                ConstraintSourceProjectConfig pci -> importDepth pci
+                _ -> maxBound)) xs
+
+            xsWeeded = case xsSorted of
+                [] -> []
+                (LabeledPackageConstraint _ srcX) : _ -> case srcX of
+                    ConstraintSourceProjectConfig ProjectConfigImport{importDepth = dX} ->
+                        filter
+                            (\(LabeledPackageConstraint _ srcY) -> case srcY of
+                                ConstraintSourceProjectConfig ProjectConfigImport{importDepth = dY} ->
+                                    dX == dY
+                                _ -> False)
+                            xsSorted
+                    _ -> xsSorted
+
+        in xsWeeded ++ ys
     )
     . partition isVersionEqualityConstraint
 
