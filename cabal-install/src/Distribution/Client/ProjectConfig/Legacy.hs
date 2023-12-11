@@ -242,8 +242,8 @@ parseProjectSkeleton cacheDir httpTransport verbosity seenImports source (depthI
               fetchImportConfig depthImport
                 >>= ( \sourceNext ->
                         let depthNext = depth + 1
-                            depthImport' = ProjectConfigImport depthNext importLoc
-                         in parseProjectSkeleton cacheDir httpTransport verbosity (depthImport' : seenImports) importLoc (depthNext, sourceNext)
+                            imports = ProjectConfigImport depthNext importLoc : seenImports
+                         in parseProjectSkeleton cacheDir httpTransport verbosity imports importLoc (depthNext, sourceNext)
                     )
             rest <- go depth [] xs
             pure . fmap mconcat . sequence $ [fs, res, rest]
