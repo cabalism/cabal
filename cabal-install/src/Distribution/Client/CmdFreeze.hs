@@ -174,16 +174,15 @@ projectFreezeConfig
   -> ActiveRepos
   -> ProjectConfig
 projectFreezeConfig elaboratedPlan totalIndexState activeRepos0 =
-  trace (InstallPlan.showInstallPlan elaboratedPlan) $
-    mempty
-      { projectConfigShared =
-          mempty
-            { projectConfigConstraints =
-                concat (Map.elems (projectFreezeConstraints elaboratedPlan))
-            , projectConfigIndexState = Flag totalIndexState
-            , projectConfigActiveRepos = Flag activeRepos
-            }
-      }
+  mempty
+    { projectConfigShared =
+        mempty
+          { projectConfigConstraints =
+              concat (Map.elems (projectFreezeConstraints elaboratedPlan))
+          , projectConfigIndexState = Flag totalIndexState
+          , projectConfigActiveRepos = Flag activeRepos
+          }
+    }
   where
     activeRepos :: ActiveRepos
     activeRepos = filterSkippedActiveRepos activeRepos0
