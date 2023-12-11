@@ -11,6 +11,7 @@ import Prelude ()
 import Distribution.Solver.Types.ConstraintSource
 import Distribution.Solver.Types.PackageConstraint
 import Distribution.Types.PackageName
+import Distribution.Types.VersionRange
 
 -- | 'PackageConstraint' labeled with its source.
 data LabeledPackageConstraint
@@ -34,13 +35,21 @@ showLabeledPackageConstraint _ = ""
 unlabelPackageConstraint :: LabeledPackageConstraint -> PackageConstraint
 unlabelPackageConstraint (LabeledPackageConstraint pc _) = pc
 
+-- | Weed out potential package version conflicts by picking one version
+-- equality constraint with the lowest import depth and discarding the rest.
+-- Constraints such as installed, source, flags and stanzas are untouched by
+-- weeding.
 weedLabeledPackageConstraints :: [LabeledPackageConstraint] -> [LabeledPackageConstraint]
 weedLabeledPackageConstraints =
-    -- Partition into ConstraintSourceProjectConfig and rest, pick one of former.
     (\(xs, ys) -> take 1 (sortBy (comparing (\(LabeledPackageConstraint _ src) -> case src of
         ConstraintSourceProjectConfig pci -> importDepth pci
         _ -> maxBound)) xs) ++ ys
     )
-    . partition (\(LabeledPackageConstraint _ src) -> case src of
-            ConstraintSourceProjectConfig{} -> True
-            _ -> False)
+    . partition isVersionEqualityConstraint
+
+isVersionEqualityConstraint :: LabeledPackageConstraint -> Bool
+isVersionEqualityConstraint (LabeledPackageConstraint constraint source)
+    | ConstraintSourceProjectConfig{} <- source
+    , PackageConstraint _ (PackagePropertyVersion versionRange) <- constraint
+    , ThisVersionF _ <- projectVersionRange versionRange = True
+    | otherwise = False
