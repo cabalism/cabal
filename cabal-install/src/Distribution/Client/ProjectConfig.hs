@@ -224,7 +224,7 @@ import System.IO
   , withBinaryFile
   )
 
-import Distribution.Solver.Types.ConstraintSource (ProjectConfigImport(importPath))
+import Distribution.Solver.Types.ConstraintSource (ProjectConfigImport (importPath))
 
 ----------------------------------------
 -- Resolving configuration to settings
