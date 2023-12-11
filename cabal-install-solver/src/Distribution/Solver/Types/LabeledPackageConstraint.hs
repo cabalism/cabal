@@ -48,8 +48,7 @@ unscopePackageConstraint (PackageConstraint scope _) = scope
 -- rest.  Constraints such as installed, source, flags and stanzas are untouched
 -- by weeding.
 --
--- Flags that may have applied to weeded version equality constraints may be
--- orphaned.
+-- Flags that may have applied to weeded versions of a package may be orphaned.
 weedLabeledPackageConstraints :: [LabeledPackageConstraint] -> [LabeledPackageConstraint]
 weedLabeledPackageConstraints =
     (\(xs, ys) ->
