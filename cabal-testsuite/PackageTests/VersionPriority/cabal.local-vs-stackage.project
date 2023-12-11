@@ -1,0 +1,10 @@
+packages: .
+
+-- hash "foo" = 250092161292133802
+constraints: hashable ==1.4.2.0
+
+-- hashable ==1.4.3.0
+-- hash "foo" = 4462868336266686512
+import: https://www.stackage.org/nightly-2023-12-07/cabal.config
+
+
