@@ -1190,9 +1190,7 @@ parseLegacyProjectConfigFields (depth, source) =
     legacyPackageConfigFGSectionDescrs
     mempty
   where
-    constraintSrc =
-      let bump = if isJust (parseURI source) then 0 else 0
-       in ConstraintSourceProjectConfig $ ProjectConfigImport (depth + bump) source
+    constraintSrc = ConstraintSourceProjectConfig $ ProjectConfigImport depth source
 
 parseLegacyProjectConfig :: FilePath -> BS.ByteString -> ParseResult LegacyProjectConfig
 parseLegacyProjectConfig source bs = parseLegacyProjectConfigFields (1000, source) =<< ParseUtils.readFields bs
