@@ -1,0 +1,4 @@
+packages: .
+import: cabal.2a-local.project
+
+constraints: hashable ==1.4.2.0
