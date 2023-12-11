@@ -6,7 +6,6 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 -- TODO
 {-# OPTIONS_GHC -fno-warn-incomplete-uni-patterns #-}
-{-# OPTIONS_GHC -fprint-potential-instances #-}
 
 -----------------------------------------------------------------------------
 
