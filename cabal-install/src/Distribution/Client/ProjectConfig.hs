@@ -761,8 +761,15 @@ readProjectFileSkeleton
 
       readExtensionFile =
         reportParseResult verbosity extensionDescription extensionFile
-          =<< parseProjectSkeleton distDownloadSrcDirectory httpTransport verbosity [] extensionFile
-          =<< (fmap (0,) $ BS.readFile extensionFile)
+          =<< ( parseProjectSkeleton
+                  distDownloadSrcDirectory
+                  httpTransport
+                  verbosity
+                  []
+                  extensionFile
+                  . (0,)
+              )
+          =<< BS.readFile extensionFile
 
 -- | Render the 'ProjectConfig' format.
 --
