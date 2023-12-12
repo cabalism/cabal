@@ -1,0 +1,3 @@
+packages: .
+import: stackage-web.config
+constraints: hashable ==1.4.2.0

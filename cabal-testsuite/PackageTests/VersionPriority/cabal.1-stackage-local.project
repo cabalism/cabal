@@ -1,6 +1,0 @@
-packages: .
-
--- hash "foo" = 250092161292133802
-constraints: hashable ==1.4.2.0
-
-import: stackage-local.config
