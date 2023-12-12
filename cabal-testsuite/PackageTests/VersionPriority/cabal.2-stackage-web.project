@@ -1,4 +1,0 @@
-packages: .
-import: cabal.2a-web.project
-
-constraints: hashable ==1.4.2.0

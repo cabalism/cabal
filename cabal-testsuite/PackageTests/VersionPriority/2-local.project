@@ -1,0 +1,3 @@
+packages: .
+import: hop-local.config
+constraints: hashable ==1.4.2.0
