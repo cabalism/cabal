@@ -1193,7 +1193,7 @@ parseLegacyProjectConfigFields (depth, source) =
     constraintSrc = ConstraintSourceProjectConfig $ ProjectConfigImport depth source
 
 parseLegacyProjectConfig :: FilePath -> BS.ByteString -> ParseResult LegacyProjectConfig
-parseLegacyProjectConfig source bs = parseLegacyProjectConfigFields (1000, source) =<< ParseUtils.readFields bs
+parseLegacyProjectConfig source bs = parseLegacyProjectConfigFields (0, source) =<< ParseUtils.readFields bs
 
 showLegacyProjectConfig :: LegacyProjectConfig -> String
 showLegacyProjectConfig config =
