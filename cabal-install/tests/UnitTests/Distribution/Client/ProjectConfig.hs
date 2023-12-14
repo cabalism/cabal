@@ -234,7 +234,7 @@ prop_roundtrip_legacytypes_specific config =
 
 roundtrip_printparse :: ProjectConfig -> Property
 roundtrip_printparse config =
-  case fmap convertLegacyProjectConfig (parseLegacyProjectConfig "unused" (toUTF8BS str)) of
+  case fmap convertLegacyProjectConfig (parseLegacyProjectConfig (ProjectConfigImport 0 "unused") (toUTF8BS str)) of
     ParseOk _ x ->
       counterexample ("shown:\n" ++ str) $
         x `ediffEq` config{projectConfigProvenance = mempty}
