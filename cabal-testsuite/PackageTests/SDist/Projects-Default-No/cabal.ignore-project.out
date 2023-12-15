@@ -1,0 +1,11 @@
+# cabal sdist
+...
+Errors encountered when parsing cabal file ./uv.cabal:
+
+uv.cabal:8:22: error:
+unexpected "u"
+
+    7 |   visibility: public
+    8 |   exposed-modules: U.u
+      |                      ^
+
