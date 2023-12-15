@@ -1,4 +1,0 @@
-cabal sdist all
-cabal sdist all --project-file=cabal.project
-cabal sdist all --project-file=cabal.sub-rs.project
-cabal sdist all --project-file=cabal.dot-uv.project
