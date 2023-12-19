@@ -232,6 +232,7 @@ import Control.Exception
 import Data.List
   ( deleteFirstsBy
   )
+import Distribution.Solver.Types.LabeledPackageConstraint (VersionWin (..))
 import System.FilePath
   ( (</>)
   )
@@ -1281,6 +1282,7 @@ data FetchFlags = FetchFlags
   , fetchStrongFlags :: Flag StrongFlags
   , fetchAllowBootLibInstalls :: Flag AllowBootLibInstalls
   , fetchOnlyConstrained :: Flag OnlyConstrained
+  , fetchVersionWins :: Flag VersionWin
   , fetchTests :: Flag Bool
   , fetchBenchmarks :: Flag Bool
   , fetchVerbosity :: Flag Verbosity
@@ -1304,6 +1306,7 @@ defaultFetchFlags =
     , fetchStrongFlags = Flag (StrongFlags False)
     , fetchAllowBootLibInstalls = Flag (AllowBootLibInstalls False)
     , fetchOnlyConstrained = Flag OnlyConstrainedNone
+    , fetchVersionWins = Flag ShallowWins
     , fetchTests = toFlag False
     , fetchBenchmarks = toFlag False
     , fetchVerbosity = toFlag normal
@@ -1392,6 +1395,8 @@ fetchCommand =
             (\v flags -> flags{fetchAllowBootLibInstalls = v})
             fetchOnlyConstrained
             (\v flags -> flags{fetchOnlyConstrained = v})
+            fetchVersionWins
+            (\v flags -> flags{fetchVersionWins = v})
     }
 
 -- ------------------------------------------------------------
@@ -1416,6 +1421,7 @@ data FreezeFlags = FreezeFlags
   , freezeStrongFlags :: Flag StrongFlags
   , freezeAllowBootLibInstalls :: Flag AllowBootLibInstalls
   , freezeOnlyConstrained :: Flag OnlyConstrained
+  , freezeVersionWin :: Flag VersionWin
   , freezeVerbosity :: Flag Verbosity
   }
 
@@ -1437,6 +1443,7 @@ defaultFreezeFlags =
     , freezeStrongFlags = Flag (StrongFlags False)
     , freezeAllowBootLibInstalls = Flag (AllowBootLibInstalls False)
     , freezeOnlyConstrained = Flag OnlyConstrainedNone
+    , freezeVersionWin = Flag ShallowWins
     , freezeVerbosity = toFlag normal
     }
 
@@ -1514,6 +1521,8 @@ freezeCommand =
             (\v flags -> flags{freezeAllowBootLibInstalls = v})
             freezeOnlyConstrained
             (\v flags -> flags{freezeOnlyConstrained = v})
+            freezeVersionWin
+            (\v flags -> flags{freezeVersionWin = v})
     }
 
 -- ------------------------------------------------------------
@@ -2081,6 +2090,7 @@ data InstallFlags = InstallFlags
   , installStrongFlags :: Flag StrongFlags
   , installAllowBootLibInstalls :: Flag AllowBootLibInstalls
   , installOnlyConstrained :: Flag OnlyConstrained
+  , installVersionWin :: Flag VersionWin
   , installReinstall :: Flag Bool
   , installAvoidReinstalls :: Flag AvoidReinstalls
   , installOverrideReinstall :: Flag Bool
@@ -2126,6 +2136,7 @@ defaultInstallFlags =
     , installStrongFlags = Flag (StrongFlags False)
     , installAllowBootLibInstalls = Flag (AllowBootLibInstalls False)
     , installOnlyConstrained = Flag OnlyConstrainedNone
+    , installVersionWin = Flag ShallowWins
     , installReinstall = Flag False
     , installAvoidReinstalls = Flag (AvoidReinstalls False)
     , installOverrideReinstall = Flag False
@@ -2469,6 +2480,8 @@ installOptions showOrParseArgs =
       (\v flags -> flags{installAllowBootLibInstalls = v})
       installOnlyConstrained
       (\v flags -> flags{installOnlyConstrained = v})
+      installVersionWin
+      (\v flags -> flags{installVersionWin = v})
     ++ [ option
           []
           ["reinstall"]
@@ -3460,6 +3473,8 @@ optionSolverFlags
   -> (Flag AllowBootLibInstalls -> flags -> flags)
   -> (flags -> Flag OnlyConstrained)
   -> (Flag OnlyConstrained -> flags -> flags)
+  -> (flags -> Flag VersionWin)
+  -> (Flag VersionWin -> flags -> flags)
   -> [OptionField flags]
 optionSolverFlags
   showOrParseArgs
@@ -3484,7 +3499,9 @@ optionSolverFlags
   getib
   setib
   getoc
-  setoc =
+  setoc
+  getw
+  setw =
     [ option
         []
         ["max-backjumps"]
@@ -3572,6 +3589,20 @@ optionSolverFlags
             "none|all"
             ( parsecToReadE
                 (const "reject-unconstrained-dependencies must be 'none' or 'all'")
+                (toFlag `fmap` parsec)
+            )
+            (flagToList . fmap prettyShow)
+        )
+    , option
+        []
+        ["version-win"]
+        "How to pick a winning version constraint when there are conflicts, often introduced by imports."
+        getw
+        setw
+        ( reqArg
+            "latest|shallowest"
+            ( parsecToReadE
+                (const "version-win must be 'latest' or 'shallowest'")
                 (toFlag `fmap` parsec)
             )
             (flagToList . fmap prettyShow)
