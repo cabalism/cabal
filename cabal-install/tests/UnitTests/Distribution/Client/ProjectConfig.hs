@@ -589,6 +589,7 @@ instance Arbitrary ProjectConfigShared where
     projectConfigStrongFlags <- arbitrary
     projectConfigAllowBootLibInstalls <- arbitrary
     projectConfigOnlyConstrained <- arbitrary
+    projectConfigVersionWin <- arbitrary
     projectConfigPerComponent <- arbitrary
     projectConfigIndependentGoals <- arbitrary
     projectConfigPreferOldest <- arbitrary
@@ -635,6 +636,7 @@ instance Arbitrary ProjectConfigShared where
         <*> shrinker projectConfigStrongFlags
         <*> shrinker projectConfigAllowBootLibInstalls
         <*> shrinker projectConfigOnlyConstrained
+        <*> shrinker projectConfigVersionWin
         <*> shrinker projectConfigPerComponent
         <*> shrinker projectConfigIndependentGoals
         <*> shrinker projectConfigPreferOldest
