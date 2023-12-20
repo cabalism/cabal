@@ -7,6 +7,7 @@ import Distribution.Solver.Types.ConstraintSource
 import Distribution.Solver.Types.OptionalStanza
 import Distribution.Solver.Types.PackageConstraint
 import Distribution.Solver.Types.Settings
+import Distribution.Solver.Types.LabeledPackageConstraint
 
 import Distribution.Client.BuildReports.Types
 import Distribution.Client.CmdInstall.ClientInstallFlags
@@ -49,6 +50,7 @@ instance ToExpr InstallOutcome
 instance ToExpr LocalRepo
 instance ToExpr MinimizeConflictSet
 instance ToExpr OnlyConstrained
+instance ToExpr VersionWin
 instance ToExpr OptionalStanza
 instance ToExpr Outcome
 instance ToExpr OverwritePolicy
