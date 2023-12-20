@@ -36,6 +36,7 @@ import Distribution.Solver.Types.ComponentDeps
 import qualified Distribution.Solver.Types.ComponentDeps as CD
 import Distribution.Solver.Types.OptionalStanza
 import Distribution.Solver.Types.PackageConstraint
+import Distribution.Solver.Types.LabeledPackageConstraint
 import qualified Distribution.Solver.Types.PackagePath as P
 import Distribution.Solver.Types.PkgConfigDb
   ( pkgConfigDbFromList
@@ -240,6 +241,7 @@ solve enableBj fineGrainedConflicts reorder countConflicts indep prefOldest goal
             reorder
             (AllowBootLibInstalls False)
             OnlyConstrainedNone
+            ShallowWins
             enableBj
             (SolveExecutables True)
             (unVarOrdering <$> goalOrder)

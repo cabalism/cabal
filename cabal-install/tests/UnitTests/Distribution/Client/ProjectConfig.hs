@@ -54,6 +54,7 @@ import Distribution.Verbosity (silent)
 import Distribution.Solver.Types.ConstraintSource
 import Distribution.Solver.Types.PackageConstraint
 import Distribution.Solver.Types.Settings
+import Distribution.Solver.Types.LabeledPackageConstraint
 
 import Distribution.Client.ProjectConfig
 import Distribution.Client.ProjectConfig.Legacy
@@ -1003,4 +1004,11 @@ instance Arbitrary OnlyConstrained where
     oneof
       [ pure OnlyConstrainedAll
       , pure OnlyConstrainedNone
+      ]
+
+instance Arbitrary VersionWin where
+  arbitrary =
+    oneof
+      [ pure ShallowWins
+      , pure LastWins
       ]

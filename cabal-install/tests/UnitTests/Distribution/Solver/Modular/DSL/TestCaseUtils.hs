@@ -50,6 +50,7 @@ import qualified Distribution.Solver.Types.PackagePath as P
 import Distribution.Solver.Types.PkgConfigDb (PkgConfigDb (..), pkgConfigDbFromList)
 import Distribution.Solver.Types.Settings
 import Distribution.Solver.Types.Variable
+import Distribution.Solver.Types.LabeledPackageConstraint
 import UnitTests.Distribution.Solver.Modular.DSL
 import UnitTests.Options
 
@@ -121,6 +122,7 @@ data SolverTest = SolverTest
   , testPreferOldest :: PreferOldest
   , testAllowBootLibInstalls :: AllowBootLibInstalls
   , testOnlyConstrained :: OnlyConstrained
+  , testVersionWin :: VersionWin
   , testEnableBackjumping :: EnableBackjumping
   , testSolveExecutables :: SolveExecutables
   , testGoalOrder :: Maybe [ExampleVar]
@@ -224,6 +226,7 @@ mkTestExtLangPC exts langs mPkgConfigDb db label targets result =
     , testPreferOldest = PreferOldest False
     , testAllowBootLibInstalls = AllowBootLibInstalls False
     , testOnlyConstrained = OnlyConstrainedNone
+    , testVersionWin = ShallowWins
     , testEnableBackjumping = EnableBackjumping True
     , testSolveExecutables = SolveExecutables True
     , testGoalOrder = Nothing
@@ -256,6 +259,7 @@ runTest SolverTest{..} = askOption $ \(OptionShowSolverLog showSolverLog) ->
             (ReorderGoals False)
             testAllowBootLibInstalls
             testOnlyConstrained
+            testVersionWin
             testEnableBackjumping
             testSolveExecutables
             (sortGoals <$> testGoalOrder)
