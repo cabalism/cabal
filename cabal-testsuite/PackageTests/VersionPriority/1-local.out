@@ -3,12 +3,28 @@ Downloading the latest package list from test-local-repo
 # 1-local-constraints-import.project --version-win not supplied, default
 # cabal v2-build
 Resolving dependencies...
-Build profile: -w ghc-<GHCVER> -O1
-In order, the following would be built:
- - hashable-1.4.2.0 (lib) (requires build)
- - cabal-version-override-0.1.0.0 (exe:cabal-version-override) (first run)
+Error: [Cabal-7107]
+Could not resolve dependencies:
+[__0] trying: cabal-version-override-0.1.0.0 (user goal)
+[__1] next goal: hashable (dependency of cabal-version-override)
+[__1] rejecting: hashable-1.4.3.0 (constraint from project config ProjectConfigImport {importDepth = 0, importPath = "<ROOT>/1-local-constraints-import.project"} requires ==1.4.2.0)
+[__1] rejecting: hashable-1.4.2.0 (constraint from project config ProjectConfigImport {importDepth = 1, importPath = "stackage-local.config"} requires ==1.4.3.0)
+[__1] fail (backjumping, conflict set: cabal-version-override, hashable)
+After searching the rest of the dependency tree exhaustively, these were the goals I've had most trouble fulfilling: hashable (3), cabal-version-override (2)
+# 1-local-constraints-import.project --version-win=additive
+# cabal v2-build
+Resolving dependencies...
+Error: [Cabal-7107]
+Could not resolve dependencies:
+[__0] trying: cabal-version-override-0.1.0.0 (user goal)
+[__1] next goal: hashable (dependency of cabal-version-override)
+[__1] rejecting: hashable-1.4.3.0 (constraint from project config ProjectConfigImport {importDepth = 0, importPath = "<ROOT>/1-local-constraints-import.project"} requires ==1.4.2.0)
+[__1] rejecting: hashable-1.4.2.0 (constraint from project config ProjectConfigImport {importDepth = 1, importPath = "stackage-local.config"} requires ==1.4.3.0)
+[__1] fail (backjumping, conflict set: cabal-version-override, hashable)
+After searching the rest of the dependency tree exhaustively, these were the goals I've had most trouble fulfilling: hashable (3), cabal-version-override (2)
 # 1-local-constraints-import.project --version-win=shallowest
 # cabal v2-build
+Resolving dependencies...
 Build profile: -w ghc-<GHCVER> -O1
 In order, the following would be built:
  - hashable-1.4.2.0 (lib) (requires build)
@@ -23,12 +39,28 @@ In order, the following would be built:
 # 1-local-import-constraints.project --version-win not supplied, default
 # cabal v2-build
 Resolving dependencies...
-Build profile: -w ghc-<GHCVER> -O1
-In order, the following would be built:
- - hashable-1.4.2.0 (lib) (requires build)
- - cabal-version-override-0.1.0.0 (exe:cabal-version-override) (first run)
+Error: [Cabal-7107]
+Could not resolve dependencies:
+[__0] trying: cabal-version-override-0.1.0.0 (user goal)
+[__1] next goal: hashable (dependency of cabal-version-override)
+[__1] rejecting: hashable-1.4.3.0 (constraint from project config ProjectConfigImport {importDepth = 0, importPath = "<ROOT>/1-local-import-constraints.project"} requires ==1.4.2.0)
+[__1] rejecting: hashable-1.4.2.0 (constraint from project config ProjectConfigImport {importDepth = 1, importPath = "stackage-local.config"} requires ==1.4.3.0)
+[__1] fail (backjumping, conflict set: cabal-version-override, hashable)
+After searching the rest of the dependency tree exhaustively, these were the goals I've had most trouble fulfilling: hashable (3), cabal-version-override (2)
+# 1-local-import-constraints.project --version-win=additive
+# cabal v2-build
+Resolving dependencies...
+Error: [Cabal-7107]
+Could not resolve dependencies:
+[__0] trying: cabal-version-override-0.1.0.0 (user goal)
+[__1] next goal: hashable (dependency of cabal-version-override)
+[__1] rejecting: hashable-1.4.3.0 (constraint from project config ProjectConfigImport {importDepth = 0, importPath = "<ROOT>/1-local-import-constraints.project"} requires ==1.4.2.0)
+[__1] rejecting: hashable-1.4.2.0 (constraint from project config ProjectConfigImport {importDepth = 1, importPath = "stackage-local.config"} requires ==1.4.3.0)
+[__1] fail (backjumping, conflict set: cabal-version-override, hashable)
+After searching the rest of the dependency tree exhaustively, these were the goals I've had most trouble fulfilling: hashable (3), cabal-version-override (2)
 # 1-local-import-constraints.project --version-win=shallowest
 # cabal v2-build
+Resolving dependencies...
 Build profile: -w ghc-<GHCVER> -O1
 In order, the following would be built:
  - hashable-1.4.2.0 (lib) (requires build)

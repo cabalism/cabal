@@ -4,7 +4,9 @@ testVersionWin project =
     withProjectFile project $ do
         let log = recordHeader . pure . ((project <> " ") <>)
         log "--version-win not supplied, default"
-        cabal "v2-build" ["--dry-run"]
+        fails $ cabal "v2-build" ["--dry-run"]
+        log "--version-win=additive"
+        fails $ cabal "v2-build" ["--dry-run", "--version-win=additive"]
         log "--version-win=shallowest"
         cabal "v2-build" ["--dry-run", "--version-win=shallowest"]
         log "--version-win=latest"
