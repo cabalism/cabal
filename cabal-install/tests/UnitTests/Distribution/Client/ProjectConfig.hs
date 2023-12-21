@@ -648,7 +648,7 @@ instance Arbitrary ProjectConfigShared where
       postShrink_Constraints = map (\uc -> (uc, projectConfigConstraintSource))
 
 projectConfigConstraintSource :: ConstraintSource
-projectConfigConstraintSource = ConstraintSourceProjectConfig nullProjectConfigImport
+projectConfigConstraintSource = ConstraintSourceProjectConfig nullProjectConfigPath
 
 instance Arbitrary ProjectConfigProvenance where
   arbitrary = elements [Implicit, Explicit "cabal.project"]

@@ -5,10 +5,10 @@ module Distribution.Solver.Types.ConstraintSource
     , Importee(..)
     , Importer(..)
     , ImportedConfig(..)
-    , ProjectConfigImport(..)
-    , projectConfigImportSource
+    , ProjectConfigPath(..)
+    , projectConfigPathSource
     , showConstraintSource
-    , nullProjectConfigImport
+    , nullProjectConfigPath
     ) where
 
 import Distribution.Solver.Compat.Prelude
@@ -33,16 +33,16 @@ data ImportedConfig =
         }
     deriving (Eq, Show, Generic)
 
-data ProjectConfigImport = ProjectRoot FilePath | ProjectImport ImportedConfig
+data ProjectConfigPath = ProjectRoot FilePath | ProjectImport ImportedConfig
     deriving (Eq, Show, Generic)
 
-projectConfigImportSource :: ProjectConfigImport -> FilePath
-projectConfigImportSource = \case
+projectConfigPathSource :: ProjectConfigPath -> FilePath
+projectConfigPathSource = \case
     ProjectRoot path -> path
     ProjectImport importedConfig -> coerce $ importee importedConfig
 
-nullProjectConfigImport :: ProjectConfigImport
-nullProjectConfigImport = ProjectRoot "unused"
+nullProjectConfigPath :: ProjectConfigPath
+nullProjectConfigPath = ProjectRoot "unused"
 
 instance Binary Importee
 instance Structured Importee
@@ -50,8 +50,8 @@ instance Binary Importer
 instance Structured Importer
 instance Binary ImportedConfig
 instance Structured ImportedConfig
-instance Binary ProjectConfigImport
-instance Structured ProjectConfigImport
+instance Binary ProjectConfigPath
+instance Structured ProjectConfigPath
 
 -- | Source of a 'PackageConstraint'.
 data ConstraintSource =
@@ -60,7 +60,7 @@ data ConstraintSource =
   ConstraintSourceMainConfig FilePath
 
   -- | Local cabal.project file
-  | ConstraintSourceProjectConfig ProjectConfigImport
+  | ConstraintSourceProjectConfig ProjectConfigPath
 
   -- | User config file, which is ./cabal.config by default.
   | ConstraintSourceUserConfig FilePath

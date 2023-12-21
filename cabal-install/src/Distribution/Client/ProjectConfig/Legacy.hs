@@ -195,7 +195,7 @@ import System.FilePath (isAbsolute, isPathSeparator, makeValid, takeDirectory, (
 
 -- | ProjectConfigSkeleton is a tree of conditional blocks and imports wrapping a config. It can be finalized by providing the conditional resolution info
 -- and then resolving and downloading the imports
-type ProjectConfigSkeleton = CondTree ConfVar [ProjectConfigImport] ProjectConfig
+type ProjectConfigSkeleton = CondTree ConfVar [ProjectConfigPath] ProjectConfig
 
 singletonProjectConfigSkeleton :: ProjectConfig -> ProjectConfigSkeleton
 singletonProjectConfigSkeleton x = CondNode x mempty mempty
@@ -213,7 +213,7 @@ instantiateProjectConfigSkeletonWithCompiler os arch impl _flags skel = go $ map
     go
       :: CondTree
           FlagName
-          [ProjectConfigImport]
+          [ProjectConfigPath]
           ProjectConfig
       -> ProjectConfig
     go (CondNode l _imps ts) =
@@ -224,17 +224,17 @@ instantiateProjectConfigSkeletonWithCompiler os arch impl _flags skel = go $ map
       (Lit False) -> maybe ([]) ((: []) . go) mf
       _ -> error $ "unable to process condition: " ++ show cnd -- TODO it would be nice if there were a pretty printer
 
-projectSkeletonImports :: ProjectConfigSkeleton -> [ProjectConfigImport]
+projectSkeletonImports :: ProjectConfigSkeleton -> [ProjectConfigPath]
 projectSkeletonImports = view traverseCondTreeC
 
-parseProjectSkeleton :: FilePath -> HttpTransport -> Verbosity -> [ProjectConfigImport] -> [Importer] -> Importee -> ProjectConfigToParse -> IO (ParseResult ProjectConfigSkeleton)
+parseProjectSkeleton :: FilePath -> HttpTransport -> Verbosity -> [ProjectConfigPath] -> [Importer] -> Importee -> ProjectConfigToParse -> IO (ParseResult ProjectConfigSkeleton)
 parseProjectSkeleton cacheDir httpTransport verbosity seenImports srcImporters srcImportee ProjectConfigToParse{toParseDepth = depthInitial, toParseContents = bs} =
   (sanityWalkPCS False =<<) <$> liftPR (go depthInitial srcImporters srcImportee []) (ParseUtils.readFields bs)
   where
     go :: Int -> [Importer] -> Importee -> [ParseUtils.Field] -> [ParseUtils.Field] -> IO (ParseResult ProjectConfigSkeleton)
     go depth sourceImporters sourceImportee@(Importee source) acc (x : xs) = case x of
       (ParseUtils.F l "import" (Importee -> importLoc@(Importee importeeSource))) ->
-        if importeeSource `elem` (projectConfigImportSource <$> seenImports)
+        if importeeSource `elem` (projectConfigPathSource <$> seenImports)
           then pure . parseFail $ ParseUtils.FromString ("cyclical import of " ++ coerce importLoc) (Just l)
           else do
             let importChain = Importer source : sourceImporters
@@ -303,7 +303,7 @@ parseProjectSkeleton cacheDir httpTransport verbosity seenImports srcImporters s
         addWarnings x' = x'
     liftPR _ (ParseFailed e) = pure $ ParseFailed e
 
-    fetchImportConfig :: ProjectConfigImport -> IO BS.ByteString
+    fetchImportConfig :: ProjectConfigPath -> IO BS.ByteString
     fetchImportConfig (ProjectRoot root) = BS.readFile root
     fetchImportConfig (ProjectImport ImportedConfig{importers, importee = Importee pci}) = case parseURI pci of
         Just uri -> do
@@ -325,7 +325,7 @@ parseProjectSkeleton cacheDir httpTransport verbosity seenImports srcImporters s
       | underConditional && modifiesCompiler d = parseFail $ ParseUtils.FromString "Cannot set compiler in a conditional clause of a cabal project file" Nothing
       | otherwise = mapM_ sanityWalkBranch comps >> pure t
 
-    sanityWalkBranch :: CondBranch ConfVar [ProjectConfigImport] ProjectConfig -> ParseResult ()
+    sanityWalkBranch :: CondBranch ConfVar [ProjectConfigPath] ProjectConfig -> ParseResult ()
     sanityWalkBranch (CondBranch _c t f) = traverse (sanityWalkPCS True) f >> sanityWalkPCS True t >> pure ()
 
 ------------------------------------------------------------------
@@ -1199,7 +1199,7 @@ convertToLegacyPerPackageConfig PackageConfig{..} =
 -- Parsing and showing the project config file
 --
 
-parseLegacyProjectConfigFields :: ProjectConfigImport -> [ParseUtils.Field] -> ParseResult LegacyProjectConfig
+parseLegacyProjectConfigFields :: ProjectConfigPath -> [ParseUtils.Field] -> ParseResult LegacyProjectConfig
 parseLegacyProjectConfigFields (ConstraintSourceProjectConfig -> constraintSrc) =
   parseFieldsAndSections
     (legacyProjectConfigFieldDescrs constraintSrc)
@@ -1224,7 +1224,7 @@ showLegacyProjectConfig config =
     -- Note: ConstraintSource is unused when pretty-printing. We fake
     -- it here to avoid having to pass it on call-sites. It's not great
     -- but requires re-work of how we annotate provenance.
-    constraintSrc = ConstraintSourceProjectConfig nullProjectConfigImport
+    constraintSrc = ConstraintSourceProjectConfig nullProjectConfigPath
 
 legacyProjectConfigFieldDescrs :: ConstraintSource -> [FieldDescr LegacyProjectConfig]
 legacyProjectConfigFieldDescrs constraintSrc =
