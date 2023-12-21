@@ -277,7 +277,7 @@ basicDepResolverParams installedPkgIndex sourcePkgIndex =
   DepResolverParams
     { depResolverTargets = Set.empty
     , depResolverConstraints = []
-    , depResolverVersionWin = ShallowWins
+    , depResolverVersionWin = defaultVersionWin
     , depResolverPreferences = []
     , depResolverPreferenceDefault = PreferLatestForSelected
     , depResolverInstalledPkgIndex = installedPkgIndex
