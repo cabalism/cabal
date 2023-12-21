@@ -1210,9 +1210,9 @@ parseLegacyProjectConfigFields (ConstraintSourceProjectConfig -> constraintSrc) 
     legacyPackageConfigFGSectionDescrs
     mempty
 
-parseLegacyProjectConfig :: [Importer] -> Importee -> BS.ByteString -> ParseResult LegacyProjectConfig
-parseLegacyProjectConfig importers source bs =
-  parseLegacyProjectConfigFields (ProjectImport $ ImportedConfig 0 importers source) =<< ParseUtils.readFields bs
+parseLegacyProjectConfig :: RootConfig -> BS.ByteString -> ParseResult LegacyProjectConfig
+parseLegacyProjectConfig rootConfig bs =
+  parseLegacyProjectConfigFields (ProjectRoot rootConfig) =<< ParseUtils.readFields bs
 
 showLegacyProjectConfig :: LegacyProjectConfig -> String
 showLegacyProjectConfig config =
