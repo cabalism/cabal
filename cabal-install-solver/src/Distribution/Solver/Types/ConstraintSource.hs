@@ -1,15 +1,19 @@
 {-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE LambdaCase #-}
 module Distribution.Solver.Types.ConstraintSource
     ( ConstraintSource(..)
-    , Importee (..)
-    , Importer (..)
+    , Importee(..)
+    , Importer(..)
+    , ImportedConfig(..)
     , ProjectConfigImport(..)
+    , projectConfigImportSource
     , showConstraintSource
     , nullProjectConfigImport
     ) where
 
 import Distribution.Solver.Compat.Prelude
 import Prelude ()
+import Data.Coerce (coerce)
 
 newtype Importer = Importer FilePath
     deriving (Eq, Show, Generic)
@@ -17,30 +21,35 @@ newtype Importer = Importer FilePath
 newtype Importee = Importee FilePath
     deriving (Eq, Show, Generic)
 
-data ProjectConfigImport =
-  ProjectConfigImport
-    { importDepth :: Int
-    -- ^ Depth of the import. The main project config file has depth 0, and each
-    -- import increases the depth by 1.
-    , importer :: Importer
-    -- ^ Path to the project config file with the import.
-    , importee :: Importee
-    -- ^ Path to the imported file contributing to the project config.
-    }
+data ImportedConfig =
+    ImportedConfig
+        { importDepth :: Int
+        -- ^ Depth of the import. The main project config file has depth 0, and each
+        -- import increases the depth by 1.
+        , importers :: [Importer]
+        -- ^ Path to the project config file with the import.
+        , importee :: Importee
+        -- ^ Path to the imported file contributing to the project config.
+        }
     deriving (Eq, Show, Generic)
 
+data ProjectConfigImport = ProjectRoot FilePath | ProjectImport ImportedConfig
+    deriving (Eq, Show, Generic)
+
+projectConfigImportSource :: ProjectConfigImport -> FilePath
+projectConfigImportSource = \case
+    ProjectRoot path -> path
+    ProjectImport importedConfig -> coerce $ importee importedConfig
+
 nullProjectConfigImport :: ProjectConfigImport
-nullProjectConfigImport =
-    ProjectConfigImport
-        { importDepth = 0
-        , importer = Importer "unused"
-        , importee = Importee "unused"
-        }
+nullProjectConfigImport = ProjectRoot "unused"
 
 instance Binary Importee
 instance Structured Importee
 instance Binary Importer
 instance Structured Importer
+instance Binary ImportedConfig
+instance Structured ImportedConfig
 instance Binary ProjectConfigImport
 instance Structured ProjectConfigImport
 

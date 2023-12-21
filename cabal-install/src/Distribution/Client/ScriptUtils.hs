@@ -513,7 +513,7 @@ readProjectBlockFromScript verbosity httpTransport DistDirLayout{distDownloadSrc
           httpTransport
           verbosity
           []
-          (Importer scriptName)
+          [Importer scriptName]
           (Importee scriptName)
           (ProjectConfigToParse 0 x)
 
