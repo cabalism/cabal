@@ -2,6 +2,7 @@
 {-# LANGUAGE LambdaCase #-}
 module Distribution.Solver.Types.ConstraintSource
     ( ConstraintSource(..)
+    , RootConfig(..)
     , Importee(..)
     , Importer(..)
     , ImportedConfig(..)
@@ -14,6 +15,9 @@ module Distribution.Solver.Types.ConstraintSource
 import Distribution.Solver.Compat.Prelude
 import Prelude ()
 import Data.Coerce (coerce)
+
+newtype RootConfig = RootConfig FilePath
+    deriving (Eq, Show, Generic)
 
 newtype Importer = Importer FilePath
     deriving (Eq, Show, Generic)
@@ -33,17 +37,19 @@ data ImportedConfig =
         }
     deriving (Eq, Show, Generic)
 
-data ProjectConfigPath = ProjectRoot FilePath | ProjectImport ImportedConfig
+data ProjectConfigPath = ProjectRoot RootConfig | ProjectImport ImportedConfig
     deriving (Eq, Show, Generic)
 
 projectConfigPathSource :: ProjectConfigPath -> FilePath
 projectConfigPathSource = \case
-    ProjectRoot path -> path
+    ProjectRoot path -> coerce path
     ProjectImport importedConfig -> coerce $ importee importedConfig
 
 nullProjectConfigPath :: ProjectConfigPath
-nullProjectConfigPath = ProjectRoot "unused"
+nullProjectConfigPath = ProjectRoot $ RootConfig "unused"
 
+instance Binary RootConfig
+instance Structured RootConfig
 instance Binary Importee
 instance Structured Importee
 instance Binary Importer
