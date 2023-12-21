@@ -1,23 +1,46 @@
 {-# LANGUAGE DeriveGeneric #-}
 module Distribution.Solver.Types.ConstraintSource
     ( ConstraintSource(..)
+    , Importee (..)
+    , Importer (..)
     , ProjectConfigImport(..)
     , showConstraintSource
+    , nullProjectConfigImport
     ) where
 
 import Distribution.Solver.Compat.Prelude
 import Prelude ()
+
+newtype Importer = Importer FilePath
+    deriving (Eq, Show, Generic)
+
+newtype Importee = Importee FilePath
+    deriving (Eq, Show, Generic)
 
 data ProjectConfigImport =
   ProjectConfigImport
     { importDepth :: Int
     -- ^ Depth of the import. The main project config file has depth 0, and each
     -- import increases the depth by 1.
-    , importPath :: FilePath
+    , importer :: Importer
+    -- ^ Path to the project config file with the import.
+    , importee :: Importee
     -- ^ Path to the imported file contributing to the project config.
     }
     deriving (Eq, Show, Generic)
 
+nullProjectConfigImport :: ProjectConfigImport
+nullProjectConfigImport =
+    ProjectConfigImport
+        { importDepth = 0
+        , importer = Importer "unused"
+        , importee = Importee "unused"
+        }
+
+instance Binary Importee
+instance Structured Importee
+instance Binary Importer
+instance Structured Importer
 instance Binary ProjectConfigImport
 instance Structured ProjectConfigImport
 
