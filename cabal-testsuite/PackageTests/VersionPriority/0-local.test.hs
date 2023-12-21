@@ -4,6 +4,8 @@ main = cabalTest . withRepo "repo" . withProjectFile "0-local.project" . recordM
     let log = recordHeader . pure
     log "--version-win not supplied, default"
     fails $ cabal "v2-build" ["--dry-run"]
+    log "--version-win=additive"
+    fails $ cabal "v2-build" ["--dry-run", "--version-win=additive"]
     log "--version-win=shallowest"
     fails $ cabal "v2-build" ["--dry-run", "--version-win=shallowest"]
     log "--version-win=latest"
