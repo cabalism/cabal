@@ -174,7 +174,7 @@ import Distribution.Simple.Utils
   , rawSystemIOWithEnv
   , warn
   )
-import Distribution.Solver.Types.LabeledPackageConstraint (VersionWin (ShallowWins))
+import Distribution.Solver.Types.LabeledPackageConstraint (defaultVersionWin)
 import Distribution.System
   ( Platform
   )
@@ -361,7 +361,7 @@ resolveSolverSettings
           , projectConfigStrongFlags = Flag (StrongFlags False)
           , projectConfigAllowBootLibInstalls = Flag (AllowBootLibInstalls False)
           , projectConfigOnlyConstrained = Flag OnlyConstrainedNone
-          , projectConfigVersionWin = Flag ShallowWins
+          , projectConfigVersionWin = Flag defaultVersionWin
           , projectConfigIndependentGoals = Flag (IndependentGoals False)
           , projectConfigPreferOldest = Flag (PreferOldest False)
           -- projectConfigShadowPkgs        = Flag False,

@@ -8,6 +8,7 @@
 module Distribution.Solver.Types.LabeledPackageConstraint
     ( LabeledPackageConstraint(..)
     , VersionWin (..)
+    , defaultVersionWin
     , unlabelPackageConstraint
     , versionWin
     , showVersionWin
@@ -29,7 +30,14 @@ import Distribution.Types.VersionRange
 import qualified Data.Map.Strict as Map
 import qualified Data.List as L (elemIndex, groupBy)
 
-data VersionWin = ShallowWins | LastWins deriving (Eq, Generic)
+data VersionWin
+    = VersionsAdd
+    -- ^ Add version constraints to the existing constraints.
+    | ShallowWins
+    -- ^ Shallowest constraints win over deeper constraints by the measure of import depth.
+    | LastWins
+    -- ^ Later constraints win over earlier constraints.
+    deriving (Eq, Generic)
 
 instance Binary VersionWin
 instance Structured VersionWin
@@ -37,22 +45,29 @@ instance Structured VersionWin
 instance Show VersionWin where
     show = showVersionWin
 
+defaultVersionWin :: VersionWin
+defaultVersionWin = VersionsAdd
+
 versionWin :: VersionWin -> [LabeledPackageConstraint] -> [LabeledPackageConstraint]
+versionWin VersionsAdd = id
 versionWin ShallowWins = shallowConstraintsWin
 versionWin LastWins = laterConstraintsWin
 
 showVersionWin :: VersionWin -> String
+showVersionWin VersionsAdd = "additive version constraints"
 showVersionWin ShallowWins = "shallow wins"
 showVersionWin LastWins = "last wins"
 
 instance Pretty VersionWin where
+  pretty VersionsAdd = PP.text "additive"
   pretty ShallowWins  = PP.text "shallowest"
   pretty LastWins = PP.text "latest"
 
 instance Parsec VersionWin where
   parsec = P.choice
-    [ P.string "latest"  >> return LastWins
+    [ P.string "additive" >> return VersionsAdd
     , P.string "shallowest" >> return ShallowWins
+    , P.string "latest" >> return LastWins
     ]
 
 -- | 'PackageConstraint' labeled with its source.

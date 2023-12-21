@@ -1009,6 +1009,7 @@ instance Arbitrary OnlyConstrained where
 instance Arbitrary VersionWin where
   arbitrary =
     oneof
-      [ pure ShallowWins
+      [ pure VersionsAdd
+      , pure ShallowWins
       , pure LastWins
       ]

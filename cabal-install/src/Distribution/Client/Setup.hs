@@ -232,7 +232,7 @@ import Control.Exception
 import Data.List
   ( deleteFirstsBy
   )
-import Distribution.Solver.Types.LabeledPackageConstraint (VersionWin (..))
+import Distribution.Solver.Types.LabeledPackageConstraint (VersionWin (..), defaultVersionWin)
 import System.FilePath
   ( (</>)
   )
@@ -1306,7 +1306,7 @@ defaultFetchFlags =
     , fetchStrongFlags = Flag (StrongFlags False)
     , fetchAllowBootLibInstalls = Flag (AllowBootLibInstalls False)
     , fetchOnlyConstrained = Flag OnlyConstrainedNone
-    , fetchVersionWins = Flag ShallowWins
+    , fetchVersionWins = Flag defaultVersionWin
     , fetchTests = toFlag False
     , fetchBenchmarks = toFlag False
     , fetchVerbosity = toFlag normal
@@ -1443,7 +1443,7 @@ defaultFreezeFlags =
     , freezeStrongFlags = Flag (StrongFlags False)
     , freezeAllowBootLibInstalls = Flag (AllowBootLibInstalls False)
     , freezeOnlyConstrained = Flag OnlyConstrainedNone
-    , freezeVersionWin = Flag ShallowWins
+    , freezeVersionWin = Flag defaultVersionWin
     , freezeVerbosity = toFlag normal
     }
 
@@ -2136,7 +2136,7 @@ defaultInstallFlags =
     , installStrongFlags = Flag (StrongFlags False)
     , installAllowBootLibInstalls = Flag (AllowBootLibInstalls False)
     , installOnlyConstrained = Flag OnlyConstrainedNone
-    , installVersionWin = Flag ShallowWins
+    , installVersionWin = Flag defaultVersionWin
     , installReinstall = Flag False
     , installAvoidReinstalls = Flag (AvoidReinstalls False)
     , installOverrideReinstall = Flag False
@@ -3596,13 +3596,16 @@ optionSolverFlags
     , option
         []
         ["version-win"]
-        "How to pick a winning version constraint when there are conflicts, often introduced by imports."
+        "How to pick package version constraints; \
+        \pick none with 'additive', \
+        \pick the last defined with 'latest', or \
+        \pick the 'shallowest' in the project import tree."
         getw
         setw
         ( reqArg
-            "latest|shallowest"
+            "additive|latest|shallowest"
             ( parsecToReadE
-                (const "version-win must be 'latest' or 'shallowest'")
+                (const "version-win must be 'additive', 'latest' or 'shallowest'")
                 (toFlag `fmap` parsec)
             )
             (flagToList . fmap prettyShow)

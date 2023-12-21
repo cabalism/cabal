@@ -241,7 +241,7 @@ solve enableBj fineGrainedConflicts reorder countConflicts indep prefOldest goal
             reorder
             (AllowBootLibInstalls False)
             OnlyConstrainedNone
-            ShallowWins
+            defaultVersionWin
             enableBj
             (SolveExecutables True)
             (unVarOrdering <$> goalOrder)
