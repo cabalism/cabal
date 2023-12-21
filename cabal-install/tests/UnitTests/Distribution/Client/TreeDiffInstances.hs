@@ -43,7 +43,7 @@ instance ToExpr CombineStrategy
 instance ToExpr Importer
 instance ToExpr Importee
 instance ToExpr ImportedConfig
-instance ToExpr ProjectConfigImport
+instance ToExpr ProjectConfigPath
 instance ToExpr ConstraintSource
 instance ToExpr CountConflicts
 instance ToExpr FineGrainedConflicts
