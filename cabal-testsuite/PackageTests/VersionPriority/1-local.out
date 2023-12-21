@@ -7,8 +7,8 @@ Error: [Cabal-7107]
 Could not resolve dependencies:
 [__0] trying: cabal-version-override-0.1.0.0 (user goal)
 [__1] next goal: hashable (dependency of cabal-version-override)
-[__1] rejecting: hashable-1.4.3.0 (constraint from project config ProjectConfigImport {importDepth = 0, importer = Importer "<ROOT>/1-local-constraints-import.project", importee = Importee "<ROOT>/1-local-constraints-import.project"} requires ==1.4.2.0)
-[__1] rejecting: hashable-1.4.2.0 (constraint from project config ProjectConfigImport {importDepth = 1, importer = Importer "<ROOT>/1-local-constraints-import.project", importee = Importee "stackage-local.config"} requires ==1.4.3.0)
+[__1] rejecting: hashable-1.4.3.0 (constraint from project config ProjectImport (ImportedConfig {importDepth = 0, importers = [Importer "<ROOT>/1-local-constraints-import.project"], importee = Importee "<ROOT>/1-local-constraints-import.project"}) requires ==1.4.2.0)
+[__1] rejecting: hashable-1.4.2.0 (constraint from project config ProjectImport (ImportedConfig {importDepth = 1, importers = [Importer "<ROOT>/1-local-constraints-import.project",Importer "<ROOT>/1-local-constraints-import.project"], importee = Importee "stackage-local.config"}) requires ==1.4.3.0)
 [__1] fail (backjumping, conflict set: cabal-version-override, hashable)
 After searching the rest of the dependency tree exhaustively, these were the goals I've had most trouble fulfilling: hashable (3), cabal-version-override (2)
 # 1-local-constraints-import.project --version-win=additive
@@ -18,8 +18,8 @@ Error: [Cabal-7107]
 Could not resolve dependencies:
 [__0] trying: cabal-version-override-0.1.0.0 (user goal)
 [__1] next goal: hashable (dependency of cabal-version-override)
-[__1] rejecting: hashable-1.4.3.0 (constraint from project config ProjectConfigImport {importDepth = 0, importer = Importer "<ROOT>/1-local-constraints-import.project", importee = Importee "<ROOT>/1-local-constraints-import.project"} requires ==1.4.2.0)
-[__1] rejecting: hashable-1.4.2.0 (constraint from project config ProjectConfigImport {importDepth = 1, importer = Importer "<ROOT>/1-local-constraints-import.project", importee = Importee "stackage-local.config"} requires ==1.4.3.0)
+[__1] rejecting: hashable-1.4.3.0 (constraint from project config ProjectImport (ImportedConfig {importDepth = 0, importers = [Importer "<ROOT>/1-local-constraints-import.project"], importee = Importee "<ROOT>/1-local-constraints-import.project"}) requires ==1.4.2.0)
+[__1] rejecting: hashable-1.4.2.0 (constraint from project config ProjectImport (ImportedConfig {importDepth = 1, importers = [Importer "<ROOT>/1-local-constraints-import.project",Importer "<ROOT>/1-local-constraints-import.project"], importee = Importee "stackage-local.config"}) requires ==1.4.3.0)
 [__1] fail (backjumping, conflict set: cabal-version-override, hashable)
 After searching the rest of the dependency tree exhaustively, these were the goals I've had most trouble fulfilling: hashable (3), cabal-version-override (2)
 # 1-local-constraints-import.project --version-win=shallowest
@@ -43,8 +43,8 @@ Error: [Cabal-7107]
 Could not resolve dependencies:
 [__0] trying: cabal-version-override-0.1.0.0 (user goal)
 [__1] next goal: hashable (dependency of cabal-version-override)
-[__1] rejecting: hashable-1.4.3.0 (constraint from project config ProjectConfigImport {importDepth = 0, importer = Importer "<ROOT>/1-local-import-constraints.project", importee = Importee "<ROOT>/1-local-import-constraints.project"} requires ==1.4.2.0)
-[__1] rejecting: hashable-1.4.2.0 (constraint from project config ProjectConfigImport {importDepth = 1, importer = Importer "<ROOT>/1-local-import-constraints.project", importee = Importee "stackage-local.config"} requires ==1.4.3.0)
+[__1] rejecting: hashable-1.4.3.0 (constraint from project config ProjectImport (ImportedConfig {importDepth = 0, importers = [Importer "<ROOT>/1-local-import-constraints.project"], importee = Importee "<ROOT>/1-local-import-constraints.project"}) requires ==1.4.2.0)
+[__1] rejecting: hashable-1.4.2.0 (constraint from project config ProjectImport (ImportedConfig {importDepth = 1, importers = [Importer "<ROOT>/1-local-import-constraints.project",Importer "<ROOT>/1-local-import-constraints.project"], importee = Importee "stackage-local.config"}) requires ==1.4.3.0)
 [__1] fail (backjumping, conflict set: cabal-version-override, hashable)
 After searching the rest of the dependency tree exhaustively, these were the goals I've had most trouble fulfilling: hashable (3), cabal-version-override (2)
 # 1-local-import-constraints.project --version-win=additive
@@ -54,8 +54,8 @@ Error: [Cabal-7107]
 Could not resolve dependencies:
 [__0] trying: cabal-version-override-0.1.0.0 (user goal)
 [__1] next goal: hashable (dependency of cabal-version-override)
-[__1] rejecting: hashable-1.4.3.0 (constraint from project config ProjectConfigImport {importDepth = 0, importer = Importer "<ROOT>/1-local-import-constraints.project", importee = Importee "<ROOT>/1-local-import-constraints.project"} requires ==1.4.2.0)
-[__1] rejecting: hashable-1.4.2.0 (constraint from project config ProjectConfigImport {importDepth = 1, importer = Importer "<ROOT>/1-local-import-constraints.project", importee = Importee "stackage-local.config"} requires ==1.4.3.0)
+[__1] rejecting: hashable-1.4.3.0 (constraint from project config ProjectImport (ImportedConfig {importDepth = 0, importers = [Importer "<ROOT>/1-local-import-constraints.project"], importee = Importee "<ROOT>/1-local-import-constraints.project"}) requires ==1.4.2.0)
+[__1] rejecting: hashable-1.4.2.0 (constraint from project config ProjectImport (ImportedConfig {importDepth = 1, importers = [Importer "<ROOT>/1-local-import-constraints.project",Importer "<ROOT>/1-local-import-constraints.project"], importee = Importee "stackage-local.config"}) requires ==1.4.3.0)
 [__1] fail (backjumping, conflict set: cabal-version-override, hashable)
 After searching the rest of the dependency tree exhaustively, these were the goals I've had most trouble fulfilling: hashable (3), cabal-version-override (2)
 # 1-local-import-constraints.project --version-win=shallowest
