@@ -157,8 +157,19 @@ isProjectVersionInstalled (LabeledPackageConstraint constraint source)
 -- | Sort by import depth, ascending.
 sortByImportDepth :: [LabeledPackageConstraint] -> [LabeledPackageConstraint]
 sortByImportDepth = sortBy (comparing (\(LabeledPackageConstraint _ src) -> case src of
-    ConstraintSourceProjectConfig pci -> importDepth pci
-    _ -> maxBound))
+    ConstraintSourceProjectConfig ProjectRoot{} -> 0
+    ConstraintSourceProjectConfig (ProjectImport pci) -> importDepth pci
+    ConstraintSourceMainConfig{} -> maxBound
+    ConstraintSourceUserConfig{} -> maxBound
+    ConstraintSourceCommandlineFlag -> maxBound
+    ConstraintSourceUserTarget -> maxBound
+    ConstraintSourceNonReinstallablePackage -> maxBound
+    ConstraintSourceFreeze -> maxBound
+    ConstraintSourceConfigFlagOrTarget -> maxBound
+    ConstraintSourceMultiRepl -> maxBound
+    ConstraintSourceUnknown -> maxBound
+    ConstraintSetupCabalMinVersion -> maxBound
+    ConstraintSetupCabalMaxVersion -> maxBound))
 
 -- | Weed out any conflicts by picking user constraints over project
 -- constraints.
@@ -175,10 +186,10 @@ weedByDepth :: [LabeledPackageConstraint] -> [LabeledPackageConstraint]
 weedByDepth xs = case xs of
     [] -> []
     (LabeledPackageConstraint _ srcX) : _ -> case srcX of
-        ConstraintSourceProjectConfig ProjectConfigImport{importDepth = dX} ->
+        ConstraintSourceProjectConfig (ProjectImport ImportedConfig{importDepth = dX}) ->
             filter
                 (\(LabeledPackageConstraint _ srcY) -> case srcY of
-                    ConstraintSourceProjectConfig ProjectConfigImport{importDepth = dY} ->
+                    ConstraintSourceProjectConfig (ProjectImport ImportedConfig{importDepth = dY}) ->
                         dX == dY
                     _ -> False)
                 xs

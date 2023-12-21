@@ -58,7 +58,6 @@ module Distribution.Client.ProjectConfig
   , BadPerPackageCompilerPaths (..)
   ) where
 
-import Data.Coerce (coerce)
 import Distribution.Client.Compat.Prelude
 import Prelude ()
 
@@ -756,7 +755,7 @@ readProjectFileSkeleton
       then do
         monitorFiles [monitorFileHashed extensionFile]
         pcs <- liftIO readExtensionFile
-        monitorFiles $ map monitorFileHashed ((coerce . importee) <$> projectSkeletonImports pcs)
+        monitorFiles $ map monitorFileHashed (projectConfigImportSource <$> projectSkeletonImports pcs)
         pure pcs
       else do
         monitorFiles [monitorNonExistentFile extensionFile]
@@ -771,7 +770,7 @@ readProjectFileSkeleton
                   httpTransport
                   verbosity
                   []
-                  (Importer extensionFile)
+                  [Importer extensionFile]
                   (Importee extensionFile)
                   . ProjectConfigToParse 0
               )
@@ -811,7 +810,7 @@ readGlobalConfig verbosity configFileFlag = do
 reportParseResult :: Verbosity -> String -> FilePath -> OldParser.ParseResult ProjectConfigSkeleton -> IO ProjectConfigSkeleton
 reportParseResult verbosity _filetype filename (OldParser.ParseOk warnings x) = do
   unless (null warnings) $
-    let msg = unlines (map (OldParser.showPWarning (intercalate ", " $ filename : (coerce . importee <$> projectSkeletonImports x))) warnings)
+    let msg = unlines (map (OldParser.showPWarning (intercalate ", " $ filename : (projectConfigImportSource <$> projectSkeletonImports x))) warnings)
      in warn verbosity msg
   return x
 reportParseResult verbosity filetype filename (OldParser.ParseFailed err) =
