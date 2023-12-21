@@ -10,7 +10,7 @@
 module Distribution.Client.ProjectConfig.Legacy
   ( -- Project config skeletons
     ProjectConfigSkeleton
-  , parseProjectSkeleton
+  , parseProject
   , instantiateProjectConfigSkeletonFetchingCompiler
   , instantiateProjectConfigSkeletonWithCompiler
   , singletonProjectConfigSkeleton
@@ -227,8 +227,11 @@ instantiateProjectConfigSkeletonWithCompiler os arch impl _flags skel = go $ map
 projectSkeletonImports :: ProjectConfigSkeleton -> [ProjectConfigPath]
 projectSkeletonImports = view traverseCondTreeC
 
-parseProjectSkeleton :: FilePath -> HttpTransport -> Verbosity -> [ProjectConfigPath] -> [Importer] -> Importee -> ProjectConfigToParse -> IO (ParseResult ProjectConfigSkeleton)
-parseProjectSkeleton cacheDir httpTransport verbosity seenImports srcImporters srcImportee ProjectConfigToParse{toParseDepth = depthInitial, toParseContents = bs} =
+parseProject :: RootConfig -> FilePath -> HttpTransport -> Verbosity -> [ProjectConfigPath] -> ProjectConfigToParse -> IO (ParseResult ProjectConfigSkeleton)
+parseProject (RootConfig root) =  parseProjectSkeleton [] (Importee root)
+
+parseProjectSkeleton :: [Importer] -> Importee -> FilePath -> HttpTransport -> Verbosity -> [ProjectConfigPath] -> ProjectConfigToParse -> IO (ParseResult ProjectConfigSkeleton)
+parseProjectSkeleton srcImporters srcImportee cacheDir httpTransport verbosity seenImports ProjectConfigToParse{toParseDepth = depthInitial, toParseContents = bs} =
   (sanityWalkPCS False =<<) <$> liftPR (go depthInitial srcImporters srcImportee []) (ParseUtils.readFields bs)
   where
     go :: Int -> [Importer] -> Importee -> [ParseUtils.Field] -> [ParseUtils.Field] -> IO (ParseResult ProjectConfigSkeleton)
@@ -246,7 +249,7 @@ parseProjectSkeleton cacheDir httpTransport verbosity seenImports srcImporters s
                         let depthNext = depth + 1
                             imports = ProjectImport (ImportedConfig depthNext importChain importLoc) : seenImports
                             nextConfig = ProjectConfigToParse depthNext sourceNext
-                         in parseProjectSkeleton cacheDir httpTransport verbosity imports importChain importLoc nextConfig
+                         in parseProjectSkeleton importChain importLoc cacheDir httpTransport verbosity imports nextConfig
                     )
             rest <- go depth sourceImporters sourceImportee [] xs
             pure . fmap mconcat . sequence $ [fs, res, rest]
@@ -304,7 +307,7 @@ parseProjectSkeleton cacheDir httpTransport verbosity seenImports srcImporters s
     liftPR _ (ParseFailed e) = pure $ ParseFailed e
 
     fetchImportConfig :: ProjectConfigPath -> IO BS.ByteString
-    fetchImportConfig (ProjectRoot root) = BS.readFile root
+    fetchImportConfig (ProjectRoot (RootConfig root)) = BS.readFile root
     fetchImportConfig (ProjectImport ImportedConfig{importers, importee = Importee pci}) = case parseURI pci of
         Just uri -> do
           let fp = cacheDir </> map (\x -> if isPathSeparator x then '_' else x) (makeValid $ show uri)

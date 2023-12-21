@@ -765,13 +765,12 @@ readProjectFileSkeleton
 
       readExtensionFile =
         reportParseResult verbosity extensionDescription extensionFile
-          =<< ( parseProjectSkeleton
+          =<< ( parseProject
+                  (RootConfig extensionFile)
                   distDownloadSrcDirectory
                   httpTransport
                   verbosity
                   []
-                  [Importer extensionFile]
-                  (Importee extensionFile)
                   . ProjectConfigToParse 0
               )
           =<< BS.readFile extensionFile
