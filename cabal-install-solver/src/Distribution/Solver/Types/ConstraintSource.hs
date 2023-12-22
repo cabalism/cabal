@@ -1,6 +1,7 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE ParallelListComp #-}
 module Distribution.Solver.Types.ConstraintSource
     ( ConstraintSource(..)
     , RootConfig(..)
@@ -10,6 +11,7 @@ module Distribution.Solver.Types.ConstraintSource
     , ProjectConfigPath(..)
     , mkProjectConfigPath
     , projectConfigPathSource
+    , showProjectConfigPath
     , showConstraintSource
     , nullProjectConfigPath
     ) where
@@ -42,6 +44,28 @@ data ImportedConfig =
 
 data ProjectConfigPath = ProjectRoot RootConfig | ProjectImport ImportedConfig
     deriving (Eq, Show, Generic)
+
+showProjectConfigPath :: ProjectConfigPath -> String
+showProjectConfigPath = \case
+    ProjectRoot (RootConfig path) -> "+-- " ++ path
+    ProjectImport ImportedConfig{importee = Importee x, importers} ->
+        renderProjectConfigPath . reverse $ x : map coerce importers
+
+renderProjectConfigPath :: [String] -> String
+renderProjectConfigPath [] = ""
+renderProjectConfigPath [x] = x
+renderProjectConfigPath xs = unlines
+    [ (nTimes i (showChar ' ') . showString "+-- " . showString x) ""
+    | x <- xs
+    | i <- [0..]
+    ]
+
+-- | Apply a function @n@ times to a given value.
+-- SEE: GHC.Utils.Misc
+nTimes :: Int -> (a -> a) -> (a -> a)
+nTimes 0 _ = id
+nTimes 1 f = f
+nTimes n f = f . nTimes (n-1) f
 
 mkProjectConfigPath :: HasCallStack => Int -> [Importer] -> Importee -> ProjectConfigPath
 mkProjectConfigPath 0 [] (Importee path) = ProjectRoot $ RootConfig path
@@ -131,7 +155,7 @@ showConstraintSource :: ConstraintSource -> String
 showConstraintSource (ConstraintSourceMainConfig path) =
     "main config " ++ path
 showConstraintSource (ConstraintSourceProjectConfig projectConfig) =
-    "project config " ++ show projectConfig
+    "project config " ++ showProjectConfigPath projectConfig
 showConstraintSource (ConstraintSourceUserConfig path)= "user config " ++ path
 showConstraintSource ConstraintSourceCommandlineFlag = "command line flag"
 showConstraintSource ConstraintSourceUserTarget = "user target"
