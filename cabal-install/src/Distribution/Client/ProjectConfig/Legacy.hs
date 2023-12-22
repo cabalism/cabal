@@ -1,6 +1,7 @@
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TupleSections #-}
@@ -32,6 +33,7 @@ module Distribution.Client.ProjectConfig.Legacy
   , renderPackageLocationToken
   ) where
 
+import GHC.Stack (HasCallStack)
 import Data.Coerce (coerce)
 import Distribution.Client.Compat.Prelude
 
@@ -234,6 +236,10 @@ parseProjectSkeleton :: [Importer] -> Importee -> FilePath -> HttpTransport -> V
 parseProjectSkeleton srcImporters srcImportee cacheDir httpTransport verbosity seenImports ProjectConfigToParse{toParseDepth = depthInitial, toParseContents = bs} =
   (sanityWalkPCS False =<<) <$> liftPR (go depthInitial srcImporters srcImportee []) (ParseUtils.readFields bs)
   where
+    rootSource = case (srcImporters, srcImportee) of
+      ([], Importee root) -> root
+      (Importer root : _, _) -> root
+
     go :: Int -> [Importer] -> Importee -> [ParseUtils.Field] -> [ParseUtils.Field] -> IO (ParseResult ProjectConfigSkeleton)
     go depth sourceImporters sourceImportee@(Importee source) acc (x : xs) = case x of
       (ParseUtils.F l "import" (Importee -> importLoc@(Importee importeeSource))) ->
@@ -241,13 +247,15 @@ parseProjectSkeleton srcImporters srcImportee cacheDir httpTransport verbosity s
           then pure . parseFail $ ParseUtils.FromString ("cyclical import of " ++ coerce importLoc) (Just l)
           else do
             let importChain = Importer source : sourceImporters
-            let depthImport = ProjectImport $ ImportedConfig depth importChain importLoc
+            --let depthImport = ProjectImport $ ImportedConfig depth importChain importLoc
+            let depthImport = mkProjectConfigPath depth sourceImporters importLoc
             let fs = fmap (\z -> CondNode z [depthImport] mempty) $ fieldsToConfig depth sourceImporters sourceImportee (reverse acc)
             res <-
               fetchImportConfig depthImport
                 >>= ( \sourceNext ->
                         let depthNext = depth + 1
-                            imports = ProjectImport (ImportedConfig depthNext importChain importLoc) : seenImports
+                            -- imports = ProjectImport (ImportedConfig depthNext importChain importLoc) : seenImports
+                            imports = mkProjectConfigPath depthNext importChain importLoc : seenImports
                             nextConfig = ProjectConfigToParse depthNext sourceNext
                          in parseProjectSkeleton importChain importLoc cacheDir httpTransport verbosity imports nextConfig
                     )
@@ -291,7 +299,8 @@ parseProjectSkeleton srcImporters srcImportee cacheDir httpTransport verbosity s
     fieldsToConfig :: Int -> [Importer] -> Importee -> [ParseUtils.Field] -> ParseResult ProjectConfig
     fieldsToConfig depth sourceImporters sourceImportee xs =
       fmap (addProvenance sourceImportee . convertLegacyProjectConfig) $
-        parseLegacyProjectConfigFields (ProjectImport $ ImportedConfig depth sourceImporters sourceImportee) xs
+        -- parseLegacyProjectConfigFields (ProjectImport $ ImportedConfig depth sourceImporters sourceImportee) xs
+        parseLegacyProjectConfigFields (mkProjectConfigPath depth sourceImporters sourceImportee) xs
 
     addProvenance :: Importee -> ProjectConfig -> ProjectConfig
     addProvenance source x = x{projectConfigProvenance = Set.singleton (Explicit $ coerce source)}
@@ -306,17 +315,19 @@ parseProjectSkeleton srcImporters srcImportee cacheDir httpTransport verbosity s
         addWarnings x' = x'
     liftPR _ (ParseFailed e) = pure $ ParseFailed e
 
-    fetchImportConfig :: ProjectConfigPath -> IO BS.ByteString
-    fetchImportConfig (ProjectRoot (RootConfig root)) = BS.readFile root
-    fetchImportConfig (ProjectImport ImportedConfig{importers, importee = Importee pci}) = case parseURI pci of
-        Just uri -> do
-          let fp = cacheDir </> map (\x -> if isPathSeparator x then '_' else x) (makeValid $ show uri)
-          createDirectoryIfMissing True cacheDir
-          _ <- downloadURI httpTransport verbosity uri fp
-          BS.readFile fp
-        Nothing -> case importers of
-          (Importer source) : _ -> BS.readFile $ if isAbsolute pci then pci else takeDirectory source </> pci
-          [] -> BS.readFile pci
+    fetchImportConfig :: HasCallStack => ProjectConfigPath -> IO BS.ByteString
+    fetchImportConfig = \case
+      (ProjectRoot (RootConfig root)) -> fetch root
+      (ProjectImport ImportedConfig{importee = Importee pci}) -> fetch pci
+      where
+        fetch pci = case parseURI pci of
+          Just uri -> do
+            let fp = cacheDir </> map (\x -> if isPathSeparator x then '_' else x) (makeValid $ show uri)
+            createDirectoryIfMissing True cacheDir
+            _ <- downloadURI httpTransport verbosity uri fp
+            BS.readFile fp
+          Nothing ->
+            BS.readFile $ if isAbsolute pci then pci else takeDirectory rootSource </> pci
 
     modifiesCompiler :: ProjectConfig -> Bool
     modifiesCompiler pc = isSet projectConfigHcFlavor || isSet projectConfigHcPath || isSet projectConfigHcPkg

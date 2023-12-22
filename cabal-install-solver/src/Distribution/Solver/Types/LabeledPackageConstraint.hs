@@ -1,6 +1,7 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE PartialTypeSignatures #-}
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE ViewPatterns #-}
@@ -77,6 +78,9 @@ data LabeledPackageConstraint
 
 unlabelPackageConstraint :: LabeledPackageConstraint -> PackageConstraint
 unlabelPackageConstraint (LabeledPackageConstraint pc _) = pc
+
+unlabelConstraintSource :: LabeledPackageConstraint -> ConstraintSource
+unlabelConstraintSource (LabeledPackageConstraint _ cs) = cs
 
 unscopePackageConstraint :: PackageConstraint -> ConstraintScope
 unscopePackageConstraint (PackageConstraint scope _) = scope
@@ -156,20 +160,13 @@ isProjectVersionInstalled (LabeledPackageConstraint constraint source)
 
 -- | Sort by import depth, ascending.
 sortByImportDepth :: [LabeledPackageConstraint] -> [LabeledPackageConstraint]
-sortByImportDepth = sortBy (comparing (\(LabeledPackageConstraint _ src) -> case src of
-    ConstraintSourceProjectConfig ProjectRoot{} -> 0
-    ConstraintSourceProjectConfig (ProjectImport pci) -> importDepth pci
-    ConstraintSourceMainConfig{} -> maxBound
-    ConstraintSourceUserConfig{} -> maxBound
-    ConstraintSourceCommandlineFlag -> maxBound
-    ConstraintSourceUserTarget -> maxBound
-    ConstraintSourceNonReinstallablePackage -> maxBound
-    ConstraintSourceFreeze -> maxBound
-    ConstraintSourceConfigFlagOrTarget -> maxBound
-    ConstraintSourceMultiRepl -> maxBound
-    ConstraintSourceUnknown -> maxBound
-    ConstraintSetupCabalMinVersion -> maxBound
-    ConstraintSetupCabalMaxVersion -> maxBound))
+sortByImportDepth = sortBy (comparing (constraintDepth . unlabelConstraintSource))
+
+constraintDepth :: ConstraintSource -> Int
+constraintDepth cs = fromMaybe maxBound $ case cs of
+    ConstraintSourceProjectConfig ProjectRoot{} -> Just 0
+    ConstraintSourceProjectConfig (ProjectImport pci) -> Just $ importDepth pci
+    _ -> Nothing
 
 -- | Weed out any conflicts by picking user constraints over project
 -- constraints.
@@ -184,16 +181,12 @@ weedByUser us xs = case us of
 -- import depth, assuming the input is sorted by import depth.
 weedByDepth :: [LabeledPackageConstraint] -> [LabeledPackageConstraint]
 weedByDepth xs = case xs of
-    [] -> []
-    (LabeledPackageConstraint _ srcX) : _ -> case srcX of
-        ConstraintSourceProjectConfig (ProjectImport ImportedConfig{importDepth = dX}) ->
-            filter
-                (\(LabeledPackageConstraint _ srcY) -> case srcY of
-                    ConstraintSourceProjectConfig (ProjectImport ImportedConfig{importDepth = dY}) ->
-                        dX == dY
-                    _ -> False)
-                xs
-        _ -> xs
+    [] -> xs
+    -- [_] -> xs
+    (constraintDepth . unlabelConstraintSource -> dX) : _ ->
+        filter
+            (\(constraintDepth . unlabelConstraintSource -> dY) -> dY == dX)
+            xs
 
 -- | Weed out any conflicts by picking the last project constraints, assuming
 -- the input list is in definition order.
