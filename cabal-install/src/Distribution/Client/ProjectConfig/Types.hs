@@ -104,15 +104,9 @@ import Distribution.Types.ParStrat
 --
 
 -- | The project configuration is configuration that is parsed but parse
--- configuration may import more configuration. This record attaches an import
--- depth to each piece of imported configuration.
-data ProjectConfigToParse = ProjectConfigToParse
-  { toParseDepth :: Int
-  -- ^ Depth of the import. The main project config file has depth 0, and each
-  -- import increases the depth by 1.
-  , toParseContents :: BS.ByteString
-  -- ^ Unparsed contents of an imported file contributing to the project config.
-  }
+-- configuration may import more configuration. Holds the unparsed contents of
+-- an imported file contributing to the project config.
+newtype ProjectConfigToParse = ProjectConfigToParse BS.ByteString
 
 -- | This type corresponds directly to what can be written in the
 -- @cabal.project@ file. Other sources of configuration can also be injected

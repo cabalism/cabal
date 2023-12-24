@@ -771,7 +771,7 @@ readProjectFileSkeleton
                   httpTransport
                   verbosity
                   []
-                  . ProjectConfigToParse 0
+                  . ProjectConfigToParse
               )
           =<< BS.readFile extensionFile
 

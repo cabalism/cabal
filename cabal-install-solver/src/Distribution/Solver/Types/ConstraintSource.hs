@@ -68,18 +68,16 @@ nTimes 0 _ = id
 nTimes 1 f = f
 nTimes n f = f . nTimes (n-1) f
 
-mkProjectConfigPath :: HasCallStack => Int -> [Importer] -> Importee -> ProjectConfigPath
-mkProjectConfigPath 0 [] (Importee path) = ProjectRoot $ RootConfig path
-mkProjectConfigPath p [] _ = error $ "mkProjectConfigPath: depth == " ++ show p ++ " but expected depth == 0"
-mkProjectConfigPath 0 xs _ = error $ "mkProjectConfigPath: importers == " ++ show xs ++ " but expected []"
-mkProjectConfigPath 1 importers@[_] importee = ProjectImport $ ImportedConfig
+mkProjectConfigPath :: HasCallStack => [Importer] -> Importee -> ProjectConfigPath
+mkProjectConfigPath [] (Importee path) = ProjectRoot $ RootConfig path
+mkProjectConfigPath importers@[_] importee = ProjectImport $ ImportedConfig
     { importers
     , importee
     }
-mkProjectConfigPath n (i:is) importee = case mkProjectConfigPath (n - 1) is importee of
+mkProjectConfigPath (i:is) importee = case mkProjectConfigPath is importee of
     ProjectImport importedConfig -> ProjectImport $ importedConfig
         { importers = i : importers importedConfig }
-    ProjectRoot _ -> error $ "mkProjectConfigPath: depth == " ++ show n ++ " but expected depth > 1"
+    ProjectRoot _ -> error $ "mkProjectConfigPath: depth == 0 but expected import depth > 1"
 
 projectConfigPathSource :: ProjectConfigPath -> FilePath
 projectConfigPathSource = \case

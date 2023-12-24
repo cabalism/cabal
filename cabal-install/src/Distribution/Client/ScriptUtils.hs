@@ -514,7 +514,7 @@ readProjectBlockFromScript verbosity httpTransport DistDirLayout{distDownloadSrc
           httpTransport
           verbosity
           []
-          (ProjectConfigToParse 0 x)
+          (ProjectConfigToParse x)
 
 -- | Extract the first encountered script metadata block started end
 -- terminated by the tokens

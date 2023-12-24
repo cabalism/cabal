@@ -33,9 +33,9 @@ module Distribution.Client.ProjectConfig.Legacy
   , renderPackageLocationToken
   ) where
 
-import GHC.Stack (HasCallStack)
 import Data.Coerce (coerce)
 import Distribution.Client.Compat.Prelude
+import GHC.Stack (HasCallStack)
 
 import Distribution.Types.Flag (FlagName, parsecFlagAssignment)
 
@@ -230,40 +230,37 @@ projectSkeletonImports :: ProjectConfigSkeleton -> [ProjectConfigPath]
 projectSkeletonImports = view traverseCondTreeC
 
 parseProject :: RootConfig -> FilePath -> HttpTransport -> Verbosity -> [ProjectConfigPath] -> ProjectConfigToParse -> IO (ParseResult ProjectConfigSkeleton)
-parseProject (RootConfig root) =  parseProjectSkeleton [] (Importee root)
+parseProject (RootConfig root) = parseProjectSkeleton [] (Importee root)
 
 parseProjectSkeleton :: [Importer] -> Importee -> FilePath -> HttpTransport -> Verbosity -> [ProjectConfigPath] -> ProjectConfigToParse -> IO (ParseResult ProjectConfigSkeleton)
-parseProjectSkeleton srcImporters srcImportee cacheDir httpTransport verbosity seenImports ProjectConfigToParse{toParseDepth = depthInitial, toParseContents = bs} =
-  (sanityWalkPCS False =<<) <$> liftPR (go depthInitial srcImporters srcImportee []) (ParseUtils.readFields bs)
+parseProjectSkeleton srcImporters srcImportee cacheDir httpTransport verbosity seenImports (ProjectConfigToParse bs) =
+  (sanityWalkPCS False =<<) <$> liftPR (go srcImporters srcImportee []) (ParseUtils.readFields bs)
   where
     rootSource = case (srcImporters, srcImportee) of
       ([], Importee root) -> root
       (Importer root : _, _) -> root
 
-    go :: Int -> [Importer] -> Importee -> [ParseUtils.Field] -> [ParseUtils.Field] -> IO (ParseResult ProjectConfigSkeleton)
-    go depth sourceImporters sourceImportee@(Importee source) acc (x : xs) = case x of
+    go :: [Importer] -> Importee -> [ParseUtils.Field] -> [ParseUtils.Field] -> IO (ParseResult ProjectConfigSkeleton)
+    go sourceImporters sourceImportee@(Importee source) acc (x : xs) = case x of
       (ParseUtils.F l "import" (Importee -> importLoc@(Importee importeeSource))) ->
         if importeeSource `elem` (projectConfigPathSource <$> seenImports)
           then pure . parseFail $ ParseUtils.FromString ("cyclical import of " ++ coerce importLoc) (Just l)
           else do
             let importChain = Importer source : sourceImporters
-            --let depthImport = ProjectImport $ ImportedConfig depth importChain importLoc
-            let depthImport = mkProjectConfigPath depth sourceImporters importLoc
-            let fs = fmap (\z -> CondNode z [depthImport] mempty) $ fieldsToConfig depth sourceImporters sourceImportee (reverse acc)
+            let depthImport = mkProjectConfigPath sourceImporters importLoc
+            let fs = fmap (\z -> CondNode z [depthImport] mempty) $ fieldsToConfig sourceImporters sourceImportee (reverse acc)
             res <-
               fetchImportConfig depthImport
                 >>= ( \sourceNext ->
-                        let depthNext = depth + 1
-                            -- imports = ProjectImport (ImportedConfig depthNext importChain importLoc) : seenImports
-                            imports = mkProjectConfigPath depthNext importChain importLoc : seenImports
-                            nextConfig = ProjectConfigToParse depthNext sourceNext
+                        let imports = mkProjectConfigPath importChain importLoc : seenImports
+                            nextConfig = ProjectConfigToParse sourceNext
                          in parseProjectSkeleton importChain importLoc cacheDir httpTransport verbosity imports nextConfig
                     )
-            rest <- go depth sourceImporters sourceImportee [] xs
+            rest <- go sourceImporters sourceImportee [] xs
             pure . fmap mconcat . sequence $ [fs, res, rest]
       (ParseUtils.Section l "if" p xs') -> do
-        subpcs <- go depth sourceImporters sourceImportee [] xs'
-        let fs = fmap singletonProjectConfigSkeleton $ fieldsToConfig depth sourceImporters sourceImportee (reverse acc)
+        subpcs <- go sourceImporters sourceImportee [] xs'
+        let fs = fmap singletonProjectConfigSkeleton $ fieldsToConfig sourceImporters sourceImportee (reverse acc)
         (elseClauses, rest) <- parseElseClauses sourceImporters sourceImportee xs
         let condNode =
               (\c pcs e -> CondNode mempty mempty [CondBranch c pcs e])
@@ -273,20 +270,20 @@ parseProjectSkeleton srcImporters srcImportee cacheDir httpTransport verbosity s
                 <*> subpcs
                 <*> elseClauses
         pure . fmap mconcat . sequence $ [fs, condNode, rest]
-      _ -> go depth sourceImporters sourceImportee (x : acc) xs
-    go depth sourceImporters sourceImportee acc [] =
+      _ -> go sourceImporters sourceImportee (x : acc) xs
+    go sourceImporters sourceImportee acc [] =
       pure
         . fmap singletonProjectConfigSkeleton
-        $ fieldsToConfig depth sourceImporters sourceImportee (reverse acc)
+        $ fieldsToConfig sourceImporters sourceImportee (reverse acc)
 
     parseElseClauses :: [Importer] -> Importee -> [ParseUtils.Field] -> IO (ParseResult (Maybe ProjectConfigSkeleton), ParseResult ProjectConfigSkeleton)
     parseElseClauses importers importee x = case x of
       (ParseUtils.Section _l "else" _p xs' : xs) -> do
-        subpcs <- go 0 importers importee [] xs'
-        rest <- go 0 importers importee [] xs
+        subpcs <- go importers importee [] xs'
+        rest <- go importers importee [] xs
         pure (Just <$> subpcs, rest)
       (ParseUtils.Section l "elif" p xs' : xs) -> do
-        subpcs <- go 0 importers importee [] xs'
+        subpcs <- go importers importee [] xs'
         (elseClauses, rest) <- parseElseClauses importers importee xs
         let condNode =
               (\c pcs e -> CondNode mempty mempty [CondBranch c pcs e])
@@ -294,13 +291,12 @@ parseProjectSkeleton srcImporters srcImportee cacheDir httpTransport verbosity s
                 <*> subpcs
                 <*> elseClauses
         pure (Just <$> condNode, rest)
-      _ -> (\r -> (pure Nothing, r)) <$> go 0 importers importee [] x
+      _ -> (\r -> (pure Nothing, r)) <$> go importers importee [] x
 
-    fieldsToConfig :: Int -> [Importer] -> Importee -> [ParseUtils.Field] -> ParseResult ProjectConfig
-    fieldsToConfig depth sourceImporters sourceImportee xs =
+    fieldsToConfig :: [Importer] -> Importee -> [ParseUtils.Field] -> ParseResult ProjectConfig
+    fieldsToConfig sourceImporters sourceImportee xs =
       fmap (addProvenance sourceImportee . convertLegacyProjectConfig) $
-        -- parseLegacyProjectConfigFields (ProjectImport $ ImportedConfig depth sourceImporters sourceImportee) xs
-        parseLegacyProjectConfigFields (mkProjectConfigPath depth sourceImporters sourceImportee) xs
+        parseLegacyProjectConfigFields (mkProjectConfigPath sourceImporters sourceImportee) xs
 
     addProvenance :: Importee -> ProjectConfig -> ProjectConfig
     addProvenance source x = x{projectConfigProvenance = Set.singleton (Explicit $ coerce source)}
