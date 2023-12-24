@@ -14,6 +14,7 @@ module Distribution.Solver.Types.ConstraintSource
     , showProjectConfigPath
     , showConstraintSource
     , nullProjectConfigPath
+    , importDepth
     ) where
 
 import Distribution.Solver.Compat.Prelude
@@ -32,11 +33,8 @@ newtype Importee = Importee FilePath
 
 data ImportedConfig =
     ImportedConfig
-        { importDepth :: Int
-        -- ^ Depth of the import. The main project config file has depth 0, and each
-        -- import increases the depth by 1.
-        , importers :: [Importer]
-        -- ^ Path to the project config file with the import.
+        { importers :: [Importer]
+        -- ^ Path to the project config file with the import. Doesn't include the importee.
         , importee :: Importee
         -- ^ Path to the imported file contributing to the project config.
         }
@@ -44,6 +42,9 @@ data ImportedConfig =
 
 data ProjectConfigPath = ProjectRoot RootConfig | ProjectImport ImportedConfig
     deriving (Eq, Show, Generic)
+
+importDepth :: ImportedConfig -> Int
+importDepth = length . importers
 
 showProjectConfigPath :: ProjectConfigPath -> String
 showProjectConfigPath = \case
@@ -72,15 +73,12 @@ mkProjectConfigPath 0 [] (Importee path) = ProjectRoot $ RootConfig path
 mkProjectConfigPath p [] _ = error $ "mkProjectConfigPath: depth == " ++ show p ++ " but expected depth == 0"
 mkProjectConfigPath 0 xs _ = error $ "mkProjectConfigPath: importers == " ++ show xs ++ " but expected []"
 mkProjectConfigPath 1 importers@[_] importee = ProjectImport $ ImportedConfig
-    { importDepth = 1
-    , importers
+    { importers
     , importee
     }
 mkProjectConfigPath n (i:is) importee = case mkProjectConfigPath (n - 1) is importee of
     ProjectImport importedConfig -> ProjectImport $ importedConfig
-        { importDepth = n
-        , importers = i : importers importedConfig
-        }
+        { importers = i : importers importedConfig }
     ProjectRoot _ -> error $ "mkProjectConfigPath: depth == " ++ show n ++ " but expected depth > 1"
 
 projectConfigPathSource :: ProjectConfigPath -> FilePath
