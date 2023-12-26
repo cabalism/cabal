@@ -1,8 +1,5 @@
 import: project-cabal/pkgs/buildinfo.config
+import: project-cabal/constraints.config
 tests: False
 optimization: False
 with-compiler: ghc-8.8.3
-
--- avoiding extra dependencies
-constraints: rere -rere-cfg
-constraints: these -assoc
