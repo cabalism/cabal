@@ -1,19 +1,7 @@
 import: cabal.project.latest-ghc
-
-packages: Cabal/
-packages: cabal-testsuite/
-packages: Cabal-syntax/
-packages: cabal-install/
-packages: cabal-install-solver/
-packages: solver-benchmarks/
+import: project-cabal/pkgs/default.config
 
 tests: True
-
-packages: Cabal-QuickCheck/
-packages: Cabal-tree-diff/
-packages: Cabal-described
-packages: Cabal-tests/
-packages: cabal-benchmarks/
 
 optional-packages: ./vendored/*/*.cabal
 
