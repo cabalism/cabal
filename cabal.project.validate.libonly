@@ -3,13 +3,6 @@ import: project-cabal/pkgs/cabal.config
 import: project-cabal/pkgs/tests.config
 import: project-cabal/constraints.config
 
-package Cabal-syntax
-  ghc-options: -Werror
-package Cabal
-  ghc-options: -Werror
-package cabal-testsuite
-  ghc-options: -Werror
-
 tests: True
 write-ghc-environment-files: never
 

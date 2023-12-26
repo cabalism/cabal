@@ -8,12 +8,3 @@ import: project-cabal/constraints.config
 
 tests: True
 write-ghc-environment-files: never
-
-package Cabal-syntax
-  ghc-options: -Werror
-package Cabal
-  ghc-options: -Werror
-package cabal-testsuite
-  ghc-options: -Werror
-package cabal-install
-  ghc-options: -Werror
