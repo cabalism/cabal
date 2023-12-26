@@ -8,4 +8,3 @@ import: project-cabal/pkgs/benchmarks.config
 import: project-cabal/constraints.config
 
 tests: True
-optional-packages: ./vendored/*/*.cabal
