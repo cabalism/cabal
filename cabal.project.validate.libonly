@@ -1,4 +1,5 @@
-import: project-cabal/pkgs/libonly.config
+import: project-cabal/pkgs/cabal.config
+import: project-cabal/pkgs/tests.config
 import: project-cabal/constraints.config
 
 tests: True
