@@ -1,5 +1,5 @@
 import: project-cabal/pkgs/cabal.config
-import: project-cabal/pkgs/libonly.config
+import: project-cabal/pkgs/tests.config
 tests: True
 
 -- Uncomment to allow picking up extra local unpacked deps:
