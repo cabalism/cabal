@@ -1,13 +1,10 @@
 import: cabal.project.latest-ghc
 import: project-cabal/pkgs/default.config
+import: project-cabal/constraints.config
 
 tests: True
 
 optional-packages: ./vendored/*/*.cabal
-
--- avoiding extra dependencies
-constraints: rere -rere-cfg
-constraints: these -assoc
 
 program-options
   ghc-options: -fno-ignore-asserts
