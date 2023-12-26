@@ -1,5 +1,5 @@
 import: project-cabal/pkgs/cabal.config
-import: project-cabal/pkgs/release.config
+import: project-cabal/pkgs/install.config
 tests: False
 benchmarks: False
 optimization: True
