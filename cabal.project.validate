@@ -1,10 +1,8 @@
 import: cabal.project.latest-ghc
 import: project-cabal/pkgs/validate.config
-tests: True
+import: project-cabal/constraints.config
 
--- avoiding extra dependencies
-constraints: rere -rere-cfg
-constraints: these -assoc
+tests: True
 
 write-ghc-environment-files: never
 
