@@ -1,4 +1,3 @@
-{-# OPTIONS_GHC -fno-warn-orphans #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -19,7 +18,6 @@ import Control.Monad (forM, replicateM, unless, when)
 import qualified Data.ByteString as BS
 import Data.List (nub, unzip4)
 import Data.Maybe (isJust, catMaybes)
-import Data.Monoid ((<>))
 import Data.String (fromString)
 import Data.Function ((&))
 import Data.Time (NominalDiffTime, diffUTCTime, getCurrentTime)
