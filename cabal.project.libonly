@@ -1,10 +1,4 @@
-packages: Cabal-syntax/ Cabal/ cabal-testsuite/
-
-packages: Cabal-QuickCheck/
-packages: Cabal-tree-diff
-packages: Cabal-described
-packages: Cabal-tests
-
+import: project-cabal/pkgs/libonly.config
 tests: True
 
 -- Uncomment to allow picking up extra local unpacked deps:

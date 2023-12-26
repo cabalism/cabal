@@ -1,16 +1,4 @@
-packages: Cabal-syntax/
-packages: Cabal/
-packages: cabal-testsuite/
-packages: cabal-install/
-packages: solver-benchmarks/
-
-packages: cabal-install-solver/
-packages: Cabal-QuickCheck/
-packages: Cabal-tree-diff
-packages: Cabal-described
-packages: Cabal-tests
-packages: cabal-benchmarks
-
+import: project-cabal/pkgs/doctest.config
 tests: True
 
 -- avoiding extra dependencies

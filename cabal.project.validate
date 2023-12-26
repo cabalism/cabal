@@ -1,18 +1,5 @@
 import: cabal.project.latest-ghc
-
-packages: Cabal-syntax/
-packages: Cabal/
-packages: cabal-testsuite/
-packages: cabal-install/
-packages: solver-benchmarks/
-
-packages: cabal-install-solver/
-packages: Cabal-QuickCheck/
-packages: Cabal-tree-diff
-packages: Cabal-described
-packages: Cabal-tests
-packages: cabal-benchmarks
-
+import: project-cabal/pkgs/validate.config
 tests: True
 
 -- avoiding extra dependencies
