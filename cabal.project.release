@@ -1,7 +1,4 @@
-packages: Cabal-syntax/
-packages: Cabal/
-packages: cabal-install-solver/
-packages: cabal-install/
+import: project-cabal/pkgs/release.config
 tests: False
 benchmarks: False
 optimization: True
