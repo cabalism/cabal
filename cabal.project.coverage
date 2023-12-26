@@ -1,7 +1,7 @@
 import: project-cabal/pkgs/cabal.config
+import: project-cabal/pkgs/install.config
 import: project-cabal/pkgs/tests.config
 import: project-cabal/pkgs/benchmarks.config
-import: project-cabal/pkgs/install.config
 import: project-cabal/constraints.config
 tests: True
 
