@@ -1,11 +1,4 @@
-packages: Cabal-syntax/
-packages: Cabal/
-packages: cabal-testsuite/
-packages: Cabal-QuickCheck/
-packages: Cabal-tree-diff
-packages: Cabal-described
-packages: Cabal-tests
-
+import: project-cabal/pkgs/validate-libonly.config
 tests: True
 
 write-ghc-environment-files: never
