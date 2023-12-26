@@ -1,4 +1,4 @@
-import: project-cabal/pkgs/validate-libonly.config
+import: project-cabal/pkgs/libonly.config
 import: project-cabal/constraints.config
 
 tests: True
