@@ -1,6 +1,7 @@
 import: cabal.project.latest-ghc
 import: project-cabal/pkgs/cabal.config
 import: project-cabal/pkgs/default.config
+import: project-cabal/pkgs/benchmarks.config
 import: project-cabal/constraints.config
 
 tests: True
