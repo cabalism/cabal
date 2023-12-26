@@ -1,5 +1,5 @@
 import: cabal.project.latest-ghc
-import: project-cabal/pkgs/validate.config
+import: project-cabal/pkgs/default.config
 import: project-cabal/constraints.config
 
 tests: True
