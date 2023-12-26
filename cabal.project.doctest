@@ -1,9 +1,6 @@
 import: project-cabal/pkgs/doctest.config
+import: project-cabal/constraints.config
 tests: True
-
--- avoiding extra dependencies
-constraints: rere -rere-cfg
-constraints: these -assoc
 
 write-ghc-environment-files: never
 

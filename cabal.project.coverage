@@ -1,4 +1,5 @@
 import: project-cabal/pkgs/coverage.config
+import: project-cabal/constraints.config
 tests: True
 
 -- Uncomment to allow picking up extra local unpacked deps:
@@ -13,10 +14,6 @@ allow-newer:
 
 -- https://github.com/haskell-hvr/windns/pull/2
 allow-newer: windns-0.1.0.1:base
-
--- avoiding extra dependencies
-constraints: rere -rere-cfg
-constraints: these
 
 program-options
   ghc-options: -fno-ignore-asserts
