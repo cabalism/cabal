@@ -1,4 +1,3 @@
-import: project-cabal/ghc-options.config
 import: project-cabal/pkgs/cabal.config
 import: project-cabal/pkgs/install.config
 import: project-cabal/pkgs/tests.config
