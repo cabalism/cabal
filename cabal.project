@@ -1,6 +1,4 @@
-program-options
-  ghc-options: -fno-ignore-asserts
-
+import: project-cabal/ghc-options.config
 import: project-cabal/ghc-latest.config
 import: project-cabal/pkgs/cabal.config
 import: project-cabal/pkgs/tests.config
