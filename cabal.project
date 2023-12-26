@@ -1,4 +1,4 @@
-import: cabal.project.latest-ghc
+import: project-cabal/latest-ghc.config
 import: project-cabal/pkgs/cabal.config
 import: project-cabal/pkgs/tests.config
 import: project-cabal/pkgs/benchmarks.config
