@@ -1,8 +1,12 @@
+program-options
+  ghc-options: -fno-ignore-asserts
+
 import: project-cabal/pkgs/cabal.config
 import: project-cabal/pkgs/install.config
 import: project-cabal/pkgs/tests.config
 import: project-cabal/pkgs/benchmarks.config
 import: project-cabal/constraints.config
+
 tests: True
 
 -- Uncomment to allow picking up extra local unpacked deps:
@@ -14,7 +18,3 @@ allow-newer:
     hackage-repo-tool:optparse-applicative
   , hackage-security:Cabal
   , windns-0.1.0.1:base
-
-program-options
-  ghc-options: -fno-ignore-asserts
-
