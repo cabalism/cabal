@@ -1,15 +1,5 @@
-packages: Cabal-syntax/ Cabal/ cabal-testsuite/
-packages: cabal-install/
-packages: cabal-install-solver/
-packages: solver-benchmarks/
-
+import: project-cabal/pkgs/coverage.config
 tests: True
-
-packages: Cabal-QuickCheck/
-packages: Cabal-tree-diff/
-packages: Cabal-described
-packages: Cabal-tests/
-packages: cabal-benchmarks/
 
 -- Uncomment to allow picking up extra local unpacked deps:
 --optional-packages: */

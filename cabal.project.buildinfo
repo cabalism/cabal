@@ -1,7 +1,4 @@
-packages: Cabal-syntax/
-packages: Cabal/
-packages: Cabal-described
-packages: buildinfo-reference-generator/
+import: project-cabal/pkgs/buildinfo.config
 tests: False
 optimization: False
 with-compiler: ghc-8.8.3
