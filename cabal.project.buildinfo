@@ -1,5 +1,6 @@
 import: project-cabal/pkgs/cabal.config
 import: project-cabal/pkgs/buildinfo.config
 import: project-cabal/constraints.config
+
 tests: False
 optimization: False

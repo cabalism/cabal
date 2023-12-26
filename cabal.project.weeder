@@ -6,8 +6,8 @@
 
 import: project-cabal/pkgs/cabal.config
 import: project-cabal/pkgs/install.config
-tests: False
 
+tests: False
 with-compiler: ghc-8.8.3
 
 package *

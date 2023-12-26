@@ -1,9 +1,10 @@
+program-options
+  ghc-options: -fno-ignore-asserts
+
 import: project-cabal/pkgs/cabal.config
 import: project-cabal/pkgs/tests.config
+
 tests: True
 
 -- Uncomment to allow picking up extra local unpacked deps:
 --optional-packages: */
-
-program-options
-  ghc-options: -fno-ignore-asserts
