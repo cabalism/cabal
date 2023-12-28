@@ -338,6 +338,7 @@ extra-lib-dirs
 
 extra-lib-dirs-static
     * Monoidal field
+    * Available since ``cabal-version: 3.8``.
     * Documentation of :pkg-field:`extra-lib-dirs-static`
 
     .. math::
@@ -350,16 +351,17 @@ extra-libraries
     .. math::
         \mathrm{commalist}\left\{ \mathop{\mathit{hs\text{-}string}}\mid{{[\mathop{\mathord{``}\mathtt{\ }\mathord{"}}\mathop{\mathord{``}\mathtt{\text{,}}\mathord{"}}]^c}}^+_{} \right\}
 
-extra-library-flavours
+extra-libraries-static
     * Monoidal field
-    * Documentation of :pkg-field:`extra-library-flavours`
+    * Available since ``cabal-version: 3.8``.
+    * Documentation of :pkg-field:`extra-libraries-static`
 
     .. math::
         \mathrm{commalist}\left\{ \mathop{\mathit{hs\text{-}string}}\mid{{[\mathop{\mathord{``}\mathtt{\ }\mathord{"}}\mathop{\mathord{``}\mathtt{\text{,}}\mathord{"}}]^c}}^+_{} \right\}
 
-extra-libraries
+extra-library-flavours
     * Monoidal field
-    * Documentation of :pkg-field:`extra-libraries-static`
+    * Documentation of :pkg-field:`extra-library-flavours`
 
     .. math::
         \mathrm{commalist}\left\{ \mathop{\mathit{hs\text{-}string}}\mid{{[\mathop{\mathord{``}\mathtt{\ }\mathord{"}}\mathop{\mathord{``}\mathtt{\text{,}}\mathord{"}}]^c}}^+_{} \right\}
@@ -428,6 +430,14 @@ hs-source-dirs
     .. math::
         \mathrm{optcommalist}\left\{ \mathop{\mathit{hs\text{-}string}}\mid{{[\mathop{\mathord{``}\mathtt{\ }\mathord{"}}\mathop{\mathord{``}\mathtt{\text{,}}\mathord{"}}]^c}}^+_{} \right\}
 
+hsc2hs-options
+    * Monoidal field
+    * Available since ``cabal-version: 3.6``.
+    * Documentation of :pkg-field:`hsc2hs-options`
+
+    .. math::
+        {\left\{ \mathop{\mathit{hs\text{-}string}}\mid{{[\mathop{\mathord{``}\mathtt{\ }\mathord{"}}]^c}}^+_{} \right\}}^\ast_{\bullet}
+
 include-dirs
     * Monoidal field
     * Documentation of :pkg-field:`include-dirs`
@@ -463,6 +473,14 @@ ld-options
     .. math::
         {\left\{ \mathop{\mathit{hs\text{-}string}}\mid{{[\mathop{\mathord{``}\mathtt{\ }\mathord{"}}]^c}}^+_{} \right\}}^\ast_{\bullet}
 
+library:virtual-modules
+    * Monoidal field
+    * Available since ``cabal-version: 2.2``.
+    * Documentation of :pkg-field:`library:virtual-modules`
+
+    .. math::
+        \mathrm{commalist}\left({\left(\mathop{\mathit{upper}}{\left\{ \mathop{\mathit{alpha\text{-}num}}\mid[\mathop{\mathord{``}\mathtt{\text{'}}\mathord{"}}\mathop{\mathord{``}\mathtt{\text{_}}\mathord{"}}] \right\}}^\ast_{}\right)}^+_{\mathop{\mathord{``}\mathtt{\text{.}}\mathord{"}}}\right)
+
 mixins
     * Monoidal field
     * Available since ``cabal-version: 2.0``.
@@ -473,7 +491,6 @@ mixins
 
 other-extensions
     * Monoidal field
-    * Available since ``cabal-version: 1.10``.
     * Documentation of :pkg-field:`other-extensions`
 
     .. math::
@@ -500,25 +517,6 @@ pkgconfig-depends
 
     .. math::
         \mathrm{commalist}\mathsf{\color{red}{TODO}}
-
-virtual-modules
-    * Monoidal field
-    * Available since ``cabal-version: 2.2``.
-    * Documentation of :pkg-field:`library:virtual-modules`
-
-    .. math::
-        \mathrm{commalist}\left({\left(\mathop{\mathit{upper}}{\left\{ \mathop{\mathit{alpha\text{-}num}}\mid[\mathop{\mathord{``}\mathtt{\text{'}}\mathord{"}}\mathop{\mathord{``}\mathtt{\text{_}}\mathord{"}}] \right\}}^\ast_{}\right)}^+_{\mathop{\mathord{``}\mathtt{\text{.}}\mathord{"}}}\right)
-
-
-Library fields
---------------
-
-visibility
-    * Optional field
-    * Documentation of :pkg-field:`library:visibility`
-
-    .. math::
-        \left\{ \mathop{\mathord{``}\mathtt{public}\mathord{"}}\mid\mathop{\mathord{``}\mathtt{private}\mathord{"}} \right\}
 
 
 Package description fields
@@ -557,7 +555,7 @@ copyright
 
 data-dir
     * Optional field
-    * Default: ``""``
+    * Default: ``.``
     * Documentation of :pkg-field:`data-dir`
 
     .. math::
@@ -612,7 +610,7 @@ license-file
     * Documentation of :pkg-field:`license-file`
 
     .. math::
-        \mathrm{optcommalist}\left\{ \mathop{\mathit{hs\text{-}string}}\mid{{[\mathop{\mathord{``}\mathtt{\ }\mathord{"}}\mathop{\mathord{``}\mathtt{\text{,}}\mathord{"}}]^c}}^+_{} \right\}
+        \left\{ \mathop{\mathit{hs\text{-}string}}\mid{{[\mathop{\mathord{``}\mathtt{\ }\mathord{"}}\mathop{\mathord{``}\mathtt{\text{,}}\mathord{"}}]^c}}^+_{} \right\}
 
 maintainer
     * Free text field
@@ -655,6 +653,14 @@ version
 Test-suite fields
 -----------------
 
+code-generators
+    * Monoidal field
+    * Available since ``cabal-version: 3.8``.
+    * Documentation of :pkg-field:`test-suite:code-generators`
+
+    .. math::
+        \mathrm{commalist}\left\{ \mathop{\mathit{hs\text{-}string}}\mid{{[\mathop{\mathord{``}\mathtt{\ }\mathord{"}}\mathop{\mathord{``}\mathtt{\text{,}}\mathord{"}}]^c}}^+_{} \right\}
+
 main-is
     * Optional field
     * Documentation of :pkg-field:`test-suite:main-is`
@@ -675,3 +681,5 @@ type
 
     .. math::
         \left\{ \mathop{\mathord{``}\mathtt{exitcode\text{-}stdio\text{-}1\text{.}0}\mathord{"}}\mid\mathop{\mathord{``}\mathtt{detailed\text{-}0\text{.}9}\mathord{"}} \right\}
+
+
