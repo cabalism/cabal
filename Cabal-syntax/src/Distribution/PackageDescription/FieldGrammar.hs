@@ -629,7 +629,7 @@ buildInfoFieldGrammar =
     <*> monoidalFieldAla "js-sources" (alaList' VCat FilePathNT) L.jsSources
     <*> hsSourceDirsGrammar
     <*> monoidalFieldAla "other-modules" formatOtherModules L.otherModules
-    <*> monoidalFieldAla "virtual-modules" (alaList' VCat MQuoted) L.virtualModules
+    <*> monoidalFieldAla "library:virtual-modules" (alaList' VCat MQuoted) L.virtualModules
       ^^^ availableSince CabalSpecV2_2 []
     <*> monoidalFieldAla "autogen-modules" (alaList' VCat MQuoted) L.autogenModules
       ^^^ availableSince CabalSpecV2_0 []
