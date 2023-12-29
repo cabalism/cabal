@@ -3,7 +3,7 @@
 
 CABALBUILD := cabal build
 CABALRUN   := cabal run
-DOCTEST    := cabal repl --with-ghc=doctest --repl-options="-w" --project-file=cabal.project.doctest
+DOCTEST    := cabal repl --with-ghc=doctest --repl-options="-w" --ghc-options="-Wwarn"
 
 # default rules
 
