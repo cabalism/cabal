@@ -35,7 +35,6 @@ module Distribution.Client.ProjectConfig.Legacy
 
 import Data.Coerce (coerce)
 import Distribution.Client.Compat.Prelude
-import GHC.Stack (HasCallStack)
 
 import Distribution.Types.Flag (FlagName, parsecFlagAssignment)
 
@@ -313,7 +312,7 @@ parseProjectSkeleton srcImporters srcImportee cacheDir httpTransport verbosity s
         addWarnings x' = x'
     liftPR _ (ParseFailed e) = pure $ ParseFailed e
 
-    fetchImportConfig :: HasCallStack => ProjectConfigPath -> IO BS.ByteString
+    fetchImportConfig :: ProjectConfigPath -> IO BS.ByteString
     fetchImportConfig = \case
       (ProjectRoot (RootConfig root)) -> fetch root
       (ProjectImport ImportedConfig{importee = Importee pci}) -> fetch pci
