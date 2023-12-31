@@ -59,8 +59,9 @@ import Distribution.Client.ProjectConfig
 import Distribution.Client.ProjectConfig.Legacy
   ( ProjectConfigSkeleton
   , instantiateProjectConfigSkeletonFetchingCompiler
-  , parseProjectSkeleton
+  , parseProject
   )
+import Distribution.Client.ProjectConfig.Types (ProjectConfigToParse (..))
 import Distribution.Client.ProjectFlags
   ( flagIgnoreProject
   )
@@ -136,6 +137,7 @@ import Distribution.Simple.Utils
   , warn
   , writeUTF8File
   )
+import Distribution.Solver.Types.ConstraintSource (RootConfig (..))
 import Distribution.Solver.Types.SourcePackage as SP
   ( SourcePackage (..)
   )
@@ -506,7 +508,13 @@ readProjectBlockFromScript verbosity httpTransport DistDirLayout{distDownloadSrc
     Left _ -> return mempty
     Right x ->
       reportParseResult verbosity "script" scriptName
-        =<< parseProjectSkeleton distDownloadSrcDirectory httpTransport verbosity [] scriptName x
+        =<< parseProject
+          (RootConfig scriptName)
+          distDownloadSrcDirectory
+          httpTransport
+          verbosity
+          []
+          (ProjectConfigToParse x)
 
 -- | Extract the first encountered script metadata block started end
 -- terminated by the tokens
