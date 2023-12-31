@@ -311,7 +311,23 @@ showFR _ NotExplicit                      = " (not a user-provided goal nor ment
 showFR _ Shadowed                         = " (shadowed by another installed package with same version)"
 showFR _ (Broken u)                       = " (package is broken, missing dependency " ++ prettyShow u ++ ")"
 showFR _ UnknownPackage                   = " (unknown package)"
-showFR _ (GlobalConstraintVersion vr src) = " (" ++ constraintSource src ++ " requires " ++ prettyShow vr ++ ")"
+
+showFR _ (GlobalConstraintVersion vr src) = case src of
+  ConstraintSourceProjectConfig projectConfig ->
+    ( showString " (constraint from project requires "
+    . showString (prettyShow vr)
+    . showChar ')'
+    -- SEE: https://stackoverflow.com/questions/4342013/the-composition-of-functions-in-a-list-of-functions
+    . foldr1 (.)
+        [(showString "\n     " . showString l)
+        | l <- lines $ showProjectConfigPath projectConfig
+        ]
+    . showString " requires "
+    . showString (prettyShow vr)
+    ) ""
+  _ ->
+    " (" ++ constraintSource src ++ " requires " ++ prettyShow vr ++ ")"
+
 showFR _ (GlobalConstraintInstalled src)  = " (" ++ constraintSource src ++ " requires installed instance)"
 showFR _ (GlobalConstraintSource src)     = " (" ++ constraintSource src ++ " requires source instance)"
 showFR _ (GlobalConstraintFlag src)       = " (" ++ constraintSource src ++ " requires opposite flag selection)"
