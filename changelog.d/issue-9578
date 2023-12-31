@@ -1,0 +1,20 @@
+synopsis: Show provenance of project constraints
+description:
+  When the solver rejects a package version show the provenance of the
+  "requires" version constraint as a path in the project configuration import
+  tree:
+
+  ```
+  $ cabal build all --dry-run
+  ...
+  [__1] next goal: hashable
+  [__1] rejecting: hashable-1.4.3.0 (constraint from project requires ==1.4.2.0)
+       +-- cabal.project requires ==1.4.2.0
+  [__1] rejecting: hashable-1.4.2.0 (constraint from project requires ==1.4.3.0)
+       +-- cabal.project
+        +-- https://www.stackage.org/nightly-2023-12-07/cabal.config requires ==1.4.3.0
+  ```
+
+packages: cabal-install
+prs: #9578
+issues: #9562
