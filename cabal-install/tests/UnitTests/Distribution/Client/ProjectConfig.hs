@@ -234,7 +234,7 @@ prop_roundtrip_legacytypes_specific config =
 
 roundtrip_printparse :: ProjectConfig -> Property
 roundtrip_printparse config =
-  case fmap convertLegacyProjectConfig (parseLegacyProjectConfig "unused" (toUTF8BS str)) of
+  case fmap convertLegacyProjectConfig (parseLegacyProjectConfig (RootConfig "unused") (toUTF8BS str)) of
     ParseOk _ x ->
       counterexample ("shown:\n" ++ str) $
         x `ediffEq` config{projectConfigProvenance = mempty}
@@ -645,8 +645,7 @@ instance Arbitrary ProjectConfigShared where
       postShrink_Constraints = map (\uc -> (uc, projectConfigConstraintSource))
 
 projectConfigConstraintSource :: ConstraintSource
-projectConfigConstraintSource =
-  ConstraintSourceProjectConfig "unused"
+projectConfigConstraintSource = ConstraintSourceProjectConfig nullProjectConfigPath
 
 instance Arbitrary ProjectConfigProvenance where
   arbitrary = elements [Implicit, Explicit "cabal.project"]
