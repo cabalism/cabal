@@ -1,10 +1,26 @@
-.. _buildinfo-field-reference:
+.. _cabal-package-syntax:
 
-Field Syntax Reference
-======================
+Cabal Package Syntax
+====================
+
+GHC syntax
+----------
+
+Some elements of cabal package syntax are controlled by GHC. As such these are
+effectively strings passed on to GHC and that may be as far as Cabal will check
+their syntax. See the :ref:`ghc-syntax` for these elements of GHC syntax
+embedded within cabal package descriptions.
+
+- :ref:`ghc-enable-extension`
+- :ref:`ghc-disable-extension`
+- :ref:`default-extensions<ghc-default-extensions>`
+- :ref:`default-language<ghc-default-language>`
+- :ref:`extensions<ghc-extensions>`
+- :ref:`other-extensions<ghc-other-extensions>`
+- :ref:`other-languages<ghc-other-languages>`
 
 Notation
----------------
+--------
 
 Field syntax is described as they are in the latest cabal file format version.
 
@@ -128,174 +144,6 @@ Non-terminals
 -------------
 
 In the syntax definitions below the following non-terminal symbols are used:
-
-interactive-extension
-    Language Extensions related to GHC interactive.
-
-    .. math::
-
-        \mathop{\mathord{``}\mathtt{ExtendedDefaultRules}\mathord{"}}
-
-phase-extension
-    Language Extensions related to a particular GHC phase.
-
-    .. math::
-
-        \mathop{\mathord{``}\mathtt{CPP}\mathord{"}}
-
-syntax-extension
-    Syntax Language Extensions.
-
-    .. math::
-
-        \left\{ \begin{gathered}\mathop{\mathord{``}\mathtt{UnicodeSyntax}\mathord{"}}\\\mathop{\mathord{``}\mathtt{MagicHash}\mathord{"}}\\\mathop{\mathord{``}\mathtt{RecursiveDo}\mathord{"}}\\\mathop{\mathord{``}\mathtt{ApplicativeDo}\mathord{"}}\\\mathop{\mathord{``}\mathtt{QualifiedDo}\mathord{"}}\\\mathop{\mathord{``}\mathtt{ParallelListComp}\mathord{"}}\\\mathop{\mathord{``}\mathtt{TransformListComp}\mathord{"}}\\\mathop{\mathord{``}\mathtt{MonadComprehensions}\mathord{"}}\\\mathop{\mathord{``}\mathtt{OverloadedLists}\mathord{"}}\\\mathop{\mathord{``}\mathtt{ImplicitPrelude}\mathord{"}}\\\mathop{\mathord{``}\mathtt{RebindableSyntax}\mathord{"}}\\\mathop{\mathord{``}\mathtt{PostfixOperators}\mathord{"}}\\\mathop{\mathord{``}\mathtt{TupleSections}\mathord{"}}\\\mathop{\mathord{``}\mathtt{LambdaCase}\mathord{"}}\\\mathop{\mathord{``}\mathtt{EmptyCase}\mathord{"}}\\\mathop{\mathord{``}\mathtt{MultiWayIf}\mathord{"}}\\\mathop{\mathord{``}\mathtt{Arrows}\mathord{"}}\\\mathop{\mathord{``}\mathtt{LexicalNegation}\mathord{"}}\\\mathop{\mathord{``}\mathtt{BlockArguments}\mathord{"}}\end{gathered} \right\}
-
-import-export-extension
-    Import and Export Language Extensions.
-
-    .. math::
-
-        \left\{ \mathop{\mathord{``}\mathtt{PackageImports}\mathord{"}}\mid\mathop{\mathord{``}\mathtt{ExplicitNamespaces}\mathord{"}}\mid\mathop{\mathord{``}\mathtt{ImportQualifiedPost}\mathord{"}} \right\}
-
-type-extension
-    Language Extensions for Types.
-
-    .. math::
-
-        \left\{ \begin{gathered}\mathop{\mathord{``}\mathtt{EmptyDataDecls}\mathord{"}}\\\mathop{\mathord{``}\mathtt{DatatypeContexts}\mathord{"}}\\\mathop{\mathord{``}\mathtt{TypeOperators}\mathord{"}}\\\mathop{\mathord{``}\mathtt{LiberalTypeSynonyms}\mathord{"}}\\\mathop{\mathord{``}\mathtt{ExistentialQuantification}\mathord{"}}\\\mathop{\mathord{``}\mathtt{GADTSyntax}\mathord{"}}\\\mathop{\mathord{``}\mathtt{GADTs}\mathord{"}}\\\mathop{\mathord{``}\mathtt{TypeFamilies}\mathord{"}}\\\mathop{\mathord{``}\mathtt{TypeFamilyDependencies}\mathord{"}}\\\mathop{\mathord{``}\mathtt{DataKinds}\mathord{"}}\\\mathop{\mathord{``}\mathtt{TypeData}\mathord{"}}\\\mathop{\mathord{``}\mathtt{TypeInType}\mathord{"}}\\\mathop{\mathord{``}\mathtt{PolyKinds}\mathord{"}}\\\mathop{\mathord{``}\mathtt{CUSKs}\mathord{"}}\\\mathop{\mathord{``}\mathtt{StandaloneKindSignatures}\mathord{"}}\\\mathop{\mathord{``}\mathtt{StarIsType}\mathord{"}}\\\mathop{\mathord{``}\mathtt{TypeApplications}\mathord{"}}\\\mathop{\mathord{``}\mathtt{TypeAbstractions}\mathord{"}}\\\mathop{\mathord{``}\mathtt{RequiredTypeArguments}\mathord{"}}\\\mathop{\mathord{``}\mathtt{RankNTypes}\mathord{"}}\\\mathop{\mathord{``}\mathtt{Rank2Types}\mathord{"}}\\\mathop{\mathord{``}\mathtt{DeepSubsumption}\mathord{"}}\\\mathop{\mathord{``}\mathtt{ImpredicativeTypes}\mathord{"}}\\\mathop{\mathord{``}\mathtt{LinearTypes}\mathord{"}}\\\mathop{\mathord{``}\mathtt{RoleAnnotations}\mathord{"}}\end{gathered} \right\}
-
-record-extension
-    Record Language Extensions.
-
-    .. math::
-
-        \left\{ \begin{gathered}\mathop{\mathord{``}\mathtt{TraditionalRecordSyntax}\mathord{"}}\\\mathop{\mathord{``}\mathtt{DisambiguateRecordFields}\mathord{"}}\\\mathop{\mathord{``}\mathtt{DuplicateRecordFields}\mathord{"}}\\\mathop{\mathord{``}\mathtt{FieldSelectors}\mathord{"}}\\\mathop{\mathord{``}\mathtt{NamedFieldPuns}\mathord{"}}\\\mathop{\mathord{``}\mathtt{RecordWildCards}\mathord{"}}\\\mathop{\mathord{``}\mathtt{OverloadedRecordDot}\mathord{"}}\\\mathop{\mathord{``}\mathtt{OverloadedRecordUpdate}\mathord{"}}\end{gathered} \right\}
-
-deriving-extension
-    Language Extensions for deriving mechanisms.
-
-    .. math::
-
-        \left\{ \begin{gathered}\mathop{\mathord{``}\mathtt{EmptyDataDeriving}\mathord{"}}\\\mathop{\mathord{``}\mathtt{StandaloneDeriving}\mathord{"}}\\\mathop{\mathord{``}\mathtt{DeriveFoldable}\mathord{"}}\\\mathop{\mathord{``}\mathtt{DeriveFunctor}\mathord{"}}\\\mathop{\mathord{``}\mathtt{DeriveTraversable}\mathord{"}}\\\mathop{\mathord{``}\mathtt{DeriveDataTypeable}\mathord{"}}\\\mathop{\mathord{``}\mathtt{DeriveLift}\mathord{"}}\\\mathop{\mathord{``}\mathtt{GeneralizedNewtypeDeriving}\mathord{"}}\\\mathop{\mathord{``}\mathtt{GeneralisedNewtypeDeriving}\mathord{"}}\\\mathop{\mathord{``}\mathtt{DeriveAnyClass}\mathord{"}}\\\mathop{\mathord{``}\mathtt{DerivingStrategies}\mathord{"}}\\\mathop{\mathord{``}\mathtt{DerivingVia}\mathord{"}}\end{gathered} \right\}
-
-pattern-extension
-    Patterns Language Extensions.
-
-    .. math::
-
-        \left\{ \begin{gathered}\mathop{\mathord{``}\mathtt{PatternGuards}\mathord{"}}\\\mathop{\mathord{``}\mathtt{ViewPatterns}\mathord{"}}\\\mathop{\mathord{``}\mathtt{NPlusKPatterns}\mathord{"}}\\\mathop{\mathord{``}\mathtt{PatternSynonyms}\mathord{"}}\end{gathered} \right\}
-
-classes-instances-extension
-    Language Extensions for class and instance declarations.
-
-    .. math::
-
-        \left\{ \begin{gathered}\mathop{\mathord{``}\mathtt{MultiParamTypeClasses}\mathord{"}}\\\mathop{\mathord{``}\mathtt{UndecidableSuperClasses}\mathord{"}}\\\mathop{\mathord{``}\mathtt{ConstrainedClassMethods}\mathord{"}}\\\mathop{\mathord{``}\mathtt{DefaultSignatures}\mathord{"}}\\\mathop{\mathord{``}\mathtt{NullaryTypeClasses}\mathord{"}}\\\mathop{\mathord{``}\mathtt{FunctionalDependencies}\mathord{"}}\\\mathop{\mathord{``}\mathtt{TypeSynonymInstances}\mathord{"}}\\\mathop{\mathord{``}\mathtt{FlexibleInstances}\mathord{"}}\\\mathop{\mathord{``}\mathtt{UndecidableInstances}\mathord{"}}\\\mathop{\mathord{``}\mathtt{OverlappingInstances}\mathord{"}}\\\mathop{\mathord{``}\mathtt{IncoherentInstances}\mathord{"}}\\\mathop{\mathord{``}\mathtt{InstanceSigs}\mathord{"}}\end{gathered} \right\}
-
-literal-extension
-    Literals Language Extensions.
-
-    .. math::
-
-        \left\{ \begin{gathered}\mathop{\mathord{``}\mathtt{NegativeLiterals}\mathord{"}}\\\mathop{\mathord{``}\mathtt{BinaryLiterals}\mathord{"}}\\\mathop{\mathord{``}\mathtt{HexFloatLiterals}\mathord{"}}\\\mathop{\mathord{``}\mathtt{NumDecimals}\mathord{"}}\\\mathop{\mathord{``}\mathtt{ExtendedLiterals}\mathord{"}}\\\mathop{\mathord{``}\mathtt{NumericUnderscores}\mathord{"}}\\\mathop{\mathord{``}\mathtt{OverloadedStrings}\mathord{"}}\\\mathop{\mathord{``}\mathtt{OverloadedLabels}\mathord{"}}\end{gathered} \right\}
-
-constraint-extension
-    Constraint Language Extensions.
-
-    .. math::
-
-        \left\{ \mathop{\mathord{``}\mathtt{FlexibleContexts}\mathord{"}}\mid\mathop{\mathord{``}\mathtt{ConstraintKinds}\mathord{"}}\mid\mathop{\mathord{``}\mathtt{QuantifiedConstraints}\mathord{"}} \right\}
-
-type-signature-extension
-    Type Signature Language Extensions.
-
-    .. math::
-
-        \left\{ \begin{gathered}\mathop{\mathord{``}\mathtt{ExplicitForAll}\mathord{"}}\\\mathop{\mathord{``}\mathtt{AllowAmbiguousTypes}\mathord{"}}\\\mathop{\mathord{``}\mathtt{KindSignatures}\mathord{"}}\\\mathop{\mathord{``}\mathtt{ScopedTypeVariables}\mathord{"}}\\\mathop{\mathord{``}\mathtt{ImplicitParams}\mathord{"}}\\\mathop{\mathord{``}\mathtt{PartialTypeSignatures}\mathord{"}}\\\mathop{\mathord{``}\mathtt{NamedWildCards}\mathord{"}}\end{gathered} \right\}
-
-binding-generalisation-extension
-    Language Extensions for bindings and generalisation 
-
-    .. math::
-
-        \left\{ \mathop{\mathord{``}\mathtt{MonomorphismRestriction}\mathord{"}}\mid\mathop{\mathord{``}\mathtt{MonoLocalBinds}\mathord{"}} \right\}
-
-template-haskell-extension
-    Template Haskell Language Extensions.
-
-    .. math::
-
-        \left\{ \mathop{\mathord{``}\mathtt{TemplateHaskell}\mathord{"}}\mid\mathop{\mathord{``}\mathtt{TemplateHaskellQuotes}\mathord{"}}\mid\mathop{\mathord{``}\mathtt{QuasiQuotes}\mathord{"}} \right\}
-
-bang-strict-extension
-    Bang pattern and Strict Haskell Language Extensions.
-
-    .. math::
-
-        \left\{ \mathop{\mathord{``}\mathtt{BangPatterns}\mathord{"}}\mid\mathop{\mathord{``}\mathtt{StrictData}\mathord{"}}\mid\mathop{\mathord{``}\mathtt{Strict}\mathord{"}} \right\}
-
-parallel-concurrent-extension
-    Parallel and Concurrent Language Extensions.
-
-    .. math::
-
-        \mathop{\mathord{``}\mathtt{StaticPointers}\mathord{"}}
-
-unboxed-primitive-extension
-    Unboxed types and Primitive operations Language Extensions.
-
-    .. math::
-
-        \left\{ \begin{gathered}\mathop{\mathord{``}\mathtt{UnboxedTuples}\mathord{"}}\\\mathop{\mathord{``}\mathtt{UnboxedSums}\mathord{"}}\\\mathop{\mathord{``}\mathtt{UnliftedNewtypes}\mathord{"}}\\\mathop{\mathord{``}\mathtt{UnliftedDatatypes}\mathord{"}}\end{gathered} \right\}
-
-foreign-extension
-    Foreign function interface (FFI) Language Extensions.
-
-    .. math::
-
-        \left\{ \begin{gathered}\mathop{\mathord{``}\mathtt{ForeignFunctionInterface}\mathord{"}}\\\mathop{\mathord{``}\mathtt{UnliftedFFITypes}\mathord{"}}\\\mathop{\mathord{``}\mathtt{GHCForeignImportPrim}\mathord{"}}\\\mathop{\mathord{``}\mathtt{InterruptibleFFI}\mathord{"}}\\\mathop{\mathord{``}\mathtt{CApiFFI}\mathord{"}}\end{gathered} \right\}
-
-safe-extension
-    Safe Haskell Language Extensions.
-
-    .. math::
-
-        \left\{ \mathop{\mathord{``}\mathtt{Safe}\mathord{"}}\mid\mathop{\mathord{``}\mathtt{Trustworthy}\mathord{"}}\mid\mathop{\mathord{``}\mathtt{Unsafe}\mathord{"}} \right\}
-
-miscellaneous-extension
-    Miscellaneous Language Extensions.
-
-    .. math::
-
-        \mathop{\mathord{``}\mathtt{DeriveGeneric}\mathord{"}}
-
-bugs-extension
-    Language Extensions related to GHC bugs and infelicities.
-
-    .. math::
-
-        \mathop{\mathord{``}\mathtt{NondecreasingIndentation}\mathord{"}}
-
-ungrouped-extension
-    Language Extensions not belonging to other extension groups, includes undocumented extensions.
-
-    .. math::
-
-        \left\{ \begin{gathered}\mathop{\mathord{``}\mathtt{DoRec}\mathord{"}}\\\mathop{\mathord{``}\mathtt{PolymorphicComponents}\mathord{"}}\\\mathop{\mathord{``}\mathtt{PatternSignatures}\mathord{"}}\\\mathop{\mathord{``}\mathtt{Generics}\mathord{"}}\\\mathop{\mathord{``}\mathtt{ExtensibleRecords}\mathord{"}}\\\mathop{\mathord{``}\mathtt{RestrictedTypeSynonyms}\mathord{"}}\\\mathop{\mathord{``}\mathtt{HereDocuments}\mathord{"}}\\\mathop{\mathord{``}\mathtt{RecordPuns}\mathord{"}}\\\mathop{\mathord{``}\mathtt{MonoPatBinds}\mathord{"}}\\\mathop{\mathord{``}\mathtt{RelaxedPolyRec}\mathord{"}}\\\mathop{\mathord{``}\mathtt{NewQualifiedOperators}\mathord{"}}\\\mathop{\mathord{``}\mathtt{XmlSyntax}\mathord{"}}\\\mathop{\mathord{``}\mathtt{RegularPatterns}\mathord{"}}\\\mathop{\mathord{``}\mathtt{DoAndIfThenElse}\mathord{"}}\\\mathop{\mathord{``}\mathtt{SafeImports}\mathord{"}}\\\mathop{\mathord{``}\mathtt{ParallelArrays}\mathord{"}}\\\mathop{\mathord{``}\mathtt{AutoDeriveTypeable}\mathord{"}}\\\mathop{\mathord{``}\mathtt{JavaScriptFFI}\mathord{"}}\\\mathop{\mathord{``}\mathtt{MonadFailDesugaring}\mathord{"}}\\\mathop{\mathord{``}\mathtt{AlternativeLayoutRule}\mathord{"}}\\\mathop{\mathord{``}\mathtt{AlternativeLayoutRuleTransitional}\mathord{"}}\\\mathop{\mathord{``}\mathtt{RelaxedLayout}\mathord{"}}\end{gathered} \right\}
-
-enable-extension
-    GHC Language Extensions, some of these may be on by default.
-
-    .. math::
-
-        \left\{ \begin{gathered}\mathop{\mathit{interactive\text{-}extension}}\\\mathop{\mathit{phase\text{-}extension}}\\\mathop{\mathit{syntax\text{-}extension}}\\\mathop{\mathit{import\text{-}export\text{-}extension}}\\\mathop{\mathit{type\text{-}extension}}\\\mathop{\mathit{record\text{-}extension}}\\\mathop{\mathit{deriving\text{-}extension}}\\\mathop{\mathit{pattern\text{-}extension}}\\\mathop{\mathit{classes\text{-}instances\text{-}extension}}\\\mathop{\mathit{literals\text{-}extension}}\\\mathop{\mathit{constraint\text{-}extension}}\\\mathop{\mathit{type\text{-}signature\text{-}extension}}\\\mathop{\mathit{binding\text{-}generalisation\text{-}extension}}\\\mathop{\mathit{template\text{-}haskell\text{-}extension}}\\\mathop{\mathit{bang\text{-}strict\text{-}extension}}\\\mathop{\mathit{parallel\text{-}concurrent\text{-}extension}}\\\mathop{\mathit{unboxed\text{-}primitive\text{-}extension}}\\\mathop{\mathit{foreign\text{-}extension}}\\\mathop{\mathit{safe\text{-}extension}}\\\mathop{\mathit{miscellaneous\text{-}extension}}\\\mathop{\mathit{bugs\text{-}extension}}\\\mathop{\mathit{ungrouped\text{-}extension}}\end{gathered} \right\}
-
-disable-extension
-    Disable a GHC Language Extension.
-
-    .. math::
-
-        \mathop{\mathord{``}\mathtt{No}\mathord{"}}\mathop{\mathit{enable\text{-}extension}}
 
 hs-string
     String as in Haskell; it's recommended to avoid using Haskell-specific escapes.
@@ -465,33 +313,6 @@ cxx-sources
     .. math::
 
         \mathrm{commalist}\left\{ \mathop{\mathit{hs\text{-}string}}\mid{{[\mathop{\mathord{``}\mathtt{\ }\mathord{"}}\mathop{\mathord{``}\mathtt{\text{,}}\mathord{"}}]^c}}^+_{} \right\}
-
-default-extensions
-    * Monoidal field
-    * Available since ``cabal-version: 1.10``.
-    * Documentation of :pkg-field:`library:default-extensions`
-
-    .. math::
-
-        \mathrm{optcommalist}\left\{ \mathop{\mathit{enable\text{-}extension}}\mid\mathop{\mathit{disable\text{-}extension}} \right\}
-
-default-language
-    * Optional field
-    * Available since ``cabal-version: 1.10``.
-    * Documentation of :pkg-field:`library:default-language`
-
-    .. math::
-
-        \left\{ \mathop{\mathord{``}\mathtt{GHC2021}\mathord{"}}\mid\mathop{\mathord{``}\mathtt{Haskell2010}\mathord{"}}\mid\mathop{\mathord{``}\mathtt{Haskell98}\mathord{"}} \right\}
-
-extensions
-    * Monoidal field
-    * Deprecated since ``cabal-version: 1.12``: Please use 'default-extensions' or 'other-extensions' fields.
-    * Removed in ``cabal-version: 3.0``: Please use 'default-extensions' or 'other-extensions' fields.
-
-    .. math::
-
-        \mathrm{optcommalist}\left\{ \mathop{\mathit{enable\text{-}extension}}\mid\mathop{\mathit{disable\text{-}extension}} \right\}
 
 extra-bundled-libraries
     * Monoidal field
@@ -698,23 +519,6 @@ mixins
     .. math::
 
         \mathrm{commalist}\left(\mathop{\mathit{package\text{-}name}}{\left(\mathop{\mathord{``}\mathtt{\text{:}}\mathord{"}}\mathop{\mathit{library\text{-}name}}\right)}^?{\left(\bullet\left\{ \mid\mathop{\mathord{``}\mathtt{hiding}\mathord{"}}\circ\mathop{\mathord{``}\mathtt{\text{(}}\mathord{"}}\circ{\mathop{\mathit{module\text{-}name}}}^\ast_{\left(\circ\mathop{\mathord{``}\mathtt{\text{,}}\mathord{"}}\circ\right)}\circ\mathop{\mathord{``}\mathtt{\text{)}}\mathord{"}}\mid\mathop{\mathord{``}\mathtt{\text{(}}\mathord{"}}\circ{\left(\mathop{\mathit{module\text{-}name}}{\left(\bullet\mathop{\mathord{``}\mathtt{as}\mathord{"}}\bullet\mathop{\mathit{module\text{-}name}}\right)}^?\right)}^\ast_{\left(\circ\mathop{\mathord{``}\mathtt{\text{,}}\mathord{"}}\circ\right)}\circ\mathop{\mathord{``}\mathtt{\text{)}}\mathord{"}} \right\}{\left(\circ\mathop{\mathord{``}\mathtt{requires}\mathord{"}}\bullet\left\{ \mid\mathop{\mathord{``}\mathtt{hiding}\mathord{"}}\circ\mathop{\mathord{``}\mathtt{\text{(}}\mathord{"}}\circ{\mathop{\mathit{module\text{-}name}}}^\ast_{\left(\circ\mathop{\mathord{``}\mathtt{\text{,}}\mathord{"}}\circ\right)}\circ\mathop{\mathord{``}\mathtt{\text{)}}\mathord{"}}\mid\mathop{\mathord{``}\mathtt{\text{(}}\mathord{"}}\circ{\left(\mathop{\mathit{module\text{-}name}}{\left(\bullet\mathop{\mathord{``}\mathtt{as}\mathord{"}}\bullet\mathop{\mathit{module\text{-}name}}\right)}^?\right)}^\ast_{\left(\circ\mathop{\mathord{``}\mathtt{\text{,}}\mathord{"}}\circ\right)}\circ\mathop{\mathord{``}\mathtt{\text{)}}\mathord{"}} \right\}\right)}^?\right)}^?\right)
-
-other-extensions
-    * Monoidal field
-    * Documentation of :pkg-field:`library:other-extensions`
-
-    .. math::
-
-        \mathrm{optcommalist}\left\{ \mathop{\mathit{enable\text{-}extension}}\mid\mathop{\mathit{disable\text{-}extension}} \right\}
-
-other-languages
-    * Monoidal field
-    * Available since ``cabal-version: 1.10``.
-    * Documentation of :pkg-field:`library:other-languages`
-
-    .. math::
-
-        \mathrm{optcommalist}\left\{ \mathop{\mathord{``}\mathtt{GHC2021}\mathord{"}}\mid\mathop{\mathord{``}\mathtt{Haskell2010}\mathord{"}}\mid\mathop{\mathord{``}\mathtt{Haskell98}\mathord{"}} \right\}
 
 other-modules
     * Monoidal field
