@@ -60,13 +60,13 @@ $(TEMPLATE_PATHS) : templates/Paths_pkg.template.hs cabal-dev-scripts/src/GenPat
 
 # generated docs
 # Use cabal build before cabal run to avoid output of the build on stdout when running
-doc/buildinfo-fields-reference.rst : \
+doc/%-syntax.rst : \
   $(wildcard Cabal-syntax/src/*/*.hs Cabal-syntax/src/*/*/*.hs Cabal-syntax/src/*/*/*/*.hs) \
   $(wildcard Cabal-described/src/Distribution/Described.hs Cabal-described/src/Distribution/Utils/*.hs) \
-  buildinfo-reference-generator/src/Main.hs \
-  buildinfo-reference-generator/template.zinza
-	cabal build --project-file=cabal.project.buildinfo buildinfo-reference-generator
-	cabal run --project-file=cabal.project.buildinfo buildinfo-reference-generator buildinfo-reference-generator/template.zinza | tee $@
+  Cabal-syntax-docs/$*/Main.hs \
+  Cabal-syntax-docs/$*/template.zinza
+	cabal build --project-file=cabal.project.docs gen-%-syntax-docs
+	cabal run --project-file=cabal.project.docs gen-%-syntax-docs Cabal-syntax-docs/$*/template.zinza | tee $@
 	git diff --exit-code $@
 
 # analyse-imports
@@ -212,7 +212,9 @@ bootstrap-jsons: $(BOOTSTRAP_GHC_VERSIONS:%=bootstrap-json-%)
 ##############################################################################
 
 .PHONY: users-guide
-users-guide:
+users-guide: \
+  doc/ghc-syntax.rst \
+  doc/cabal-package-syntax.rst
 	$(MAKE) -C doc users-guide
 
 .PHONY: users-guide-requirements
