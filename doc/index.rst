@@ -45,4 +45,4 @@ Welcome to the Cabal User Guide
    :maxdepth: 2
 
    cabal-package-syntax
-   ghc-syntax
+   language-extensions
