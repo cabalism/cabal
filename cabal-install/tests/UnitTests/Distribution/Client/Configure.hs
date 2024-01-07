@@ -35,6 +35,10 @@ configureTests =
                       { configOptimization = Flag MaximumOptimisation
                       , configVerbosity = Flag silent
                       }
+                , projectFlags =
+                    mempty
+                      { flagProjectDir = Flag projectDir
+                      }
                 }
         projConfig <- configureAction' flags [] defaultGlobalFlags
 
