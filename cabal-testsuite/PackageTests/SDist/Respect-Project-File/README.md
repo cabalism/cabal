@@ -66,18 +66,4 @@ with these tests.
 
 2. The `--ignore-project` option works, as witnessed by each
    `cabal.ignore-project.test.hs` when the package in the same directory as the
-   test is used. Note the parse failure when sublibraries are used. I think we
-   could provide a better error message there:
-
-    ```
-    $ cabal sdist
-    ...
-    Errors encountered when parsing cabal file ./uv.cabal:
-
-    uv.cabal:8:22: error:
-    unexpected "u"
-
-        7 |   visibility: public
-        8 |   exposed-modules: U.u
-        |                      ^
-    ```
+   test is used.

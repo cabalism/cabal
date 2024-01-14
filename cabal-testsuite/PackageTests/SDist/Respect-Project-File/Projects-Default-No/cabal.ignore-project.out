@@ -1,11 +1,2 @@
 # cabal sdist
-...
-Errors encountered when parsing cabal file ./uv.cabal:
-
-uv.cabal:8:22: error:
-unexpected "u"
-
-    7 |   visibility: public
-    8 |   exposed-modules: U.u
-      |                      ^
-
+Wrote tarball sdist to <ROOT>/cabal.ignore-project.dist/work/./dist/sdist/uv-0.1.tar.gz
