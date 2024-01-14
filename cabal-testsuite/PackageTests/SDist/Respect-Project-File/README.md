@@ -4,34 +4,47 @@
 $ tree -P '*.project|*.test.hs' --prune
 .
 ├── cabal.ignore-project.test.hs
+├── cabal.ignore-project.v2.test.hs
 ├── cabal.no-project.test.hs
+├── cabal.no-project.v2.test.hs
 ├── cabal.project
 ├── Projects-Default-No
 │   ├── cabal.dot-uv.project
 │   ├── cabal.dot-uv.test.hs
+│   ├── cabal.dot-uv.v2.test.hs
 │   ├── cabal.ignore-project.test.hs
+│   ├── cabal.ignore-project.v2.test.hs
 │   ├── cabal.no-project.test.hs
+│   ├── cabal.no-project.v2.test.hs
 │   ├── cabal.sub-pq.project
 │   ├── cabal.sub-pq.test.hs
+│   ├── cabal.sub-pq.v2.test.hs
 │   ├── cabal.sub-rs.project
-│   └── cabal.sub-rs.test.hs
+│   ├── cabal.sub-rs.test.hs
+│   └── cabal.sub-rs.v2.test.hs
 └── Projects-Default-Yes
     ├── cabal.dot-uv.project
     ├── cabal.dot-uv.test.hs
+    ├── cabal.dot-uv.v2.test.hs
     ├── cabal.ignore-project.test.hs
+    ├── cabal.ignore-project.v2.test.hs
     ├── cabal.no-project.test.hs
+    ├── cabal.no-project.v2.test.hs
     ├── cabal.project
     ├── cabal.project.test.hs
+    ├── cabal.project.v2.test.hs
     ├── cabal.sub-pq.project
     ├── cabal.sub-pq.test.hs
+    ├── cabal.sub-pq.v2.test.hs
     ├── cabal.sub-rs.project
-    └── cabal.sub-rs.test.hs
+    ├── cabal.sub-rs.test.hs
+    └── cabal.sub-rs.v2.test.hs
 
-3 directories, 21 files
+3 directories, 34 files
 ```
 
 There are of the two subdirectories, one has a `cabal.project` and the other
-doesn't. This is the default project. There are two important things to notice
+doesn't. This is the default project. There are three important things to notice
 with these tests.
 
 1. All the tests with a supplied `--project-file` option pick up a default
@@ -67,3 +80,6 @@ with these tests.
 2. The `--ignore-project` option works, as witnessed by each
    `cabal.ignore-project.test.hs` when the package in the same directory as the
    test is used.
+
+3. The `*.v2.test.hs` are the same as their `*.test.hs` sibling tests but they
+   exercise the `v2-sdist` command instead of the `sdist` command.
