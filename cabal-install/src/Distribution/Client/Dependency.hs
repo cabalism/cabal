@@ -1,7 +1,3 @@
------------------------------------------------------------------------------
-
------------------------------------------------------------------------------
-
 -- |
 -- Module      :  Distribution.Client.Dependency
 -- Copyright   :  (c) David Himmelstrup 2005,
@@ -64,13 +60,15 @@ module Distribution.Client.Dependency
   , addDefaultSetupDependencies
   , addSetupCabalMinVersionConstraint
   , addSetupCabalMaxVersionConstraint
+  , showConstraintSource
   ) where
 
-import Distribution.Client.Compat.Prelude
+import Distribution.Client.Compat.Prelude hiding (foldr1)
 
 import Distribution.Client.Dependency.Types
   ( PackagesPreferenceDefault (..)
   )
+import Distribution.Client.ProjectConfig.Types (showProjectConfigPath)
 import Distribution.Client.SolverInstallPlan (SolverInstallPlan)
 import qualified Distribution.Client.SolverInstallPlan as SolverInstallPlan
 import Distribution.Client.Types
@@ -122,6 +120,7 @@ import Distribution.Solver.Modular
   , SolverConfig (..)
   , modularResolver
   )
+import Distribution.Solver.Modular.Message (PrettyConstraintFailure (..))
 import Distribution.System
   ( Platform
   )
@@ -200,6 +199,28 @@ data DepResolverParams = DepResolverParams
   -- ^ Function to override the solver's goal-ordering heuristics.
   , depResolverVerbosity :: Verbosity
   }
+
+-- | Description of a 'ConstraintSource'.
+showConstraintSource :: ConstraintSource -> String
+showConstraintSource (ConstraintSourceMainConfig path) =
+  "main config " ++ path
+showConstraintSource (ConstraintSourceProjectConfig projectConfig) =
+  "project config " ++ showProjectConfigPath projectConfig
+showConstraintSource (ConstraintSourceUserConfig path) = "user config " ++ path
+showConstraintSource ConstraintSourceCommandlineFlag = "command line flag"
+showConstraintSource ConstraintSourceUserTarget = "user target"
+showConstraintSource ConstraintSourceNonReinstallablePackage =
+  "non-reinstallable package"
+showConstraintSource ConstraintSourceFreeze = "cabal freeze"
+showConstraintSource ConstraintSourceConfigFlagOrTarget =
+  "config file, command line flag, or user target"
+showConstraintSource ConstraintSourceMultiRepl =
+  "--enable-multi-repl"
+showConstraintSource ConstraintSourceUnknown = "unknown source"
+showConstraintSource ConstraintSetupCabalMinVersion =
+  "minimum version of Cabal used by Setup.hs"
+showConstraintSource ConstraintSetupCabalMaxVersion =
+  "maximum version of Cabal used by Setup.hs"
 
 showDepResolverParams :: DepResolverParams -> String
 showDepResolverParams p =
@@ -753,7 +774,30 @@ standardInstallPolicy installedPkgIndex sourcePkgDb pkgSpecifiers =
 -- ------------------------------------------------------------
 
 runSolver :: SolverConfig -> DependencyResolver UnresolvedPkgLoc
-runSolver = modularResolver
+runSolver =
+  modularResolver
+    PrettyConstraintFailure
+      { prettyConstraintVersionFailure = \vr src -> case src of
+          ConstraintSourceProjectConfig projectConfig ->
+            ( showString " (constraint from project requires "
+                . showString (prettyShow vr)
+                . showChar ')'
+                -- SEE: https://stackoverflow.com/questions/4342013/the-composition-of-functions-in-a-list-of-functions
+                . foldr1
+                  (.)
+                  [ (showString "\n     " . showString l)
+                  | l <- lines $ showProjectConfigPath projectConfig
+                  ]
+                . showString " requires "
+                . showString (prettyShow vr)
+            )
+              ""
+          _ ->
+            " (" ++ constraintSource src ++ " requires " ++ prettyShow vr ++ ")"
+      , prettyConstraintFrom = constraintSource
+      }
+  where
+    constraintSource src = "constraint from " ++ showConstraintSource src
 
 -- | Run the dependency solver.
 --

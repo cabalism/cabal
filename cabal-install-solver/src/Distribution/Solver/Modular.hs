@@ -31,6 +31,7 @@ import Distribution.Solver.Modular.Flag
 import Distribution.Solver.Modular.Index
 import Distribution.Solver.Modular.IndexConversion
          ( convPIs )
+import Distribution.Solver.Modular.Message (PrettyConstraintFailure(..))
 import Distribution.Solver.Modular.Log
          ( SolverFailure(..), displayLogMessages )
 import Distribution.Solver.Modular.Package
@@ -55,13 +56,12 @@ import Distribution.Simple.Utils
          ( ordNubBy )
 import Distribution.Verbosity
 
-
 -- | Ties the two worlds together: classic cabal-install vs. the modular
 -- solver. Performs the necessary translations before and after.
-modularResolver :: SolverConfig -> DependencyResolver loc
-modularResolver sc (Platform arch os) cinfo iidx sidx pkgConfigDB pprefs pcs pns =
+modularResolver :: PrettyConstraintFailure -> SolverConfig -> DependencyResolver loc
+modularResolver p sc (Platform arch os) cinfo iidx sidx pkgConfigDB pprefs pcs pns =
   uncurry postprocess <$> -- convert install plan
-  solve' sc cinfo idx pkgConfigDB pprefs gcs pns
+  solve' p sc cinfo idx pkgConfigDB pprefs gcs pns
     where
       -- Indices have to be converted into solver-specific uniform index.
       idx    = convPIs os arch cinfo gcs (shadowPkgs sc) (strongFlags sc) (solveExecutables sc) iidx sidx
@@ -113,7 +113,8 @@ modularResolver sc (Platform arch os) cinfo iidx sidx pkgConfigDB pprefs pcs pns
 -- Using the full log from a rerun of the solver ensures that the log is
 -- complete, i.e., it shows the whole chain of dependencies from the user
 -- targets to the conflicting packages.
-solve' :: SolverConfig
+solve' :: PrettyConstraintFailure
+       -> SolverConfig
        -> CompilerInfo
        -> Index
        -> PkgConfigDb
@@ -121,13 +122,13 @@ solve' :: SolverConfig
        -> Map PN [LabeledPackageConstraint]
        -> Set PN
        -> Progress String String (Assignment, RevDepMap)
-solve' sc cinfo idx pkgConfigDB pprefs gcs pns =
+solve' p sc cinfo idx pkgConfigDB pprefs gcs pns =
     toProgress $ retry (runSolver printFullLog sc) createErrorMsg
   where
     runSolver :: Bool -> SolverConfig
               -> RetryLog String SolverFailure (Assignment, RevDepMap)
     runSolver keepLog sc' =
-        displayLogMessages keepLog $
+        displayLogMessages p keepLog $
         solve sc' cinfo idx pkgConfigDB pprefs gcs pns
 
     createErrorMsg :: SolverFailure

@@ -11,8 +11,6 @@ module Distribution.Solver.Types.ConstraintSource
     , ProjectConfigPath(..)
     , mkProjectConfigPath
     , projectConfigPathSource
-    , showProjectConfigPath
-    , showConstraintSource
     , nullProjectConfigPath
     ) where
 
@@ -46,29 +44,6 @@ data ImportedConfig =
 -- | Path to the project config file, either the root or an import.
 data ProjectConfigPath = ProjectRoot RootConfig | ProjectImport ImportedConfig
     deriving (Eq, Show, Generic)
-
--- | Renders the path as a tree node with its ancestors.
-showProjectConfigPath :: ProjectConfigPath -> String
-showProjectConfigPath = \case
-    ProjectRoot (RootConfig path) -> "+-- " ++ path
-    ProjectImport ImportedConfig{importee = Importee x, importers} ->
-        renderProjectConfigPath . reverse $ x : map coerce importers
-
-renderProjectConfigPath :: [String] -> String
-renderProjectConfigPath [] = ""
-renderProjectConfigPath [x] = x
-renderProjectConfigPath xs = unlines
-    [ (nTimes i (showChar ' ') . showString "+-- " . showString x) ""
-    | x <- xs
-    | i <- [0..]
-    ]
-
--- | Apply a function @n@ times to a given value.
--- SEE: GHC.Utils.Misc
-nTimes :: Int -> (a -> a) -> (a -> a)
-nTimes 0 _ = id
-nTimes 1 f = f
-nTimes n f = f . nTimes (n-1) f
 
 mkProjectConfigPath :: HasCallStack => [Importer] -> Importee -> ProjectConfigPath
 mkProjectConfigPath [] (Importee path) = ProjectRoot $ RootConfig path
@@ -147,25 +122,3 @@ data ConstraintSource =
 
 instance Binary ConstraintSource
 instance Structured ConstraintSource
-
--- | Description of a 'ConstraintSource'.
-showConstraintSource :: ConstraintSource -> String
-showConstraintSource (ConstraintSourceMainConfig path) =
-    "main config " ++ path
-showConstraintSource (ConstraintSourceProjectConfig projectConfig) =
-    "project config " ++ showProjectConfigPath projectConfig
-showConstraintSource (ConstraintSourceUserConfig path)= "user config " ++ path
-showConstraintSource ConstraintSourceCommandlineFlag = "command line flag"
-showConstraintSource ConstraintSourceUserTarget = "user target"
-showConstraintSource ConstraintSourceNonReinstallablePackage =
-    "non-reinstallable package"
-showConstraintSource ConstraintSourceFreeze = "cabal freeze"
-showConstraintSource ConstraintSourceConfigFlagOrTarget =
-    "config file, command line flag, or user target"
-showConstraintSource ConstraintSourceMultiRepl =
-    "--enable-multi-repl"
-showConstraintSource ConstraintSourceUnknown = "unknown source"
-showConstraintSource ConstraintSetupCabalMinVersion =
-    "minimum version of Cabal used by Setup.hs"
-showConstraintSource ConstraintSetupCabalMaxVersion =
-    "maximum version of Cabal used by Setup.hs"

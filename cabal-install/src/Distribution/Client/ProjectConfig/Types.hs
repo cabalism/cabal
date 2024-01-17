@@ -1,6 +1,9 @@
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE ParallelListComp #-}
 
 -- | Handling project configuration, types.
 module Distribution.Client.ProjectConfig.Types
@@ -11,6 +14,7 @@ module Distribution.Client.ProjectConfig.Types
   , ProjectConfigShared (..)
   , ProjectConfigProvenance (..)
   , PackageConfig (..)
+  , showProjectConfigPath
 
     -- * Resolving configuration
   , SolverSettings (..)
@@ -24,6 +28,7 @@ module Distribution.Client.ProjectConfig.Types
   , MapMappend (..)
   ) where
 
+import Data.Coerce (coerce)
 import Distribution.Client.Compat.Prelude
 import Prelude ()
 
@@ -478,3 +483,27 @@ data BuildTimeSettings = BuildTimeSettings
   , buildSettingProgPathExtra :: [FilePath]
   , buildSettingHaddockOpen :: Bool
   }
+
+-- | Renders the path as a tree node with its ancestors.
+showProjectConfigPath :: ProjectConfigPath -> String
+showProjectConfigPath = \case
+  ProjectRoot (RootConfig path) -> "+-- " ++ path
+  ProjectImport ImportedConfig{importee = Importee x, importers} ->
+    renderProjectConfigPath . reverse $ x : map coerce importers
+
+renderProjectConfigPath :: [String] -> String
+renderProjectConfigPath [] = ""
+renderProjectConfigPath [x] = x
+renderProjectConfigPath xs =
+  unlines
+    [ (nTimes i (showChar ' ') . showString "+-- " . showString x) ""
+    | x <- xs
+    | i <- [0 ..]
+    ]
+
+-- | Apply a function @n@ times to a given value.
+-- SEE: GHC.Utils.Misc
+nTimes :: Int -> (a -> a) -> (a -> a)
+nTimes 0 _ = id
+nTimes 1 f = f
+nTimes n f = f . nTimes (n - 1) f

@@ -20,12 +20,13 @@ data SolverFailure =
 -- | Postprocesses a log file. This function discards all log messages and
 -- avoids calling 'showMessages' if the log isn't needed (specified by
 -- 'keepLog'), for efficiency.
-displayLogMessages :: Bool
+displayLogMessages :: PrettyConstraintFailure
+                   -> Bool
                    -> RetryLog Message SolverFailure a
                    -> RetryLog String SolverFailure a
-displayLogMessages keepLog lg = fromProgress $
+displayLogMessages p keepLog lg = fromProgress $
     if keepLog
-    then showMessages progress
+    then showMessages p progress
     else foldProgress (const id) Fail Done progress
   where
     progress = toProgress lg
