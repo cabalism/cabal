@@ -323,6 +323,7 @@ CABAL_TESTSUITE_BDIR="$(pwd)/$BUILDDIR/build/$ARCH/$BASEHC/cabal-testsuite-3"
 
 CABALNEWBUILD="${CABAL} build $JOBS -w $HC --builddir=$BUILDDIR --project-file=$PROJECTFILE"
 CABALLISTBIN="${CABAL} list-bin --builddir=$BUILDDIR --project-file=$PROJECTFILE"
+DOCTEST="cabal repl --verbose=0 --builddir=$BUILDDIR --with-ghc=doctest --repl-options="-w" --ghc-options="-Wwarn" --allow-newer=False --project-file=cabal.project.doctest"
 
 # header
 #######################################################################
@@ -385,10 +386,18 @@ timed $CABALNEWBUILD $TARGETS || exit 1
 #######################################################################
 
 step_doctest() {
-print_header "Cabal: doctest"
-cabal-env --name doctest-Cabal --transitive QuickCheck
-cabal-env --name doctest-Cabal array bytestring containers deepseq directory filepath pretty process time binary unix text parsec mtl
-timed doctest -package-env=doctest-Cabal --fast Cabal/Distribution Cabal/Language
+print_header "Install doctest"
+cabal install doctest --overwrite-policy=always --ignore-project
+print_header "Doctest: Cabal-syntax"
+timed $DOCTEST Cabal-syntax || exit 1
+print_header "Doctest: Cabal-described"
+timed $DOCTEST Cabal-described || exit 1
+print_header "Doctest: Cabal"
+timed $DOCTEST --build-depends=QuickCheck Cabal || exit 1
+print_header "Doctest: cabal-install-solver"
+timed $DOCTEST cabal-install-solver || exit 1
+print_header "Doctest: cabal-install"
+timed $DOCTEST cabal-install || exit 1
 }
 
 step_lib_tests() {
