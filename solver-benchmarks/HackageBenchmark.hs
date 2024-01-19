@@ -17,7 +17,7 @@ import Control.Concurrent.Async (concurrently)
 import Control.Monad (forM, replicateM, unless, when)
 import qualified Data.ByteString as BS
 import Data.List (nub, unzip4)
-import Data.Maybe (isJust, catMaybes, listToMaybe)
+import Data.Maybe (isJust, catMaybes)
 import Data.String (fromString)
 import Data.Function ((&))
 import Data.Time (NominalDiffTime, diffUTCTime, getCurrentTime)
@@ -185,7 +185,7 @@ hackageBenchmarkMain = do
           then do
             putStrLn $ "Obtaining the package list (using " ++ argCabal1 ++ ") ..."
             list <- readProcess argCabal1 ["list", "--simple-output"] ""
-            return . nub $ mkPackageName <$> catMaybes [listToMaybe (words line) | line <- lines list]
+            return $ nub [mkPackageName n | n : _ <- words <$> lines list]
           else do
             putStrLn "Using given package list ..."
             return argPackages
