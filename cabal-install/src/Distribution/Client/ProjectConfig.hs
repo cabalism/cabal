@@ -3,7 +3,6 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE TupleSections #-}
 
 -- | Handling project configuration.
 module Distribution.Client.ProjectConfig
@@ -752,7 +751,7 @@ readProjectFileSkeleton
       then do
         monitorFiles [monitorFileHashed extensionFile]
         pcs <- liftIO readExtensionFile
-        monitorFiles $ map monitorFileHashed (projectConfigPathSource <$> projectSkeletonImports pcs)
+        monitorFiles $ map monitorFileHashed (projectConfigPathRoot <$> projectSkeletonImports pcs)
         pure pcs
       else do
         monitorFiles [monitorNonExistentFile extensionFile]
@@ -763,7 +762,7 @@ readProjectFileSkeleton
       readExtensionFile =
         reportParseResult verbosity extensionDescription extensionFile
           =<< ( parseProject
-                  (RootConfig extensionFile)
+                  extensionFile
                   distDownloadSrcDirectory
                   httpTransport
                   verbosity
@@ -806,7 +805,7 @@ readGlobalConfig verbosity configFileFlag = do
 reportParseResult :: Verbosity -> String -> FilePath -> OldParser.ParseResult ProjectConfigSkeleton -> IO ProjectConfigSkeleton
 reportParseResult verbosity _filetype filename (OldParser.ParseOk warnings x) = do
   unless (null warnings) $
-    let msg = unlines (map (OldParser.showPWarning (intercalate ", " $ filename : (projectConfigPathSource <$> projectSkeletonImports x))) warnings)
+    let msg = unlines (map (OldParser.showPWarning (intercalate ", " $ filename : (projectConfigPathRoot <$> projectSkeletonImports x))) warnings)
      in warn verbosity msg
   return x
 reportParseResult verbosity filetype filename (OldParser.ParseFailed err) =
