@@ -40,8 +40,6 @@ instance ToExpr BuildReport
 instance ToExpr ClientInstallFlags
 instance ToExpr CombineStrategy
 instance ToExpr RootConfig
-instance ToExpr Importer
-instance ToExpr Importee
 instance ToExpr ProjectConfigPath
 instance ToExpr ConstraintSource
 instance ToExpr CountConflicts

@@ -2,15 +2,12 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE ParallelListComp #-}
-{-# LANGUAGE PatternSynonyms #-}
-{-# LANGUAGE ViewPatterns #-}
 module Distribution.Solver.Types.ConstraintSource
     ( ConstraintSource(..)
     , RootConfig(..)
-    , Importee(..)
-    , Importer(..)
+    , Importee
+    , Importer
     , ProjectConfigPath(..)
-    , mkProjectConfigPath
     , projectConfigPathSource
     , showProjectConfigPath
     , showConstraintSource
@@ -19,21 +16,17 @@ module Distribution.Solver.Types.ConstraintSource
 
 import Distribution.Solver.Compat.Prelude hiding (toList)
 import Prelude ()
-import Data.Coerce (coerce)
 import Data.List.NonEmpty (toList)
-import GHC.Stack (HasCallStack)
 
 -- | Path to the project config file root, typically cabal.project.
 newtype RootConfig = RootConfig FilePath
     deriving (Eq, Show, Generic)
 
 -- | Path to the project config file with the import.
-newtype Importer = Importer FilePath
-    deriving (Eq, Show, Generic)
+type Importer = FilePath
 
 -- | Path to the imported file contributing to the project config.
-newtype Importee = Importee FilePath
-    deriving (Eq, Show, Generic)
+type Importee = FilePath
 
 -- | Path to the project config file, either the root or an import.
 newtype ProjectConfigPath = ProjectConfigPath (NonEmpty FilePath)
@@ -55,10 +48,6 @@ nTimes 0 _ = id
 nTimes 1 f = f
 nTimes n f = f . nTimes (n-1) f
 
-mkProjectConfigPath :: HasCallStack => Importee -> [Importer] -> ProjectConfigPath
-mkProjectConfigPath (Importee importee) (coerce -> importers) =
-    ProjectConfigPath $ importee :| importers
-
 projectConfigPathSource :: ProjectConfigPath -> FilePath
 projectConfigPathSource (ProjectConfigPath xs) = last xs
 
@@ -67,10 +56,6 @@ nullProjectConfigPath = ProjectConfigPath $ "unused" :| []
 
 instance Binary RootConfig
 instance Structured RootConfig
-instance Binary Importee
-instance Structured Importee
-instance Binary Importer
-instance Structured Importer
 instance Binary ProjectConfigPath
 instance Structured ProjectConfigPath
 
