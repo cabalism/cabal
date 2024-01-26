@@ -53,6 +53,7 @@ import Distribution.Verbosity (silent)
 
 import Distribution.Solver.Types.ConstraintSource
 import Distribution.Solver.Types.PackageConstraint
+import Distribution.Solver.Types.ProjectConfigPath
 import Distribution.Solver.Types.Settings
 
 import Distribution.Client.ProjectConfig
@@ -234,7 +235,7 @@ prop_roundtrip_legacytypes_specific config =
 
 roundtrip_printparse :: ProjectConfig -> Property
 roundtrip_printparse config =
-  case fmap convertLegacyProjectConfig (parseLegacyProjectConfig (RootConfig "unused") (toUTF8BS str)) of
+  case fmap convertLegacyProjectConfig (parseLegacyProjectConfig "unused" (toUTF8BS str)) of
     ParseOk _ x ->
       counterexample ("shown:\n" ++ str) $
         x `ediffEq` config{projectConfigProvenance = mempty}
