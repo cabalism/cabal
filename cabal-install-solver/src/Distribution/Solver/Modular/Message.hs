@@ -31,6 +31,7 @@ import Distribution.Solver.Modular.Version
 import Distribution.Solver.Types.ConstraintSource
 import Distribution.Solver.Types.PackagePath
 import Distribution.Solver.Types.Progress
+import Distribution.Solver.Types.ProjectConfigPath (showProjectConfigPath)
 import Distribution.Types.LibraryName
 import Distribution.Types.UnqualComponentName
 

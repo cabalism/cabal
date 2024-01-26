@@ -137,7 +137,6 @@ import Distribution.Simple.Utils
   , warn
   , writeUTF8File
   )
-import Distribution.Solver.Types.ConstraintSource (RootConfig (..))
 import Distribution.Solver.Types.SourcePackage as SP
   ( SourcePackage (..)
   )
@@ -512,13 +511,7 @@ readProjectBlockFromScript verbosity httpTransport DistDirLayout{distDownloadSrc
     Left _ -> return mempty
     Right x ->
       reportParseResult verbosity "script" scriptName
-        =<< parseProject
-          (RootConfig scriptName)
-          distDownloadSrcDirectory
-          httpTransport
-          verbosity
-          []
-          (ProjectConfigToParse x)
+        =<< parseProject scriptName distDownloadSrcDirectory httpTransport verbosity (ProjectConfigToParse x)
 
 -- | Extract the first encountered script metadata block started end
 -- terminated by the tokens
