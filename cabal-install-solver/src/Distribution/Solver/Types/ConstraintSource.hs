@@ -36,12 +36,12 @@ newtype Importee = Importee FilePath
     deriving (Eq, Show, Generic)
 
 -- | Path to the project config file, either the root or an import.
-newtype ProjectConfigPath = ProjectImport (NonEmpty FilePath)
+newtype ProjectConfigPath = ProjectConfigPath (NonEmpty FilePath)
     deriving (Eq, Show, Generic)
 
 -- | Renders the path as a tree node with its ancestors.
 showProjectConfigPath :: ProjectConfigPath -> String
-showProjectConfigPath (ProjectImport xs) =
+showProjectConfigPath (ProjectConfigPath xs) =
     unlines
         [ (nTimes i (showChar ' ') . showString "+-- " . showString x) ""
         | x <- reverse $ toList xs
@@ -57,13 +57,13 @@ nTimes n f = f . nTimes (n-1) f
 
 mkProjectConfigPath :: HasCallStack => [Importer] -> Importee -> ProjectConfigPath
 mkProjectConfigPath (coerce -> importers) (Importee importee) =
-    ProjectImport $ importee :| importers
+    ProjectConfigPath $ importee :| importers
 
 projectConfigPathSource :: ProjectConfigPath -> FilePath
-projectConfigPathSource (ProjectImport xs) = last xs
+projectConfigPathSource (ProjectConfigPath xs) = last xs
 
 nullProjectConfigPath :: ProjectConfigPath
-nullProjectConfigPath = ProjectImport $ "unused" :| []
+nullProjectConfigPath = ProjectConfigPath $ "unused" :| []
 
 instance Binary RootConfig
 instance Structured RootConfig

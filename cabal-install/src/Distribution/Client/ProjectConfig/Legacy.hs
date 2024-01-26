@@ -314,7 +314,7 @@ parseProjectSkeleton srcImporters srcImportee cacheDir httpTransport verbosity s
     liftPR _ (ParseFailed e) = pure $ ParseFailed e
 
     fetchImportConfig :: ProjectConfigPath -> IO BS.ByteString
-    fetchImportConfig (ProjectImport (pci :| _)) = fetch pci
+    fetchImportConfig (ProjectConfigPath (pci :| _)) = fetch pci
       where
         fetch importURI = case parseURI importURI of
           Just uri -> do
@@ -1217,7 +1217,7 @@ parseLegacyProjectConfigFields (ConstraintSourceProjectConfig -> constraintSrc) 
 
 parseLegacyProjectConfig :: RootConfig -> BS.ByteString -> ParseResult LegacyProjectConfig
 parseLegacyProjectConfig (RootConfig rootConfig) bs =
-  parseLegacyProjectConfigFields (ProjectImport $ rootConfig :| []) =<< ParseUtils.readFields bs
+  parseLegacyProjectConfigFields (ProjectConfigPath $ rootConfig :| []) =<< ParseUtils.readFields bs
 
 showLegacyProjectConfig :: LegacyProjectConfig -> String
 showLegacyProjectConfig config =
