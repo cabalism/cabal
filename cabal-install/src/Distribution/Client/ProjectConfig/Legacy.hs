@@ -249,12 +249,12 @@ parseProjectSkeleton srcImporters srcImportee cacheDir httpTransport verbosity s
           then pure . parseFail $ ParseUtils.FromString ("cyclical import of " ++ coerce importLoc) (Just l)
           else do
             let importChain = Importer source : sourceImporters
-            let depthImport = mkProjectConfigPath sourceImporters importLoc
+            let depthImport = mkProjectConfigPath importLoc sourceImporters
             let fs = fmap (\z -> CondNode z [depthImport] mempty) $ fieldsToConfig sourceImporters sourceImportee (reverse acc)
             res <-
               fetchImportConfig depthImport
                 >>= ( \sourceNext ->
-                        let imports = mkProjectConfigPath importChain importLoc : seenImports
+                        let imports = mkProjectConfigPath importLoc importChain : seenImports
                             nextConfig = ProjectConfigToParse sourceNext
                          in parseProjectSkeleton importChain importLoc cacheDir httpTransport verbosity imports nextConfig
                     )
@@ -298,7 +298,7 @@ parseProjectSkeleton srcImporters srcImportee cacheDir httpTransport verbosity s
     fieldsToConfig :: [Importer] -> Importee -> [ParseUtils.Field] -> ParseResult ProjectConfig
     fieldsToConfig sourceImporters sourceImportee xs =
       fmap (addProvenance sourceImportee . convertLegacyProjectConfig) $
-        parseLegacyProjectConfigFields (mkProjectConfigPath sourceImporters sourceImportee) xs
+        parseLegacyProjectConfigFields (mkProjectConfigPath sourceImportee sourceImporters) xs
 
     addProvenance :: Importee -> ProjectConfig -> ProjectConfig
     addProvenance source x = x{projectConfigProvenance = Set.singleton (Explicit $ coerce source)}
