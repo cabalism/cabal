@@ -2,12 +2,13 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE ParallelListComp #-}
+{-# LANGUAGE PatternSynonyms #-}
+{-# LANGUAGE ViewPatterns #-}
 module Distribution.Solver.Types.ConstraintSource
     ( ConstraintSource(..)
     , RootConfig(..)
     , Importee(..)
     , Importer(..)
-    , ImportedConfig(..)
     , ProjectConfigPath(..)
     , mkProjectConfigPath
     , projectConfigPathSource
@@ -16,9 +17,10 @@ module Distribution.Solver.Types.ConstraintSource
     , nullProjectConfigPath
     ) where
 
-import Distribution.Solver.Compat.Prelude
+import Distribution.Solver.Compat.Prelude hiding (toList)
 import Prelude ()
 import Data.Coerce (coerce)
+import Data.List.NonEmpty (toList)
 import GHC.Stack (HasCallStack)
 
 -- | Path to the project config file root, typically cabal.project.
@@ -33,35 +35,18 @@ newtype Importer = Importer FilePath
 newtype Importee = Importee FilePath
     deriving (Eq, Show, Generic)
 
--- | The imported config along with its import chain.
-data ImportedConfig =
-    ImportedConfig
-        { importers :: [Importer]
-        -- ^ Path to the project config file with the import. Doesn't include the importee.
-        , importee :: Importee
-        -- ^ Path to the imported file contributing to the project config.
-        }
-    deriving (Eq, Show, Generic)
-
 -- | Path to the project config file, either the root or an import.
-data ProjectConfigPath = ProjectRoot RootConfig | ProjectImport ImportedConfig
+newtype ProjectConfigPath = ProjectImport (NonEmpty FilePath)
     deriving (Eq, Show, Generic)
 
 -- | Renders the path as a tree node with its ancestors.
 showProjectConfigPath :: ProjectConfigPath -> String
-showProjectConfigPath = \case
-    ProjectRoot (RootConfig path) -> "+-- " ++ path
-    ProjectImport ImportedConfig{importee = Importee x, importers} ->
-        renderProjectConfigPath . reverse $ x : map coerce importers
-
-renderProjectConfigPath :: [String] -> String
-renderProjectConfigPath [] = ""
-renderProjectConfigPath [x] = x
-renderProjectConfigPath xs = unlines
-    [ (nTimes i (showChar ' ') . showString "+-- " . showString x) ""
-    | x <- xs
-    | i <- [0..]
-    ]
+showProjectConfigPath (ProjectImport xs) =
+    unlines
+        [ (nTimes i (showChar ' ') . showString "+-- " . showString x) ""
+        | x <- reverse $ toList xs
+        | i <- [0..]
+        ]
 
 -- | Apply a function @n@ times to a given value.
 -- SEE: GHC.Utils.Misc
@@ -71,23 +56,14 @@ nTimes 1 f = f
 nTimes n f = f . nTimes (n-1) f
 
 mkProjectConfigPath :: HasCallStack => [Importer] -> Importee -> ProjectConfigPath
-mkProjectConfigPath [] (Importee path) = ProjectRoot $ RootConfig path
-mkProjectConfigPath importers@[_] importee = ProjectImport $ ImportedConfig
-    { importers
-    , importee
-    }
-mkProjectConfigPath (i:is) importee = case mkProjectConfigPath is importee of
-    ProjectImport importedConfig -> ProjectImport $ importedConfig
-        { importers = i : importers importedConfig }
-    ProjectRoot _ -> error $ "mkProjectConfigPath: depth == 0 but expected import depth > 1"
+mkProjectConfigPath (coerce -> importers) (Importee importee) =
+    ProjectImport $ importee :| importers
 
 projectConfigPathSource :: ProjectConfigPath -> FilePath
-projectConfigPathSource = \case
-    ProjectRoot path -> coerce path
-    ProjectImport importedConfig -> coerce $ importee importedConfig
+projectConfigPathSource (ProjectImport xs) = last xs
 
 nullProjectConfigPath :: ProjectConfigPath
-nullProjectConfigPath = ProjectRoot $ RootConfig "unused"
+nullProjectConfigPath = ProjectImport $ "unused" :| []
 
 instance Binary RootConfig
 instance Structured RootConfig
@@ -95,8 +71,6 @@ instance Binary Importee
 instance Structured Importee
 instance Binary Importer
 instance Structured Importer
-instance Binary ImportedConfig
-instance Structured ImportedConfig
 instance Binary ProjectConfigPath
 instance Structured ProjectConfigPath
 
