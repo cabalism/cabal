@@ -6,6 +6,7 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE ViewPatterns #-}
+{-# OPTIONS_GHC -Werror=incomplete-patterns #-}
 
 -- | Project configuration, implementation in terms of legacy types.
 module Distribution.Client.ProjectConfig.Legacy
@@ -313,11 +314,9 @@ parseProjectSkeleton srcImporters srcImportee cacheDir httpTransport verbosity s
     liftPR _ (ParseFailed e) = pure $ ParseFailed e
 
     fetchImportConfig :: ProjectConfigPath -> IO BS.ByteString
-    fetchImportConfig = \case
-      (ProjectRoot (RootConfig root)) -> fetch root
-      (ProjectImport ImportedConfig{importee = Importee pci}) -> fetch pci
+    fetchImportConfig (ProjectImport (pci :| _)) = fetch pci
       where
-        fetch pci = case parseURI pci of
+        fetch importURI = case parseURI importURI of
           Just uri -> do
             let fp = cacheDir </> map (\x -> if isPathSeparator x then '_' else x) (makeValid $ show uri)
             createDirectoryIfMissing True cacheDir
@@ -1217,8 +1216,8 @@ parseLegacyProjectConfigFields (ConstraintSourceProjectConfig -> constraintSrc) 
     mempty
 
 parseLegacyProjectConfig :: RootConfig -> BS.ByteString -> ParseResult LegacyProjectConfig
-parseLegacyProjectConfig rootConfig bs =
-  parseLegacyProjectConfigFields (ProjectRoot rootConfig) =<< ParseUtils.readFields bs
+parseLegacyProjectConfig (RootConfig rootConfig) bs =
+  parseLegacyProjectConfigFields (ProjectImport $ rootConfig :| []) =<< ParseUtils.readFields bs
 
 showLegacyProjectConfig :: LegacyProjectConfig -> String
 showLegacyProjectConfig config =
