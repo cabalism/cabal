@@ -34,7 +34,7 @@ module Distribution.Client.ProjectConfig.Legacy
   , renderPackageLocationToken
   ) where
 
-import Data.Coerce (coerce)
+import Data.List.NonEmpty ((<|))
 import Distribution.Client.Compat.Prelude
 
 import Distribution.Types.Flag (FlagName, parsecFlagAssignment)
@@ -243,20 +243,19 @@ parseProjectSkeleton (srcFilePath :| srcFilePaths) cacheDir httpTransport verbos
       (root : _, _) -> root
 
     go :: NonEmpty FilePath -> [ParseUtils.Field] -> [ParseUtils.Field] -> IO (ParseResult ProjectConfigSkeleton)
-    go (sourceFilePath :| sourceFilePaths) acc (x : xs) = case x of
+    go importChain@(sourceFilePath :| sourceFilePaths) acc (x : xs) = case x of
       (ParseUtils.F l "import" importLoc@importeeSource) ->
         if importeeSource `elem` (projectConfigPathSource <$> seenImports)
-          then pure . parseFail $ ParseUtils.FromString ("cyclical import of " ++ coerce importLoc) (Just l)
+          then pure . parseFail $ ParseUtils.FromString ("cyclical import of " ++ importLoc) (Just l)
           else do
-            let importChain = sourceFilePath : sourceFilePaths
             let depthImport = ProjectConfigPath (importLoc :| sourceFilePaths)
             let fs = fmap (\z -> CondNode z [depthImport] mempty) $ fieldsToConfig sourceFilePaths sourceFilePath (reverse acc)
             res <-
               fetchImportConfig depthImport
                 >>= ( \sourceNext ->
-                        let imports = ProjectConfigPath (importLoc :| importChain) : seenImports
+                        let imports = ProjectConfigPath (importLoc <| importChain) : seenImports
                             nextConfig = ProjectConfigToParse sourceNext
-                         in parseProjectSkeleton (importLoc :| importChain) cacheDir httpTransport verbosity imports nextConfig
+                         in parseProjectSkeleton (importLoc <| importChain) cacheDir httpTransport verbosity imports nextConfig
                     )
             rest <- go (sourceFilePath :| sourceFilePaths) [] xs
             pure . fmap mconcat . sequence $ [fs, res, rest]
@@ -301,7 +300,7 @@ parseProjectSkeleton (srcFilePath :| srcFilePaths) cacheDir httpTransport verbos
         parseLegacyProjectConfigFields (ProjectConfigPath $ sourceFilePath :| sourceFilePaths) xs
 
     addProvenance :: FilePath -> ProjectConfig -> ProjectConfig
-    addProvenance source x = x{projectConfigProvenance = Set.singleton (Explicit $ coerce source)}
+    addProvenance source x = x{projectConfigProvenance = Set.singleton (Explicit source)}
 
     adaptParseError _ (Right x) = pure x
     adaptParseError l (Left e) = parseFail $ ParseUtils.FromString (show e) (Just l)
