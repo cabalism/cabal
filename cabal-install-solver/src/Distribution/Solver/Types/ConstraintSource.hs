@@ -5,8 +5,6 @@
 module Distribution.Solver.Types.ConstraintSource
     ( ConstraintSource(..)
     , RootConfig(..)
-    , Importee
-    , Importer
     , ProjectConfigPath(..)
     , projectConfigPathSource
     , showProjectConfigPath
@@ -21,12 +19,6 @@ import Data.List.NonEmpty (toList)
 -- | Path to the project config file root, typically cabal.project.
 newtype RootConfig = RootConfig FilePath
     deriving (Eq, Show, Generic)
-
--- | Path to the project config file with the import.
-type Importer = FilePath
-
--- | Path to the imported file contributing to the project config.
-type Importee = FilePath
 
 -- | Path to the project config file, either the root or an import.
 newtype ProjectConfigPath = ProjectConfigPath (NonEmpty FilePath)
