@@ -243,12 +243,12 @@ parseProjectSkeleton (srcFilePath :| srcFilePaths) cacheDir httpTransport verbos
       (root : _, _) -> root
 
     go :: NonEmpty FilePath -> [ParseUtils.Field] -> [ParseUtils.Field] -> IO (ParseResult ProjectConfigSkeleton)
-    go (sourceFilePath@source :| sourceFilePaths) acc (x : xs) = case x of
+    go (sourceFilePath :| sourceFilePaths) acc (x : xs) = case x of
       (ParseUtils.F l "import" importLoc@importeeSource) ->
         if importeeSource `elem` (projectConfigPathSource <$> seenImports)
           then pure . parseFail $ ParseUtils.FromString ("cyclical import of " ++ coerce importLoc) (Just l)
           else do
-            let importChain = source : sourceFilePaths
+            let importChain = sourceFilePath : sourceFilePaths
             let depthImport = ProjectConfigPath (importLoc :| sourceFilePaths)
             let fs = fmap (\z -> CondNode z [depthImport] mempty) $ fieldsToConfig sourceFilePaths sourceFilePath (reverse acc)
             res <-
