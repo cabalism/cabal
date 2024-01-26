@@ -4,7 +4,6 @@
 {-# LANGUAGE ParallelListComp #-}
 module Distribution.Solver.Types.ConstraintSource
     ( ConstraintSource(..)
-    , RootConfig(..)
     , ProjectConfigPath(..)
     , projectConfigPathSource
     , showProjectConfigPath
@@ -15,10 +14,6 @@ module Distribution.Solver.Types.ConstraintSource
 import Distribution.Solver.Compat.Prelude hiding (toList)
 import Prelude ()
 import Data.List.NonEmpty (toList)
-
--- | Path to the project config file root, typically cabal.project.
-newtype RootConfig = RootConfig FilePath
-    deriving (Eq, Show, Generic)
 
 -- | Path to the project config file, either the root or an import.
 newtype ProjectConfigPath = ProjectConfigPath (NonEmpty FilePath)
@@ -46,8 +41,6 @@ projectConfigPathSource (ProjectConfigPath xs) = last xs
 nullProjectConfigPath :: ProjectConfigPath
 nullProjectConfigPath = ProjectConfigPath $ "unused" :| []
 
-instance Binary RootConfig
-instance Structured RootConfig
 instance Binary ProjectConfigPath
 instance Structured ProjectConfigPath
 

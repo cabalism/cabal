@@ -763,7 +763,7 @@ readProjectFileSkeleton
       readExtensionFile =
         reportParseResult verbosity extensionDescription extensionFile
           =<< ( parseProject
-                  (RootConfig extensionFile)
+                  extensionFile
                   distDownloadSrcDirectory
                   httpTransport
                   verbosity
