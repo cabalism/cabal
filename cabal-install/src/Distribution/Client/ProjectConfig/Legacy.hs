@@ -235,12 +235,12 @@ parseProject rootConfig = parseProjectSkeleton $ rootConfig :| []
 
 -- | Parses project configuration recursively, following imports.
 parseProjectSkeleton :: NonEmpty FilePath -> FilePath -> HttpTransport -> Verbosity -> [ProjectConfigPath] -> ProjectConfigToParse -> IO (ParseResult ProjectConfigSkeleton)
-parseProjectSkeleton (srcFilePath :| srcFilePaths) cacheDir httpTransport verbosity seenImports (ProjectConfigToParse bs) =
-  (sanityWalkPCS False =<<) <$> liftPR (go (srcFilePath :| srcFilePaths) []) (ParseUtils.readFields bs)
+parseProjectSkeleton paths cacheDir httpTransport verbosity seenImports (ProjectConfigToParse bs) =
+  (sanityWalkPCS False =<<) <$> liftPR (go paths []) (ParseUtils.readFields bs)
   where
-    rootSource = case (srcFilePaths, srcFilePath) of
-      ([], root) -> root
-      (root : _, _) -> root
+    sourceDirectory = takeDirectory $ case paths of
+      (root :| []) -> root
+      (_importee :| importer : _) -> importer
 
     go :: NonEmpty FilePath -> [ParseUtils.Field] -> [ParseUtils.Field] -> IO (ParseResult ProjectConfigSkeleton)
     go importChain@(sourceFilePath :| sourceFilePaths) acc (x : xs) = case x of
@@ -322,7 +322,7 @@ parseProjectSkeleton (srcFilePath :| srcFilePaths) cacheDir httpTransport verbos
             _ <- downloadURI httpTransport verbosity uri fp
             BS.readFile fp
           Nothing ->
-            BS.readFile $ if isAbsolute pci then pci else takeDirectory rootSource </> pci
+            BS.readFile $ if isAbsolute pci then pci else sourceDirectory </> pci
 
     modifiesCompiler :: ProjectConfig -> Bool
     modifiesCompiler pc = isSet projectConfigHcFlavor || isSet projectConfigHcPath || isSet projectConfigHcPkg
