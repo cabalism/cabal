@@ -18,8 +18,7 @@ main = cabalTest . withRepo "repo" . recordMode RecordMarked $ do
   --  +-- etc
   log "checking cyclical with hops; out and back"
   cyclical1a <- fails $ cabal' "v2-build" [ "--project-file=cyclical-1-out-back.project" ]
-  -- This test should pass the following check but doesn't:
-  -- assertOutputContains "cyclical import of cyclical-1-out-back.project" cyclical1a
+  assertOutputContains "cyclical import of cyclical-1-out-back.project" cyclical1a
 
   -- +-- cyclical-1-out-self.project
   --  +-- cyclical-1-out-self.config (imports cyclical-1-out-self.config)
@@ -36,8 +35,7 @@ main = cabalTest . withRepo "repo" . recordMode RecordMarked $ do
   --  +-- etc
   log "checking cyclical with hops; out, out, twice back"
   cyclical2a <- fails $ cabal' "v2-build" [ "--project-file=cyclical-2-out-out-backback.project" ]
-  -- This test should pass the following check but doesn't:
-  -- assertOutputContains "cyclical import of cyclical-2-out-out-backback.project" cyclical2a
+  assertOutputContains "cyclical import of cyclical-2-out-out-backback.project" cyclical2a
 
   -- +-- cyclical-2-out-out-back.project
   --  +-- cyclical-2-out-out-back-a.config
@@ -87,8 +85,7 @@ main = cabalTest . withRepo "repo" . recordMode RecordMarked $ do
   -- +-- etc
   log "checking that cyclical check catches importing its importer (with the same file name)"
   cyclical4b <- fails $ cabal' "v2-build" [ "--project-file=cyclical-same-filename-out-out-backback.project" ]
-  -- This test should pass the following check but doesn't:
-  -- assertOutputContains "cyclical import of cyclical-same-filename-out-out-backback.project" cyclical4b
+  assertOutputContains "cyclical import of cyclical-same-filename-out-out-backback.project" cyclical4b
 
   -- +-- cyclical-same-filename-out-out-back.project
   --  +-- cyclical-same-filename-out-out-back.config
@@ -97,8 +94,7 @@ main = cabalTest . withRepo "repo" . recordMode RecordMarked $ do
   --  +-- etc
   log "checking that cyclical check catches importing its importer's importer (hopping over same file names)"
   cyclical4c <- fails $ cabal' "v2-build" [ "--project-file=cyclical-same-filename-out-out-back.project" ]
-  -- This test should pass the following check but doesn't:
-  -- assertOutputContains "cyclical import of cyclical-same-filename-out-out-back.config" cyclical4c
+  assertOutputContains "cyclical import of cyclical-same-filename-out-out-back.config" cyclical4c
 
   -- +-- hops-0.project
   --  +-- hops/hops-1.config
@@ -111,19 +107,18 @@ main = cabalTest . withRepo "repo" . recordMode RecordMarked $ do
   --         +-- hops-8.config
   --          +-- hops/hops-9.config (no further imports so not cyclical)
   log "checking that imports work skipping into a subfolder and then back out again and again"
-  -- This test should pass the following checks but doesn't, it fails (but it shouldn't):
-  hopping <- fails $ cabal' "v2-build" [ "--project-file=hops-0.project" ]
-  -- assertOutputContains "this build was affected by the following (project) config files:" hopping
-  -- assertOutputContains "hops-0.project" hopping
-  -- assertOutputContains "../hops-2.config" hopping
-  -- assertOutputContains "../hops-4.config" hopping
-  -- assertOutputContains "../hops-6.config" hopping
-  -- assertOutputContains "../hops-8.config" hopping
-  -- assertOutputContains "hops/hops-1.config" hopping
-  -- assertOutputContains "hops/hops-3.config" hopping
-  -- assertOutputContains "hops/hops-5.config" hopping
-  -- assertOutputContains "hops/hops-7.config" hopping
-  -- assertOutputContains "hops/hops-9.config" hopping
+  hopping <- cabal' "v2-build" [ "--project-file=hops-0.project" ]
+  assertOutputContains "this build was affected by the following (project) config files:" hopping
+  assertOutputContains "hops-0.project" hopping
+  assertOutputContains "../hops-2.config" hopping
+  assertOutputContains "../hops-4.config" hopping
+  assertOutputContains "../hops-6.config" hopping
+  assertOutputContains "../hops-8.config" hopping
+  assertOutputContains "hops/hops-1.config" hopping
+  assertOutputContains "hops/hops-3.config" hopping
+  assertOutputContains "hops/hops-5.config" hopping
+  assertOutputContains "hops/hops-7.config" hopping
+  assertOutputContains "hops/hops-9.config" hopping
 
   log "checking bad conditional"
   badIf <- fails $ cabal' "v2-build" [ "--project-file=bad-conditional.project" ]
