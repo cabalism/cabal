@@ -6,6 +6,7 @@ module UnitTests.Distribution.Client.TreeDiffInstances () where
 import Distribution.Solver.Types.ConstraintSource
 import Distribution.Solver.Types.OptionalStanza
 import Distribution.Solver.Types.PackageConstraint
+import Distribution.Solver.Types.ProjectConfigPath
 import Distribution.Solver.Types.Settings
 
 import Distribution.Client.BuildReports.Types
@@ -39,10 +40,6 @@ instance ToExpr AllowOlder
 instance ToExpr BuildReport
 instance ToExpr ClientInstallFlags
 instance ToExpr CombineStrategy
-instance ToExpr RootConfig
-instance ToExpr Importer
-instance ToExpr Importee
-instance ToExpr ImportedConfig
 instance ToExpr ProjectConfigPath
 instance ToExpr ConstraintSource
 instance ToExpr CountConflicts
