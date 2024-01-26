@@ -55,8 +55,8 @@ nTimes 0 _ = id
 nTimes 1 f = f
 nTimes n f = f . nTimes (n-1) f
 
-mkProjectConfigPath :: HasCallStack => [Importer] -> Importee -> ProjectConfigPath
-mkProjectConfigPath (coerce -> importers) (Importee importee) =
+mkProjectConfigPath :: HasCallStack => Importee -> [Importer] -> ProjectConfigPath
+mkProjectConfigPath (Importee importee) (coerce -> importers) =
     ProjectConfigPath $ importee :| importers
 
 projectConfigPathSource :: ProjectConfigPath -> FilePath
