@@ -237,7 +237,7 @@ parseProjectSkeleton paths cacheDir httpTransport verbosity seenImports (Project
     go :: NonEmpty FilePath -> [ParseUtils.Field] -> [ParseUtils.Field] -> IO (ParseResult ProjectConfigSkeleton)
     go imports@(_ :| sourceFilePaths) acc (x : xs) = case x of
       (ParseUtils.F l "import" importLoc) ->
-        if importLoc `elem` (projectConfigPathSource <$> seenImports)
+        if importLoc `elem` (projectConfigPathRoot <$> seenImports)
           then pure . parseFail $ ParseUtils.FromString ("cyclical import of " ++ importLoc) (Just l)
           else do
             let depthImport = ProjectConfigPath (importLoc :| sourceFilePaths)

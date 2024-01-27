@@ -3,7 +3,7 @@
 module Distribution.Solver.Types.ConstraintSource
     ( ConstraintSource(..)
     , ProjectConfigPath(..)
-    , projectConfigPathSource
+    , projectConfigPathRoot
     , showProjectConfigPath
     , showConstraintSource
     , nullProjectConfigPath
@@ -33,8 +33,8 @@ nTimes 0 _ = id
 nTimes 1 f = f
 nTimes n f = f . nTimes (n-1) f
 
-projectConfigPathSource :: ProjectConfigPath -> FilePath
-projectConfigPathSource (ProjectConfigPath xs) = last xs
+projectConfigPathRoot :: ProjectConfigPath -> FilePath
+projectConfigPathRoot (ProjectConfigPath xs) = last xs
 
 nullProjectConfigPath :: ProjectConfigPath
 nullProjectConfigPath = ProjectConfigPath $ "unused" :| []
