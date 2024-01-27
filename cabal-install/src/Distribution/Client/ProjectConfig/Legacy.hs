@@ -30,6 +30,7 @@ module Distribution.Client.ProjectConfig.Legacy
   , renderPackageLocationToken
   ) where
 
+import Data.Coerce (coerce)
 import Data.List.NonEmpty ((<|))
 import Distribution.Client.Compat.Prelude
 
@@ -227,34 +228,34 @@ projectSkeletonImports = view traverseCondTreeC
 
 -- | Parses a project from its root config file, typically cabal.project.
 parseProject :: FilePath -> FilePath -> HttpTransport -> Verbosity -> [ProjectConfigPath] -> ProjectConfigToParse -> IO (ParseResult ProjectConfigSkeleton)
-parseProject rootConfig = parseProjectSkeleton $ rootConfig :| []
+parseProject rootConfig = parseProjectSkeleton . ProjectConfigPath $ rootConfig :| []
 
 -- | Parses project configuration recursively, following imports.
-parseProjectSkeleton :: NonEmpty FilePath -> FilePath -> HttpTransport -> Verbosity -> [ProjectConfigPath] -> ProjectConfigToParse -> IO (ParseResult ProjectConfigSkeleton)
-parseProjectSkeleton paths cacheDir httpTransport verbosity seenImports (ProjectConfigToParse bs) =
-  (sanityWalkPCS False =<<) <$> liftPR (go paths []) (ParseUtils.readFields bs)
+parseProjectSkeleton :: ProjectConfigPath -> FilePath -> HttpTransport -> Verbosity -> [ProjectConfigPath] -> ProjectConfigToParse -> IO (ParseResult ProjectConfigSkeleton)
+parseProjectSkeleton rootOrImport cacheDir httpTransport verbosity seenImports (ProjectConfigToParse bs) =
+  (sanityWalkPCS False =<<) <$> liftPR (go rootOrImport []) (ParseUtils.readFields bs)
   where
-    go :: NonEmpty FilePath -> [ParseUtils.Field] -> [ParseUtils.Field] -> IO (ParseResult ProjectConfigSkeleton)
-    go imports@(_ :| sourceFilePaths) acc (x : xs) = case x of
+    go :: ProjectConfigPath -> [ParseUtils.Field] -> [ParseUtils.Field] -> IO (ParseResult ProjectConfigSkeleton)
+    go configPath@(ProjectConfigPath (_ :| parentPath)) acc (x : xs) = case x of
       (ParseUtils.F l "import" importLoc) ->
         if importLoc `elem` (projectConfigPathRoot <$> seenImports)
           then pure . parseFail $ ParseUtils.FromString ("cyclical import of " ++ importLoc) (Just l)
           else do
-            let depthImport = ProjectConfigPath (importLoc :| sourceFilePaths)
-            let fs = fmap (\z -> CondNode z [depthImport] mempty) $ fieldsToConfig imports (reverse acc)
+            let importLocPath = ProjectConfigPath (importLoc :| parentPath)
+            let fs = fmap (\z -> CondNode z [importLocPath] mempty) $ fieldsToConfig configPath (reverse acc)
             res <-
-              fetchImportConfig depthImport
+              fetchImportConfig importLocPath
                 >>= ( \bs' ->
-                        let paths' = importLoc <| imports
-                            seenImports' = ProjectConfigPath paths' : seenImports
-                         in parseProjectSkeleton paths' cacheDir httpTransport verbosity seenImports' (ProjectConfigToParse bs')
+                        let importPath = ProjectConfigPath $ importLoc <| coerce configPath
+                            seenImports' = importPath : seenImports
+                         in parseProjectSkeleton importPath cacheDir httpTransport verbosity seenImports' (ProjectConfigToParse bs')
                     )
-            rest <- go imports [] xs
+            rest <- go configPath [] xs
             pure . fmap mconcat . sequence $ [fs, res, rest]
       (ParseUtils.Section l "if" p xs') -> do
-        subpcs <- go imports [] xs'
-        let fs = fmap singletonProjectConfigSkeleton $ fieldsToConfig imports (reverse acc)
-        (elseClauses, rest) <- parseElseClauses imports xs
+        subpcs <- go configPath [] xs'
+        let fs = fmap singletonProjectConfigSkeleton $ fieldsToConfig configPath (reverse acc)
+        (elseClauses, rest) <- parseElseClauses configPath xs
         let condNode =
               (\c pcs e -> CondNode mempty mempty [CondBranch c pcs e])
                 <$>
@@ -263,33 +264,33 @@ parseProjectSkeleton paths cacheDir httpTransport verbosity seenImports (Project
                 <*> subpcs
                 <*> elseClauses
         pure . fmap mconcat . sequence $ [fs, condNode, rest]
-      _ -> go imports (x : acc) xs
-    go imports acc [] =
+      _ -> go configPath (x : acc) xs
+    go configPath acc [] =
       pure
         . fmap singletonProjectConfigSkeleton
-        $ fieldsToConfig imports (reverse acc)
+        $ fieldsToConfig configPath (reverse acc)
 
-    parseElseClauses :: NonEmpty FilePath -> [ParseUtils.Field] -> IO (ParseResult (Maybe ProjectConfigSkeleton), ParseResult ProjectConfigSkeleton)
-    parseElseClauses imports x = case x of
+    parseElseClauses :: ProjectConfigPath -> [ParseUtils.Field] -> IO (ParseResult (Maybe ProjectConfigSkeleton), ParseResult ProjectConfigSkeleton)
+    parseElseClauses configPath x = case x of
       (ParseUtils.Section _l "else" _p xs' : xs) -> do
-        subpcs <- go imports [] xs'
-        rest <- go imports [] xs
+        subpcs <- go configPath [] xs'
+        rest <- go configPath [] xs
         pure (Just <$> subpcs, rest)
       (ParseUtils.Section l "elif" p xs' : xs) -> do
-        subpcs <- go imports [] xs'
-        (elseClauses, rest) <- parseElseClauses imports xs
+        subpcs <- go configPath [] xs'
+        (elseClauses, rest) <- parseElseClauses configPath xs
         let condNode =
               (\c pcs e -> CondNode mempty mempty [CondBranch c pcs e])
                 <$> adaptParseError l (parseConditionConfVarFromClause . BS.pack $ "else(" <> p <> ")")
                 <*> subpcs
                 <*> elseClauses
         pure (Just <$> condNode, rest)
-      _ -> (\r -> (pure Nothing, r)) <$> go imports [] x
+      _ -> (\r -> (pure Nothing, r)) <$> go configPath [] x
 
-    fieldsToConfig :: NonEmpty FilePath -> [ParseUtils.Field] -> ParseResult ProjectConfig
-    fieldsToConfig imports@(sourceFilePath :| _) xs =
-      fmap (addProvenance sourceFilePath . convertLegacyProjectConfig) $
-        parseLegacyProjectConfigFields (ProjectConfigPath imports) xs
+    fieldsToConfig :: ProjectConfigPath -> [ParseUtils.Field] -> ParseResult ProjectConfig
+    fieldsToConfig configPath@(ProjectConfigPath (importee :| _)) xs =
+      fmap (addProvenance importee . convertLegacyProjectConfig) $
+        parseLegacyProjectConfigFields configPath xs
 
     addProvenance :: FilePath -> ProjectConfig -> ProjectConfig
     addProvenance source x = x{projectConfigProvenance = Set.singleton (Explicit source)}
@@ -307,7 +308,7 @@ parseProjectSkeleton paths cacheDir httpTransport verbosity seenImports (Project
     fetchImportConfig :: ProjectConfigPath -> IO BS.ByteString
     fetchImportConfig (ProjectConfigPath (pci :| _)) = fetch pci
       where
-        sourceDirectory = takeDirectory $ case paths of
+        sourceDirectory = takeDirectory $ case coerce rootOrImport of
           (root :| []) -> root
           (_importee :| importer : _) -> importer
 
