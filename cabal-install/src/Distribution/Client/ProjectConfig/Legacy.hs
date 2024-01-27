@@ -244,8 +244,8 @@ parseProjectSkeleton paths cacheDir httpTransport verbosity seenImports (Project
 
     go :: NonEmpty FilePath -> [ParseUtils.Field] -> [ParseUtils.Field] -> IO (ParseResult ProjectConfigSkeleton)
     go importChain@(sourceFilePath :| sourceFilePaths) acc (x : xs) = case x of
-      (ParseUtils.F l "import" importLoc@importeeSource) ->
-        if importeeSource `elem` (projectConfigPathSource <$> seenImports)
+      (ParseUtils.F l "import" importLoc) ->
+        if importLoc `elem` (projectConfigPathSource <$> seenImports)
           then pure . parseFail $ ParseUtils.FromString ("cyclical import of " ++ importLoc) (Just l)
           else do
             let depthImport = ProjectConfigPath (importLoc :| sourceFilePaths)
@@ -257,10 +257,10 @@ parseProjectSkeleton paths cacheDir httpTransport verbosity seenImports (Project
                             nextConfig = ProjectConfigToParse sourceNext
                          in parseProjectSkeleton (importLoc <| importChain) cacheDir httpTransport verbosity imports nextConfig
                     )
-            rest <- go (sourceFilePath :| sourceFilePaths) [] xs
+            rest <- go importChain [] xs
             pure . fmap mconcat . sequence $ [fs, res, rest]
       (ParseUtils.Section l "if" p xs') -> do
-        subpcs <- go (sourceFilePath :| sourceFilePaths) [] xs'
+        subpcs <- go importChain [] xs'
         let fs = fmap singletonProjectConfigSkeleton $ fieldsToConfig sourceFilePaths sourceFilePath (reverse acc)
         (elseClauses, rest) <- parseElseClauses sourceFilePaths sourceFilePath xs
         let condNode =
@@ -271,7 +271,7 @@ parseProjectSkeleton paths cacheDir httpTransport verbosity seenImports (Project
                 <*> subpcs
                 <*> elseClauses
         pure . fmap mconcat . sequence $ [fs, condNode, rest]
-      _ -> go (sourceFilePath :| sourceFilePaths) (x : acc) xs
+      _ -> go importChain (x : acc) xs
     go (sourceFilePaths :| sourceFilePath) acc [] =
       pure
         . fmap singletonProjectConfigSkeleton
