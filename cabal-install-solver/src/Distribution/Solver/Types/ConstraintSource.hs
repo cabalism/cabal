@@ -1,11 +1,15 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE ParallelListComp #-}
 module Distribution.Solver.Types.ConstraintSource
-    ( ConstraintSource(..)
+    (
+    -- * Constraint sources
+      ConstraintSource(..)
+    , showConstraintSource
+
+    -- * Project configuration paths
     , ProjectConfigPath(..)
     , projectConfigPathRoot
     , showProjectConfigPath
-    , showConstraintSource
     , nullProjectConfigPath
     ) where
 
