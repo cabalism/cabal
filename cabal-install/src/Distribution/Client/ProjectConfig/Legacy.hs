@@ -243,26 +243,26 @@ parseProjectSkeleton paths cacheDir httpTransport verbosity seenImports (Project
       (_importee :| importer : _) -> importer
 
     go :: NonEmpty FilePath -> [ParseUtils.Field] -> [ParseUtils.Field] -> IO (ParseResult ProjectConfigSkeleton)
-    go importChain@(sourceFilePath :| sourceFilePaths) acc (x : xs) = case x of
+    go imports@(_ :| sourceFilePaths) acc (x : xs) = case x of
       (ParseUtils.F l "import" importLoc) ->
         if importLoc `elem` (projectConfigPathSource <$> seenImports)
           then pure . parseFail $ ParseUtils.FromString ("cyclical import of " ++ importLoc) (Just l)
           else do
             let depthImport = ProjectConfigPath (importLoc :| sourceFilePaths)
-            let fs = fmap (\z -> CondNode z [depthImport] mempty) $ fieldsToConfig sourceFilePaths sourceFilePath (reverse acc)
+            let fs = fmap (\z -> CondNode z [depthImport] mempty) $ fieldsToConfig imports (reverse acc)
             res <-
               fetchImportConfig depthImport
-                >>= ( \sourceNext ->
-                        let imports = ProjectConfigPath (importLoc <| importChain) : seenImports
-                            nextConfig = ProjectConfigToParse sourceNext
-                         in parseProjectSkeleton (importLoc <| importChain) cacheDir httpTransport verbosity imports nextConfig
+                >>= ( \nextSource ->
+                        let nextImports = ProjectConfigPath (importLoc <| imports) : seenImports
+                            nextConfig = ProjectConfigToParse nextSource
+                         in parseProjectSkeleton (importLoc <| imports) cacheDir httpTransport verbosity nextImports nextConfig
                     )
-            rest <- go importChain [] xs
+            rest <- go imports [] xs
             pure . fmap mconcat . sequence $ [fs, res, rest]
       (ParseUtils.Section l "if" p xs') -> do
-        subpcs <- go importChain [] xs'
-        let fs = fmap singletonProjectConfigSkeleton $ fieldsToConfig sourceFilePaths sourceFilePath (reverse acc)
-        (elseClauses, rest) <- parseElseClauses sourceFilePaths sourceFilePath xs
+        subpcs <- go imports [] xs'
+        let fs = fmap singletonProjectConfigSkeleton $ fieldsToConfig imports (reverse acc)
+        (elseClauses, rest) <- parseElseClauses imports xs
         let condNode =
               (\c pcs e -> CondNode mempty mempty [CondBranch c pcs e])
                 <$>
@@ -271,33 +271,33 @@ parseProjectSkeleton paths cacheDir httpTransport verbosity seenImports (Project
                 <*> subpcs
                 <*> elseClauses
         pure . fmap mconcat . sequence $ [fs, condNode, rest]
-      _ -> go importChain (x : acc) xs
-    go (sourceFilePaths :| sourceFilePath) acc [] =
+      _ -> go imports (x : acc) xs
+    go imports acc [] =
       pure
         . fmap singletonProjectConfigSkeleton
-        $ fieldsToConfig sourceFilePath sourceFilePaths (reverse acc)
+        $ fieldsToConfig imports (reverse acc)
 
-    parseElseClauses :: [FilePath] -> FilePath -> [ParseUtils.Field] -> IO (ParseResult (Maybe ProjectConfigSkeleton), ParseResult ProjectConfigSkeleton)
-    parseElseClauses importers importee x = case x of
+    parseElseClauses :: NonEmpty FilePath -> [ParseUtils.Field] -> IO (ParseResult (Maybe ProjectConfigSkeleton), ParseResult ProjectConfigSkeleton)
+    parseElseClauses imports x = case x of
       (ParseUtils.Section _l "else" _p xs' : xs) -> do
-        subpcs <- go (importee :| importers) [] xs'
-        rest <- go (importee :| importers) [] xs
+        subpcs <- go imports [] xs'
+        rest <- go imports [] xs
         pure (Just <$> subpcs, rest)
       (ParseUtils.Section l "elif" p xs' : xs) -> do
-        subpcs <- go (importee :| importers) [] xs'
-        (elseClauses, rest) <- parseElseClauses importers importee xs
+        subpcs <- go imports [] xs'
+        (elseClauses, rest) <- parseElseClauses imports xs
         let condNode =
               (\c pcs e -> CondNode mempty mempty [CondBranch c pcs e])
                 <$> adaptParseError l (parseConditionConfVarFromClause . BS.pack $ "else(" <> p <> ")")
                 <*> subpcs
                 <*> elseClauses
         pure (Just <$> condNode, rest)
-      _ -> (\r -> (pure Nothing, r)) <$> go (importee :| importers) [] x
+      _ -> (\r -> (pure Nothing, r)) <$> go imports [] x
 
-    fieldsToConfig :: [FilePath] -> FilePath -> [ParseUtils.Field] -> ParseResult ProjectConfig
-    fieldsToConfig sourceFilePaths sourceFilePath xs =
+    fieldsToConfig :: NonEmpty FilePath -> [ParseUtils.Field] -> ParseResult ProjectConfig
+    fieldsToConfig imports@(sourceFilePath :| _) xs =
       fmap (addProvenance sourceFilePath . convertLegacyProjectConfig) $
-        parseLegacyProjectConfigFields (ProjectConfigPath $ sourceFilePath :| sourceFilePaths) xs
+        parseLegacyProjectConfigFields (ProjectConfigPath imports) xs
 
     addProvenance :: FilePath -> ProjectConfig -> ProjectConfig
     addProvenance source x = x{projectConfigProvenance = Set.singleton (Explicit source)}
