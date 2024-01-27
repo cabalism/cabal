@@ -13,11 +13,19 @@ import Distribution.Solver.Compat.Prelude hiding (toList)
 import Prelude ()
 import Data.List.NonEmpty (toList)
 
--- | Path to the project config file, either the root or an import.
+-- | Path to a configuration file, being either "the project" root or an import,
+-- built up from the root to the leaf. The root is the last element and the leaf
+-- is the first element.
 newtype ProjectConfigPath = ProjectConfigPath (NonEmpty FilePath)
     deriving (Eq, Show, Generic)
 
--- | Renders the path as a tree node with its ancestors.
+-- | Renders the path with ancestors above and unindented, like this:
+-- @
+-- +-- <ROOT>
+--  +-- ...
+--   +-- ...
+--    +-- <LEAF>
+-- @
 showProjectConfigPath :: ProjectConfigPath -> String
 showProjectConfigPath (ProjectConfigPath xs) =
     unlines
