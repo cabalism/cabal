@@ -238,10 +238,6 @@ parseProjectSkeleton :: NonEmpty FilePath -> FilePath -> HttpTransport -> Verbos
 parseProjectSkeleton paths cacheDir httpTransport verbosity seenImports (ProjectConfigToParse bs) =
   (sanityWalkPCS False =<<) <$> liftPR (go paths []) (ParseUtils.readFields bs)
   where
-    sourceDirectory = takeDirectory $ case paths of
-      (root :| []) -> root
-      (_importee :| importer : _) -> importer
-
     go :: NonEmpty FilePath -> [ParseUtils.Field] -> [ParseUtils.Field] -> IO (ParseResult ProjectConfigSkeleton)
     go imports@(_ :| sourceFilePaths) acc (x : xs) = case x of
       (ParseUtils.F l "import" importLoc) ->
@@ -315,6 +311,10 @@ parseProjectSkeleton paths cacheDir httpTransport verbosity seenImports (Project
     fetchImportConfig :: ProjectConfigPath -> IO BS.ByteString
     fetchImportConfig (ProjectConfigPath (pci :| _)) = fetch pci
       where
+        sourceDirectory = takeDirectory $ case paths of
+          (root :| []) -> root
+          (_importee :| importer : _) -> importer
+
         fetch importURI = case parseURI importURI of
           Just uri -> do
             let fp = cacheDir </> map (\x -> if isPathSeparator x then '_' else x) (makeValid $ show uri)
