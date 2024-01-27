@@ -248,10 +248,10 @@ parseProjectSkeleton paths cacheDir httpTransport verbosity seenImports (Project
             let fs = fmap (\z -> CondNode z [depthImport] mempty) $ fieldsToConfig imports (reverse acc)
             res <-
               fetchImportConfig depthImport
-                >>= ( \nextSource ->
-                        let nextImports = ProjectConfigPath (importLoc <| imports) : seenImports
-                            nextConfig = ProjectConfigToParse nextSource
-                         in parseProjectSkeleton (importLoc <| imports) cacheDir httpTransport verbosity nextImports nextConfig
+                >>= ( \bs' ->
+                        let paths' = importLoc <| imports
+                            seenImports' = ProjectConfigPath paths' : seenImports
+                         in parseProjectSkeleton paths' cacheDir httpTransport verbosity seenImports' (ProjectConfigToParse bs')
                     )
             rest <- go imports [] xs
             pure . fmap mconcat . sequence $ [fs, res, rest]
