@@ -1,6 +1,4 @@
 {-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE ParallelListComp #-}
 module Distribution.Solver.Types.ConstraintSource
     ( ConstraintSource(..)
