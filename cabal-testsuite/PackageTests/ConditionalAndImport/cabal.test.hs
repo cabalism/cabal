@@ -18,7 +18,7 @@ main = cabalTest . withRepo "repo" . recordMode RecordMarked $ do
   --  +-- etc
   log "checking cyclical with hops; out and back"
   cyclical1a <- fails $ cabal' "v2-build" [ "--project-file=cyclical-1-out-back.project" ]
-  assertOutputContains "cyclical import of cyclical-1-out-back.config" cyclical1a
+  assertOutputContains "cyclical import of cyclical-1-out-back.project" cyclical1a
 
   -- +-- cyclical-1-out-self.project
   --  +-- cyclical-1-out-self.config (imports cyclical-1-out-self.config)
@@ -35,7 +35,7 @@ main = cabalTest . withRepo "repo" . recordMode RecordMarked $ do
   --  +-- etc
   log "checking cyclical with hops; out, out, twice back"
   cyclical2a <- fails $ cabal' "v2-build" [ "--project-file=cyclical-2-out-out-backback.project" ]
-  assertOutputContains "cyclical import of cyclical-2-out-out-backback-a.config" cyclical2a
+  assertOutputContains "cyclical import of cyclical-2-out-out-backback.project" cyclical2a
 
   -- +-- cyclical-2-out-out-back.project
   --  +-- cyclical-2-out-out-back-a.config
