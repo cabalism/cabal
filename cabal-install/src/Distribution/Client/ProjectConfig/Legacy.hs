@@ -187,7 +187,7 @@ import Distribution.Fields.ConfVar (parseConditionConfVarFromClause)
 import Distribution.Client.HttpUtils
 import Distribution.Client.ReplFlags (multiReplOption)
 import System.Directory (createDirectoryIfMissing)
-import System.FilePath (isAbsolute, isPathSeparator, makeValid, takeDirectory, splitFileName, takeFileName, (</>))
+import System.FilePath (isAbsolute, isPathSeparator, makeValid, takeDirectory, splitFileName, (</>))
 
 ------------------------------------------------------------------
 -- Handle extended project config files with conditionals and imports.
@@ -229,15 +229,14 @@ projectSkeletonImports = view traverseCondTreeC
 
 -- | Parses a project from its root config file, typically cabal.project.
 parseProject :: FilePath -> FilePath -> HttpTransport -> Verbosity -> [ProjectConfigPath] -> ProjectConfigToParse -> IO (ParseResult ProjectConfigSkeleton)
-parseProject rootConfig = parseProjectSkeleton Nothing (ProjectConfigPath $ rootConfig :| [])
+parseProject rootConfig = parseProjectSkeleton "" (ProjectConfigPath $ rootConfig :| [])
 
 -- | Parses project configuration recursively, following imports.
-parseProjectSkeleton :: Maybe FilePath -> ProjectConfigPath -> FilePath -> HttpTransport -> Verbosity -> [ProjectConfigPath] -> ProjectConfigToParse -> IO (ParseResult ProjectConfigSkeleton)
-parseProjectSkeleton Nothing (ProjectConfigPath (rootPath :| [])) cacheDir httpTransport verbosity [] configToParse =
+parseProjectSkeleton :: FilePath -> ProjectConfigPath -> FilePath -> HttpTransport -> Verbosity -> [ProjectConfigPath] -> ProjectConfigToParse -> IO (ParseResult ProjectConfigSkeleton)
+parseProjectSkeleton _ (ProjectConfigPath (rootPath :| [])) cacheDir httpTransport verbosity [] configToParse =
   let (projectDir, projectFile) = splitFileName rootPath; projectPath = ProjectConfigPath $ projectFile :| [] in
-  parseProjectSkeleton (Just projectDir) projectPath cacheDir httpTransport verbosity [projectPath] configToParse
-parseProjectSkeleton Nothing _ _ _ _ _ _ = fail "parseProjectSkeleton: internal error"
-parseProjectSkeleton (Just dir) rootOrImport cacheDir httpTransport verbosity seenImports (ProjectConfigToParse bs) =
+  parseProjectSkeleton projectDir projectPath cacheDir httpTransport verbosity [projectPath] configToParse
+parseProjectSkeleton dir rootOrImport cacheDir httpTransport verbosity seenImports (ProjectConfigToParse bs) =
   (sanityWalkPCS False =<<) <$> liftPR (go rootOrImport []) (ParseUtils.readFields bs)
   where
     go :: ProjectConfigPath -> [ParseUtils.Field] -> [ParseUtils.Field] -> IO (ParseResult ProjectConfigSkeleton)
@@ -258,7 +257,7 @@ parseProjectSkeleton (Just dir) rootOrImport cacheDir httpTransport verbosity se
                 >>= ( \bs' ->
                         let importPath = ProjectConfigPath $ importLoc <| coerce configPath
                             seenImports' = importPath : seenImports
-                         in parseProjectSkeleton (Just dir) importPath cacheDir httpTransport verbosity seenImports' (ProjectConfigToParse bs')
+                         in parseProjectSkeleton dir importPath cacheDir httpTransport verbosity seenImports' (ProjectConfigToParse bs')
                     )
             rest <- go configPath [] xs
             pure . fmap mconcat . sequence $ [fs, res, rest]
