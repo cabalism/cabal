@@ -55,12 +55,19 @@ main = cabalTest . withRepo "repo" . recordMode RecordMarked $ do
   cyclical2c <- fails $ cabal' "v2-build" [ "--project-file=cyclical-2-out-out-self.project" ]
   assertOutputContains "cyclical import of cyclical-2-out-out-self-b.config" cyclical2c
 
-  -- +-- cyclical-same-filename.project
-  --  +-- cyclical-same-filename.config
-  --    +-- same-filename/cyclical-same-filename.config (no further imports so not cyclical)
-  log "checking that cyclical check doesn't false-positive on same file names in different folders"
-  cyclical3a <- cabal' "v2-build" [ "--project-file=cyclical-same-filename.project" ]
+  -- +-- noncyclical-same-filename-a.project
+  --  +-- noncyclical-same-filename-a.config
+  --    +-- same-filename/noncyclical-same-filename-a.config (no further imports so not cyclical)
+  log "checking that cyclical check doesn't false-positive on same file names in different folders; hoping within a folder and then into a subfolder"
+  cyclical3a <- cabal' "v2-build" [ "--project-file=noncyclical-same-filename-a.project" ]
   assertOutputDoesNotContain "cyclical import of" cyclical3a
+
+  -- +-- noncyclical-same-filename-b.project
+  --  +-- same-filename/noncyclical-same-filename-b.config
+  --    +-- noncyclical-same-filename-b.config (no further imports so not cyclical)
+  log "checking that cyclical check doesn't false-positive on same file names in different folders; hoping into a subfolder and then back out again"
+  cyclical3b <- fails $ cabal' "v2-build" [ "--project-file=noncyclical-same-filename-b.project" ]
+  assertOutputDoesNotContain "cyclical import of" cyclical3b
 
   -- +-- cyclical-same-filename-out-out-self.project
   --  +-- cyclical-same-filename-out-out-self.config
@@ -68,8 +75,8 @@ main = cabalTest . withRepo "repo" . recordMode RecordMarked $ do
   --    +-- same-filename/cyclical-same-filename-out-out-self.config (already processed)
   --    +-- etc
   log "checking that cyclical check catches a same file name that imports itself"
-  cyclical3b <- fails $ cabal' "v2-build" [ "--project-file=cyclical-same-filename-out-out-self.project" ]
-  assertOutputContains "cyclical import of cyclical-same-filename-out-out-self.config" cyclical3b
+  cyclical4a <- fails $ cabal' "v2-build" [ "--project-file=cyclical-same-filename-out-out-self.project" ]
+  assertOutputContains "cyclical import of cyclical-same-filename-out-out-self.config" cyclical4a
 
   -- +-- cyclical-same-filename-out-out-backback.project
   --  +-- cyclical-same-filename-out-out-backback.config
@@ -77,11 +84,11 @@ main = cabalTest . withRepo "repo" . recordMode RecordMarked $ do
   -- +-- cyclical-same-filename-out-out-backback.project (already processed)
   -- +-- etc
   log "checking that cyclical check catches importing its importer (with the same file name)"
-  cyclical3c <- fails $ cabal' "v2-build" [ "--project-file=cyclical-same-filename-out-out-backback.project" ]
+  cyclical4b <- fails $ cabal' "v2-build" [ "--project-file=cyclical-same-filename-out-out-backback.project" ]
   -- It should fail with "cyclical import of
   -- cyclical-same-filename-out-out-backback.project" but instead there's a
   -- problem with importing so it fails with:
-  assertOutputContains "./same-filename/cyclical-same-filename-out-out-backback.project: withBinaryFile: does not exist (No such file or directory)" cyclical3c
+  assertOutputContains "./same-filename/cyclical-same-filename-out-out-backback.project: withBinaryFile: does not exist (No such file or directory)" cyclical4b
 
   -- +-- cyclical-same-filename-out-out-back.project
   --  +-- cyclical-same-filename-out-out-back.config
@@ -89,11 +96,11 @@ main = cabalTest . withRepo "repo" . recordMode RecordMarked $ do
   --  +-- cyclical-same-filename-out-out-back.config (already processed)
   --  +-- etc
   log "checking that cyclical check catches importing its importer's importer (hopping over same file names)"
-  cyclical3d <- fails $ cabal' "v2-build" [ "--project-file=cyclical-same-filename-out-out-back.project" ]
+  cyclical4c <- fails $ cabal' "v2-build" [ "--project-file=cyclical-same-filename-out-out-back.project" ]
   -- It should fail with "cyclical import of
   -- cyclical-same-filename-out-out-backback.config" but instead there's a
   -- problem with importing so it fails with:
-  assertOutputContains "./../cyclical-same-filename-out-out-back.config: withBinaryFile: does not exist (No such file or directory)" cyclical3d
+  assertOutputContains "./../cyclical-same-filename-out-out-back.config: withBinaryFile: does not exist (No such file or directory)" cyclical4c
 
   log "checking bad conditional"
   badIf <- fails $ cabal' "v2-build" [ "--project-file=bad-conditional.project" ]
