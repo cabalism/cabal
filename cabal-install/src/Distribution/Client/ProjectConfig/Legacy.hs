@@ -240,8 +240,11 @@ parseProjectSkeleton Nothing _rootOrImport _cacheDir _httpTransport _verbosity _
 parseProjectSkeleton (Just dir) rootOrImport cacheDir httpTransport verbosity seenImports (ProjectConfigToParse bs) =
   (sanityWalkPCS False =<<) <$> liftPR (go rootOrImport []) (ParseUtils.readFields bs)
   where
+    fullPath :: ProjectConfigPath -> ProjectConfigPath
+    fullPath (ProjectConfigPath p) = ProjectConfigPath . NE.fromList $ NE.init p ++ [dir </> NE.last p]
+
     go :: ProjectConfigPath -> [ParseUtils.Field] -> [ParseUtils.Field] -> IO (ParseResult ProjectConfigSkeleton)
-    go configPath@(ProjectConfigPath selfParentPath@(selfPath :| parentPath)) acc (x : xs) = case x of
+    go configPath@(ProjectConfigPath (selfPath :| parentPath)) acc (x : xs) = case x of
       (ParseUtils.F l "import" importLoc) -> do
         let importLocPath = ProjectConfigPath (importLoc <| coerce configPath)
         _ <- trace ("PROJECT-DIR:\n" ++ dir) $ pure ()
@@ -255,16 +258,17 @@ parseProjectSkeleton (Just dir) rootOrImport cacheDir httpTransport verbosity se
         if selfPath == "cyclical-1-out-back.project" && parentPath /= [] then fail "TODO: implement import" else pure ()
         let checkImports :: [FilePath]
             checkImports = concatMap (toList . (coerce :: ProjectConfigPath -> NonEmpty FilePath)) seenImports
+        let fullLocPath = fullPath importLocPath
         if importLoc `elem` checkImports
           then do
             -- If the project was a full path, we need to show the full path in
             -- the error message and do this by reconstructing the path from the
             -- root and its directory.
-            let fullLocPath = ProjectConfigPath $ importLoc :| (NE.init selfParentPath ++ [dir </> NE.last selfParentPath])
             let msg = "cyclical import of " ++ importLoc ++ ";\n" ++ showProjectConfigPath fullLocPath
             pure . parseFail $ ParseUtils.FromString msg (Just l)
           else do
-            let fs = fmap (\z -> CondNode z [importLocPath] mempty) $ fieldsToConfig configPath (reverse acc)
+            _ <- trace ("FULL-LOC-PATH:\n" ++ showProjectConfigPath fullLocPath) $ pure ()
+            let fs = fmap (\z -> CondNode z [fullLocPath] mempty) $ fieldsToConfig configPath (reverse acc)
             res <-
               fetchImportConfig importLocPath
                 >>= ( \bs' ->
