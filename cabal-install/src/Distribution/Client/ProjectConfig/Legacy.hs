@@ -187,7 +187,7 @@ import Distribution.Fields.ConfVar (parseConditionConfVarFromClause)
 import Distribution.Client.HttpUtils
 import Distribution.Client.ReplFlags (multiReplOption)
 import System.Directory (createDirectoryIfMissing)
-import System.FilePath (isAbsolute, isPathSeparator, makeValid, takeDirectory, splitFileName, (</>))
+import System.FilePath (isAbsolute, isPathSeparator, makeValid, splitFileName, takeDirectory, (</>))
 
 ------------------------------------------------------------------
 -- Handle extended project config files with conditionals and imports.
@@ -234,8 +234,8 @@ parseProject rootConfig = parseProjectSkeleton "" (ProjectConfigPath $ rootConfi
 -- | Parses project configuration recursively, following imports.
 parseProjectSkeleton :: FilePath -> ProjectConfigPath -> FilePath -> HttpTransport -> Verbosity -> [ProjectConfigPath] -> ProjectConfigToParse -> IO (ParseResult ProjectConfigSkeleton)
 parseProjectSkeleton _ (ProjectConfigPath (rootPath :| [])) cacheDir httpTransport verbosity [] configToParse =
-  let (projectDir, projectFileName) = splitFileName rootPath; projectPath = ProjectConfigPath $ projectFileName :| [] in
-  parseProjectSkeleton projectDir projectPath cacheDir httpTransport verbosity [projectPath] configToParse
+  let (projectDir, projectFileName) = splitFileName rootPath; projectPath = ProjectConfigPath $ projectFileName :| []
+   in parseProjectSkeleton projectDir projectPath cacheDir httpTransport verbosity [projectPath] configToParse
 parseProjectSkeleton dir rootOrImport cacheDir httpTransport verbosity seenImports (ProjectConfigToParse bs) =
   (sanityWalkPCS False =<<) <$> liftPR (go rootOrImport []) (ParseUtils.readFields bs)
   where
@@ -319,7 +319,7 @@ parseProjectSkeleton dir rootOrImport cacheDir httpTransport verbosity seenImpor
       where
         sourceDirectory :: FilePath
         sourceDirectory = case coerce rootOrImport of
-          (_:| []) -> dir
+          (_ :| []) -> dir
           (_importee :| importer : _) -> takeDirectory importer
 
         fetch importURI = case parseURI importURI of
