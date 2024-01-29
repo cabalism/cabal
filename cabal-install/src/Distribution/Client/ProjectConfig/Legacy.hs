@@ -233,41 +233,30 @@ parseProject rootConfig = parseProjectSkeleton Nothing (ProjectConfigPath $ root
 
 -- | Parses project configuration recursively, following imports.
 parseProjectSkeleton :: Maybe FilePath -> ProjectConfigPath -> FilePath -> HttpTransport -> Verbosity -> [ProjectConfigPath] -> ProjectConfigToParse -> IO (ParseResult ProjectConfigSkeleton)
-parseProjectSkeleton Nothing (ProjectConfigPath (rootPath :| [])) cacheDir httpTransport verbosity [] (ProjectConfigToParse bs) =
+parseProjectSkeleton Nothing (ProjectConfigPath (rootPath :| [])) cacheDir httpTransport verbosity [] configToParse =
   let (projectDir, projectFile) = splitFileName rootPath; projectPath = ProjectConfigPath $ projectFile :| [] in
-  parseProjectSkeleton (Just projectDir) projectPath cacheDir httpTransport verbosity [projectPath] (ProjectConfigToParse bs)
-parseProjectSkeleton Nothing _rootOrImport _cacheDir _httpTransport _verbosity _seenImports (ProjectConfigToParse bs) = error "OOPS"
+  parseProjectSkeleton (Just projectDir) projectPath cacheDir httpTransport verbosity [projectPath] configToParse
+parseProjectSkeleton Nothing _ _ _ _ _ _ = fail "parseProjectSkeleton: internal error"
 parseProjectSkeleton (Just dir) rootOrImport cacheDir httpTransport verbosity seenImports (ProjectConfigToParse bs) =
   (sanityWalkPCS False =<<) <$> liftPR (go rootOrImport []) (ParseUtils.readFields bs)
   where
+    -- If the project was a full path, we need to show the full path in messages
+    -- and do this by reconstructing the path from the root and its directory.
     fullPath :: ProjectConfigPath -> ProjectConfigPath
     fullPath (ProjectConfigPath p) = ProjectConfigPath . NE.fromList $ NE.init p ++ [dir </> NE.last p]
 
     go :: ProjectConfigPath -> [ParseUtils.Field] -> [ParseUtils.Field] -> IO (ParseResult ProjectConfigSkeleton)
-    go configPath@(ProjectConfigPath (selfPath :| parentPath)) acc (x : xs) = case x of
+    go configPath acc (x : xs) = case x of
       (ParseUtils.F l "import" importLoc) -> do
         let importLocPath = ProjectConfigPath (importLoc <| coerce configPath)
-        _ <- trace ("PROJECT-DIR:\n" ++ dir) $ pure ()
-        _ <- trace ("SELF-PATH:\n" ++ showProjectConfigPath (ProjectConfigPath (selfPath :| []))) $ pure ()
-        _ <- trace ("PARENT-PATH:\n" ++ showProjectConfigPath (ProjectConfigPath (" :| " :| parentPath))) $ pure ()
-        _ <- trace ("CONFIG-PATH:\n" ++ showProjectConfigPath configPath) $ pure ()
-        _ <- trace ("IMPORT-LOC:\n" ++ importLoc) $ pure ()
-        _ <- trace ("IMPORT-LOC-PATH:\n" ++ showProjectConfigPath importLocPath) $ pure ()
-        _ <- mapM_ (\x -> trace (" => SEEN IMPORTS:\n" ++ showProjectConfigPath x) $ pure ()) seenImports
-        _ <- trace (" => SOURCE:\n" ++ showProjectConfigPath rootOrImport) $ pure ()
-        if selfPath == "cyclical-1-out-back.project" && parentPath /= [] then fail "TODO: implement import" else pure ()
         let checkImports :: [FilePath]
             checkImports = concatMap (toList . (coerce :: ProjectConfigPath -> NonEmpty FilePath)) seenImports
         let fullLocPath = fullPath importLocPath
         if importLoc `elem` checkImports
           then do
-            -- If the project was a full path, we need to show the full path in
-            -- the error message and do this by reconstructing the path from the
-            -- root and its directory.
             let msg = "cyclical import of " ++ importLoc ++ ";\n" ++ showProjectConfigPath fullLocPath
             pure . parseFail $ ParseUtils.FromString msg (Just l)
           else do
-            _ <- trace ("FULL-LOC-PATH:\n" ++ showProjectConfigPath fullLocPath) $ pure ()
             let fs = fmap (\z -> CondNode z [fullLocPath] mempty) $ fieldsToConfig configPath (reverse acc)
             res <-
               fetchImportConfig importLocPath
