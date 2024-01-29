@@ -240,11 +240,6 @@ parseProjectSkeleton Nothing _ _ _ _ _ _ = fail "parseProjectSkeleton: internal 
 parseProjectSkeleton (Just dir) rootOrImport cacheDir httpTransport verbosity seenImports (ProjectConfigToParse bs) =
   (sanityWalkPCS False =<<) <$> liftPR (go rootOrImport []) (ParseUtils.readFields bs)
   where
-    -- If the project was a full path, we need to show the full path in messages
-    -- and do this by reconstructing the path from the root and its directory.
-    fullPath :: ProjectConfigPath -> ProjectConfigPath
-    fullPath (ProjectConfigPath p) = ProjectConfigPath . NE.fromList $ NE.init p ++ [dir </> NE.last p]
-
     go :: ProjectConfigPath -> [ParseUtils.Field] -> [ParseUtils.Field] -> IO (ParseResult ProjectConfigSkeleton)
     go configPath acc (x : xs) = case x of
       (ParseUtils.F l "import" importLoc) -> do
@@ -349,6 +344,11 @@ parseProjectSkeleton (Just dir) rootOrImport cacheDir httpTransport verbosity se
 
     sanityWalkBranch :: CondBranch ConfVar [ProjectConfigPath] ProjectConfig -> ParseResult ()
     sanityWalkBranch (CondBranch _c t f) = traverse (sanityWalkPCS True) f >> sanityWalkPCS True t >> pure ()
+
+    -- If the project was a full path, we need to show the full path in messages
+    -- and do this by reconstructing the path from the root and its directory.
+    fullPath :: ProjectConfigPath -> ProjectConfigPath
+    fullPath (ProjectConfigPath p) = ProjectConfigPath . NE.fromList $ NE.init p ++ [dir </> NE.last p]
 
 ------------------------------------------------------------------
 -- Representing the project config file in terms of legacy types
