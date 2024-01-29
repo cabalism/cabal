@@ -243,10 +243,8 @@ parseProjectSkeleton dir rootOrImport cacheDir httpTransport verbosity seenImpor
     go configPath acc (x : xs) = case x of
       (ParseUtils.F l "import" importLoc) -> do
         let importLocPath = ProjectConfigPath (importLoc <| coerce configPath)
-        let checkImports :: [FilePath]
-            checkImports = concatMap (toList . (coerce :: ProjectConfigPath -> NonEmpty FilePath)) seenImports
         let fullLocPath = fullPath importLocPath
-        if importLoc `elem` checkImports
+        if importLoc `elem` concatMap (toList . \(ProjectConfigPath p) -> p) seenImports
           then do
             let msg = "cyclical import of " ++ importLoc ++ ";\n" ++ showProjectConfigPath fullLocPath
             pure . parseFail $ ParseUtils.FromString msg (Just l)
