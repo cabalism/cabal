@@ -299,7 +299,7 @@ parseProjectSkeleton dir rootOrImport cacheDir httpTransport verbosity seenImpor
     fieldsToConfig :: ProjectConfigPath -> [ParseUtils.Field] -> ParseResult ProjectConfig
     fieldsToConfig configPath@(ProjectConfigPath (importee :| _)) xs =
       fmap (addProvenance importee . convertLegacyProjectConfig) $
-        parseLegacyProjectConfigFields configPath xs
+        parseLegacyProjectConfigFields (fullPath configPath) xs
 
     addProvenance :: FilePath -> ProjectConfig -> ProjectConfig
     addProvenance source x = x{projectConfigProvenance = Set.singleton (Explicit source)}
