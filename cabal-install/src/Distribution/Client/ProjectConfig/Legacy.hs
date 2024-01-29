@@ -234,7 +234,7 @@ parseProject rootConfig = parseProjectSkeleton "" (ProjectConfigPath $ rootConfi
 -- | Parses project configuration recursively, following imports.
 parseProjectSkeleton :: FilePath -> ProjectConfigPath -> FilePath -> HttpTransport -> Verbosity -> [ProjectConfigPath] -> ProjectConfigToParse -> IO (ParseResult ProjectConfigSkeleton)
 parseProjectSkeleton _ (ProjectConfigPath (rootPath :| [])) cacheDir httpTransport verbosity [] configToParse =
-  let (projectDir, projectFile) = splitFileName rootPath; projectPath = ProjectConfigPath $ projectFile :| [] in
+  let (projectDir, projectFileName) = splitFileName rootPath; projectPath = ProjectConfigPath $ projectFileName :| [] in
   parseProjectSkeleton projectDir projectPath cacheDir httpTransport verbosity [projectPath] configToParse
 parseProjectSkeleton dir rootOrImport cacheDir httpTransport verbosity seenImports (ProjectConfigToParse bs) =
   (sanityWalkPCS False =<<) <$> liftPR (go rootOrImport []) (ParseUtils.readFields bs)
