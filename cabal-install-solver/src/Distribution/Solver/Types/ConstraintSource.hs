@@ -59,8 +59,8 @@ instance Structured ConstraintSource
 showConstraintSource :: ConstraintSource -> String
 showConstraintSource (ConstraintSourceMainConfig path) =
     "main config " ++ path
-showConstraintSource (ConstraintSourceProjectConfig projectConfig) =
-    "project config " ++ showProjectConfigPath projectConfig
+showConstraintSource (ConstraintSourceProjectConfig path) =
+    "project config " ++ showProjectConfigPath path
 showConstraintSource (ConstraintSourceUserConfig path)= "user config " ++ path
 showConstraintSource ConstraintSourceCommandlineFlag = "command line flag"
 showConstraintSource ConstraintSourceUserTarget = "user target"
