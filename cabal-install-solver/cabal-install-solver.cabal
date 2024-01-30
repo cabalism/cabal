@@ -91,6 +91,7 @@ library
     Distribution.Solver.Types.PackagePreferences
     Distribution.Solver.Types.PkgConfigDb
     Distribution.Solver.Types.Progress
+    Distribution.Solver.Types.ProjectConfigPath
     Distribution.Solver.Types.ResolverPackage
     Distribution.Solver.Types.Settings
     Distribution.Solver.Types.SolverId
