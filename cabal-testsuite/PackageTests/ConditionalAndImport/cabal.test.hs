@@ -85,10 +85,7 @@ main = cabalTest . withRepo "repo" . recordMode RecordMarked $ do
   -- +-- etc
   log "checking that cyclical check catches importing its importer (with the same file name)"
   cyclical4b <- fails $ cabal' "v2-build" [ "--project-file=cyclical-same-filename-out-out-backback.project" ]
-  -- It should fail with "cyclical import of
-  -- cyclical-same-filename-out-out-backback.project" but instead there's a
-  -- problem with importing so it fails with:
-  assertOutputContains "./same-filename/cyclical-same-filename-out-out-backback.project: withBinaryFile: does not exist (No such file or directory)" cyclical4b
+  assertOutputContains "cyclical import of cyclical-same-filename-out-out-backback.project" cyclical4b
 
   -- +-- cyclical-same-filename-out-out-back.project
   --  +-- cyclical-same-filename-out-out-back.config
@@ -97,10 +94,7 @@ main = cabalTest . withRepo "repo" . recordMode RecordMarked $ do
   --  +-- etc
   log "checking that cyclical check catches importing its importer's importer (hopping over same file names)"
   cyclical4c <- fails $ cabal' "v2-build" [ "--project-file=cyclical-same-filename-out-out-back.project" ]
-  -- It should fail with "cyclical import of
-  -- cyclical-same-filename-out-out-backback.config" but instead there's a
-  -- problem with importing so it fails with:
-  assertOutputContains "./../cyclical-same-filename-out-out-back.config: withBinaryFile: does not exist (No such file or directory)" cyclical4c
+  assertOutputContains "cyclical import of cyclical-same-filename-out-out-back.config" cyclical4c
 
   -- +-- hops-0.project
   --  +-- hops/hops-1.config
@@ -113,9 +107,18 @@ main = cabalTest . withRepo "repo" . recordMode RecordMarked $ do
   --         +-- hops-8.config
   --          +-- hops/hops-9.config (no further imports so not cyclical)
   log "checking that imports work skipping into a subfolder and then back out again and again"
-  hopping <- fails $ cabal' "v2-build" [ "--project-file=hops-0.project" ]
-  -- It shouldn't fail but instead there's a problem with importing so it fails with:
-  assertOutputContains "./../hops-2.config: withBinaryFile: does not exist (No such file or directory)" hopping
+  hopping <- cabal' "v2-build" [ "--project-file=hops-0.project" ]
+  assertOutputContains "this build was affected by the following (project) config files:" hopping
+  assertOutputContains "hops-0.project" hopping
+  assertOutputContains "../hops-2.config" hopping
+  assertOutputContains "../hops-4.config" hopping
+  assertOutputContains "../hops-6.config" hopping
+  assertOutputContains "../hops-8.config" hopping
+  assertOutputContains "hops/hops-1.config" hopping
+  assertOutputContains "hops/hops-3.config" hopping
+  assertOutputContains "hops/hops-5.config" hopping
+  assertOutputContains "hops/hops-7.config" hopping
+  assertOutputContains "hops/hops-9.config" hopping
 
   log "checking bad conditional"
   badIf <- fails $ cabal' "v2-build" [ "--project-file=bad-conditional.project" ]

@@ -82,10 +82,25 @@ cyclical import of cyclical-same-filename-out-out-self.config;
    +-- cyclical-same-filename-out-out-self.config
 # checking that cyclical check catches importing its importer (with the same file name)
 # cabal v2-build
+Error: [Cabal-7090]
+Error parsing project file <ROOT>/cyclical-same-filename-out-out-backback.project:1:
+cyclical import of cyclical-same-filename-out-out-backback.project;
++-- <ROOT>/cyclical-same-filename-out-out-backback.project
+ +-- cyclical-same-filename-out-out-backback.config
+  +-- same-filename/cyclical-same-filename-out-out-backback.config
+   +-- ../cyclical-same-filename-out-out-backback.project
 # checking that cyclical check catches importing its importer's importer (hopping over same file names)
 # cabal v2-build
+Error: [Cabal-7090]
+Error parsing project file <ROOT>/cyclical-same-filename-out-out-back.project:1:
+cyclical import of cyclical-same-filename-out-out-back.config;
++-- <ROOT>/cyclical-same-filename-out-out-back.project
+ +-- cyclical-same-filename-out-out-back.config
+  +-- same-filename/cyclical-same-filename-out-out-back.config
+   +-- ../cyclical-same-filename-out-out-back.config
 # checking that imports work skipping into a subfolder and then back out again and again
 # cabal v2-build
+Up to date
 # checking bad conditional
 # cabal v2-build
 Error: [Cabal-7090]
