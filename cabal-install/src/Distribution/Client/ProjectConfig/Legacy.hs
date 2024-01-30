@@ -3,7 +3,6 @@
 {-# LANGUAGE MultiWayIf #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE RecursiveDo #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE ViewPatterns #-}
 
@@ -272,7 +271,30 @@ parseProjectSkeleton dir rootOrImport cacheDir httpTransport verbosity seenImpor
 --     +-- ./same-filename/../same-filename/cyclical-same-filename-out-out-back.config
 --      +-- ./same-filename/../same-filename/../cyclical-same-filename-out-out-back.config
 
-        -- if | length seenImports > 4 -> pure . parseFail $ ParseUtils.FromString "too many imports" Nothing
+-- +-- ./hops-0.project
+--  +-- ./hops/hops-1.config
+--   +-- ./hops/../hops-2.config
+--    +-- ./hops/../hops/hops-3.config
+--     +-- ./hops/../hops/../hops-4.config
+--      +-- ./hops/../hops/../hops/hops-5.config
+--       +-- ./hops/../hops/../hops/../hops-6.config
+--        +-- ./hops/../hops/../hops/../hops/hops-7.config
+--         +-- ./hops/../hops/../hops/../hops/../hops-8.config
+--          +-- ./hops/../hops/../hops/../hops/../hops/hops-9.config
+
+-- IMPORT-LOC-NORMALIZE-PATH:
+-- +-- hops-0.project
+--  +-- hops/hops-1.config
+--   +-- hops-2.config
+--    +-- hops/hops-3.config
+--     +-- hops-4.config
+--      +-- hops/hops-5.config
+--       +-- hops-6.config
+--        +-- hops/hops-7.config
+--         +-- hops-8.config
+--          +-- hops/hops-9.config
+
+        --if | length seenImports > 8 -> pure . parseFail $ ParseUtils.FromString "too many imports" Nothing
         if | (lengthConfigPath nubLocPath < lengthConfigPath normLocPath) || normLocPath `elem` normSeenImports -> do
               let msg = "cyclical import of " ++ takeFileName importLoc ++ ";\n" ++ showProjectConfigPath fullLocPath
               pure . parseFail $ ParseUtils.FromString msg (Just l)
@@ -383,7 +405,7 @@ parseProjectSkeleton dir rootOrImport cacheDir httpTransport verbosity seenImpor
       NE.scanr (\a b -> takeDirectory b </> a) "." p
 
     canonicalizeConfigPath :: FilePath -> ProjectConfigPath -> IO ProjectConfigPath
-    canonicalizeConfigPath dir (ProjectConfigPath p) = mdo
+    canonicalizeConfigPath dir (ProjectConfigPath p) = do
       xs <- sequence $
         NE.scanr (\a b -> b >>= \b' ->
         canonicalizePath $ dir </> takeDirectory b' </> a) (pure ".") p
