@@ -224,7 +224,7 @@ import System.IO
   , withBinaryFile
   )
 
-import Distribution.Solver.Types.ConstraintSource
+import Distribution.Solver.Types.ProjectConfigPath
 
 ----------------------------------------
 -- Resolving configuration to settings
@@ -761,14 +761,7 @@ readProjectFileSkeleton
 
       readExtensionFile =
         reportParseResult verbosity extensionDescription extensionFile
-          =<< ( parseProject
-                  extensionFile
-                  distDownloadSrcDirectory
-                  httpTransport
-                  verbosity
-                  []
-                  . ProjectConfigToParse
-              )
+          =<< parseProject extensionFile distDownloadSrcDirectory httpTransport verbosity . ProjectConfigToParse
           =<< BS.readFile extensionFile
 
 -- | Render the 'ProjectConfig' format.

@@ -53,6 +53,7 @@ import Distribution.Verbosity (silent)
 
 import Distribution.Solver.Types.ConstraintSource
 import Distribution.Solver.Types.PackageConstraint
+import Distribution.Solver.Types.ProjectConfigPath
 import Distribution.Solver.Types.Settings
 
 import Distribution.Client.ProjectConfig
