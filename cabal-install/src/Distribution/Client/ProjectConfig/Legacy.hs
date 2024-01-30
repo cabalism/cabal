@@ -30,6 +30,7 @@ module Distribution.Client.ProjectConfig.Legacy
   , renderPackageLocationToken
   ) where
 
+import System.IO.Unsafe (unsafePerformIO)
 import Data.Coerce (coerce)
 import Data.List.NonEmpty ((<|))
 import qualified Data.List.NonEmpty as NE
@@ -187,7 +188,7 @@ import Distribution.Fields.ConfVar (parseConditionConfVarFromClause)
 import Distribution.Client.HttpUtils
 import Distribution.Client.ReplFlags (multiReplOption)
 import System.Directory (createDirectoryIfMissing)
-import System.FilePath (isAbsolute, isPathSeparator, makeValid, splitFileName, takeDirectory, (</>))
+import System.FilePath (makeRelative, isAbsolute, isPathSeparator, makeValid, splitFileName, takeDirectory, (</>))
 
 ------------------------------------------------------------------
 -- Handle extended project config files with conditionals and imports.
@@ -240,11 +241,22 @@ parseProjectSkeleton dir rootOrImport cacheDir httpTransport verbosity seenImpor
   (sanityWalkPCS False =<<) <$> liftPR (go rootOrImport []) (ParseUtils.readFields bs)
   where
     go :: ProjectConfigPath -> [ParseUtils.Field] -> [ParseUtils.Field] -> IO (ParseResult ProjectConfigSkeleton)
-    go configPath acc (x : xs) = case x of
+    go configPath@(ProjectConfigPath (selfPath :| parentPath)) acc (x : xs) = case x of
       (ParseUtils.F l "import" importLoc) -> do
         let importLocPath = ProjectConfigPath (importLoc <| coerce configPath)
-        let fullLocPath = fullPath importLocPath
-        if importLoc `elem` concatMap (toList . \(ProjectConfigPath p) -> p) seenImports
+        let fullLocPath = fullConfigPathRoot importLocPath
+        _ <- trace ("PROJECT-DIR:\n" ++ dir) $ pure ()
+        _ <- trace ("SELF-PATH:\n" ++ showProjectConfigPath (ProjectConfigPath (selfPath :| []))) $ pure ()
+        _ <- trace ("PARENT-PATH:\n" ++ showProjectConfigPath (ProjectConfigPath (" :| " :| parentPath))) $ pure ()
+        _ <- trace ("CONFIG-PATH:\n" ++ showProjectConfigPath configPath) $ pure ()
+        _ <- trace ("IMPORT-LOC:\n" ++ importLoc) $ pure ()
+        _ <- trace ("IMPORT-LOC-PATH:\n" ++ showProjectConfigPath importLocPath) $ pure ()
+        _ <- trace ("IMPORT-LOC-NORMALIZE-PATH:\n" ++ showProjectConfigPath (normaliseConfigPath importLocPath)) $ pure ()
+        _ <- mapM_ (\x -> trace (" => SEEN IMPORTS:\n" ++ showProjectConfigPath x) $ pure ()) seenImports
+        _ <- mapM_ (\x -> trace (" => SEEN NORMALIZE IMPORTS:\n" ++ showProjectConfigPath x) $ pure ()) (normaliseConfigPath <$> seenImports)
+        _ <- trace (" => SOURCE:\n" ++ showProjectConfigPath rootOrImport) $ pure ()
+        -- if importLoc `elem` concatMap (toList . \(ProjectConfigPath p) -> p) seenImports
+        if normaliseConfigPath importLocPath `elem` (normaliseConfigPath <$> seenImports)
           then do
             let msg = "cyclical import of " ++ importLoc ++ ";\n" ++ showProjectConfigPath fullLocPath
             pure . parseFail $ ParseUtils.FromString msg (Just l)
@@ -297,7 +309,7 @@ parseProjectSkeleton dir rootOrImport cacheDir httpTransport verbosity seenImpor
     fieldsToConfig :: ProjectConfigPath -> [ParseUtils.Field] -> ParseResult ProjectConfig
     fieldsToConfig configPath@(ProjectConfigPath (importee :| _)) xs =
       fmap (addProvenance importee . convertLegacyProjectConfig) $
-        parseLegacyProjectConfigFields (fullPath configPath) xs
+        parseLegacyProjectConfigFields (fullConfigPathRoot configPath) xs
 
     addProvenance :: FilePath -> ProjectConfig -> ProjectConfig
     addProvenance source x = x{projectConfigProvenance = Set.singleton (Explicit source)}
@@ -313,13 +325,8 @@ parseProjectSkeleton dir rootOrImport cacheDir httpTransport verbosity seenImpor
     liftPR _ (ParseFailed e) = pure $ ParseFailed e
 
     fetchImportConfig :: ProjectConfigPath -> IO BS.ByteString
-    fetchImportConfig (ProjectConfigPath (pci :| _)) = fetch pci
+    fetchImportConfig (normaliseConfigPath -> ProjectConfigPath (pci :| _)) = fetch pci
       where
-        sourceDirectory :: FilePath
-        sourceDirectory = case coerce rootOrImport of
-          (_ :| []) -> dir
-          (_importee :| importer : _) -> takeDirectory importer
-
         fetch importURI = case parseURI importURI of
           Just uri -> do
             let fp = cacheDir </> map (\x -> if isPathSeparator x then '_' else x) (makeValid $ show uri)
@@ -327,7 +334,7 @@ parseProjectSkeleton dir rootOrImport cacheDir httpTransport verbosity seenImpor
             _ <- downloadURI httpTransport verbosity uri fp
             BS.readFile fp
           Nothing ->
-            BS.readFile $ if isAbsolute pci then pci else sourceDirectory </> pci
+            BS.readFile $ if isAbsolute pci then pci else dir </> pci
 
     modifiesCompiler :: ProjectConfig -> Bool
     modifiesCompiler pc = isSet projectConfigHcFlavor || isSet projectConfigHcPath || isSet projectConfigHcPkg
@@ -343,9 +350,16 @@ parseProjectSkeleton dir rootOrImport cacheDir httpTransport verbosity seenImpor
     sanityWalkBranch (CondBranch _c t f) = traverse (sanityWalkPCS True) f >> sanityWalkPCS True t >> pure ()
 
     -- If the project was a full path, we need to show the full path in messages
-    -- and do this by reconstructing the path from the root and its directory.
-    fullPath :: ProjectConfigPath -> ProjectConfigPath
-    fullPath (ProjectConfigPath p) = ProjectConfigPath . NE.fromList $ NE.init p ++ [dir </> NE.last p]
+    -- and do this by reconstructing the full path of the root (the project)
+    -- from its directory and file name.
+    fullConfigPathRoot :: ProjectConfigPath -> ProjectConfigPath
+    fullConfigPathRoot (ProjectConfigPath p) = ProjectConfigPath . NE.fromList $ NE.init p ++ [dir </> NE.last p]
+
+    -- Make paths relative to the root of the project, not relative to the file
+    -- they were imported from.
+    normaliseConfigPath :: ProjectConfigPath -> ProjectConfigPath
+    normaliseConfigPath (ProjectConfigPath p) = ProjectConfigPath $
+      NE.scanr1 (\a b -> takeDirectory b </> a) p
 
 ------------------------------------------------------------------
 -- Representing the project config file in terms of legacy types
