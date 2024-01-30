@@ -1,7 +1,10 @@
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE MultiWayIf #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE RecursiveDo #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE ViewPatterns #-}
 
 -- | Project configuration, implementation in terms of legacy types.
@@ -30,7 +33,6 @@ module Distribution.Client.ProjectConfig.Legacy
   , renderPackageLocationToken
   ) where
 
-import System.IO.Unsafe (unsafePerformIO)
 import Data.Coerce (coerce)
 import Data.List.NonEmpty ((<|))
 import qualified Data.List.NonEmpty as NE
@@ -187,8 +189,8 @@ import Distribution.Fields.ConfVar (parseConditionConfVarFromClause)
 
 import Distribution.Client.HttpUtils
 import Distribution.Client.ReplFlags (multiReplOption)
-import System.Directory (createDirectoryIfMissing)
-import System.FilePath (makeRelative, isAbsolute, isPathSeparator, makeValid, splitFileName, takeDirectory, (</>))
+import System.Directory (canonicalizePath, createDirectoryIfMissing)
+import System.FilePath (takeFileName, makeRelative, isAbsolute, isPathSeparator, makeValid, splitFileName, takeDirectory, (</>))
 
 ------------------------------------------------------------------
 -- Handle extended project config files with conditionals and imports.
@@ -245,22 +247,36 @@ parseProjectSkeleton dir rootOrImport cacheDir httpTransport verbosity seenImpor
       (ParseUtils.F l "import" importLoc) -> do
         let importLocPath = ProjectConfigPath (importLoc <| coerce configPath)
         let fullLocPath = fullConfigPathRoot importLocPath
-        _ <- trace ("PROJECT-DIR:\n" ++ dir) $ pure ()
-        _ <- trace ("SELF-PATH:\n" ++ showProjectConfigPath (ProjectConfigPath (selfPath :| []))) $ pure ()
-        _ <- trace ("PARENT-PATH:\n" ++ showProjectConfigPath (ProjectConfigPath (" :| " :| parentPath))) $ pure ()
-        _ <- trace ("CONFIG-PATH:\n" ++ showProjectConfigPath configPath) $ pure ()
-        _ <- trace ("IMPORT-LOC:\n" ++ importLoc) $ pure ()
-        _ <- trace ("IMPORT-LOC-PATH:\n" ++ showProjectConfigPath importLocPath) $ pure ()
-        _ <- trace ("IMPORT-LOC-NORMALIZE-PATH:\n" ++ showProjectConfigPath (normaliseConfigPath importLocPath)) $ pure ()
-        _ <- mapM_ (\x -> trace (" => SEEN IMPORTS:\n" ++ showProjectConfigPath x) $ pure ()) seenImports
-        _ <- mapM_ (\x -> trace (" => SEEN NORMALIZE IMPORTS:\n" ++ showProjectConfigPath x) $ pure ()) (normaliseConfigPath <$> seenImports)
-        _ <- trace (" => SOURCE:\n" ++ showProjectConfigPath rootOrImport) $ pure ()
+        -- let normLocPath = normaliseConfigPath importLocPath
+        -- let normSeenImports = nub $ normaliseConfigPath <$> seenImports
+        normLocPath <- canonicalizeConfigPath dir importLocPath
+        normSeenImports <- nub <$> (sequence $ canonicalizeConfigPath dir <$> seenImports)
+        let nubLocPath = nubConfigPath normLocPath
+        --_ <- trace ("PROJECT-DIR:\n" ++ dir) $ pure ()
+        -- _ <- trace ("SELF-PATH:\n" ++ showProjectConfigPath (ProjectConfigPath (selfPath :| []))) $ pure ()
+        ---_ <- trace ("PARENT-PATH:\n" ++ showProjectConfigPath (ProjectConfigPath (" :| " :| parentPath))) $ pure ()
+        -- _ <- trace ("CONFIG-PATH:\n" ++ showProjectConfigPath configPath) $ pure ()
+        -- _ <- trace ("IMPORT-LOC:\n" ++ importLoc) $ pure ()
+        -- _ <- trace ("IMPORT-LOC-PATH:\n" ++ showProjectConfigPath importLocPath) $ pure ()
+        _ <- trace ("IMPORT-LOC-NORMALIZE-PATH:\n" ++ showProjectConfigPath (normLocPath)) $ pure ()
+        -- _ <- mapM_ (\x -> trace (" => SEEN IMPORTS:\n" ++ showProjectConfigPath x) $ pure ()) seenImports
+        _ <- mapM_ (\x -> trace (" => SEEN NORMALIZE IMPORTS:\n" ++ showProjectConfigPath x) $ pure ()) (normSeenImports)
+        -- _ <- trace (" => SOURCE:\n" ++ showProjectConfigPath rootOrImport) $ pure ()
         -- if importLoc `elem` concatMap (toList . \(ProjectConfigPath p) -> p) seenImports
-        if normaliseConfigPath importLocPath `elem` (normaliseConfigPath <$> seenImports)
-          then do
-            let msg = "cyclical import of " ++ importLoc ++ ";\n" ++ showProjectConfigPath fullLocPath
-            pure . parseFail $ ParseUtils.FromString msg (Just l)
-          else do
+
+-- IMPORT-LOC-NORMALIZE-PATH:
+-- +-- ./cyclical-same-filename-out-out-back.project
+--  +-- ./cyclical-same-filename-out-out-back.config
+--   +-- ./same-filename/cyclical-same-filename-out-out-back.config
+--    +-- ./same-filename/../cyclical-same-filename-out-out-back.config
+--     +-- ./same-filename/../same-filename/cyclical-same-filename-out-out-back.config
+--      +-- ./same-filename/../same-filename/../cyclical-same-filename-out-out-back.config
+
+        -- if | length seenImports > 4 -> pure . parseFail $ ParseUtils.FromString "too many imports" Nothing
+        if | (lengthConfigPath nubLocPath < lengthConfigPath normLocPath) || normLocPath `elem` normSeenImports -> do
+              let msg = "cyclical import of " ++ takeFileName importLoc ++ ";\n" ++ showProjectConfigPath fullLocPath
+              pure . parseFail $ ParseUtils.FromString msg (Just l)
+           | otherwise -> do
             let fs = fmap (\z -> CondNode z [fullLocPath] mempty) $ fieldsToConfig configPath (reverse acc)
             res <-
               fetchImportConfig importLocPath
@@ -357,9 +373,27 @@ parseProjectSkeleton dir rootOrImport cacheDir httpTransport verbosity seenImpor
 
     -- Make paths relative to the root of the project, not relative to the file
     -- they were imported from.
+    relativeConfigPath :: FilePath -> ProjectConfigPath -> ProjectConfigPath
+    relativeConfigPath dir (ProjectConfigPath p) = ProjectConfigPath $ makeRelative dir <$> p
+
+    -- Make paths relative to the root of the project, not relative to the file
+    -- they were imported from.
     normaliseConfigPath :: ProjectConfigPath -> ProjectConfigPath
-    normaliseConfigPath (ProjectConfigPath p) = ProjectConfigPath $
-      NE.scanr1 (\a b -> takeDirectory b </> a) p
+    normaliseConfigPath (ProjectConfigPath p) = ProjectConfigPath . NE.fromList . NE.init $
+      NE.scanr (\a b -> takeDirectory b </> a) "." p
+
+    canonicalizeConfigPath :: FilePath -> ProjectConfigPath -> IO ProjectConfigPath
+    canonicalizeConfigPath dir (ProjectConfigPath p) = mdo
+      xs <- sequence $
+        NE.scanr (\a b -> b >>= \b' ->
+        canonicalizePath $ dir </> takeDirectory b' </> a) (pure ".") p
+      return . relativeConfigPath dir . ProjectConfigPath . NE.fromList $ NE.init xs
+
+    nubConfigPath :: ProjectConfigPath -> ProjectConfigPath
+    nubConfigPath (ProjectConfigPath p) = ProjectConfigPath $ NE.nub p
+
+    lengthConfigPath :: ProjectConfigPath -> Int
+    lengthConfigPath (ProjectConfigPath p) = NE.length p
 
 ------------------------------------------------------------------
 -- Representing the project config file in terms of legacy types
