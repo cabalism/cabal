@@ -246,7 +246,7 @@ parseProjectSkeleton dir rootOrImport cacheDir httpTransport verbosity seenImpor
     go configPath@(ProjectConfigPath (selfPath :| parentPath)) acc (x : xs) = case x of
       (ParseUtils.F l "import" importLoc) -> do
         let importLocPath = ProjectConfigPath (importLoc <| coerce configPath)
-        let fullLocPath = fullConfigPathRoot importLocPath
+        let fullLocPath = fullConfigPathRoot dir importLocPath
         -- let normLocPath = normaliseConfigPath importLocPath
         -- let normSeenImports = nub $ normaliseConfigPath <$> seenImports
         normLocPath <- canonicalizeConfigPath dir importLocPath
@@ -348,7 +348,7 @@ parseProjectSkeleton dir rootOrImport cacheDir httpTransport verbosity seenImpor
     fieldsToConfig :: ProjectConfigPath -> [ParseUtils.Field] -> ParseResult ProjectConfig
     fieldsToConfig configPath@(ProjectConfigPath (importee :| _)) xs =
       fmap (addProvenance importee . convertLegacyProjectConfig) $
-        parseLegacyProjectConfigFields (fullConfigPathRoot configPath) xs
+        parseLegacyProjectConfigFields (fullConfigPathRoot dir configPath) xs
 
     addProvenance :: FilePath -> ProjectConfig -> ProjectConfig
     addProvenance source x = x{projectConfigProvenance = Set.singleton (Explicit source)}
@@ -387,36 +387,6 @@ parseProjectSkeleton dir rootOrImport cacheDir httpTransport verbosity seenImpor
 
     sanityWalkBranch :: CondBranch ConfVar [ProjectConfigPath] ProjectConfig -> ParseResult ()
     sanityWalkBranch (CondBranch _c t f) = traverse (sanityWalkPCS True) f >> sanityWalkPCS True t >> pure ()
-
-    -- If the project was a full path, we need to show the full path in messages
-    -- and do this by reconstructing the full path of the root (the project)
-    -- from its directory and file name.
-    fullConfigPathRoot :: ProjectConfigPath -> ProjectConfigPath
-    fullConfigPathRoot (ProjectConfigPath p) = ProjectConfigPath . NE.fromList $ NE.init p ++ [dir </> NE.last p]
-
-    -- Make paths relative to the root of the project, not relative to the file
-    -- they were imported from.
-    relativeConfigPath :: FilePath -> ProjectConfigPath -> ProjectConfigPath
-    relativeConfigPath dir (ProjectConfigPath p) = ProjectConfigPath $ makeRelative dir <$> p
-
-    -- Make paths relative to the root of the project, not relative to the file
-    -- they were imported from.
-    normaliseConfigPath :: ProjectConfigPath -> ProjectConfigPath
-    normaliseConfigPath (ProjectConfigPath p) = ProjectConfigPath . NE.fromList . NE.init $
-      NE.scanr (\a b -> takeDirectory b </> a) "." p
-
-    canonicalizeConfigPath :: FilePath -> ProjectConfigPath -> IO ProjectConfigPath
-    canonicalizeConfigPath dir (ProjectConfigPath p) = do
-      xs <- sequence $
-        NE.scanr (\a b -> b >>= \b' ->
-        canonicalizePath $ dir </> takeDirectory b' </> a) (pure ".") p
-      return . relativeConfigPath dir . ProjectConfigPath . NE.fromList $ NE.init xs
-
-    nubConfigPath :: ProjectConfigPath -> ProjectConfigPath
-    nubConfigPath (ProjectConfigPath p) = ProjectConfigPath $ NE.nub p
-
-    lengthConfigPath :: ProjectConfigPath -> Int
-    lengthConfigPath (ProjectConfigPath p) = NE.length p
 
 ------------------------------------------------------------------
 -- Representing the project config file in terms of legacy types
