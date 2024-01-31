@@ -230,15 +230,15 @@ projectSkeletonImports :: ProjectConfigSkeleton -> [ProjectConfigPath]
 projectSkeletonImports = view traverseCondTreeC
 
 -- | Parses a project from its root config file, typically cabal.project.
-parseProject :: FilePath -> FilePath -> HttpTransport -> Verbosity -> [ProjectConfigPath] -> ProjectConfigToParse -> IO (ParseResult ProjectConfigSkeleton)
-parseProject rootConfig = parseProjectSkeleton "" (ProjectConfigPath $ rootConfig :| [])
+parseProject :: FilePath -> FilePath -> HttpTransport -> Verbosity -> ProjectConfigToParse -> IO (ParseResult ProjectConfigSkeleton)
+parseProject rootConfig = parseProjectSkeleton [] "" (ProjectConfigPath $ rootConfig :| [])
 
 -- | Parses project configuration recursively, following imports.
-parseProjectSkeleton :: FilePath -> ProjectConfigPath -> FilePath -> HttpTransport -> Verbosity -> [ProjectConfigPath] -> ProjectConfigToParse -> IO (ParseResult ProjectConfigSkeleton)
-parseProjectSkeleton _ (ProjectConfigPath (rootPath :| [])) cacheDir httpTransport verbosity [] configToParse =
+parseProjectSkeleton :: [ProjectConfigPath] -> FilePath -> ProjectConfigPath -> FilePath -> HttpTransport -> Verbosity -> ProjectConfigToParse -> IO (ParseResult ProjectConfigSkeleton)
+parseProjectSkeleton [] _ (ProjectConfigPath (rootPath :| [])) cacheDir httpTransport verbosity configToParse =
   let (projectDir, projectFileName) = splitFileName rootPath; projectPath = ProjectConfigPath $ projectFileName :| []
-   in parseProjectSkeleton projectDir projectPath cacheDir httpTransport verbosity [projectPath] configToParse
-parseProjectSkeleton dir rootOrImport cacheDir httpTransport verbosity seenImports (ProjectConfigToParse bs) =
+   in parseProjectSkeleton [projectPath] projectDir projectPath cacheDir httpTransport verbosity configToParse
+parseProjectSkeleton seenImports dir rootOrImport cacheDir httpTransport verbosity (ProjectConfigToParse bs) =
   (sanityWalkPCS False =<<) <$> liftPR (go rootOrImport []) (ParseUtils.readFields bs)
   where
     go :: ProjectConfigPath -> [ParseUtils.Field] -> [ParseUtils.Field] -> IO (ParseResult ProjectConfigSkeleton)
@@ -259,7 +259,7 @@ parseProjectSkeleton dir rootOrImport cacheDir httpTransport verbosity seenImpor
             pure . parseFail $ ParseUtils.FromString msg (Just l)
           else do
             let fs = fmap (\z -> CondNode z [fullLocPath] mempty) $ fieldsToConfig configPath (reverse acc)
-            res <- parseProjectSkeleton dir importLocPath cacheDir httpTransport verbosity (importLocPath : seenImports) . ProjectConfigToParse =<< fetchImportConfig normLocPath
+            res <- parseProjectSkeleton (importLocPath : seenImports) dir importLocPath cacheDir httpTransport verbosity . ProjectConfigToParse =<< fetchImportConfig normLocPath
             rest <- go configPath [] xs
             pure . fmap mconcat . sequence $ [fs, res, rest]
       (ParseUtils.Section l "if" p xs') -> do
