@@ -83,6 +83,12 @@ relativeConfigPath dir (ProjectConfigPath p) =
 
 -- | Make paths relative to the root of the project, not relative to the file
 -- they were imported from.
+--
+-- >>> normaliseConfigPath $ ProjectConfigPath $ "c" :| ["b", "a"]
+-- ProjectConfigPath ("./c" :| ["./b","./a"])
+--
+-- >>> normaliseConfigPath $ ProjectConfigPath $ "../d" :| ["dir/c", "../b", "dir/b", "a"]
+-- ProjectConfigPath ("./dir/../dir/../d" :| ["./dir/../dir/c","./dir/../b","./dir/b","./a"])
 normaliseConfigPath :: ProjectConfigPath -> ProjectConfigPath
 normaliseConfigPath (ProjectConfigPath p) =
     ProjectConfigPath . NE.fromList . NE.init $
@@ -95,37 +101,6 @@ normaliseConfigPath (ProjectConfigPath p) =
                 else takeDirectory importer </> importee)
         "."
         p
-
--- IMPORT-LOC-NORMALIZE-PATH:
--- +-- ./cyclical-same-filename-out-out-back.project
---  +-- ./cyclical-same-filename-out-out-back.config
---   +-- ./same-filename/cyclical-same-filename-out-out-back.config
---    +-- ./same-filename/../cyclical-same-filename-out-out-back.config
---     +-- ./same-filename/../same-filename/cyclical-same-filename-out-out-back.config
---      +-- ./same-filename/../same-filename/../cyclical-same-filename-out-out-back.config
-
--- +-- ./hops-0.project
---  +-- ./hops/hops-1.config
---   +-- ./hops/../hops-2.config
---    +-- ./hops/../hops/hops-3.config
---     +-- ./hops/../hops/../hops-4.config
---      +-- ./hops/../hops/../hops/hops-5.config
---       +-- ./hops/../hops/../hops/../hops-6.config
---        +-- ./hops/../hops/../hops/../hops/hops-7.config
---         +-- ./hops/../hops/../hops/../hops/../hops-8.config
---          +-- ./hops/../hops/../hops/../hops/../hops/hops-9.config
-
--- IMPORT-LOC-NORMALIZE-PATH:
--- +-- hops-0.project
---  +-- hops/hops-1.config
---   +-- hops-2.config
---    +-- hops/hops-3.config
---     +-- hops-4.config
---      +-- hops/hops-5.config
---       +-- hops-6.config
---        +-- hops/hops-7.config
---         +-- hops-8.config
---          +-- hops/hops-9.config
 
 canonicalizeConfigPath :: FilePath -> ProjectConfigPath -> IO ProjectConfigPath
 canonicalizeConfigPath dir (ProjectConfigPath p) = do
