@@ -124,6 +124,7 @@ import Distribution.Simple.Setup
   )
 import Distribution.Simple.Utils
   ( lowercase
+  , info
   )
 import Distribution.Types.CondTree
   ( CondBranch (..)
@@ -189,7 +190,7 @@ import Distribution.Fields.ConfVar (parseConditionConfVarFromClause)
 import Distribution.Client.HttpUtils
 import Distribution.Client.ReplFlags (multiReplOption)
 import System.Directory (createDirectoryIfMissing)
-import System.FilePath (takeFileName, isAbsolute, isPathSeparator, makeValid, splitFileName, (</>))
+import System.FilePath (isAbsolute, isPathSeparator, makeValid, splitFileName, takeFileName, (</>))
 
 ------------------------------------------------------------------
 -- Handle extended project config files with conditionals and imports.
@@ -249,24 +250,25 @@ parseProjectSkeleton dir rootOrImport cacheDir httpTransport verbosity seenImpor
         normLocPath <- canonicalizeConfigPath dir importLocPath
         normSeenImports <- nub <$> (sequence $ canonicalizeConfigPath dir <$> seenImports)
         let nubLocPath = nubConfigPath normLocPath
-        _ <- trace ("IMPORT-LOC: " ++ show importLoc) $ pure ()
-        _ <- trace ("IMPORT-LOC-PATH:\n" ++ showProjectConfigPath importLocPath) $ pure ()
-        _ <- trace ("IMPORT-LOC-NORMALIZE-PATH:\n" ++ showProjectConfigPath normLocPath) $ pure ()
-        _ <- mapM_ (\x -> trace (" => SEEN NORMALIZE IMPORTS:\n" ++ showProjectConfigPath x) $ pure ()) (normSeenImports)
-        if | (lengthConfigPath nubLocPath < lengthConfigPath normLocPath) || normLocPath `elem` normSeenImports -> do
-              let msg = "cyclical import of " ++ takeFileName importLoc ++ ";\n" ++ showProjectConfigPath fullLocPath
-              pure . parseFail $ ParseUtils.FromString msg (Just l)
-           | otherwise -> do
-            let fs = fmap (\z -> CondNode z [fullLocPath] mempty) $ fieldsToConfig configPath (reverse acc)
-            res <-
-              fetchImportConfig importLocPath
-                >>= ( \bs' ->
-                        let importPath = ProjectConfigPath $ importLoc <| coerce configPath
-                            seenImports' = importPath : seenImports
-                         in parseProjectSkeleton dir importPath cacheDir httpTransport verbosity seenImports' (ProjectConfigToParse bs')
-                    )
-            rest <- go configPath [] xs
-            pure . fmap mconcat . sequence $ [fs, res, rest]
+        info verbosity $ "import location, relative: " ++ show importLoc
+        info verbosity $ "import path:\n" ++ showProjectConfigPath importLocPath
+        info verbosity $ "import path, normalized:\n" ++ showProjectConfigPath normLocPath
+        mapM_ (info verbosity . ("seen import:\n" ++) . showProjectConfigPath) normSeenImports
+        if
+            | (lengthConfigPath nubLocPath < lengthConfigPath normLocPath) || normLocPath `elem` normSeenImports -> do
+                let msg = "cyclical import of " ++ takeFileName importLoc ++ ";\n" ++ showProjectConfigPath fullLocPath
+                pure . parseFail $ ParseUtils.FromString msg (Just l)
+            | otherwise -> do
+                let fs = fmap (\z -> CondNode z [fullLocPath] mempty) $ fieldsToConfig configPath (reverse acc)
+                res <-
+                  fetchImportConfig importLocPath
+                    >>= ( \bs' ->
+                            let importPath = ProjectConfigPath $ importLoc <| coerce configPath
+                                seenImports' = importPath : seenImports
+                             in parseProjectSkeleton dir importPath cacheDir httpTransport verbosity seenImports' (ProjectConfigToParse bs')
+                        )
+                rest <- go configPath [] xs
+                pure . fmap mconcat . sequence $ [fs, res, rest]
       (ParseUtils.Section l "if" p xs') -> do
         subpcs <- go configPath [] xs'
         let fs = fmap singletonProjectConfigSkeleton $ fieldsToConfig configPath (reverse acc)
@@ -321,7 +323,9 @@ parseProjectSkeleton dir rootOrImport cacheDir httpTransport verbosity seenImpor
     liftPR _ (ParseFailed e) = pure $ ParseFailed e
 
     fetchImportConfig :: ProjectConfigPath -> IO BS.ByteString
-    fetchImportConfig (normaliseConfigPath -> ProjectConfigPath (pci :| _)) = trace ("FETCH: " ++ pci) fetch pci
+    fetchImportConfig (normaliseConfigPath -> ProjectConfigPath (pci :| _)) = do
+      info verbosity $ "fetching import: " ++ pci
+      fetch pci
       where
         fetch importURI = case parseURI importURI of
           Just uri -> do
