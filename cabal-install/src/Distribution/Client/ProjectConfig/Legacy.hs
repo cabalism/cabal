@@ -247,7 +247,7 @@ parseProjectSkeleton seenImports dir rootOrImport cacheDir httpTransport verbosi
         let importLocPath = ProjectConfigPath (importLoc <| coerce configPath)
         let fullLocPath = fullConfigPathRoot dir importLocPath
         normLocPath <- canonicalizeConfigPath dir importLocPath
-        normSeenImports <- nub <$> sequence (canonicalizeConfigPath dir <$> seenImports)
+        normSeenImports <- nub <$> mapM (canonicalizeConfigPath dir) seenImports
         info verbosity $ "import location, relative: " ++ show importLoc
         info verbosity $ "import path, relative:\n" ++ showProjectConfigPath importLocPath
         info verbosity $ "import path, normalized:\n" ++ showProjectConfigPath normLocPath
