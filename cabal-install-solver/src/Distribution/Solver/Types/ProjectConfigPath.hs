@@ -102,6 +102,14 @@ normaliseConfigPath (ProjectConfigPath p) =
         "."
         p
 
+-- | Similar to 'normaliseConfigPath' but also canonicalizes the paths so that
+-- '..' segments can be removed.
+--
+-- >>> mkCanonical $ "c" :| ["b", "a"]
+-- ["./c","./b","./a"]
+--
+-- >>> mkCanonical $ "../d" :| ["dir/c", "../b", "dir/b", "a"]
+-- ["./dir/../dir/../d","./dir/../dir/c","./dir/../b","./dir/b","./a"]
 canonicalizeConfigPath :: FilePath -> ProjectConfigPath -> IO ProjectConfigPath
 canonicalizeConfigPath dir (ProjectConfigPath p) = do
    xs <- sequence $ NE.scanr (\segment b -> b >>= \b' ->
@@ -120,3 +128,9 @@ canonicalizeConfigPath dir (ProjectConfigPath p) = do
 
 isURI :: FilePath -> Bool
 isURI = isJust  .parseURI
+
+-- $setup
+-- >>> :set -XPartialTypeSignatures -XOverloadedStrings
+-- >>> import Data.Coerce (coerce)
+-- >>> import qualified Data.Text as T
+-- >>> let mkCanonical p = canonicalizeConfigPath "." (ProjectConfigPath p) >>= \(ProjectConfigPath p) -> canonicalizePath "." >>= \home -> return . fmap (T.replace (T.pack home) "." . T.pack) $ toList p
