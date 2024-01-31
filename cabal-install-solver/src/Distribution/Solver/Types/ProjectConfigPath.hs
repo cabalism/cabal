@@ -105,15 +105,47 @@ normaliseConfigPath (ProjectConfigPath p) =
 -- | Similar to 'normaliseConfigPath' but also canonicalizes the paths so that
 -- '..' segments can be removed.
 --
--- >>> mkCanonical $ "c" :| ["b", "a"]
--- ["./c","./b","./a"]
+-- It converts paths like this:
+-- @
+-- +-- hops-0.project
+--  +-- hops/hops-1.config
+--   +-- ../hops-2.config
+--    +-- hops/hops-3.config
+--     +-- ../hops-4.config
+--      +-- hops/hops-5.config
+--       +-- ../hops-6.config
+--        +-- hops/hops-7.config
+--         +-- ../hops-8.config
+--          +-- hops/hops-9.config
+-- @
+-- 
+-- Into paths like this:
+-- @
+-- +-- hops-0.project
+--  +-- hops/hops-1.config
+--   +-- hops-2.config
+--    +-- hops/hops-3.config
+--     +-- hops-4.config
+--      +-- hops/hops-5.config
+--       +-- hops-6.config
+--        +-- hops/hops-7.config
+--         +-- hops-8.config
+--          +-- hops/hops-9.config
+-- @
 --
--- >>> mkCanonical $ "../d" :| ["dir/c", "../b", "dir/b", "a"]
--- ["./dir/../dir/../d","./dir/../dir/c","./dir/../b","./dir/b","./a"]
+-- That way we have @hops-8.config" instead of
+-- @./hops/../hops/../hops/../hops/../hops-8.config@.
+--
+-- >>> :{
+-- (\s -> (".." `isInfixOf` s, "hops-8.config" `isSuffixOf` s))
+-- <$> canonicalizePath
+-- "../cabal-testsuite/PackageTests/ConditionalAndImport/hops/../hops/../hops/../hops/../hops-8.config"
+-- :}
+-- (False,True)
 canonicalizeConfigPath :: FilePath -> ProjectConfigPath -> IO ProjectConfigPath
 canonicalizeConfigPath dir (ProjectConfigPath p) = do
    xs <- sequence $ NE.scanr (\segment b -> b >>= \b' ->
-        -- trace ("CANONICALIZE-SEGMENT=" ++ segment) 
+         -- trace ("CANONICALIZE-SEGMENT=" ++ segment) 
         (if isURI segment then pure segment else
         canonicalizePath $ dir </> takeDirectory b' </> segment)) (pure ".") p
    let ys =
@@ -130,7 +162,4 @@ isURI :: FilePath -> Bool
 isURI = isJust  .parseURI
 
 -- $setup
--- >>> :set -XPartialTypeSignatures -XOverloadedStrings
--- >>> import Data.Coerce (coerce)
--- >>> import qualified Data.Text as T
--- >>> let mkCanonical p = canonicalizeConfigPath "." (ProjectConfigPath p) >>= \(ProjectConfigPath p) -> canonicalizePath "." >>= \home -> return . fmap (T.replace (T.pack home) "." . T.pack) $ toList p
+-- >>> import Data.List
