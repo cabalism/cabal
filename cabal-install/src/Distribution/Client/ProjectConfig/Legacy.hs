@@ -275,10 +275,7 @@ parseProjectSkeleton dir rootOrImport cacheDir httpTransport verbosity seenImpor
                 <*> elseClauses
         pure . fmap mconcat . sequence $ [fs, condNode, rest]
       _ -> go configPath (x : acc) xs
-    go configPath acc [] =
-      pure
-        . fmap singletonProjectConfigSkeleton
-        $ fieldsToConfig configPath (reverse acc)
+    go configPath acc [] = pure . fmap singletonProjectConfigSkeleton . fieldsToConfig configPath $ reverse acc
 
     parseElseClauses :: ProjectConfigPath -> [ParseUtils.Field] -> IO (ParseResult (Maybe ProjectConfigSkeleton), ParseResult ProjectConfigSkeleton)
     parseElseClauses configPath x = case x of
