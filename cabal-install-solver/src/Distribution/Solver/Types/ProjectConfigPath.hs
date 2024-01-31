@@ -69,30 +69,32 @@ nubConfigPath (ProjectConfigPath p) = ProjectConfigPath $ NE.nub p
 -- and do this by reconstructing the full path of the root (the project) from
 -- its directory and file name.
 fullConfigPathRoot :: FilePath -> ProjectConfigPath -> ProjectConfigPath
-fullConfigPathRoot dir (ProjectConfigPath p@(firstSegment :| _)) =
+fullConfigPathRoot dir (ProjectConfigPath p) =
     ProjectConfigPath . NE.fromList
-    $ NE.init p
-    ++ [let root = NE.last p in
-        trace ("FIRST-SEGMENT: " ++ firstSegment)
-        trace ("ROOT-SEGMENT: " ++ root)
-        (if isURI firstSegment then root else dir </> root)]
+    $ NE.init p ++ [let root = NE.last p in dir </> root]
 
--- Make paths relative to the root of the project, not relative to the file
+-- | Make paths relative to the root of the project, not relative to the file
 -- they were imported from.
 relativeConfigPath :: FilePath -> ProjectConfigPath -> ProjectConfigPath
 relativeConfigPath dir (ProjectConfigPath p) =
     ProjectConfigPath
-    $ (\segment ->
-        -- trace ("MAKE-RELATIVE-SEGMENT=" ++ segment) 
-        (if isURI segment then segment else makeRelative dir segment))
+    $ (\segment -> (if isURI segment then segment else makeRelative dir segment))
     <$> p
 
--- Make paths relative to the root of the project, not relative to the file
+-- | Make paths relative to the root of the project, not relative to the file
 -- they were imported from.
 normaliseConfigPath :: ProjectConfigPath -> ProjectConfigPath
 normaliseConfigPath (ProjectConfigPath p) =
     ProjectConfigPath . NE.fromList . NE.init $
-    NE.scanr (\segment b -> if isURI segment then segment else takeDirectory b </> segment) "." p
+    NE.scanr
+        (\importee importer ->
+            if isURI importee
+                then importee
+                -- The importer is already anchored to the root of the project
+                -- by now so we can use its directory to anchor the importee.
+                else takeDirectory importer </> importee)
+        "."
+        p
 
 -- IMPORT-LOC-NORMALIZE-PATH:
 -- +-- ./cyclical-same-filename-out-out-back.project
