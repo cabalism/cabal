@@ -144,19 +144,12 @@ normaliseConfigPath (ProjectConfigPath p) =
 -- (False,True)
 canonicalizeConfigPath :: FilePath -> ProjectConfigPath -> IO ProjectConfigPath
 canonicalizeConfigPath dir (ProjectConfigPath p) = do
-   xs <- sequence $ NE.scanr (\segment b -> b >>= \b' ->
-         -- trace ("CANONICALIZE-SEGMENT=" ++ segment) 
-        (if isURI segment then pure segment else
-        canonicalizePath $ dir </> takeDirectory b' </> segment)) (pure ".") p
-   let ys =
-            -- trace ("CANONICALIZE-XS: " ++ show xs) 
-            ProjectConfigPath . NE.fromList $ NE.init xs
-   let zs =
-            -- trace ("CANONICALIZE-YS\n" ++ showProjectConfigPath ys) 
-            relativeConfigPath dir ys
-   return $
-    -- trace ("CANONICALIZE-ZS\n" ++ showProjectConfigPath zs)
-    zs
+   xs <- sequence $ NE.scanr (\importee -> (>>= \importer ->
+        if isURI importee
+            then pure importee
+            else canonicalizePath $ dir </> takeDirectory importer </> importee))
+        (pure ".") p
+   return . relativeConfigPath dir . ProjectConfigPath . NE.fromList $ NE.init xs
 
 isURI :: FilePath -> Bool
 isURI = isJust  .parseURI
