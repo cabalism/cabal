@@ -339,7 +339,7 @@ parseProjectSkeleton seenImports dir rootOrImport cacheDir httpTransport verbosi
       | otherwise = mapM_ sanityWalkBranch comps >> pure t
 
     sanityWalkBranch :: CondBranch ConfVar [ProjectConfigPath] ProjectConfig -> ParseResult ()
-    sanityWalkBranch (CondBranch _c t f) = traverse (sanityWalkPCS True) f >> sanityWalkPCS True t >> pure ()
+    sanityWalkBranch (CondBranch _c t f) = traverse_ (sanityWalkPCS True) f >> sanityWalkPCS True t >> pure ()
 
 ------------------------------------------------------------------
 -- Representing the project config file in terms of legacy types
