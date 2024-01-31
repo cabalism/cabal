@@ -324,7 +324,9 @@ parseProjectSkeleton dir rootOrImport cacheDir httpTransport verbosity seenImpor
         createDirectoryIfMissing True cacheDir
         _ <- downloadURI httpTransport verbosity uri fp
         BS.readFile fp
-      Nothing -> BS.readFile $ if isAbsolute pci then pci else dir </> pci
+      Nothing ->
+        BS.readFile $
+          if isAbsolute pci then pci else dir </> pci
 
     modifiesCompiler :: ProjectConfig -> Bool
     modifiesCompiler pc = isSet projectConfigHcFlavor || isSet projectConfigHcPath || isSet projectConfigHcPkg
