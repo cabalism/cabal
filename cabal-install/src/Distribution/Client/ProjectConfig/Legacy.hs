@@ -258,13 +258,13 @@ parseProjectSkeleton seenImports dir rootOrImport cacheDir httpTransport verbosi
             let msg = "cyclical import of " ++ takeFileName importLoc ++ ";\n" ++ showProjectConfigPath fullLocPath
             pure . parseFail $ ParseUtils.FromString msg (Just l)
           else do
-            let fs = fmap (\z -> CondNode z [fullLocPath] mempty) $ fieldsToConfig configPath (reverse acc)
+            let fs = (\z -> CondNode z [fullLocPath] mempty) <$> fieldsToConfig configPath (reverse acc)
             res <- parseProjectSkeleton (importLocPath : seenImports) dir importLocPath cacheDir httpTransport verbosity . ProjectConfigToParse =<< fetchImportConfig normLocPath
             rest <- go configPath [] xs
             pure . fmap mconcat . sequence $ [fs, res, rest]
       (ParseUtils.Section l "if" p xs') -> do
         subpcs <- go configPath [] xs'
-        let fs = fmap singletonProjectConfigSkeleton $ fieldsToConfig configPath (reverse acc)
+        let fs = singletonProjectConfigSkeleton <$> fieldsToConfig configPath (reverse acc)
         (elseClauses, rest) <- parseElseClauses configPath xs
         let condNode =
               (\c pcs e -> CondNode mempty mempty [CondBranch c pcs e])
@@ -296,8 +296,8 @@ parseProjectSkeleton seenImports dir rootOrImport cacheDir httpTransport verbosi
 
     fieldsToConfig :: ProjectConfigPath -> [ParseUtils.Field] -> ParseResult ProjectConfig
     fieldsToConfig configPath@(ProjectConfigPath (importee :| _)) xs =
-      fmap (addProvenance importee . convertLegacyProjectConfig) $
-        parseLegacyProjectConfigFields (fullConfigPathRoot dir configPath) xs
+      (addProvenance importee . convertLegacyProjectConfig)
+        <$> parseLegacyProjectConfigFields (fullConfigPathRoot dir configPath) xs
 
     addProvenance :: FilePath -> ProjectConfig -> ProjectConfig
     addProvenance source x = x{projectConfigProvenance = Set.singleton (Explicit source)}
