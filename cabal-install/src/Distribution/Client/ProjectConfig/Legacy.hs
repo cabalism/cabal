@@ -34,7 +34,6 @@ module Distribution.Client.ProjectConfig.Legacy
 
 import Data.Coerce (coerce)
 import Data.List.NonEmpty ((<|))
-import qualified Data.List.NonEmpty as NE
 import Distribution.Client.Compat.Prelude
 
 import Distribution.Types.Flag (FlagName, parsecFlagAssignment)
@@ -189,8 +188,8 @@ import Distribution.Fields.ConfVar (parseConditionConfVarFromClause)
 
 import Distribution.Client.HttpUtils
 import Distribution.Client.ReplFlags (multiReplOption)
-import System.Directory (canonicalizePath, createDirectoryIfMissing)
-import System.FilePath (takeFileName, makeRelative, isAbsolute, isPathSeparator, makeValid, splitFileName, takeDirectory, (</>))
+import System.Directory (createDirectoryIfMissing)
+import System.FilePath (takeFileName, isAbsolute, isPathSeparator, makeValid, splitFileName, (</>))
 
 ------------------------------------------------------------------
 -- Handle extended project config files with conditionals and imports.
@@ -243,59 +242,17 @@ parseProjectSkeleton dir rootOrImport cacheDir httpTransport verbosity seenImpor
   (sanityWalkPCS False =<<) <$> liftPR (go rootOrImport []) (ParseUtils.readFields bs)
   where
     go :: ProjectConfigPath -> [ParseUtils.Field] -> [ParseUtils.Field] -> IO (ParseResult ProjectConfigSkeleton)
-    go configPath@(ProjectConfigPath (selfPath :| parentPath)) acc (x : xs) = case x of
+    go configPath acc (x : xs) = case x of
       (ParseUtils.F l "import" importLoc) -> do
         let importLocPath = ProjectConfigPath (importLoc <| coerce configPath)
         let fullLocPath = fullConfigPathRoot dir importLocPath
-        -- let normLocPath = normaliseConfigPath importLocPath
-        -- let normSeenImports = nub $ normaliseConfigPath <$> seenImports
         normLocPath <- canonicalizeConfigPath dir importLocPath
         normSeenImports <- nub <$> (sequence $ canonicalizeConfigPath dir <$> seenImports)
         let nubLocPath = nubConfigPath normLocPath
-        --_ <- trace ("PROJECT-DIR:\n" ++ dir) $ pure ()
-        -- _ <- trace ("SELF-PATH:\n" ++ showProjectConfigPath (ProjectConfigPath (selfPath :| []))) $ pure ()
-        ---_ <- trace ("PARENT-PATH:\n" ++ showProjectConfigPath (ProjectConfigPath (" :| " :| parentPath))) $ pure ()
-        -- _ <- trace ("CONFIG-PATH:\n" ++ showProjectConfigPath configPath) $ pure ()
-        -- _ <- trace ("IMPORT-LOC:\n" ++ importLoc) $ pure ()
-        -- _ <- trace ("IMPORT-LOC-PATH:\n" ++ showProjectConfigPath importLocPath) $ pure ()
-        _ <- trace ("IMPORT-LOC-NORMALIZE-PATH:\n" ++ showProjectConfigPath (normLocPath)) $ pure ()
-        -- _ <- mapM_ (\x -> trace (" => SEEN IMPORTS:\n" ++ showProjectConfigPath x) $ pure ()) seenImports
+        _ <- trace ("IMPORT-LOC: " ++ show importLoc) $ pure ()
+        _ <- trace ("IMPORT-LOC-PATH:\n" ++ showProjectConfigPath importLocPath) $ pure ()
+        _ <- trace ("IMPORT-LOC-NORMALIZE-PATH:\n" ++ showProjectConfigPath normLocPath) $ pure ()
         _ <- mapM_ (\x -> trace (" => SEEN NORMALIZE IMPORTS:\n" ++ showProjectConfigPath x) $ pure ()) (normSeenImports)
-        -- _ <- trace (" => SOURCE:\n" ++ showProjectConfigPath rootOrImport) $ pure ()
-        -- if importLoc `elem` concatMap (toList . \(ProjectConfigPath p) -> p) seenImports
-
--- IMPORT-LOC-NORMALIZE-PATH:
--- +-- ./cyclical-same-filename-out-out-back.project
---  +-- ./cyclical-same-filename-out-out-back.config
---   +-- ./same-filename/cyclical-same-filename-out-out-back.config
---    +-- ./same-filename/../cyclical-same-filename-out-out-back.config
---     +-- ./same-filename/../same-filename/cyclical-same-filename-out-out-back.config
---      +-- ./same-filename/../same-filename/../cyclical-same-filename-out-out-back.config
-
--- +-- ./hops-0.project
---  +-- ./hops/hops-1.config
---   +-- ./hops/../hops-2.config
---    +-- ./hops/../hops/hops-3.config
---     +-- ./hops/../hops/../hops-4.config
---      +-- ./hops/../hops/../hops/hops-5.config
---       +-- ./hops/../hops/../hops/../hops-6.config
---        +-- ./hops/../hops/../hops/../hops/hops-7.config
---         +-- ./hops/../hops/../hops/../hops/../hops-8.config
---          +-- ./hops/../hops/../hops/../hops/../hops/hops-9.config
-
--- IMPORT-LOC-NORMALIZE-PATH:
--- +-- hops-0.project
---  +-- hops/hops-1.config
---   +-- hops-2.config
---    +-- hops/hops-3.config
---     +-- hops-4.config
---      +-- hops/hops-5.config
---       +-- hops-6.config
---        +-- hops/hops-7.config
---         +-- hops-8.config
---          +-- hops/hops-9.config
-
-        --if | length seenImports > 8 -> pure . parseFail $ ParseUtils.FromString "too many imports" Nothing
         if | (lengthConfigPath nubLocPath < lengthConfigPath normLocPath) || normLocPath `elem` normSeenImports -> do
               let msg = "cyclical import of " ++ takeFileName importLoc ++ ";\n" ++ showProjectConfigPath fullLocPath
               pure . parseFail $ ParseUtils.FromString msg (Just l)
@@ -364,7 +321,7 @@ parseProjectSkeleton dir rootOrImport cacheDir httpTransport verbosity seenImpor
     liftPR _ (ParseFailed e) = pure $ ParseFailed e
 
     fetchImportConfig :: ProjectConfigPath -> IO BS.ByteString
-    fetchImportConfig (normaliseConfigPath -> ProjectConfigPath (pci :| _)) = fetch pci
+    fetchImportConfig (normaliseConfigPath -> ProjectConfigPath (pci :| _)) = trace ("FETCH: " ++ pci) fetch pci
       where
         fetch importURI = case parseURI importURI of
           Just uri -> do
