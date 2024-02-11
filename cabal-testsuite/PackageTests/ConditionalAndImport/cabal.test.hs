@@ -120,6 +120,23 @@ main = cabalTest . withRepo "repo" . recordMode RecordMarked $ do
   assertOutputContains "hops/hops-7.config" hopping
   assertOutputContains "hops/hops-9.config" hopping
 
+  -- +-- oops-0.project
+  --  +-- oops/oops-1.config
+  --   +-- oops-2.config
+  --    +-- oops/oops-3.config
+  --     +-- oops-4.config
+  --      +-- oops/oops-5.config
+  --       +-- oops-6.config
+  --        +-- oops/oops-7.config
+  --         +-- oops-8.config
+  --          +-- oops/oops-9.config (has conflicting constraints)
+  log "checking conflicting constraints skipping into a subfolder and then back out again and again"
+  oopsing <- fails $ cabal' "v2-build" [ "all", "--project-file=oops-0.project" ]
+  assertOutputContains "rejecting: hashable-1.4.3.0" oopsing
+  assertOutputContains "oops-9.config requires ==1.4.2.0" oopsing
+  assertOutputContains "rejecting: hashable-1.4.2.0" oopsing
+  assertOutputContains "oops-0.project requires ==1.4.3.0" oopsing
+
   log "checking bad conditional"
   badIf <- fails $ cabal' "v2-build" [ "--project-file=bad-conditional.project" ]
   assertOutputContains "Cannot set compiler in a conditional clause of a cabal project file" badIf
