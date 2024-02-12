@@ -15,6 +15,6 @@ description:
         +-- https://www.stackage.org/nightly-2023-12-07/cabal.config requires ==1.4.3.0
   ```
 
-packages: cabal-install
+packages: cabal-install-solver cabal-install
 prs: #9578
 issues: #9562
