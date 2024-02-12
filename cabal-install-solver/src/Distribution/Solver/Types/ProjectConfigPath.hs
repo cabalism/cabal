@@ -6,8 +6,7 @@ module Distribution.Solver.Types.ProjectConfigPath
     , projectConfigPathRoot
     , showProjectConfigPath
     , nullProjectConfigPath
-    , lengthConfigPath
-    , nubConfigPath
+    , hasDuplicatesConfigPath
     , fullConfigPathRoot
     , canonicalizeConfigPath
     ) where
@@ -58,11 +57,13 @@ projectConfigPathRoot (ProjectConfigPath xs) = last xs
 nullProjectConfigPath :: ProjectConfigPath
 nullProjectConfigPath = ProjectConfigPath $ "unused" :| []
 
-lengthConfigPath :: ProjectConfigPath -> Int
-lengthConfigPath (ProjectConfigPath p) = NE.length p
-
-nubConfigPath :: ProjectConfigPath -> ProjectConfigPath
-nubConfigPath (ProjectConfigPath p) = ProjectConfigPath $ NE.nub p
+-- | Check if the path has duplicates. A cycle of imports is not allowed. This
+-- check should only be done after the path has been canonicalized with
+-- @canonicalizeConfigPath@. This is because the import path may contain paths
+-- that are the same in relation to their importers but different in relation to
+-- the project root.
+hasDuplicatesConfigPath :: ProjectConfigPath -> Bool
+hasDuplicatesConfigPath (ProjectConfigPath p) = length p /= length (NE.nub p)
 
 -- | If the project was a full path, we need to show the full path in messages
 -- and do this by reconstructing the full path of the root (the project) from

@@ -253,7 +253,7 @@ parseProjectSkeleton seenImports dir rootOrImport cacheDir httpTransport verbosi
         info verbosity $ "import path, normalized:\n" ++ showProjectConfigPath normLocPath
         info verbosity "seen imports:\n"
         mapM_ (info verbosity . showProjectConfigPath) normSeenImports
-        if (lengthConfigPath (nubConfigPath normLocPath) < lengthConfigPath normLocPath) || normLocPath `elem` normSeenImports
+        if hasDuplicatesConfigPath normLocPath || normLocPath `elem` normSeenImports
           then do
             let msg = "cyclical import of " ++ takeFileName importLoc ++ ";\n" ++ showProjectConfigPath fullLocPath
             pure . parseFail $ ParseUtils.FromString msg (Just l)
