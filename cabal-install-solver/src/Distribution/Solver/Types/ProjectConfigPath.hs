@@ -9,7 +9,6 @@ module Distribution.Solver.Types.ProjectConfigPath
     , lengthConfigPath
     , nubConfigPath
     , fullConfigPathRoot
-    , normaliseConfigPath
     , canonicalizeConfigPath
     ) where
 
@@ -81,29 +80,7 @@ relativeConfigPath dir (ProjectConfigPath p) =
     $ (\segment -> (if isURI segment then segment else makeRelative dir segment))
     <$> p
 
--- | Make paths relative to the root of the project, not relative to the file
--- they were imported from.
---
--- >>> normaliseConfigPath $ ProjectConfigPath $ "c" :| ["b", "a"]
--- ProjectConfigPath ("./c" :| ["./b","./a"])
---
--- >>> normaliseConfigPath $ ProjectConfigPath $ "../d" :| ["dir/c", "../b", "dir/b", "a"]
--- ProjectConfigPath ("./dir/../dir/../d" :| ["./dir/../dir/c","./dir/../b","./dir/b","./a"])
-normaliseConfigPath :: ProjectConfigPath -> ProjectConfigPath
-normaliseConfigPath (ProjectConfigPath p) =
-    ProjectConfigPath . NE.fromList . NE.init $
-    NE.scanr
-        (\importee importer ->
-            if isURI importee
-                then importee
-                -- The importer is already anchored to the root of the project
-                -- by now so we can use its directory to anchor the importee.
-                else takeDirectory importer </> importee)
-        "."
-        p
-
--- | Similar to 'normaliseConfigPath' but also canonicalizes the paths so that
--- '..' segments can be removed.
+-- | Normalizes and canonicalizes paths so that '..' segments can be removed.
 --
 -- It converts paths like this:
 -- @
