@@ -41,7 +41,7 @@ instance Structured ProjectConfigPath
 showProjectConfigPath :: ProjectConfigPath -> String
 showProjectConfigPath (ProjectConfigPath xs) =
     unlines
-        [ (nTimes i (showChar ' ') . showString "+-- " . showString x) ""
+        [ (nTimes i (showChar ' ') . showString "└─ " . showString x) ""
         | x <- reverse $ toList xs
         | i <- [0..]
         ]

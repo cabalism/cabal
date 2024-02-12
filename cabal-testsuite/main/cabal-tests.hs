@@ -34,6 +34,8 @@ import Data.Monoid ((<>))
 import Data.Monoid (mempty)
 #endif
 
+import Main.Utf8
+
 {- Note [Testsuite package environments]
 
 There are three different package environments which are used when running the
@@ -105,7 +107,7 @@ mainArgParser = MainArgs
     <*> commonArgParser
 
 main :: IO ()
-main = do
+main = withUtf8 $ do
     -- By default, stderr is not buffered.  This isn't really necessary
     -- for us, and it causes problems on Windows, see:
     -- https://github.com/appveyor/ci/issues/1364

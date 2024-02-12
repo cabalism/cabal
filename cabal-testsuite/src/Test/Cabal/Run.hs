@@ -15,6 +15,10 @@ import System.IO
 import System.Exit
 import System.Directory
 import System.FilePath
+import qualified System.IO.Utf8 as Utf8
+import qualified Data.Text.IO as T
+import qualified Data.Text as T
+import Debug.Trace
 
 -- | The result of invoking the command line.
 data Result = Result
@@ -53,11 +57,14 @@ runAction _verbosity mb_cwd env_overrides path0 args input action = do
     mb_env <- getEffectiveEnvironment env_overrides
     putStrLn $ "+ " ++ showCommandForUser path args
     (readh, writeh) <- createPipe
+    hSetEncoding readh utf8
     hSetBuffering readh LineBuffering
+    hSetEncoding writeh utf8
     hSetBuffering writeh LineBuffering
-    let drain = do
+    let drain = Utf8.withHandle readh $ do
             r <- hGetContents readh
-            putStr r -- forces the output
+            --putStr r -- forces the output
+            T.putStr (T.pack r)
             hClose readh
             return r
     withAsync drain $ \sync -> do
@@ -75,7 +82,10 @@ runAction _verbosity mb_cwd env_overrides path0 args input action = do
     case input of
       Just x ->
         case stdin_h of
-          Just h -> hPutStr h x >> hClose h
+          Just h -> Utf8.withHandle h $ do
+            T.hPutStr h (T.pack x)
+            --hPutStr h x
+            hClose h
           Nothing -> error "No stdin handle when input was specified!"
       Nothing -> return ()
 
