@@ -31,9 +31,7 @@ module Distribution.Client.ProjectConfig.Legacy
   , renderPackageLocationToken
   ) where
 
-import Data.Coerce (coerce)
 import Data.IORef
-import Data.List.NonEmpty ((<|))
 import Distribution.Client.Compat.Prelude
 
 import Distribution.Types.Flag (FlagName, parsecFlagAssignment)
@@ -245,7 +243,7 @@ parseProjectSkeleton uniqueImports dir rootOrImport cacheDir httpTransport verbo
     go :: ProjectConfigPath -> [ParseUtils.Field] -> [ParseUtils.Field] -> IO (ParseResult ProjectConfigSkeleton)
     go configPath acc (x : xs) = case x of
       (ParseUtils.F l "import" importLoc) -> do
-        let importLocPath = ProjectConfigPath (importLoc <| coerce configPath)
+        let importLocPath = importLoc `consProjectConfigPath` configPath
         let fullLocPath = fullConfigPathRoot dir importLocPath
         normLocPath@(ProjectConfigPath (uniqueImport :| _)) <- canonicalizeConfigPath dir importLocPath
 
