@@ -315,11 +315,8 @@ showFR _ UnknownPackage                   = " (unknown package)"
 
 showFR _ (GlobalConstraintVersion vr src) = case src of
   ConstraintSourceProjectConfig projectConfig ->
-    ( showString " (constraint from project requires "
-    . showString (prettyShow vr)
-    . showChar ')'
     -- SEE: https://stackoverflow.com/questions/4342013/the-composition-of-functions-in-a-list-of-functions
-    . foldr1 (.)
+    ( foldr1 (.)
         [(showString "\n      " . showString l)
         | l <- lines $ showProjectConfigPath projectConfig
         ]
