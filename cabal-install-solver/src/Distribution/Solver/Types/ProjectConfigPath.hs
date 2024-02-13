@@ -1,24 +1,28 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE ParallelListComp #-}
+
 module Distribution.Solver.Types.ProjectConfigPath
     ( ProjectConfigPath(..)
     , projectConfigPathRoot
     , showProjectConfigPath
+    , showProjectConfigPathFailReason
     , nullProjectConfigPath
     , hasDuplicatesConfigPath
     , fullConfigPathRoot
     , canonicalizeConfigPath
     ) where
 
-import Distribution.Solver.Compat.Prelude hiding (toList)
-import Prelude (sequence)
+import Distribution.Solver.Compat.Prelude hiding (toList, foldr1)
+import Prelude (foldr1, sequence)
 
 import Data.List.NonEmpty (toList)
 import Network.URI (parseURI)
 import System.Directory
 import System.FilePath
 import qualified Data.List.NonEmpty as NE
+import Distribution.Solver.Modular.Version (VR)
+import Distribution.Pretty (prettyShow)
 
 -- | Path to a configuration file, being either "the project" root or an import,
 -- built up from the root to the leaf. The root is the last element and the leaf
@@ -50,6 +54,17 @@ nTimes :: Int -> (a -> a) -> (a -> a)
 nTimes 0 _ = id
 nTimes 1 f = f
 nTimes n f = f . nTimes (n-1) f
+
+showProjectConfigPathFailReason :: VR -> ProjectConfigPath -> String
+showProjectConfigPathFailReason vr projectConfig =
+    -- SEE: https://stackoverflow.com/questions/4342013/the-composition-of-functions-in-a-list-of-functions
+    ( foldr1 (.)
+        [(showString "\n      " . showString l)
+        | l <- lines $ showProjectConfigPath projectConfig
+        ]
+    . showString " requires "
+    . showString (prettyShow vr)
+    ) ""
 
 projectConfigPathRoot :: ProjectConfigPath -> FilePath
 projectConfigPathRoot (ProjectConfigPath xs) = last xs

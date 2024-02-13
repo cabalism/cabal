@@ -31,7 +31,7 @@ import Distribution.Solver.Modular.Version
 import Distribution.Solver.Types.ConstraintSource
 import Distribution.Solver.Types.PackagePath
 import Distribution.Solver.Types.Progress
-import Distribution.Solver.Types.ProjectConfigPath (showProjectConfigPath)
+import Distribution.Solver.Types.ProjectConfigPath (showProjectConfigPathFailReason)
 import Distribution.Types.LibraryName
 import Distribution.Types.UnqualComponentName
 
@@ -315,14 +315,7 @@ showFR _ UnknownPackage                   = " (unknown package)"
 
 showFR _ (GlobalConstraintVersion vr src) = case src of
   ConstraintSourceProjectConfig projectConfig ->
-    -- SEE: https://stackoverflow.com/questions/4342013/the-composition-of-functions-in-a-list-of-functions
-    ( foldr1 (.)
-        [(showString "\n      " . showString l)
-        | l <- lines $ showProjectConfigPath projectConfig
-        ]
-    . showString " requires "
-    . showString (prettyShow vr)
-    ) ""
+    showProjectConfigPathFailReason vr projectConfig
   _ ->
     " (" ++ constraintSource src ++ " requires " ++ prettyShow vr ++ ")"
 
