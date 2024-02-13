@@ -166,8 +166,8 @@ main = cabalTest . withRepo "repo" . recordMode RecordMarked $ do
   --    +-- yops/yops-9.config (no further imports)
   --  +-- yops/yops-9.config (no further imports)
   log "checking that we detect when the same config is imported via many different paths"
-  hopping <- cabal' "v2-build" [ "--project-file=yops-0.project" ]
-  -- This test should fail detecting the same config being imported via many different paths
+  yopping <- fails $ cabal' "v2-build" [ "--project-file=yops-0.project" ]
+  assertOutputContains "cyclical import of yops-3.config" yopping
 
   log "checking bad conditional"
   badIf <- fails $ cabal' "v2-build" [ "--project-file=bad-conditional.project" ]
