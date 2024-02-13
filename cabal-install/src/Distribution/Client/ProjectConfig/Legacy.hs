@@ -249,8 +249,6 @@ parseProjectSkeleton seenImports dir rootOrImport cacheDir httpTransport verbosi
         normLocPath <- canonicalizeConfigPath dir importLocPath
         normSeenImports <- nub <$> mapM (canonicalizeConfigPath dir) seenImports
 
-        info verbosity $ "\nimport location, relative: " ++ importLoc
-        info verbosity $ "\nimport path, relative\n=====================\n" ++ showProjectConfigPath importLocPath
         info verbosity $ "\nimport path, normalized\n=======================\n" ++ showProjectConfigPath normLocPath
         info verbosity "\nseen imports\n============"
         mapM_ (info verbosity . (\i -> (showString (showProjectConfigPath i) . showChar '\n') "")) normSeenImports
