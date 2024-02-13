@@ -66,7 +66,7 @@ main = cabalTest . withRepo "repo" . recordMode RecordMarked $ do
   --  +-- same-filename/noncyclical-same-filename-b.config
   --    +-- noncyclical-same-filename-b.config (no further imports so not cyclical)
   log "checking that cyclical check doesn't false-positive on same file names in different folders; hoping into a subfolder and then back out again"
-  cyclical3c <- fails $ cabal' "v2-build" [ "--project-file=noncyclical-same-filename-b.project" ]
+  cyclical3c <- cabal' "v2-build" [ "--project-file=noncyclical-same-filename-b.project" ]
   assertOutputDoesNotContain "cyclical import of" cyclical3c
 
   -- +-- cyclical-same-filename-out-out-self.project
