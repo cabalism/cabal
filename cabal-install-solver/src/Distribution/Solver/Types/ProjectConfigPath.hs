@@ -8,6 +8,7 @@ module Distribution.Solver.Types.ProjectConfigPath
     , showProjectConfigPath
     , showProjectConfigPathFailReason
     , nullProjectConfigPath
+    , consProjectConfigPath
     , hasDuplicatesConfigPath
     , fullConfigPathRoot
     , canonicalizeConfigPath
@@ -16,7 +17,9 @@ module Distribution.Solver.Types.ProjectConfigPath
 import Distribution.Solver.Compat.Prelude hiding (toList, foldr1)
 import Prelude (foldr1, sequence)
 
+import Data.Coerce (coerce)
 import Data.List.NonEmpty (toList)
+import Data.List.NonEmpty ((<|))
 import Network.URI (parseURI)
 import System.Directory
 import System.FilePath
@@ -77,9 +80,11 @@ showProjectConfigPathFailReason vr (ProjectConfigPath (p :| ps)) =
     . foldr1 (.) [ indent . showString "imported by: " . showString l | l <- ps ]
     ) ""
 
+-- | The root of the path, the project itself.
 projectConfigPathRoot :: ProjectConfigPath -> FilePath
 projectConfigPathRoot (ProjectConfigPath xs) = last xs
 
+-- | Used by some tests as a dummy "unused" project root.
 nullProjectConfigPath :: ProjectConfigPath
 nullProjectConfigPath = ProjectConfigPath $ "unused" :| []
 
@@ -98,6 +103,10 @@ fullConfigPathRoot :: FilePath -> ProjectConfigPath -> ProjectConfigPath
 fullConfigPathRoot dir (ProjectConfigPath p) =
     ProjectConfigPath . NE.fromList
     $ NE.init p ++ [let root = NE.last p in dir </> root]
+
+-- | Prepends the path of the importee to the importer path.
+consProjectConfigPath :: FilePath -> ProjectConfigPath -> ProjectConfigPath
+consProjectConfigPath p ps = ProjectConfigPath (p <| coerce ps)
 
 -- | Make paths relative to the root of the project, not relative to the file
 -- they were imported from.
