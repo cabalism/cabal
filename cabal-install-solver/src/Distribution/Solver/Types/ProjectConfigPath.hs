@@ -35,15 +35,19 @@ instance Structured ProjectConfigPath
 
 -- | Renders the path with ancestors above and unindented, like this:
 -- @
--- +-- <ROOT>
---  +-- ...
---   +-- ...
---    +-- <LEAF>
+-- * <ROOT>
+-- -* ...
+-- --* ...
+-- ---* <LEAF>
 -- @
+-- Leading spaces would have been nicer but these are trimmed when logging so we
+-- use leading hyphens instead.
+-- >>> showProjectConfigPath $ ProjectConfigPath $ "D" :| ["C", "B", "A" ]
+-- "* A\n-* B\n--* C\n---* D\n"
 showProjectConfigPath :: ProjectConfigPath -> String
 showProjectConfigPath (ProjectConfigPath xs) =
     unlines
-        [ (nTimes i (showChar ' ') . showString "+-- " . showString x) ""
+        [ (nTimes i (showChar '-') . showString "* " . showString x) ""
         | x <- reverse $ toList xs
         | i <- [0..]
         ]
