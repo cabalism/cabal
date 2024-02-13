@@ -320,7 +320,7 @@ showFR _ (GlobalConstraintVersion vr src) = case src of
     . showChar ')'
     -- SEE: https://stackoverflow.com/questions/4342013/the-composition-of-functions-in-a-list-of-functions
     . foldr1 (.)
-        [(showString "\n     " . showString l)
+        [(showString "\n      " . showString l)
         | l <- lines $ showProjectConfigPath projectConfig
         ]
     . showString " requires "
