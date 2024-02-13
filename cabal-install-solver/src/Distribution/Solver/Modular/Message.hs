@@ -312,13 +312,8 @@ showFR _ NotExplicit                      = " (not a user-provided goal nor ment
 showFR _ Shadowed                         = " (shadowed by another installed package with same version)"
 showFR _ (Broken u)                       = " (package is broken, missing dependency " ++ prettyShow u ++ ")"
 showFR _ UnknownPackage                   = " (unknown package)"
-
-showFR _ (GlobalConstraintVersion vr src) = case src of
-  ConstraintSourceProjectConfig projectConfig ->
-    showProjectConfigPathFailReason vr projectConfig
-  _ ->
-    " (" ++ constraintSource src ++ " requires " ++ prettyShow vr ++ ")"
-
+showFR _ (GlobalConstraintVersion vr (ConstraintSourceProjectConfig pc)) = showProjectConfigPathFailReason vr pc
+showFR _ (GlobalConstraintVersion vr src) = " (" ++ constraintSource src ++ " requires " ++ prettyShow vr ++ ")"
 showFR _ (GlobalConstraintInstalled src)  = " (" ++ constraintSource src ++ " requires installed instance)"
 showFR _ (GlobalConstraintSource src)     = " (" ++ constraintSource src ++ " requires source instance)"
 showFR _ (GlobalConstraintFlag src)       = " (" ++ constraintSource src ++ " requires opposite flag selection)"
