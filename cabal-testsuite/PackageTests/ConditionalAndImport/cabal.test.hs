@@ -111,19 +111,67 @@ main = cabalTest . withRepo "repo" . recordMode RecordMarked $ do
   --         +-- hops-8.config
   --          +-- hops/hops-9.config (no further imports so not cyclical)
   log "checking that imports work skipping into a subfolder and then back out again and again"
-  -- This test should pass the following checks but doesn't, it fails (but it shouldn't):
-  hopping <- fails $ cabal' "v2-build" [ "--project-file=hops-0.project" ]
-  -- assertOutputContains "this build was affected by the following (project) config files:" hopping
-  -- assertOutputContains "hops-0.project" hopping
-  -- assertOutputContains "../hops-2.config" hopping
-  -- assertOutputContains "../hops-4.config" hopping
-  -- assertOutputContains "../hops-6.config" hopping
-  -- assertOutputContains "../hops-8.config" hopping
-  -- assertOutputContains "hops/hops-1.config" hopping
-  -- assertOutputContains "hops/hops-3.config" hopping
-  -- assertOutputContains "hops/hops-5.config" hopping
-  -- assertOutputContains "hops/hops-7.config" hopping
-  -- assertOutputContains "hops/hops-9.config" hopping
+  hopping <- cabal' "v2-build" [ "--project-file=hops-0.project" ]
+  assertOutputContains "this build was affected by the following (project) config files:" hopping
+  assertOutputContains "hops-0.project" hopping
+  assertOutputContains "../hops-2.config" hopping
+  assertOutputContains "../hops-4.config" hopping
+  assertOutputContains "../hops-6.config" hopping
+  assertOutputContains "../hops-8.config" hopping
+  assertOutputContains "hops/hops-1.config" hopping
+  assertOutputContains "hops/hops-3.config" hopping
+  assertOutputContains "hops/hops-5.config" hopping
+  assertOutputContains "hops/hops-7.config" hopping
+  assertOutputContains "hops/hops-9.config" hopping
+
+  -- The project is named oops as it is like hops but has conflicting constraints.
+  -- +-- oops-0.project
+  --  +-- oops/oops-1.config
+  --   +-- oops-2.config
+  --    +-- oops/oops-3.config
+  --     +-- oops-4.config
+  --      +-- oops/oops-5.config
+  --       +-- oops-6.config
+  --        +-- oops/oops-7.config
+  --         +-- oops-8.config
+  --          +-- oops/oops-9.config (has conflicting constraints)
+  log "checking conflicting constraints skipping into a subfolder and then back out again and again"
+  oopsing <- fails $ cabal' "v2-build" [ "all", "--project-file=oops-0.project" ]
+  assertOutputContains "rejecting: hashable-1.4.3.0" oopsing
+  assertOutputContains "oops-9.config requires ==1.4.2.0" oopsing
+  assertOutputContains "rejecting: hashable-1.4.2.0" oopsing
+  assertOutputContains "oops-0.project requires ==1.4.3.0" oopsing
+
+  -- The project is named yops as it is like hops but with y's for forks.
+  -- +-- yops-0.project
+  --  +-- yops/yops-1.config
+  --   +-- yops-2.config
+  --    +-- yops/yops-3.config
+  --     +-- yops-4.config
+  --      +-- yops/yops-5.config
+  --       +-- yops-6.config
+  --        +-- yops/yops-7.config
+  --         +-- yops-8.config
+  --          +-- yops/yops-9.config (no further imports)
+  --  +-- yops/yops-3.config
+  --   +-- yops-4.config
+  --    +-- yops/yops-5.config
+  --     +-- yops-6.config
+  --      +-- yops/yops-7.config
+  --       +-- yops-8.config
+  --        +-- yops/yops-9.config (no further imports)
+  --  +-- yops/yops-5.config
+  --   +-- yops-6.config
+  --    +-- yops/yops-7.config
+  --     +-- yops-8.config
+  --      +-- yops/yops-9.config (no further imports)
+  --  +-- yops/yops-7.config
+  --   +-- yops-8.config
+  --    +-- yops/yops-9.config (no further imports)
+  --  +-- yops/yops-9.config (no further imports)
+  log "checking that we detect when the same config is imported via many different paths"
+  hopping <- cabal' "v2-build" [ "--project-file=yops-0.project" ]
+  -- This test should fail detecting the same config being imported via many different paths
 
   log "checking bad conditional"
   badIf <- fails $ cabal' "v2-build" [ "--project-file=bad-conditional.project" ]
