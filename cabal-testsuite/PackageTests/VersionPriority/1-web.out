@@ -6,9 +6,9 @@ Error: [Cabal-7107]
 Could not resolve dependencies:
 [__0] trying: cabal-version-override-0.1.0.0 (user goal)
 [__1] next goal: hashable (dependency of cabal-version-override)
-[__1] rejecting: hashable-1.4.3.0 (constraint from project requires ==1.4.2.0)
+[__1] rejecting: hashable-1.4.3.0
       +-- <ROOT>/1-web-constraints-import.project requires ==1.4.2.0
-[__1] rejecting: hashable-1.4.2.0 (constraint from project requires ==1.4.3.0)
+[__1] rejecting: hashable-1.4.2.0
       +-- <ROOT>/1-web-constraints-import.project
        +-- https://www.stackage.org/nightly-2023-12-07/cabal.config requires ==1.4.3.0
 [__1] fail (backjumping, conflict set: cabal-version-override, hashable)
@@ -19,9 +19,9 @@ Error: [Cabal-7107]
 Could not resolve dependencies:
 [__0] trying: cabal-version-override-0.1.0.0 (user goal)
 [__1] next goal: hashable (dependency of cabal-version-override)
-[__1] rejecting: hashable-1.4.3.0 (constraint from project requires ==1.4.2.0)
+[__1] rejecting: hashable-1.4.3.0
       +-- <ROOT>/1-web-import-constraints.project requires ==1.4.2.0
-[__1] rejecting: hashable-1.4.2.0 (constraint from project requires ==1.4.3.0)
+[__1] rejecting: hashable-1.4.2.0
       +-- <ROOT>/1-web-import-constraints.project
        +-- https://www.stackage.org/nightly-2023-12-07/cabal.config requires ==1.4.3.0
 [__1] fail (backjumping, conflict set: cabal-version-override, hashable)
