@@ -111,30 +111,30 @@ relativeConfigPath dir (ProjectConfigPath p) =
 --
 -- It converts paths like this:
 -- @
--- +-- hops-0.project
---  +-- hops/hops-1.config
---   +-- ../hops-2.config
---    +-- hops/hops-3.config
---     +-- ../hops-4.config
---      +-- hops/hops-5.config
---       +-- ../hops-6.config
---        +-- hops/hops-7.config
---         +-- ../hops-8.config
---          +-- hops/hops-9.config
+-- └─ hops-0.project
+--    └─ hops/hops-1.config
+--       └─ ../hops-2.config
+--          └─ hops/hops-3.config
+--             └─ ../hops-4.config
+--                └─ hops/hops-5.config
+--                   └─ ../hops-6.config
+--                      └─ hops/hops-7.config
+--                         └─ ../hops-8.config
+--                            └─ hops/hops-9.config
 -- @
 -- 
 -- Into paths like this:
 -- @
--- +-- hops-0.project
---  +-- hops/hops-1.config
---   +-- hops-2.config
---    +-- hops/hops-3.config
---     +-- hops-4.config
---      +-- hops/hops-5.config
---       +-- hops-6.config
---        +-- hops/hops-7.config
---         +-- hops-8.config
---          +-- hops/hops-9.config
+-- └─ hops-0.project
+--    └─ hops/hops-1.config
+--       └─ hops-2.config
+--          └─ hops/hops-3.config
+--             └─ hops-4.config
+--                └─ hops/hops-5.config
+--                   └─ hops-6.config
+--                      └─ hops/hops-7.config
+--                         └─ hops-8.config
+--                            └─ hops/hops-9.config
 -- @
 --
 -- That way we have @hops-8.config" instead of
