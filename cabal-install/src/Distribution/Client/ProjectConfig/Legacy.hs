@@ -232,16 +232,14 @@ projectSkeletonImports = view traverseCondTreeC
 
 -- | Parses a project from its root config file, typically cabal.project.
 parseProject :: FilePath -> FilePath -> HttpTransport -> Verbosity -> ProjectConfigToParse -> IO (ParseResult ProjectConfigSkeleton)
-parseProject rootConfig cacheDir httpTranspart verbosity configToParse = do
-  uniqueImports <- newIORef []
-  parseProjectSkeleton uniqueImports [] "" (ProjectConfigPath $ rootConfig :| []) cacheDir httpTranspart verbosity configToParse
+parseProject rootPath cacheDir httpTransport verbosity configToParse = do
+  let (projectDir, projectFileName) = splitFileName rootPath
+  projectPath@(ProjectConfigPath (canonicalRoot :| _)) <- canonicalizeConfigPath projectDir (ProjectConfigPath $ projectFileName :| [])
+  uniqueImports <- newIORef [canonicalRoot]
+  parseProjectSkeleton uniqueImports projectDir projectPath cacheDir httpTransport verbosity configToParse
 
--- | Parses project configuration recursively, following imports.
-parseProjectSkeleton :: IORef [FilePath] -> [ProjectConfigPath] -> FilePath -> ProjectConfigPath -> FilePath -> HttpTransport -> Verbosity -> ProjectConfigToParse -> IO (ParseResult ProjectConfigSkeleton)
-parseProjectSkeleton uniqueImports [] _ (ProjectConfigPath (rootPath :| [])) cacheDir httpTransport verbosity configToParse = do
-  let (projectDir, projectFileName) = splitFileName rootPath; projectPath = ProjectConfigPath $ projectFileName :| []
-  parseProjectSkeleton uniqueImports [projectPath] projectDir projectPath cacheDir httpTransport verbosity configToParse
-parseProjectSkeleton uniqueImports seenImports dir rootOrImport cacheDir httpTransport verbosity (ProjectConfigToParse bs) =
+parseProjectSkeleton :: IORef [FilePath] -> FilePath -> ProjectConfigPath -> FilePath -> HttpTransport -> Verbosity -> ProjectConfigToParse -> IO (ParseResult ProjectConfigSkeleton)
+parseProjectSkeleton uniqueImports dir rootOrImport cacheDir httpTransport verbosity (ProjectConfigToParse bs) =
   (sanityWalkPCS False =<<) <$> liftPR (go rootOrImport []) (ParseUtils.readFields bs)
   where
     go :: ProjectConfigPath -> [ParseUtils.Field] -> [ParseUtils.Field] -> IO (ParseResult ProjectConfigSkeleton)
@@ -250,14 +248,11 @@ parseProjectSkeleton uniqueImports seenImports dir rootOrImport cacheDir httpTra
         let importLocPath = ProjectConfigPath (importLoc <| coerce configPath)
         let fullLocPath = fullConfigPathRoot dir importLocPath
         normLocPath@(ProjectConfigPath (uniqueImport :| _)) <- canonicalizeConfigPath dir importLocPath
-        normSeenImports <- nub <$> mapM (canonicalizeConfigPath dir) seenImports
 
         info verbosity $ "\nimport path, normalized\n=======================\n" ++ showProjectConfigPath normLocPath
-        info verbosity "\nseen imports\n============"
-        mapM_ (info verbosity . (\i -> (showString (showProjectConfigPath i) . showChar '\n') "")) normSeenImports
 
         seenUniqueImports <- atomicModifyIORef' uniqueImports (\is -> (nub $ uniqueImport : is, is))
-        info verbosity "seen unique paths\n================="
+        info verbosity "\nseen unique paths\n================="
         mapM_ (info verbosity) seenUniqueImports
         info verbosity "\n"
 
@@ -267,7 +262,7 @@ parseProjectSkeleton uniqueImports seenImports dir rootOrImport cacheDir httpTra
             pure . parseFail $ ParseUtils.FromString msg (Just l)
           else do
             let fs = (\z -> CondNode z [fullLocPath] mempty) <$> fieldsToConfig configPath (reverse acc)
-            res <- parseProjectSkeleton uniqueImports (importLocPath : seenImports) dir importLocPath cacheDir httpTransport verbosity . ProjectConfigToParse =<< fetchImportConfig normLocPath
+            res <- parseProjectSkeleton uniqueImports dir importLocPath cacheDir httpTransport verbosity . ProjectConfigToParse =<< fetchImportConfig normLocPath
             rest <- go configPath [] xs
             pure . fmap mconcat . sequence $ [fs, res, rest]
       (ParseUtils.Section l "if" p xs') -> do
