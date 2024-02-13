@@ -55,15 +55,22 @@ nTimes 0 _ = id
 nTimes 1 f = f
 nTimes n f = f . nTimes (n-1) f
 
+showFR :: VR -> FilePath -> ShowS
+showFR vr p = showString p . showString " requires " . showString (prettyShow vr)
+
+indent :: ShowS
+indent = showString "\n      "
+
 showProjectConfigPathFailReason :: VR -> ProjectConfigPath -> String
-showProjectConfigPathFailReason vr projectConfig =
+showProjectConfigPathFailReason vr (ProjectConfigPath (p :| [])) =
+    ( indent
+    . showChar '(' . showFR vr p . showChar ')'
+    ) ""
+showProjectConfigPathFailReason vr (ProjectConfigPath (p :| ps)) =
     -- SEE: https://stackoverflow.com/questions/4342013/the-composition-of-functions-in-a-list-of-functions
-    ( foldr1 (.)
-        [(showString "\n      " . showString l)
-        | l <- lines $ showProjectConfigPath projectConfig
-        ]
-    . showString " requires "
-    . showString (prettyShow vr)
+    ( indent
+    . showChar '(' . showFR vr p . showChar ')'
+    . foldr1 (.) [ indent . showString "imported by: " . showString l | l <- ps ]
     ) ""
 
 projectConfigPathRoot :: ProjectConfigPath -> FilePath
