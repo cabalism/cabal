@@ -248,11 +248,13 @@ parseProjectSkeleton seenImports dir rootOrImport cacheDir httpTransport verbosi
         let fullLocPath = fullConfigPathRoot dir importLocPath
         normLocPath <- canonicalizeConfigPath dir importLocPath
         normSeenImports <- nub <$> mapM (canonicalizeConfigPath dir) seenImports
-        info verbosity $ "import location, relative: " ++ show importLoc
-        info verbosity $ "import path, relative:\n" ++ showProjectConfigPath importLocPath
-        info verbosity $ "import path, normalized:\n" ++ showProjectConfigPath normLocPath
-        info verbosity "seen imports:\n"
-        mapM_ (info verbosity . showProjectConfigPath) normSeenImports
+
+        info verbosity $ "\nimport location, relative: " ++ importLoc
+        info verbosity $ "\nimport path, relative\n=====================\n" ++ showProjectConfigPath importLocPath
+        info verbosity $ "\nimport path, normalized\n=======================\n" ++ showProjectConfigPath normLocPath
+        info verbosity "\nseen imports\n============"
+        mapM_ (info verbosity . (\i -> (showString (showProjectConfigPath i) . showChar '\n') "")) normSeenImports
+
         if hasDuplicatesConfigPath normLocPath || normLocPath `elem` normSeenImports
           then do
             let msg = "cyclical import of " ++ takeFileName importLoc ++ ";\n" ++ showProjectConfigPath fullLocPath
