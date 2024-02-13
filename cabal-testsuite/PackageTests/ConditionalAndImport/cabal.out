@@ -71,6 +71,7 @@ Preprocessing library for my-0.1...
 Building library for my-0.1...
 # checking that cyclical check doesn't false-positive on same file names in different folders; hoping into a subfolder and then back out again
 # cabal v2-build
+Up to date
 # checking that cyclical check catches a same file name that imports itself
 # cabal v2-build
 Error: [Cabal-7090]
