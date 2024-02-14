@@ -246,10 +246,9 @@ parseProjectSkeleton uniqueImports dir rootOrImport cacheDir httpTransport verbo
         let importLocPath = importLoc `consProjectConfigPath` configPath
         let fullLocPath = fullConfigPathRoot dir importLocPath
         normLocPath@(ProjectConfigPath (uniqueImport :| _)) <- canonicalizeConfigPath dir importLocPath
+        seenUniqueImports <- atomicModifyIORef' uniqueImports (\is -> (nub $ uniqueImport : is, is))
 
         info verbosity $ "\nimport path, normalized\n=======================\n" ++ showProjectConfigPath normLocPath
-
-        seenUniqueImports <- atomicModifyIORef' uniqueImports (\is -> (nub $ uniqueImport : is, is))
         info verbosity "\nseen unique paths\n================="
         mapM_ (info verbosity) seenUniqueImports
         info verbosity "\n"
