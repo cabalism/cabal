@@ -8,11 +8,11 @@ description:
   $ cabal build all --dry-run
   ...
   [__1] next goal: hashable
-  [__1] rejecting: hashable-1.4.3.0 (constraint from project requires ==1.4.2.0)
-       +-- cabal.project requires ==1.4.2.0
-  [__1] rejecting: hashable-1.4.2.0 (constraint from project requires ==1.4.3.0)
-       +-- cabal.project
-        +-- https://www.stackage.org/nightly-2023-12-07/cabal.config requires ==1.4.3.0
+  [__1] rejecting: hashable-1.4.3.0
+        (<ROOT>/1-web-import-constraints.project requires ==1.4.2.0)
+  [__1] rejecting: hashable-1.4.2.0
+        (https://www.stackage.org/nightly-2023-12-07/cabal.config requires ==1.4.3.0)
+        imported by: <ROOT>/1-web-import-constraints.project
   ```
 
 packages: cabal-install-solver cabal-install
