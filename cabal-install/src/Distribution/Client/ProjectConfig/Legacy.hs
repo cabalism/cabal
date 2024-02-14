@@ -235,19 +235,22 @@ parseProject rootPath cacheDir httpTransport verbosity configToParse = do
   let (projectDir, projectFileName) = splitFileName rootPath
   projectPath@(ProjectConfigPath (canonicalRoot :| _)) <- canonicalizeConfigPath projectDir (ProjectConfigPath $ projectFileName :| [])
   uniqueImports <- newIORef [canonicalRoot]
-  parseProjectSkeleton uniqueImports projectDir projectPath cacheDir httpTransport verbosity configToParse
+  importsBy <- newIORef [(canonicalRoot, projectPath)] 
+  parseProjectSkeleton uniqueImports importsBy projectDir projectPath cacheDir httpTransport verbosity configToParse
 
-parseProjectSkeleton :: IORef [FilePath] -> FilePath -> ProjectConfigPath -> FilePath -> HttpTransport -> Verbosity -> ProjectConfigToParse -> IO (ParseResult ProjectConfigSkeleton)
-parseProjectSkeleton uniqueImports dir rootOrImport cacheDir httpTransport verbosity (ProjectConfigToParse bs) =
+parseProjectSkeleton :: IORef [FilePath] -> IORef [(FilePath, ProjectConfigPath)] -> FilePath -> ProjectConfigPath -> FilePath -> HttpTransport -> Verbosity -> ProjectConfigToParse -> IO (ParseResult ProjectConfigSkeleton)
+parseProjectSkeleton uniqueImports importsBy dir rootOrImport cacheDir httpTransport verbosity (ProjectConfigToParse bs) =
   (sanityWalkPCS False =<<) <$> liftPR (go rootOrImport []) (ParseUtils.readFields bs)
   where
     go :: ProjectConfigPath -> [ParseUtils.Field] -> [ParseUtils.Field] -> IO (ParseResult ProjectConfigSkeleton)
     go configPath acc (x : xs) = case x of
       (ParseUtils.F l "import" importLoc) -> do
         let importLocPath = importLoc `consProjectConfigPath` configPath
+        let importFileName = takeFileName importLoc
         let fullLocPath = fullConfigPathRoot dir importLocPath
         normLocPath@(ProjectConfigPath (uniqueImport :| _)) <- canonicalizeConfigPath dir importLocPath
-        seenUniqueImports <- atomicModifyIORef' uniqueImports (\is -> (nub $ uniqueImport : is, is))
+        seenUniqueImports <- atomicModifyIORef' uniqueImports (\uis -> (nub $ uniqueImport : uis, uis))
+        seenImportsBy <- atomicModifyIORef' importsBy (\ibs -> (nub $ (importFileName, importLocPath) : ibs, ibs))
 
         info verbosity $ "\nimport path, normalized\n=======================\n" ++ showProjectConfigPath normLocPath
         info verbosity "\nseen unique paths\n================="
@@ -257,15 +260,19 @@ parseProjectSkeleton uniqueImports dir rootOrImport cacheDir httpTransport verbo
         if
             | hasDuplicatesConfigPath normLocPath -> do
                 -- hasDuplicatesConfigPath checks for cycles in a single import path
-                let msg = "cyclical import of " ++ takeFileName importLoc ++ ";\n" ++ showProjectConfigPath fullLocPath
+                let msg = "cyclical import of " ++ importFileName ++ ";\n" ++ showProjectConfigPath fullLocPath
                 pure . parseFail $ ParseUtils.FromString msg (Just l)
             | uniqueImport `elem` seenUniqueImports -> do
                 -- we've seen this canonicalized import before so it is a duplicate by another path
-                let msg = "duplicate import of " ++ takeFileName importLoc ++ ";\n" ++ showProjectConfigPath fullLocPath
+                let dupImportsBy = filter ((importFileName ==)  . fst) seenImportsBy
+                let msg =
+                      "duplicate import of " ++ importFileName ++ ";\n"
+                      ++ showProjectConfigPath fullLocPath
+                      ++ unlines [ showProjectConfigPath dib | (_, dib) <- dupImportsBy ]
                 pure . parseFail $ ParseUtils.FromString msg (Just l)
             | otherwise -> do
                 let fs = (\z -> CondNode z [fullLocPath] mempty) <$> fieldsToConfig configPath (reverse acc)
-                res <- parseProjectSkeleton uniqueImports dir importLocPath cacheDir httpTransport verbosity . ProjectConfigToParse =<< fetchImportConfig normLocPath
+                res <- parseProjectSkeleton uniqueImports importsBy dir importLocPath cacheDir httpTransport verbosity . ProjectConfigToParse =<< fetchImportConfig normLocPath
                 rest <- go configPath [] xs
                 pure . fmap mconcat . sequence $ [fs, res, rest]
       (ParseUtils.Section l "if" p xs') -> do
