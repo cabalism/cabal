@@ -100,7 +100,7 @@ nullProjectConfigPath = ProjectConfigPath $ "unused" :| []
 -- check should only be done after the path has been canonicalized with
 -- @canonicalizeConfigPath@. This is because the import path may contain paths
 -- that are the same in relation to their importers but different in relation to
--- the project root.
+-- the project root directory.
 hasDuplicatesConfigPath :: ProjectConfigPath -> Bool
 hasDuplicatesConfigPath (ProjectConfigPath p) = length p /= length (NE.nub p)
 
@@ -116,10 +116,10 @@ fullConfigPathRoot dir (ProjectConfigPath p) =
 consProjectConfigPath :: FilePath -> ProjectConfigPath -> ProjectConfigPath
 consProjectConfigPath p ps = ProjectConfigPath (p <| coerce ps)
 
--- | Make paths relative to the root of the project, not relative to the file
--- they were imported from.
-relativeConfigPath :: FilePath -> ProjectConfigPath -> ProjectConfigPath
-relativeConfigPath dir (ProjectConfigPath p) =
+-- | Make paths relative to the directory of the root of the project, not
+-- relative to the file they were imported from.
+makeRelativeConfigPath :: FilePath -> ProjectConfigPath -> ProjectConfigPath
+makeRelativeConfigPath dir (ProjectConfigPath p) =
     ProjectConfigPath
     $ (\segment -> (if isURI segment then segment else makeRelative dir segment))
     <$> p
@@ -170,7 +170,7 @@ canonicalizeConfigPath dir (ProjectConfigPath p) = do
             then pure importee
             else canonicalizePath $ dir </> takeDirectory importer </> importee))
         (pure ".") p
-   return . relativeConfigPath dir . ProjectConfigPath . NE.fromList $ NE.init xs
+   return . makeRelativeConfigPath dir . ProjectConfigPath . NE.fromList $ NE.init xs
 
 isURI :: FilePath -> Bool
 isURI = isJust  .parseURI
