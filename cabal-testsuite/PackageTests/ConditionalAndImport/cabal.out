@@ -76,7 +76,7 @@ Up to date
 # cabal v2-build
 Error: [Cabal-7090]
 Error parsing project file <ROOT>/cyclical-same-filename-out-out-self.project:1:
-cyclical import of cyclical-same-filename-out-out-self.config;
+cyclical import of same-filename/cyclical-same-filename-out-out-self.config;
 * <ROOT>/cyclical-same-filename-out-out-self.project
 -* cyclical-same-filename-out-out-self.config
 --* same-filename/cyclical-same-filename-out-out-self.config
@@ -128,7 +128,7 @@ After searching the rest of the dependency tree exhaustively, these were the goa
 # cabal v2-build
 Error: [Cabal-7090]
 Error parsing project file <ROOT>/yops-0.project:4:
-duplicate import of yops-3.config;
+duplicate import of yops/yops-3.config;
 * <ROOT>/yops-0.project
 -* yops/yops-3.config
 * yops-0.project

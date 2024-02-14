@@ -76,7 +76,7 @@ main = cabalTest . withRepo "repo" . recordMode RecordMarked $ do
   --    +-- etc
   log "checking that cyclical check catches a same file name that imports itself"
   cyclical4a <- fails $ cabal' "v2-build" [ "--project-file=cyclical-same-filename-out-out-self.project" ]
-  assertOutputContains "cyclical import of cyclical-same-filename-out-out-self.config" cyclical4a
+  assertOutputContains "cyclical import of same-filename/cyclical-same-filename-out-out-self.config" cyclical4a
 
   -- +-- cyclical-same-filename-out-out-backback.project
   --  +-- cyclical-same-filename-out-out-backback.config
@@ -167,7 +167,7 @@ main = cabalTest . withRepo "repo" . recordMode RecordMarked $ do
   --  +-- yops/yops-9.config (no further imports)
   log "checking that we detect when the same config is imported via many different paths"
   yopping <- fails $ cabal' "v2-build" [ "--project-file=yops-0.project" ]
-  assertOutputContains "duplicate import of yops-3.config" yopping
+  assertOutputContains "duplicate import of yops/yops-3.config" yopping
 
   log "checking bad conditional"
   badIf <- fails $ cabal' "v2-build" [ "--project-file=bad-conditional.project" ]
