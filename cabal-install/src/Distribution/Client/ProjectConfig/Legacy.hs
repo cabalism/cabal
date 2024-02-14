@@ -1,5 +1,6 @@
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE MultiWayIf #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -253,15 +254,20 @@ parseProjectSkeleton uniqueImports dir rootOrImport cacheDir httpTransport verbo
         mapM_ (info verbosity) seenUniqueImports
         info verbosity "\n"
 
-        if hasDuplicatesConfigPath normLocPath || uniqueImport `elem` seenUniqueImports
-          then do
-            let msg = "cyclical import of " ++ takeFileName importLoc ++ ";\n" ++ showProjectConfigPath fullLocPath
-            pure . parseFail $ ParseUtils.FromString msg (Just l)
-          else do
-            let fs = (\z -> CondNode z [fullLocPath] mempty) <$> fieldsToConfig configPath (reverse acc)
-            res <- parseProjectSkeleton uniqueImports dir importLocPath cacheDir httpTransport verbosity . ProjectConfigToParse =<< fetchImportConfig normLocPath
-            rest <- go configPath [] xs
-            pure . fmap mconcat . sequence $ [fs, res, rest]
+        if
+            | hasDuplicatesConfigPath normLocPath -> do
+                -- hasDuplicatesConfigPath checks for cycles in a single import path
+                let msg = "cyclical import of " ++ takeFileName importLoc ++ ";\n" ++ showProjectConfigPath fullLocPath
+                pure . parseFail $ ParseUtils.FromString msg (Just l)
+            | uniqueImport `elem` seenUniqueImports -> do
+                -- we've seen this canonicalized import before so it is a duplicate by another path
+                let msg = "duplicate import of " ++ takeFileName importLoc ++ ";\n" ++ showProjectConfigPath fullLocPath
+                pure . parseFail $ ParseUtils.FromString msg (Just l)
+            | otherwise -> do
+                let fs = (\z -> CondNode z [fullLocPath] mempty) <$> fieldsToConfig configPath (reverse acc)
+                res <- parseProjectSkeleton uniqueImports dir importLocPath cacheDir httpTransport verbosity . ProjectConfigToParse =<< fetchImportConfig normLocPath
+                rest <- go configPath [] xs
+                pure . fmap mconcat . sequence $ [fs, res, rest]
       (ParseUtils.Section l "if" p xs') -> do
         subpcs <- go configPath [] xs'
         let fs = singletonProjectConfigSkeleton <$> fieldsToConfig configPath (reverse acc)
