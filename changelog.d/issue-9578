@@ -2,7 +2,7 @@ synopsis: Show provenance of project constraints
 description:
   When the solver rejects a package version show the provenance of the
   "requires" version constraint as a path in the project configuration import
-  tree:
+  tree.
 
   ```
   $ cabal build all --dry-run
@@ -14,6 +14,13 @@ description:
         (https://www.stackage.org/nightly-2023-12-07/cabal.config requires ==1.4.3.0)
         imported by: <ROOT>/1-web-import-constraints.project
   ```
+
+  Fixes some test failures detecting cycles in imports, when;
+  
+  - the wrong import was reported as starting the cycle
+  - a cycle was reported that wasn't actually a cycle
+
+  Duplicate imports are now reported as errors, rather than silently ignored.
 
 packages: cabal-install-solver cabal-install
 prs: #9578
