@@ -189,7 +189,7 @@ import Distribution.Fields.ConfVar (parseConditionConfVarFromClause)
 import Distribution.Client.HttpUtils
 import Distribution.Client.ReplFlags (multiReplOption)
 import System.Directory (createDirectoryIfMissing)
-import System.FilePath (isAbsolute, isPathSeparator, makeValid, splitFileName, takeFileName, (</>))
+import System.FilePath (isAbsolute, isPathSeparator, makeValid, splitFileName, (</>))
 
 ------------------------------------------------------------------
 -- Handle extended project config files with conditionals and imports.
@@ -245,11 +245,10 @@ parseProjectSkeleton importsBy dir rootOrImport cacheDir httpTransport verbosity
     go configPath acc (x : xs) = case x of
       (ParseUtils.F l "import" importLoc) -> do
         let importLocPath = importLoc `consProjectConfigPath` configPath
-        let fullLocPath = fullConfigPathRoot dir importLocPath
 
         -- Once we canonicalize the import path, we can check for cyclical imports and duplicates
         normLocPath@(ProjectConfigPath (uniqueImport :| _)) <- canonicalizeConfigPath dir importLocPath
-        seenImportsBy <- atomicModifyIORef' importsBy (\ibs -> (nub $ (uniqueImport, importLocPath) : ibs, ibs))
+        seenImportsBy <- atomicModifyIORef' importsBy (\ibs -> (nub $ (uniqueImport, normLocPath) : ibs, ibs))
 
         info verbosity $ "\nimport path, normalized\n=======================\n" ++ showProjectConfigPath normLocPath
         info verbosity "\nseen unique paths\n================="
@@ -263,7 +262,7 @@ parseProjectSkeleton importsBy dir rootOrImport cacheDir httpTransport verbosity
                       "cyclical import of "
                         ++ uniqueImport
                         ++ ";\n"
-                        ++ showProjectConfigPath fullLocPath
+                        ++ showProjectConfigPath normLocPath
                 pure . parseFail $ ParseUtils.FromString msg (Just l)
             | uniqueImport `elem` (fst <$> seenImportsBy) -> do
                 -- we've seen this canonicalized import before so it is a duplicate by another path
@@ -272,11 +271,11 @@ parseProjectSkeleton importsBy dir rootOrImport cacheDir httpTransport verbosity
                       "duplicate import of "
                         ++ uniqueImport
                         ++ ";\n"
-                        ++ showProjectConfigPath fullLocPath
+                        ++ showProjectConfigPath normLocPath
                         ++ unlines [showProjectConfigPath dib | (_, dib) <- dupImportsBy]
                 pure . parseFail $ ParseUtils.FromString msg (Just l)
             | otherwise -> do
-                let fs = (\z -> CondNode z [fullLocPath] mempty) <$> fieldsToConfig configPath (reverse acc)
+                let fs = (\z -> CondNode z [normLocPath] mempty) <$> fieldsToConfig configPath (reverse acc)
                 res <- parseProjectSkeleton importsBy dir importLocPath cacheDir httpTransport verbosity . ProjectConfigToParse =<< fetchImportConfig normLocPath
                 rest <- go configPath [] xs
                 pure . fmap mconcat . sequence $ [fs, res, rest]
