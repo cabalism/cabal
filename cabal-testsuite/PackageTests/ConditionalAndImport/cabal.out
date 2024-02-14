@@ -128,7 +128,7 @@ After searching the rest of the dependency tree exhaustively, these were the goa
 # cabal v2-build
 Error: [Cabal-7090]
 Error parsing project file <ROOT>/yops-0.project:4:
-cyclical import of yops-3.config;
+duplicate import of yops-3.config;
 * <ROOT>/yops-0.project
 -* yops/yops-3.config
 # checking bad conditional
