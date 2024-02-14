@@ -27,9 +27,17 @@ import qualified Data.List.NonEmpty as NE
 import Distribution.Solver.Modular.Version (VR)
 import Distribution.Pretty (prettyShow)
 
--- | Path to a configuration file, being either "the project" root or an import,
--- built up from the root to the leaf. The root is the last element and the leaf
--- is the first element.
+-- | Path to a configuration file, either a singleton project root, or a longer
+-- list representing a path to an import.  The path is a non-empty list that we
+-- build up by prepending relative imports with @consProjectConfigPath@.
+--
+-- An import can be a URI, such as [a stackage
+-- cabal.config](https://www.stackage.org/nightly/cabal.config), but we do not
+-- support URIs in the middle of the path, URIs that import other URIs, or URIs
+-- that import local files.
+--
+-- List elements are relative to each other but once canonicalized, elements are
+-- relative to the directory of the project root.
 newtype ProjectConfigPath = ProjectConfigPath (NonEmpty FilePath)
     deriving (Eq, Show, Generic)
 
