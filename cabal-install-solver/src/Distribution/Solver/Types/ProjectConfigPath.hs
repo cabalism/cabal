@@ -49,7 +49,7 @@ instance Structured ProjectConfigPath
 showFR :: VR -> FilePath -> Doc
 showFR vr p = text p <+> text "requires" <+> text (prettyShow vr)
 
--- | Renders the path with ancestors above and unindented, like this:
+-- | Renders the path like this;
 -- @
 -- D.config
 --   imported by: C.config
