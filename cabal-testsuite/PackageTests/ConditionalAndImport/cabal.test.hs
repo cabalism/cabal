@@ -110,10 +110,10 @@ main = cabalTest . withRepo "repo" . recordMode RecordMarked $ do
   hopping <- cabal' "v2-build" [ "--project-file=hops-0.project" ]
   assertOutputContains "this build was affected by the following (project) config files:" hopping
   assertOutputContains "hops-0.project" hopping
-  assertOutputContains "../hops-2.config" hopping
-  assertOutputContains "../hops-4.config" hopping
-  assertOutputContains "../hops-6.config" hopping
-  assertOutputContains "../hops-8.config" hopping
+  assertOutputContains "hops-2.config" hopping
+  assertOutputContains "hops-4.config" hopping
+  assertOutputContains "hops-6.config" hopping
+  assertOutputContains "hops-8.config" hopping
   assertOutputContains "hops/hops-1.config" hopping
   assertOutputContains "hops/hops-3.config" hopping
   assertOutputContains "hops/hops-5.config" hopping
