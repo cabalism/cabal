@@ -15,8 +15,8 @@ description:
           imported by: cabal.project
   ```
 
-  Even though imports are relative to their parent when imported, imports are
-  shown relative to the root project configuration file in the solver output.
+  Even though imports are relative to their parent when imported, their paths
+  are shown relative to the directory of the project in the solver output.
 
   ```
   $ cat oops/oops-1.config 
