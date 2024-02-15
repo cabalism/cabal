@@ -80,24 +80,16 @@ indent :: ShowS
 indent = showString "\n      "
 
 docProjectConfigPath :: ProjectConfigPath -> Doc
-docProjectConfigPath (ProjectConfigPath (p :| [])) = text $
-    ( indent
-    . showChar '(' . showString p . showChar ')'
-    ) ""
-docProjectConfigPath (ProjectConfigPath (p :| ps)) = text $
-    -- SEE: https://stackoverflow.com/questions/4342013/the-composition-of-functions-in-a-list-of-functions
-    ( indent
-    . showChar '(' . showString p . showChar ')'
-    . foldr1 (.) [ indent . showString "imported by: " . showString l | l <- ps ]
-    ) ""
+docProjectConfigPath (ProjectConfigPath (p :| [])) = text p
+docProjectConfigPath (ProjectConfigPath (p :| ps)) = vcat $
+    text p : [ text " " <+> text "imported by:" <+> text l | l <- ps ]
 
 duplicateImportMsg :: FilePath -> ProjectConfigPath -> [(FilePath, ProjectConfigPath)] -> Doc
-duplicateImportMsg uniqueImport normLocPath dupImportsBy =
-    text "duplicate import of"
-    <+> text uniqueImport
-    <> semi
-    <+> docProjectConfigPath normLocPath
-    <+> vcat [docProjectConfigPath dib | (_, dib) <- dupImportsBy]
+duplicateImportMsg uniqueImport normLocPath dupImportsBy = vcat
+    [ text "duplicate import of" <+> text uniqueImport <> semi
+    , nest 2 (docProjectConfigPath normLocPath)
+    , cat [nest 2 (docProjectConfigPath dib) | (_, dib) <- dupImportsBy]
+    ]
 
 showProjectConfigPathFailReason :: VR -> ProjectConfigPath -> String
 showProjectConfigPathFailReason vr (ProjectConfigPath (p :| [])) =
