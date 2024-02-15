@@ -287,7 +287,6 @@ parseProjectSkeleton importsBy dir rootOrImport cacheDir httpTransport verbosity
                 <*> elseClauses
         pure . fmap mconcat . sequence $ [fs, condNode, rest]
       _ -> go configPath (x : acc) xs
-
     go configPath acc [] = do
       -- We want a normalized path for @fieldsToConfig@. This eventually
       -- surfaces in solver rejection messages and we want all paths shown there
