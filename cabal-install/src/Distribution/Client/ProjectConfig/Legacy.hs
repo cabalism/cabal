@@ -266,7 +266,8 @@ parseProjectSkeleton importsBy dir rootOrImport cacheDir httpTransport verbosity
                 -- We've seen this canonicalized import before so it is a
                 -- duplicate by another path. We don't need to parse it again
                 -- but we issue a warning.
-                warn verbosity $ render (duplicateImportMsg uniqueImport normLocPath $ filter ((uniqueImport ==) . fst) seenImportsBy)
+                let dupImportsBy = (uniqueImport, normLocPath) : filter ((uniqueImport ==) . fst) seenImportsBy
+                warn verbosity . render $ duplicateImportMsg uniqueImport dupImportsBy
                 go configPath acc []
             | otherwise -> do
                 let fs = (\z -> CondNode z [normLocPath] mempty) <$> fieldsToConfig configPath (reverse acc)

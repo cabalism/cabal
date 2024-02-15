@@ -63,10 +63,9 @@ docProjectConfigPath (ProjectConfigPath (p :| [])) = text p
 docProjectConfigPath (ProjectConfigPath (p :| ps)) = vcat $
     text p : [ text " " <+> text "imported by:" <+> text l | l <- ps ]
 
-duplicateImportMsg :: FilePath -> ProjectConfigPath -> [(FilePath, ProjectConfigPath)] -> Doc
-duplicateImportMsg uniqueImport normLocPath dupImportsBy = vcat
+duplicateImportMsg :: FilePath -> [(FilePath, ProjectConfigPath)] -> Doc
+duplicateImportMsg uniqueImport dupImportsBy = vcat
     [ text "duplicate import of" <+> text uniqueImport <> semi
-    , nest 2 (docProjectConfigPath normLocPath)
     , cat [nest 2 (docProjectConfigPath dib) | (_, dib) <- dupImportsBy]
     ]
 
