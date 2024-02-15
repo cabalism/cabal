@@ -5,10 +5,10 @@
 module Distribution.Solver.Types.ProjectConfigPath
     ( ProjectConfigPath(..)
     , projectConfigPathRoot
-    , showProjectConfigPath
     , docProjectConfigPath
+    , cyclicalImportMsg
     , duplicateImportMsg
-    , showProjectConfigPathFailReason
+    , docProjectConfigPathFailReason
     , nullProjectConfigPath
     , consProjectConfigPath
     , hasDuplicatesConfigPath
@@ -16,11 +16,10 @@ module Distribution.Solver.Types.ProjectConfigPath
     , canonicalizeConfigPath
     ) where
 
-import Distribution.Solver.Compat.Prelude hiding (toList, foldr1, (<>))
-import Prelude (foldr1, sequence)
+import Distribution.Solver.Compat.Prelude hiding (toList, (<>))
+import Prelude (sequence)
 
 import Data.Coerce (coerce)
-import Data.List.NonEmpty (toList)
 import Data.List.NonEmpty ((<|))
 import Network.URI (parseURI)
 import System.Directory
@@ -47,38 +46,18 @@ newtype ProjectConfigPath = ProjectConfigPath (NonEmpty FilePath)
 instance Binary ProjectConfigPath
 instance Structured ProjectConfigPath
 
+showFR :: VR -> FilePath -> Doc
+showFR vr p = text p <+> text "requires" <+> text (prettyShow vr)
+
 -- | Renders the path with ancestors above and unindented, like this:
 -- @
--- * <ROOT>
--- -* ...
--- --* ...
--- ---* <LEAF>
+-- D.config
+--   imported by: C.config
+--   imported by: B.config
+--   imported by: A.project
 -- @
--- Leading spaces would have been nicer but these are trimmed when logging so we
--- use leading hyphens instead.
--- >>> showProjectConfigPath $ ProjectConfigPath $ "D" :| ["C", "B", "A" ]
--- "* A\n-* B\n--* C\n---* D\n"
-showProjectConfigPath :: ProjectConfigPath -> String
-showProjectConfigPath (ProjectConfigPath xs) =
-    unlines
-        [ (nTimes i (showChar '-') . showString "* " . showString x) ""
-        | x <- reverse $ toList xs
-        | i <- [0..]
-        ]
-
--- | Apply a function @n@ times to a given value.
--- SEE: GHC.Utils.Misc
-nTimes :: Int -> (a -> a) -> (a -> a)
-nTimes 0 _ = id
-nTimes 1 f = f
-nTimes n f = f . nTimes (n-1) f
-
-showFR :: VR -> FilePath -> ShowS
-showFR vr p = showString p . showString " requires " . showString (prettyShow vr)
-
-indent :: ShowS
-indent = showString "\n      "
-
+-- >>> render . docProjectConfigPath $ ProjectConfigPath $ "D.config" :| ["C.config", "B.config", "A.project" ]
+-- "D.config\n  imported by: C.config\n  imported by: B.config\n  imported by: A.project"
 docProjectConfigPath :: ProjectConfigPath -> Doc
 docProjectConfigPath (ProjectConfigPath (p :| [])) = text p
 docProjectConfigPath (ProjectConfigPath (p :| ps)) = vcat $
@@ -91,17 +70,19 @@ duplicateImportMsg uniqueImport normLocPath dupImportsBy = vcat
     , cat [nest 2 (docProjectConfigPath dib) | (_, dib) <- dupImportsBy]
     ]
 
-showProjectConfigPathFailReason :: VR -> ProjectConfigPath -> String
-showProjectConfigPathFailReason vr (ProjectConfigPath (p :| [])) =
-    ( indent
-    . showChar '(' . showFR vr p . showChar ')'
-    ) ""
-showProjectConfigPathFailReason vr (ProjectConfigPath (p :| ps)) =
-    -- SEE: https://stackoverflow.com/questions/4342013/the-composition-of-functions-in-a-list-of-functions
-    ( indent
-    . showChar '(' . showFR vr p . showChar ')'
-    . foldr1 (.) [ indent . showString "imported by: " . showString l | l <- ps ]
-    ) ""
+cyclicalImportMsg :: FilePath -> ProjectConfigPath -> Doc
+cyclicalImportMsg uniqueImport normLocPath = vcat
+    [ text "cyclical import of" <+> text uniqueImport <> semi
+    , nest 2 (docProjectConfigPath normLocPath)
+    ]
+
+docProjectConfigPathFailReason :: VR -> ProjectConfigPath -> Doc
+docProjectConfigPathFailReason vr (ProjectConfigPath (p :| [])) =
+    parens $ showFR vr p
+docProjectConfigPathFailReason vr (ProjectConfigPath (p :| ps)) = vcat
+    [ parens (showFR vr p)
+    , cat [nest 2 $ text "imported by: " <+> text l | l <- ps ]
+    ]
 
 -- | The root of the path, the project itself.
 projectConfigPathRoot :: ProjectConfigPath -> FilePath
