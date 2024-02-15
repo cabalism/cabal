@@ -189,9 +189,9 @@ import Distribution.Fields.ConfVar (parseConditionConfVarFromClause)
 
 import Distribution.Client.HttpUtils
 import Distribution.Client.ReplFlags (multiReplOption)
-import Text.PrettyPrint (render)
 import System.Directory (createDirectoryIfMissing)
 import System.FilePath (isAbsolute, isPathSeparator, makeValid, splitFileName, (</>))
+import Text.PrettyPrint (render)
 
 ------------------------------------------------------------------
 -- Handle extended project config files with conditionals and imports.
