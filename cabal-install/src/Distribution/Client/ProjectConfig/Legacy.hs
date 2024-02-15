@@ -287,7 +287,14 @@ parseProjectSkeleton importsBy dir rootOrImport cacheDir httpTransport verbosity
                 <*> elseClauses
         pure . fmap mconcat . sequence $ [fs, condNode, rest]
       _ -> go configPath (x : acc) xs
-    go configPath acc [] = pure . fmap singletonProjectConfigSkeleton . fieldsToConfig configPath $ reverse acc
+
+    go configPath acc [] = do
+      -- We want a normalized path for @fieldsToConfig@. This eventually
+      -- surfaces in solver rejection messages and we want all paths shown there
+      -- to be relative to the directory of the project, not relative to the
+      -- file they were imported from.
+      normConfigPath <- canonicalizeConfigPath dir configPath
+      pure . fmap singletonProjectConfigSkeleton . fieldsToConfig normConfigPath $ reverse acc
 
     parseElseClauses :: ProjectConfigPath -> [ParseUtils.Field] -> IO (ParseResult (Maybe ProjectConfigSkeleton), ParseResult ProjectConfigSkeleton)
     parseElseClauses configPath x = case x of
@@ -309,7 +316,7 @@ parseProjectSkeleton importsBy dir rootOrImport cacheDir httpTransport verbosity
     fieldsToConfig :: ProjectConfigPath -> [ParseUtils.Field] -> ParseResult ProjectConfig
     fieldsToConfig configPath@(ProjectConfigPath (importee :| _)) xs =
       (addProvenance importee . convertLegacyProjectConfig)
-        <$> parseLegacyProjectConfigFields (fullConfigPathRoot dir configPath) xs
+        <$> parseLegacyProjectConfigFields configPath xs
 
     addProvenance :: FilePath -> ProjectConfig -> ProjectConfig
     addProvenance source x = x{projectConfigProvenance = Set.singleton (Explicit source)}
