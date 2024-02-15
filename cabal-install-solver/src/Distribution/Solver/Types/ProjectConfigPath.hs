@@ -80,7 +80,7 @@ docProjectConfigPathFailReason vr (ProjectConfigPath (p :| [])) =
     parens $ showFR vr p
 docProjectConfigPathFailReason vr (ProjectConfigPath (p :| ps)) = vcat
     [ parens (showFR vr p)
-    , cat [nest 2 $ text "imported by: " <+> text l | l <- ps ]
+    , cat [nest 2 $ text "imported by:" <+> text l | l <- ps ]
     ]
 
 -- | The root of the path, the project itself.
