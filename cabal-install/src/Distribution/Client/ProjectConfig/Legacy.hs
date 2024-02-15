@@ -189,8 +189,7 @@ import Distribution.Fields.ConfVar (parseConditionConfVarFromClause)
 
 import Distribution.Client.HttpUtils
 import Distribution.Client.ReplFlags (multiReplOption)
-import Distribution.Pretty (defaultStyle)
-import Text.PrettyPrint (renderStyle)
+import Text.PrettyPrint (render)
 import System.Directory (createDirectoryIfMissing)
 import System.FilePath (isAbsolute, isPathSeparator, makeValid, splitFileName, (</>))
 
@@ -251,29 +250,23 @@ parseProjectSkeleton importsBy dir rootOrImport cacheDir httpTransport verbosity
 
         -- Once we canonicalize the import path, we can check for cyclical imports and duplicates
         normLocPath@(ProjectConfigPath (uniqueImport :| _)) <- canonicalizeConfigPath dir importLocPath
-        seenImportsBy <- atomicModifyIORef' importsBy (\ibs -> (nub $ (uniqueImport, normLocPath) : ibs, ibs))
+        seenImportsBy@(fmap fst -> seenImports) <- atomicModifyIORef' importsBy (\ibs -> (nub $ (uniqueImport, normLocPath) : ibs, ibs))
 
-        info verbosity $ "\nimport path, normalized\n=======================\n" ++ showProjectConfigPath normLocPath
+        info verbosity $ "\nimport path, normalized\n=======================\n" ++ (render $ docProjectConfigPath normLocPath)
         info verbosity "\nseen unique paths\n================="
         mapM_ (info verbosity . fst) seenImportsBy
         info verbosity "\n"
 
         if
-            | hasDuplicatesConfigPath normLocPath -> do
+            | hasDuplicatesConfigPath normLocPath ->
                 -- When hasDuplicatesConfigPath finds cycles in a single import
                 -- path we stop parsing and issue an error.
-                let msg =
-                      "cyclical import of "
-                        ++ uniqueImport
-                        ++ ";\n"
-                        ++ showProjectConfigPath normLocPath
-                pure . parseFail $ ParseUtils.FromString msg (Just l)
-            | uniqueImport `elem` (fst <$> seenImportsBy) -> do
+                pure . parseFail $ ParseUtils.FromString (render $ cyclicalImportMsg uniqueImport normLocPath) (Just l)
+            | uniqueImport `elem` seenImports -> do
                 -- We've seen this canonicalized import before so it is a
                 -- duplicate by another path. We don't need to parse it again
                 -- but we issue a warning.
-                let dupImportsBy = filter ((uniqueImport ==) . fst) seenImportsBy
-                warn verbosity . renderStyle defaultStyle $ duplicateImportMsg uniqueImport normLocPath dupImportsBy
+                warn verbosity $ render (duplicateImportMsg uniqueImport normLocPath $ filter ((uniqueImport ==) . fst) seenImportsBy)
                 go configPath acc []
             | otherwise -> do
                 let fs = (\z -> CondNode z [normLocPath] mempty) <$> fieldsToConfig configPath (reverse acc)
