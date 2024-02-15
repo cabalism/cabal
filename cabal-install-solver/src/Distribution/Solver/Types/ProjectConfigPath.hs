@@ -6,6 +6,8 @@ module Distribution.Solver.Types.ProjectConfigPath
     ( ProjectConfigPath(..)
     , projectConfigPathRoot
     , showProjectConfigPath
+    , docProjectConfigPath
+    , duplicateImportMsg
     , showProjectConfigPathFailReason
     , nullProjectConfigPath
     , consProjectConfigPath
@@ -14,7 +16,7 @@ module Distribution.Solver.Types.ProjectConfigPath
     , canonicalizeConfigPath
     ) where
 
-import Distribution.Solver.Compat.Prelude hiding (toList, foldr1)
+import Distribution.Solver.Compat.Prelude hiding (toList, foldr1, (<>))
 import Prelude (foldr1, sequence)
 
 import Data.Coerce (coerce)
@@ -26,6 +28,7 @@ import System.FilePath
 import qualified Data.List.NonEmpty as NE
 import Distribution.Solver.Modular.Version (VR)
 import Distribution.Pretty (prettyShow)
+import Text.PrettyPrint
 
 -- | Path to a configuration file, either a singleton project root, or a longer
 -- list representing a path to an import.  The path is a non-empty list that we
@@ -75,6 +78,26 @@ showFR vr p = showString p . showString " requires " . showString (prettyShow vr
 
 indent :: ShowS
 indent = showString "\n      "
+
+docProjectConfigPath :: ProjectConfigPath -> Doc
+docProjectConfigPath (ProjectConfigPath (p :| [])) = text $
+    ( indent
+    . showChar '(' . showString p . showChar ')'
+    ) ""
+docProjectConfigPath (ProjectConfigPath (p :| ps)) = text $
+    -- SEE: https://stackoverflow.com/questions/4342013/the-composition-of-functions-in-a-list-of-functions
+    ( indent
+    . showChar '(' . showString p . showChar ')'
+    . foldr1 (.) [ indent . showString "imported by: " . showString l | l <- ps ]
+    ) ""
+
+duplicateImportMsg :: FilePath -> ProjectConfigPath -> [(FilePath, ProjectConfigPath)] -> Doc
+duplicateImportMsg uniqueImport normLocPath dupImportsBy =
+    text "duplicate import of"
+    <+> text uniqueImport
+    <> semi
+    <+> docProjectConfigPath normLocPath
+    <+> vcat [docProjectConfigPath dib | (_, dib) <- dupImportsBy]
 
 showProjectConfigPathFailReason :: VR -> ProjectConfigPath -> String
 showProjectConfigPathFailReason vr (ProjectConfigPath (p :| [])) =

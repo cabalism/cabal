@@ -189,6 +189,8 @@ import Distribution.Fields.ConfVar (parseConditionConfVarFromClause)
 
 import Distribution.Client.HttpUtils
 import Distribution.Client.ReplFlags (multiReplOption)
+import Distribution.Pretty (defaultStyle)
+import Text.PrettyPrint (renderStyle)
 import System.Directory (createDirectoryIfMissing)
 import System.FilePath (isAbsolute, isPathSeparator, makeValid, splitFileName, (</>))
 
@@ -271,13 +273,7 @@ parseProjectSkeleton importsBy dir rootOrImport cacheDir httpTransport verbosity
                 -- duplicate by another path. We don't need to parse it again
                 -- but we issue a warning.
                 let dupImportsBy = filter ((uniqueImport ==) . fst) seenImportsBy
-                let msg =
-                      "duplicate import of "
-                        ++ uniqueImport
-                        ++ ";\n"
-                        ++ showProjectConfigPath normLocPath
-                        ++ unlines [showProjectConfigPath dib | (_, dib) <- dupImportsBy]
-                warn verbosity msg
+                warn verbosity . renderStyle defaultStyle $ duplicateImportMsg uniqueImport normLocPath dupImportsBy
                 go configPath acc []
             | otherwise -> do
                 let fs = (\z -> CondNode z [normLocPath] mempty) <$> fieldsToConfig configPath (reverse acc)
