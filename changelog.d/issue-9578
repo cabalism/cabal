@@ -22,7 +22,7 @@ description:
   $ cat oops/oops-1.config 
   import: ../oops-2.config 
 
-  $ cabal v2-build all --dry-run
+  $ cabal build all --dry-run
   Resolving dependencies...
   Error: [Cabal-7107]
   Could not resolve dependencies:
