@@ -124,6 +124,7 @@ import Distribution.Simple.Setup
 import Distribution.Simple.Utils
   ( info
   , lowercase
+  , warn
   )
 import Distribution.Types.CondTree
   ( CondBranch (..)
@@ -257,7 +258,8 @@ parseProjectSkeleton importsBy dir rootOrImport cacheDir httpTransport verbosity
 
         if
             | hasDuplicatesConfigPath normLocPath -> do
-                -- hasDuplicatesConfigPath checks for cycles in a single import path
+                -- When hasDuplicatesConfigPath finds cycles in a single import
+                -- path we stop parsing and issue an error.
                 let msg =
                       "cyclical import of "
                         ++ uniqueImport
@@ -265,7 +267,9 @@ parseProjectSkeleton importsBy dir rootOrImport cacheDir httpTransport verbosity
                         ++ showProjectConfigPath normLocPath
                 pure . parseFail $ ParseUtils.FromString msg (Just l)
             | uniqueImport `elem` (fst <$> seenImportsBy) -> do
-                -- we've seen this canonicalized import before so it is a duplicate by another path
+                -- We've seen this canonicalized import before so it is a
+                -- duplicate by another path. We don't need to parse it again
+                -- but we issue a warning.
                 let dupImportsBy = filter ((uniqueImport ==) . fst) seenImportsBy
                 let msg =
                       "duplicate import of "
@@ -273,7 +277,8 @@ parseProjectSkeleton importsBy dir rootOrImport cacheDir httpTransport verbosity
                         ++ ";\n"
                         ++ showProjectConfigPath normLocPath
                         ++ unlines [showProjectConfigPath dib | (_, dib) <- dupImportsBy]
-                pure . parseFail $ ParseUtils.FromString msg (Just l)
+                warn verbosity msg
+                go configPath acc []
             | otherwise -> do
                 let fs = (\z -> CondNode z [normLocPath] mempty) <$> fieldsToConfig configPath (reverse acc)
                 res <- parseProjectSkeleton importsBy dir importLocPath cacheDir httpTransport verbosity . ProjectConfigToParse =<< fetchImportConfig normLocPath
