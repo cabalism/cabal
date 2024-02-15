@@ -122,7 +122,7 @@ import Distribution.Simple.Setup
   , toFlag
   )
 import Distribution.Simple.Utils
-  ( info
+  ( debug
   , lowercase
   , warn
   )
@@ -252,10 +252,10 @@ parseProjectSkeleton importsBy dir rootOrImport cacheDir httpTransport verbosity
         normLocPath@(ProjectConfigPath (uniqueImport :| _)) <- canonicalizeConfigPath dir importLocPath
         seenImportsBy@(fmap fst -> seenImports) <- atomicModifyIORef' importsBy (\ibs -> (nub $ (uniqueImport, normLocPath) : ibs, ibs))
 
-        info verbosity $ "\nimport path, normalized\n=======================\n" ++ (render $ docProjectConfigPath normLocPath)
-        info verbosity "\nseen unique paths\n================="
-        mapM_ (info verbosity . fst) seenImportsBy
-        info verbosity "\n"
+        debug verbosity $ "\nimport path, normalized\n=======================\n" ++ render (docProjectConfigPath normLocPath)
+        debug verbosity "\nseen unique paths\n================="
+        mapM_ (debug verbosity . fst) seenImportsBy
+        debug verbosity "\n"
 
         if
             | hasDuplicatesConfigPath normLocPath ->
@@ -326,7 +326,7 @@ parseProjectSkeleton importsBy dir rootOrImport cacheDir httpTransport verbosity
 
     fetchImportConfig :: ProjectConfigPath -> IO BS.ByteString
     fetchImportConfig (ProjectConfigPath (pci :| _)) = do
-      info verbosity $ "fetching import: " ++ pci
+      debug verbosity $ "fetching import: " ++ pci
       fetch pci
 
     fetch :: FilePath -> IO BS.ByteString
