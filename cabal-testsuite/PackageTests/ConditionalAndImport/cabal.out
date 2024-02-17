@@ -68,6 +68,10 @@ Error parsing project file <ROOT>/cyclical-same-filename-out-out-back.project:1:
 cyclical import of same-filename/cyclical-same-filename-out-out-back.config
 # checking that imports work skipping into a subfolder and then back out again and again
 # cabal v2-build
+# checking for duplicate imports
+# cabal v2-build
+Error: [Cabal-7134]
+No targets given and there is no package in the current directory. Use the target 'all' for all packages in the project or specify packages or components by name or location. See 'cabal build --help' for more details on target options.
 # checking bad conditional
 # cabal v2-build
 Error: [Cabal-7090]

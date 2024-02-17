@@ -125,6 +125,10 @@ main = cabalTest . withRepo "repo" . recordMode RecordMarked $ do
   -- assertOutputContains "hops/hops-7.config" hopping
   -- assertOutputContains "hops/hops-9.config" hopping
 
+  log "checking for duplicate imports"
+  dupping <- fails $ cabal' "v2-build" [ "--project-file=dups-0.project" ]
+  -- TODO: This test should warn about duplicate imports but doesn't.
+
   log "checking bad conditional"
   badIf <- fails $ cabal' "v2-build" [ "--project-file=bad-conditional.project" ]
   assertOutputContains "Cannot set compiler in a conditional clause of a cabal project file" badIf
