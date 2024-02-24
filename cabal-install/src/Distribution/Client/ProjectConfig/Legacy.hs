@@ -249,8 +249,8 @@ parseProjectSkeleton importsBy dir rootOrImport cacheDir httpTransport verbosity
 
         -- Once we canonicalize the import path, we can check for cyclical imports and duplicates
         normLocPath@(ProjectConfigPath (uniqueImport :| _)) <- canonicalizeConfigPath dir importLocPath
+        let seenImportsBy@(fmap fst -> seenImports) = importsBy
         let importsBy' = nub $ (uniqueImport, normLocPath) : importsBy
-        let seenImportsBy@(fmap fst -> seenImports) = importsBy'
 
         debug verbosity $ "\nimport path, normalized\n=======================\n" ++ render (docProjectConfigPath normLocPath)
         debug verbosity "\nseen unique paths\n================="
