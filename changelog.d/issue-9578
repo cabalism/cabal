@@ -51,8 +51,6 @@ description:
   - the wrong import was reported as starting the cycle
   - a cycle was reported that wasn't actually a cycle
 
-  Duplicate imports are now reported as warnings, rather than silently ignored.
-
 packages: cabal-install-solver cabal-install
 prs: #9578
 issues: #9562

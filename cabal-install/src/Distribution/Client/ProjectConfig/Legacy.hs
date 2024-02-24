@@ -32,7 +32,6 @@ module Distribution.Client.ProjectConfig.Legacy
   , renderPackageLocationToken
   ) where
 
-import Data.IORef
 import Distribution.Client.Compat.Prelude
 
 import Distribution.Types.Flag (FlagName, parsecFlagAssignment)
@@ -236,10 +235,10 @@ parseProject :: FilePath -> FilePath -> HttpTransport -> Verbosity -> ProjectCon
 parseProject rootPath cacheDir httpTransport verbosity configToParse = do
   let (projectDir, projectFileName) = splitFileName rootPath
   projectPath@(ProjectConfigPath (canonicalRoot :| _)) <- canonicalizeConfigPath projectDir (ProjectConfigPath $ projectFileName :| [])
-  importsBy <- newIORef [(canonicalRoot, projectPath)]
+  let importsBy = [(canonicalRoot, projectPath)]
   parseProjectSkeleton importsBy projectDir projectPath cacheDir httpTransport verbosity configToParse
 
-parseProjectSkeleton :: IORef [(FilePath, ProjectConfigPath)] -> FilePath -> ProjectConfigPath -> FilePath -> HttpTransport -> Verbosity -> ProjectConfigToParse -> IO (ParseResult ProjectConfigSkeleton)
+parseProjectSkeleton :: [(FilePath, ProjectConfigPath)] -> FilePath -> ProjectConfigPath -> FilePath -> HttpTransport -> Verbosity -> ProjectConfigToParse -> IO (ParseResult ProjectConfigSkeleton)
 parseProjectSkeleton importsBy dir rootOrImport cacheDir httpTransport verbosity (ProjectConfigToParse bs) =
   (sanityWalkPCS False =<<) <$> liftPR (go rootOrImport []) (ParseUtils.readFields bs)
   where
@@ -250,7 +249,8 @@ parseProjectSkeleton importsBy dir rootOrImport cacheDir httpTransport verbosity
 
         -- Once we canonicalize the import path, we can check for cyclical imports and duplicates
         normLocPath@(ProjectConfigPath (uniqueImport :| _)) <- canonicalizeConfigPath dir importLocPath
-        seenImportsBy@(fmap fst -> seenImports) <- atomicModifyIORef' importsBy (\ibs -> (nub $ (uniqueImport, normLocPath) : ibs, ibs))
+        let seenImportsBy@(fmap fst -> seenImports) = importsBy
+        let importsBy' = nub $ (uniqueImport, normLocPath) : importsBy
 
         debug verbosity $ "\nimport path, normalized\n=======================\n" ++ render (docProjectConfigPath normLocPath)
         debug verbosity "\nseen unique paths\n================="
@@ -262,6 +262,8 @@ parseProjectSkeleton importsBy dir rootOrImport cacheDir httpTransport verbosity
                 -- When hasDuplicatesConfigPath finds cycles in a single import
                 -- path we stop parsing and issue an error.
                 pure . parseFail $ ParseUtils.FromString (render $ cyclicalImportMsg uniqueImport normLocPath) (Just l)
+            -- WARNING: This can be improved if we make importsBy an IORef as it
+            -- will catch duplicates across different import paths.
             | uniqueImport `elem` seenImports -> do
                 -- We've seen this canonicalized import before so it is a
                 -- duplicate by another path. We don't need to parse it again
@@ -271,7 +273,7 @@ parseProjectSkeleton importsBy dir rootOrImport cacheDir httpTransport verbosity
                 go configPath acc []
             | otherwise -> do
                 let fs = (\z -> CondNode z [normLocPath] mempty) <$> fieldsToConfig configPath (reverse acc)
-                res <- parseProjectSkeleton importsBy dir importLocPath cacheDir httpTransport verbosity . ProjectConfigToParse =<< fetchImportConfig normLocPath
+                res <- parseProjectSkeleton importsBy' dir importLocPath cacheDir httpTransport verbosity . ProjectConfigToParse =<< fetchImportConfig normLocPath
                 rest <- go configPath [] xs
                 pure . fmap mconcat . sequence $ [fs, res, rest]
       (ParseUtils.Section l "if" p xs') -> do
