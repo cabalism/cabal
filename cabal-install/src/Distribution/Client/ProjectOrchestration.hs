@@ -958,24 +958,17 @@ printPlanTargetForms
     where
       pkgs = InstallPlan.executionOrder elaboratedPlan
 
-      ifVerbose s
-        | verbosity >= verbose = s
-        | otherwise = ""
-
       showPkgAndReason :: ElaboratedReadyPackage -> String
       showPkgAndReason (ReadyPackage elab) =
         unwords $
           filter (not . null) $
             [ " -"
-            , prettyShow (packageId elab)
-            , case elabBuildStyle elab of
-                BuildInplaceOnly InMemory -> "(interactive)"
-                _ -> ""
-            , case elabPkgOrComp elab of
-                ElabPackage pkg -> showTargets elab ++ ifVerbose (showStanzas (pkgStanzasEnabled pkg))
-                ElabComponent comp ->
-                  "(" ++ showComp elab comp ++ ")"
-            , showFlagAssignment (nonDefaultFlags elab)
+            , concat . filter (not . null) $
+              [ prettyShow $ packageName (packageId elab)
+              , case elabPkgOrComp elab of
+                  ElabPackage _ -> showTargets elab
+                  ElabComponent comp -> ":" ++ showComp elab comp
+              ]
             ]
 
       showComp :: ElaboratedConfiguredPackage -> ElaboratedComponent -> String
@@ -991,10 +984,6 @@ printPlanTargetForms
                   [ prettyShow k ++ "=" ++ prettyShow v
                   | (k, v) <- Map.toList (elabInstantiatedWith elab)
                   ]
-
-      nonDefaultFlags :: ElaboratedConfiguredPackage -> FlagAssignment
-      nonDefaultFlags elab =
-        elabFlagAssignment elab `diffFlagAssignment` elabFlagDefaults elab
 
       showTargets :: ElaboratedConfiguredPackage -> String
       showTargets elab
