@@ -2,6 +2,7 @@
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TupleSections #-}
 
 module Distribution.Client.CmdListBin
@@ -18,7 +19,7 @@ module Distribution.Client.CmdListBin
   ) where
 
 import Distribution.Client.Compat.Prelude
-import Prelude ()
+import Prelude (sequence)
 
 import Distribution.Client.CmdErrorMessages
   ( plural
@@ -50,9 +51,9 @@ import Distribution.Client.TargetProblem (TargetProblem (..))
 import Distribution.Simple.BuildPaths (dllExtension, exeExtension)
 import Distribution.Simple.Command (CommandUI (..))
 import Distribution.Simple.Setup (configVerbosity, fromFlagOrDefault)
-import Distribution.Simple.Utils (dieWithException, withOutputMarker, wrapText)
+import Distribution.Simple.Utils (dieWithException, withOutputMarker, wrapText, info)
 import Distribution.System (Platform)
-import Distribution.Types.ComponentName (showComponentName)
+import Distribution.Types.ComponentName (componentNameString, showComponentName)
 import Distribution.Types.UnitId (UnitId)
 import Distribution.Types.UnqualComponentName (UnqualComponentName)
 import Distribution.Verbosity (silent, verboseStderr)
@@ -91,6 +92,7 @@ listbinCommand =
 listbinAction :: NixStyleFlags () -> [String] -> GlobalFlags -> IO ()
 listbinAction flags@NixStyleFlags{..} args globalFlags = do
   -- fail early if multiple target selectors specified
+  info verbosity "LIST-BIN-ACTION"
   target <- case args of
     [] -> dieWithException verbosity NoTargetProvided
     [x] -> return x
@@ -108,7 +110,11 @@ listbinAction flags@NixStyleFlags{..} args globalFlags = do
         -- Interpret the targets on the command line as build targets
         -- (as opposed to say repl or haddock targets).
         targets <-
-          either (reportTargetProblems verbosity) return $
+          either
+              (\xx -> trace ("LIST-BIN-ACTION-TARGETS: " ++ show xx) $ reportTargetProblems verbosity xx
+              )
+            return
+          $
             resolveTargets
               selectPackageTargets
               selectComponentTarget
@@ -123,13 +129,13 @@ listbinAction flags@NixStyleFlags{..} args globalFlags = do
         -- Note that we discard the target and return the whole 'TargetsMap',
         -- so this check will be repeated (and must succeed) after
         -- the 'runProjectPreBuildPhase'. Keep it in mind when modifying this.
-        _ <-
-          singleComponentOrElse
-            ( reportTargetProblems
-                verbosity
-                [multipleTargetsProblem targets]
-            )
-            targets
+        -- _ <-
+        --   singleComponentOrElse
+        --     ( reportTargetProblems
+        --         verbosity
+        --         [multipleTargetsProblem targets]
+        --     )
+        --     targets
 
         let elaboratedPlan' =
               pruneInstallPlanToTargets
@@ -138,27 +144,36 @@ listbinAction flags@NixStyleFlags{..} args globalFlags = do
                 elaboratedPlan
         return (elaboratedPlan', targets)
 
-    (selectedUnitId, selectedComponent) <-
-      -- Slight duplication with 'runProjectPreBuildPhase'.
-      singleComponentOrElse
-        ( dieWithException verbosity ThisIsABug
-        )
-        $ targetsMap buildCtx
+    -- (selectedUnitId, selectedComponent) <-
+    --   -- Slight duplication with 'runProjectPreBuildPhase'.
+    --   singleComponentOrElse
+    --     ( dieWithException verbosity ThisIsABug
+    --     )
+    --     $ targetsMap buildCtx
 
     printPlan verbosity baseCtx buildCtx
 
-    binfiles <- case Map.lookup selectedUnitId $ IP.toMap (elaboratedPlanOriginal buildCtx) of
-      Nothing -> dieWithException verbosity NoOrMultipleTargetsGiven
-      Just gpp ->
-        return $
-          IP.foldPlanPackage
-            (const []) -- IPI don't have executables
-            (elaboratedPackage (distDirLayout baseCtx) (elaboratedShared buildCtx) selectedComponent)
-            gpp
+    let targetsMap' :: TargetsMap = targetsMap buildCtx
+
+    -- binfiles <- case Map.lookup selectedUnitId $ IP.toMap (elaboratedPlanOriginal buildCtx) of
+    binfiles <- sequence
+      [ case Map.lookup selectedUnitId $ IP.toMap (elaboratedPlanOriginal buildCtx) of
+          Nothing -> dieWithException verbosity NoOrMultipleTargetsGiven
+          Just gpp ->
+            return $
+              IP.foldPlanPackage
+                (const []) -- IPI don't have executables
+                (elaboratedPackage (distDirLayout baseCtx) (elaboratedShared buildCtx) selectedComponent)
+                gpp
+      | Just (selectedUnitId, selectedComponent) <- f <$> multiComponents targetsMap'
+      ]
 
     case binfiles of
       [] -> dieWithException verbosity NoTargetFound
-      [exe] -> putStr $ withOutputMarker verbosity $ exe ++ "\n"
+      exes -> sequence_
+        [ putStr $ withOutputMarker verbosity $ exe ++ "\n"
+        | es <- exes
+        , exe <- es ]
       -- Andreas, 2023-01-13, issue #8400:
       -- Regular output of `list-bin` should go to stdout unconditionally,
       -- but for the sake of the testsuite, we want to mark it so it goes
@@ -170,8 +185,11 @@ listbinAction flags@NixStyleFlags{..} args globalFlags = do
       -- Appending the newline character here rather than using 'putStrLn'
       -- because an active 'withOutputMarker' produces text that ends
       -- in newline characters.
-      _ -> dieWithException verbosity MultipleTargetsFound
+      -- _ -> dieWithException verbosity MultipleTargetsFound
   where
+    f :: (UnitId, ComponentName) -> Maybe (UnitId, UnqualComponentName)
+    f (x, y) = (x,) <$> componentNameString y
+
     defaultVerbosity = verboseStderr silent
     verbosity = fromFlagOrDefault defaultVerbosity (configVerbosity configFlags)
 
@@ -237,6 +255,9 @@ singleComponentOrElse action targetsMap =
     [(unitId, CFLibName component)] -> return (unitId, component)
     _ -> action
 
+multiComponents :: TargetsMap -> [(UnitId, ComponentName)]
+multiComponents = Set.toList . distinctTargetComponents
+
 -- | This defines what a 'TargetSelector' means for the @list-bin@ command.
 -- It selects the 'AvailableTarget's that the 'TargetSelector' refers to,
 -- or otherwise classifies the problem.
@@ -249,22 +270,24 @@ selectPackageTargets
   -> Either ListBinTargetProblem [k]
 selectPackageTargets targetSelector targets
   -- If there is a single executable component, select that. See #7403
-  | [target] <- targetsExesBuildable =
-      Right [target]
+  | exes <- targetsExesBuildable =
+      trace "0-SELECT-PACKAGE-TARGETS: "
+      Right exes
   -- Otherwise, if there is a single executable-like component left, select that.
-  | [target] <- targetsExeLikesBuildable =
-      Right [target]
-  -- but fail if there are multiple buildable executables.
-  | not (null targetsExeLikesBuildable) =
-      Left (matchesMultipleProblem targetSelector targetsExeLikesBuildable')
+  | exeLikes <- targetsExeLikesBuildable =
+      trace "1-SELECT-PACKAGE-TARGETS: "
+      Right exeLikes
   -- If there are executables but none are buildable then we report those
   | not (null targetsExeLikes') =
+      trace ("2-SELECT-PACKAGE-TARGETS: " ++ show targetsExeLikes')
       Left (TargetProblemNoneEnabled targetSelector targetsExeLikes')
   -- If there are no executables but some other targets then we report that
   | not (null targets) =
+      trace "3-SELECT-PACKAGE-TARGETS: "
       Left (noComponentsProblem targetSelector)
   -- If there are no targets at all then we report that
   | otherwise =
+      trace "4-SELECT-PACKAGE-TARGETS: "
       Left (TargetProblemNoTargets targetSelector)
   where
     -- Targets that are precisely executables
@@ -370,11 +393,11 @@ renderListBinTargetProblem (TargetProblemNoTargets targetSelector) =
             ++ "."
     _ -> renderTargetProblemNoTargets "list-bin" targetSelector
 renderListBinTargetProblem problem =
-  renderTargetProblem "list-bin" renderListBinProblem problem
+  renderTargetProblem "XXXX-list-bin" renderListBinProblem problem
 
 renderListBinProblem :: ListBinProblem -> String
 renderListBinProblem (TargetProblemMatchesMultiple targetSelector targets) =
-  "The list-bin command is for finding a single binary at once. The target '"
+  "XXXX-The list-bin command is for finding a single binary at once. The target '"
     ++ showTargetSelector targetSelector
     ++ "' refers to "
     ++ renderTargetSelector targetSelector
@@ -389,7 +412,7 @@ renderListBinProblem (TargetProblemMatchesMultiple targetSelector targets) =
       )
     ++ "."
 renderListBinProblem (TargetProblemMultipleTargets selectorMap) =
-  "The list-bin command is for finding a single binary at once. The targets "
+  "YYYY-The list-bin command is for finding a single binary at once. The targets "
     ++ renderListCommaAnd
       [ "'" ++ showTargetSelector ts ++ "'"
       | ts <- uniqueTargetSelectors selectorMap
