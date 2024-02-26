@@ -944,34 +944,17 @@ printPlanTargetForms
 printPlanTargetForms
   verbosity
   ProjectBaseContext
-    { buildSettings = BuildTimeSettings{buildSettingDryRun}
-    , projectConfig =
-      ProjectConfig
-        { projectConfigAllPackages =
-          PackageConfig{packageConfigOptimization = globalOptimization}
-        , projectConfigLocalPackages =
-          PackageConfig{packageConfigOptimization = localOptimization}
-        }
-    , currentCommand
+    { currentCommand
     }
   ProjectBuildContext
     { elaboratedPlanToExecute = elaboratedPlan
     , elaboratedShared
-    , pkgsBuildStatus
     }
     | null pkgs && currentCommand == BuildCommand =
         notice verbosity "Up to date"
     | not (null pkgs) =
         noticeNoWrap verbosity $
-          unlines $
-            ( showBuildProfile
-                ++ "In order, the following "
-                ++ wouldWill
-                ++ " be built"
-                ++ ifNormal " (use -v for more details)"
-                ++ ":"
-            )
-              : map showPkgAndReason pkgs
+          unlines $ map showPkgAndReason pkgs
     | otherwise = return ()
     where
       pkgs = InstallPlan.executionOrder elaboratedPlan
@@ -979,14 +962,6 @@ printPlanTargetForms
       ifVerbose s
         | verbosity >= verbose = s
         | otherwise = ""
-
-      ifNormal s
-        | verbosity >= verbose = ""
-        | otherwise = s
-
-      wouldWill
-        | buildSettingDryRun = "would"
-        | otherwise = "will"
 
       showPkgAndReason :: ElaboratedReadyPackage -> String
       showPkgAndReason (ReadyPackage elab) =
@@ -1005,8 +980,6 @@ printPlanTargetForms
                   "(" ++ showComp elab comp ++ ")"
             , showFlagAssignment (nonDefaultFlags elab)
             , showConfigureFlags elab
-            , let buildStatus = pkgsBuildStatus Map.! installedUnitId elab
-               in "(" ++ showBuildStatus buildStatus ++ ")"
             ]
 
       showComp :: ElaboratedConfiguredPackage -> ElaboratedComponent -> String
@@ -1073,46 +1046,6 @@ printPlanTargetForms
               commandShowOptions
                 (Setup.configureCommand (pkgConfigCompilerProgs elaboratedShared))
                 partialConfigureFlags
-
-      showBuildStatus :: BuildStatus -> String
-      showBuildStatus status = case status of
-        BuildStatusPreExisting -> "existing package"
-        BuildStatusInstalled -> "already installed"
-        BuildStatusDownload{} -> "requires download & build"
-        BuildStatusUnpack{} -> "requires build"
-        BuildStatusRebuild _ rebuild -> case rebuild of
-          BuildStatusConfigure
-            (MonitoredValueChanged _) -> "configuration changed"
-          BuildStatusConfigure mreason -> showMonitorChangedReason mreason
-          BuildStatusBuild _ buildreason -> case buildreason of
-            BuildReasonDepsRebuilt -> "dependency rebuilt"
-            BuildReasonFilesChanged
-              mreason -> showMonitorChangedReason mreason
-            BuildReasonExtraTargets _ -> "additional components to build"
-            BuildReasonEphemeralTargets -> "ephemeral targets"
-        BuildStatusUpToDate{} -> "up to date" -- doesn't happen
-      showMonitorChangedReason :: MonitorChangedReason a -> String
-      showMonitorChangedReason (MonitoredFileChanged file) =
-        "file " ++ file ++ " changed"
-      showMonitorChangedReason (MonitoredValueChanged _) = "value changed"
-      showMonitorChangedReason MonitorFirstRun = "first run"
-      showMonitorChangedReason MonitorCorruptCache =
-        "cannot read state cache"
-
-      showBuildProfile :: String
-      showBuildProfile =
-        "Build profile: "
-          ++ unwords
-            [ "-w " ++ (showCompilerId . pkgConfigCompiler) elaboratedShared
-            , "-O"
-                ++ ( case globalOptimization <> localOptimization of -- if local is not set, read global
-                      Setup.Flag NoOptimisation -> "0"
-                      Setup.Flag NormalOptimisation -> "1"
-                      Setup.Flag MaximumOptimisation -> "2"
-                      Setup.NoFlag -> "1"
-                   )
-            ]
-          ++ "\n"
 
 -- | Print a user-oriented presentation of the install plan, indicating what
 -- will be built.
