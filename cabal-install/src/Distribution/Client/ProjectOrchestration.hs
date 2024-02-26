@@ -956,7 +956,11 @@ printPlanTargetForms
           unlines $ map showPkgAndReason pkgs
     | otherwise = return ()
     where
-      pkgs = InstallPlan.executionOrder elaboratedPlan
+      pkgs :: [GenericReadyPackage ElaboratedConfiguredPackage]
+      pkgs =
+        sortBy
+          (compare `on` showPkgAndReason)
+          (InstallPlan.executionOrder elaboratedPlan)
 
       showPkgAndReason :: ElaboratedReadyPackage -> String
       showPkgAndReason (ReadyPackage elab) =
