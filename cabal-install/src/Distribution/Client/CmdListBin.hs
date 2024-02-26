@@ -137,12 +137,12 @@ listbinAction flags@NixStyleFlags{..} args globalFlags = do
         --     )
         --     targets
 
-        let elaboratedPlan' =
-              pruneInstallPlanToTargets
-                TargetActionBuild
-                targets
-                elaboratedPlan
-        return (elaboratedPlan', targets)
+        -- let elaboratedPlan' =
+        --       pruneInstallPlanToTargets
+        --         TargetActionBuild
+        --         targets
+        --         elaboratedPlan
+        return (elaboratedPlan, targets)
 
     -- (selectedUnitId, selectedComponent) <-
     --   -- Slight duplication with 'runProjectPreBuildPhase'.
@@ -291,7 +291,7 @@ selectPackageTargets targetSelector targets
       Left (TargetProblemNoTargets targetSelector)
   where
     -- Targets that are precisely executables
-    targetsExes = filterTargetsKind ExeKind targets
+    targetsExes = filterTargetsKindWith (\x -> x == ExeKind || x == TestKind || x == BenchKind) targets
     targetsExesBuildable = selectBuildableTargets targetsExes
 
     -- Any target that could be executed
