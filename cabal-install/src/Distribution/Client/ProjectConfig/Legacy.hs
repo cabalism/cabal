@@ -258,10 +258,6 @@ parseProjectSkeleton importsBy dir rootOrImport cacheDir httpTransport verbosity
         debug verbosity "\n"
 
         if
-            | hasDuplicatesConfigPath normLocPath ->
-                -- When hasDuplicatesConfigPath finds cycles in a single import
-                -- path we stop parsing and issue an error.
-                pure . parseFail $ ParseUtils.FromString (render $ cyclicalImportMsg uniqueImport normLocPath) (Just l)
             -- WARNING: This can be improved if we make importsBy an IORef as it
             -- will catch duplicates across different import paths.
             | uniqueImport `elem` seenImports -> do
