@@ -12,6 +12,7 @@ module Distribution.Client.CmdTarget
 
 import Distribution.Client.Compat.Prelude
 import Prelude ()
+import Text.PrettyPrint
 
 import Distribution.Client.CmdErrorMessages
 import Distribution.Client.ProjectFlags
@@ -48,6 +49,7 @@ import Distribution.Simple.Flag (Flag (..), fromFlagOrDefault, toFlag)
 import Distribution.Simple.Utils
   ( dieWithException
   , wrapText
+  , noticeDoc
   )
 import Distribution.Verbosity
   ( normal
@@ -112,7 +114,7 @@ targetAction flags@NixStyleFlags{..} targetStrings globalFlags = do
       GlobalContext -> return ctx
       ScriptContext path exemeta -> updateContextAndWriteProjectFile ctx path exemeta
 
-    buildCtx <-
+    ProjectBuildContext{targetsMap} <-
       runProjectPreBuildPhase verbosity baseCtx $ \elaboratedPlan -> do
         -- Interpret the targets on the command line as build targets
         -- (as opposed to say repl or haddock targets).
@@ -141,10 +143,16 @@ targetAction flags@NixStyleFlags{..} targetStrings globalFlags = do
 
         return (elaboratedPlan'', targets)
 
-    printPlan verbosity baseCtx buildCtx
-
-    buildOutcomes <- runProjectBuildPhase verbosity baseCtx buildCtx
-    runProjectPostBuildPhase verbosity baseCtx buildCtx buildOutcomes
+    --trace ("XXXX-Targets: " ++ show targetsMap) $
+    sequence_
+      [ noticeDoc verbosity $
+        vcat
+        [ text "Targets:"
+        , nest 2 (pretty pkg)
+        , nest 2 (text (show comp))
+        ]
+      | (pkg, comp) <- Map.assocs targetsMap
+      ]
   where
     verbosity = fromFlagOrDefault normal (configVerbosity configFlags)
 
