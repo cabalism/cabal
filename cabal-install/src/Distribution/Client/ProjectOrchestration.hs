@@ -967,9 +967,7 @@ printPlanTargetForms
         unwords $
           filter (not . null) $
             [ " -"
-            , if verbosity >= deafening
-                then prettyShow (installedUnitId elab)
-                else prettyShow (packageId elab)
+            , prettyShow (packageId elab)
             , case elabBuildStyle elab of
                 BuildInplaceOnly InMemory -> "(interactive)"
                 _ -> ""
