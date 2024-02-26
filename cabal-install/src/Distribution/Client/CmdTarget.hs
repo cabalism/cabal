@@ -14,9 +14,6 @@ import Distribution.Client.Compat.Prelude
 import Prelude ()
 
 import Distribution.Client.CmdErrorMessages
-import Distribution.Client.ProjectFlags
-  ( removeIgnoreProjectOption
-  )
 import Distribution.Client.ProjectOrchestration
 import Distribution.Client.TargetProblem
   ( TargetProblem'
@@ -26,7 +23,6 @@ import Distribution.Client.Errors
 import Distribution.Client.NixStyleOptions
   ( NixStyleFlags (..)
   , defaultNixStyleFlags
-  , nixStyleOptions
   )
 import Distribution.Client.ScriptUtils
   ( AcceptNoTargets (..)
@@ -37,14 +33,12 @@ import Distribution.Client.ScriptUtils
 import Distribution.Client.Setup
   ( ConfigFlags (..)
   , GlobalFlags
-  , yesNoOpt
   )
 import Distribution.Simple.Command
   ( CommandUI (..)
-  , option
   , usageAlternatives
   )
-import Distribution.Simple.Flag (Flag (..), fromFlagOrDefault, toFlag)
+import Distribution.Simple.Flag (fromFlagOrDefault)
 import Distribution.Simple.Utils
   ( dieWithException
   , wrapText
@@ -58,52 +52,60 @@ import Distribution.Client.CmdBuild (selectPackageTargets, selectComponentTarget
 -- Command
 -------------------------------------------------------------------------------
 
-targetCommand :: CommandUI (NixStyleFlags TargetFlags)
+targetCommand :: CommandUI (NixStyleFlags ())
 targetCommand =
   CommandUI
     { commandName = "v2-target"
-    , commandSynopsis = "List target forms."
-    , commandUsage = usageAlternatives "v2-target" ["[TARGETS] [FLAGS]"]
+    , commandSynopsis = "List target forms within the project."
+    , commandUsage = usageAlternatives "v2-target" ["[TARGETS]"]
     , commandDescription = Just $ \_ ->
-        wrapText
-          "List all target forms, abbreviated and explicit."
-    , commandNotes = Nothing
-    , commandDefaultFlags = defaultNixStyleFlags defaultTargetFlags
-    , commandOptions =
-        removeIgnoreProjectOption
-          . nixStyleOptions
-            ( \showOrParseArgs ->
-                [ option
-                    []
-                    ["explicit-only"]
-                    "No abbreviations, only explicit forms."
-                    targetOnlyExplicit
-                    (\e flags -> flags{targetOnlyExplicit = e})
-                    (yesNoOpt showOrParseArgs)
-                ]
-            )
-    }
-
--------------------------------------------------------------------------------
--- Flags
--------------------------------------------------------------------------------
-
-data TargetFlags = TargetFlags
-  { targetOnlyExplicit :: Flag Bool
-  }
-
-defaultTargetFlags :: TargetFlags
-defaultTargetFlags =
-  TargetFlags
-    { targetOnlyExplicit = toFlag False
+        wrapText $
+          "List build plan targets within a target. If no target is given 'all' will be used.\n\n"
+          ++ "The given target can be;\n"
+          ++ "- a package target (e.g. [pkg:]package)\n"
+          ++ "- a component target (e.g. [package:][ctype:]component)\n"
+          ++ "- all packages (e.g. all)\n"
+          ++ "- components of a particular type (e.g. package:ctypes or all:ctypes)\n"
+          ++ "- a module target: (e.g. [package:][ctype:]module)\n"
+          ++ "- a filepath target: (e.g. [package:][ctype:]filepath)\n"
+          ++ "- a script target: (e.g. path/to/script)\n\n"
+          ++ "The ctypes can be one of: "
+          ++ "libs or libraries, "
+          ++ "exes or executables, "
+          ++ "tests, "
+          ++ "benches or benchmarks, "
+          ++ " and flibs or foreign-libraries."
+    , commandNotes = Just $ \pname ->
+        "Examples:\n"
+          ++ "  "
+          ++ pname
+          ++ " v2-target all\n"
+          ++ "    List all targets of the package in the current directory "
+          ++ "or all packages in the project\n"
+          ++ "  "
+          ++ pname
+          ++ " v2-target pkgname\n"
+          ++ "    List targets of the package named pkgname in the project\n"
+          ++ "  "
+          ++ pname
+          ++ " v2-target ./pkgfoo\n"
+          ++ "    List targets of the package in the ./pkgfoo directory\n"
+          ++ "  "
+          ++ pname
+          ++ " v2-target cname\n"
+          ++ "    List targets of the component named cname in the project\n"
+          ++ "  "
+    , commandDefaultFlags = defaultNixStyleFlags ()
+    , commandOptions = const []
     }
 
 -------------------------------------------------------------------------------
 -- Action
 -------------------------------------------------------------------------------
 
-targetAction :: NixStyleFlags TargetFlags -> [String] -> GlobalFlags -> IO ()
-targetAction flags@NixStyleFlags{..} targetStrings globalFlags = do
+targetAction :: NixStyleFlags () -> [String] -> GlobalFlags -> IO ()
+targetAction flags@NixStyleFlags{..} ts globalFlags = do
+  let targetStrings = if null ts then ["all"] else ts
   withContextAndSelectors RejectNoTargets Nothing flags targetStrings globalFlags BuildCommand $ \targetCtx ctx targetSelectors -> do
     baseCtx <- case targetCtx of
       ProjectContext -> return ctx
