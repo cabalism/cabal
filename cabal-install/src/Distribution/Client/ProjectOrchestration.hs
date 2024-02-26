@@ -90,6 +90,7 @@ module Distribution.Client.ProjectOrchestration
   , pruneInstallPlanToDependencies
   , CannotPruneDependencies (..)
   , printPlan
+  , printPlanTargetForms
 
     -- * Build phase: now do it.
   , runProjectBuildPhase
@@ -933,7 +934,185 @@ distinctTargetComponents targetsMap =
 
 ------------------------------------------------------------------------------
 -- Displaying what we plan to do
---
+
+-- | Print available target forms.
+printPlanTargetForms
+  :: Verbosity
+  -> ProjectBaseContext
+  -> ProjectBuildContext
+  -> IO ()
+printPlanTargetForms
+  verbosity
+  ProjectBaseContext
+    { buildSettings = BuildTimeSettings{buildSettingDryRun}
+    , projectConfig =
+      ProjectConfig
+        { projectConfigAllPackages =
+          PackageConfig{packageConfigOptimization = globalOptimization}
+        , projectConfigLocalPackages =
+          PackageConfig{packageConfigOptimization = localOptimization}
+        }
+    , currentCommand
+    }
+  ProjectBuildContext
+    { elaboratedPlanToExecute = elaboratedPlan
+    , elaboratedShared
+    , pkgsBuildStatus
+    }
+    | null pkgs && currentCommand == BuildCommand =
+        notice verbosity "Up to date"
+    | not (null pkgs) =
+        noticeNoWrap verbosity $
+          unlines $
+            ( showBuildProfile
+                ++ "In order, the following "
+                ++ wouldWill
+                ++ " be built"
+                ++ ifNormal " (use -v for more details)"
+                ++ ":"
+            )
+              : map showPkgAndReason pkgs
+    | otherwise = return ()
+    where
+      pkgs = InstallPlan.executionOrder elaboratedPlan
+
+      ifVerbose s
+        | verbosity >= verbose = s
+        | otherwise = ""
+
+      ifNormal s
+        | verbosity >= verbose = ""
+        | otherwise = s
+
+      wouldWill
+        | buildSettingDryRun = "would"
+        | otherwise = "will"
+
+      showPkgAndReason :: ElaboratedReadyPackage -> String
+      showPkgAndReason (ReadyPackage elab) =
+        unwords $
+          filter (not . null) $
+            [ " -"
+            , if verbosity >= deafening
+                then prettyShow (installedUnitId elab)
+                else prettyShow (packageId elab)
+            , case elabBuildStyle elab of
+                BuildInplaceOnly InMemory -> "(interactive)"
+                _ -> ""
+            , case elabPkgOrComp elab of
+                ElabPackage pkg -> showTargets elab ++ ifVerbose (showStanzas (pkgStanzasEnabled pkg))
+                ElabComponent comp ->
+                  "(" ++ showComp elab comp ++ ")"
+            , showFlagAssignment (nonDefaultFlags elab)
+            , showConfigureFlags elab
+            , let buildStatus = pkgsBuildStatus Map.! installedUnitId elab
+               in "(" ++ showBuildStatus buildStatus ++ ")"
+            ]
+
+      showComp :: ElaboratedConfiguredPackage -> ElaboratedComponent -> String
+      showComp elab comp =
+        maybe "custom" prettyShow (compComponentName comp)
+          ++ if Map.null (elabInstantiatedWith elab)
+            then ""
+            else
+              " with "
+                ++ intercalate
+                  ", "
+                  -- TODO: Abbreviate the UnitIds
+                  [ prettyShow k ++ "=" ++ prettyShow v
+                  | (k, v) <- Map.toList (elabInstantiatedWith elab)
+                  ]
+
+      nonDefaultFlags :: ElaboratedConfiguredPackage -> FlagAssignment
+      nonDefaultFlags elab =
+        elabFlagAssignment elab `diffFlagAssignment` elabFlagDefaults elab
+
+      showTargets :: ElaboratedConfiguredPackage -> String
+      showTargets elab
+        | null (elabBuildTargets elab) = ""
+        | otherwise =
+            "("
+              ++ intercalate
+                ", "
+                [ showComponentTarget (packageId elab) t
+                | t <- elabBuildTargets elab
+                ]
+              ++ ")"
+
+      showConfigureFlags :: ElaboratedConfiguredPackage -> String
+      showConfigureFlags elab =
+        let fullConfigureFlags =
+              setupHsConfigureFlags
+                elaboratedPlan
+                (ReadyPackage elab)
+                elaboratedShared
+                verbosity
+                "$builddir"
+            -- \| Given a default value @x@ for a flag, nub @Flag x@
+            -- into @NoFlag@.  This gives us a tidier command line
+            -- rendering.
+            nubFlag :: Eq a => a -> Setup.Flag a -> Setup.Flag a
+            nubFlag x (Setup.Flag x') | x == x' = Setup.NoFlag
+            nubFlag _ f = f
+
+            (tryLibProfiling, tryExeProfiling) =
+              computeEffectiveProfiling fullConfigureFlags
+
+            partialConfigureFlags =
+              mempty
+                { configProf =
+                    nubFlag False (configProf fullConfigureFlags)
+                , configProfExe =
+                    nubFlag tryExeProfiling (configProfExe fullConfigureFlags)
+                , configProfLib =
+                    nubFlag tryLibProfiling (configProfLib fullConfigureFlags)
+                    -- Maybe there are more we can add
+                }
+         in -- Not necessary to "escape" it, it's just for user output
+            unwords . ("" :) $
+              commandShowOptions
+                (Setup.configureCommand (pkgConfigCompilerProgs elaboratedShared))
+                partialConfigureFlags
+
+      showBuildStatus :: BuildStatus -> String
+      showBuildStatus status = case status of
+        BuildStatusPreExisting -> "existing package"
+        BuildStatusInstalled -> "already installed"
+        BuildStatusDownload{} -> "requires download & build"
+        BuildStatusUnpack{} -> "requires build"
+        BuildStatusRebuild _ rebuild -> case rebuild of
+          BuildStatusConfigure
+            (MonitoredValueChanged _) -> "configuration changed"
+          BuildStatusConfigure mreason -> showMonitorChangedReason mreason
+          BuildStatusBuild _ buildreason -> case buildreason of
+            BuildReasonDepsRebuilt -> "dependency rebuilt"
+            BuildReasonFilesChanged
+              mreason -> showMonitorChangedReason mreason
+            BuildReasonExtraTargets _ -> "additional components to build"
+            BuildReasonEphemeralTargets -> "ephemeral targets"
+        BuildStatusUpToDate{} -> "up to date" -- doesn't happen
+      showMonitorChangedReason :: MonitorChangedReason a -> String
+      showMonitorChangedReason (MonitoredFileChanged file) =
+        "file " ++ file ++ " changed"
+      showMonitorChangedReason (MonitoredValueChanged _) = "value changed"
+      showMonitorChangedReason MonitorFirstRun = "first run"
+      showMonitorChangedReason MonitorCorruptCache =
+        "cannot read state cache"
+
+      showBuildProfile :: String
+      showBuildProfile =
+        "Build profile: "
+          ++ unwords
+            [ "-w " ++ (showCompilerId . pkgConfigCompiler) elaboratedShared
+            , "-O"
+                ++ ( case globalOptimization <> localOptimization of -- if local is not set, read global
+                      Setup.Flag NoOptimisation -> "0"
+                      Setup.Flag NormalOptimisation -> "1"
+                      Setup.Flag MaximumOptimisation -> "2"
+                      Setup.NoFlag -> "1"
+                   )
+            ]
+          ++ "\n"
 
 -- | Print a user-oriented presentation of the install plan, indicating what
 -- will be built.
