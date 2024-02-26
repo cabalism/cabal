@@ -948,7 +948,6 @@ printPlanTargetForms
     }
   ProjectBuildContext
     { elaboratedPlanToExecute = elaboratedPlan
-    , elaboratedShared
     }
     | null pkgs && currentCommand == BuildCommand =
         notice verbosity "Up to date"
@@ -979,7 +978,6 @@ printPlanTargetForms
                 ElabComponent comp ->
                   "(" ++ showComp elab comp ++ ")"
             , showFlagAssignment (nonDefaultFlags elab)
-            , showConfigureFlags elab
             ]
 
       showComp :: ElaboratedConfiguredPackage -> ElaboratedComponent -> String
@@ -1011,41 +1009,6 @@ printPlanTargetForms
                 | t <- elabBuildTargets elab
                 ]
               ++ ")"
-
-      showConfigureFlags :: ElaboratedConfiguredPackage -> String
-      showConfigureFlags elab =
-        let fullConfigureFlags =
-              setupHsConfigureFlags
-                elaboratedPlan
-                (ReadyPackage elab)
-                elaboratedShared
-                verbosity
-                "$builddir"
-            -- \| Given a default value @x@ for a flag, nub @Flag x@
-            -- into @NoFlag@.  This gives us a tidier command line
-            -- rendering.
-            nubFlag :: Eq a => a -> Setup.Flag a -> Setup.Flag a
-            nubFlag x (Setup.Flag x') | x == x' = Setup.NoFlag
-            nubFlag _ f = f
-
-            (tryLibProfiling, tryExeProfiling) =
-              computeEffectiveProfiling fullConfigureFlags
-
-            partialConfigureFlags =
-              mempty
-                { configProf =
-                    nubFlag False (configProf fullConfigureFlags)
-                , configProfExe =
-                    nubFlag tryExeProfiling (configProfExe fullConfigureFlags)
-                , configProfLib =
-                    nubFlag tryLibProfiling (configProfLib fullConfigureFlags)
-                    -- Maybe there are more we can add
-                }
-         in -- Not necessary to "escape" it, it's just for user output
-            unwords . ("" :) $
-              commandShowOptions
-                (Setup.configureCommand (pkgConfigCompilerProgs elaboratedShared))
-                partialConfigureFlags
 
 -- | Print a user-oriented presentation of the install plan, indicating what
 -- will be built.
