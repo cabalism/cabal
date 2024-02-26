@@ -938,22 +938,12 @@ distinctTargetComponents targetsMap =
 -- | Print available target forms.
 printPlanTargetForms
   :: Verbosity
-  -> ProjectBaseContext
   -> ProjectBuildContext
   -> IO ()
 printPlanTargetForms
   verbosity
-  ProjectBaseContext
-    { currentCommand
-    }
-  ProjectBuildContext
-    { elaboratedPlanToExecute = elaboratedPlan
-    }
-    | null pkgs && currentCommand == BuildCommand =
-        notice verbosity "Up to date"
-    | not (null pkgs) =
-        noticeNoWrap verbosity $
-          unlines $ map showPkgAndReason pkgs
+  ProjectBuildContext{ elaboratedPlanToExecute = elaboratedPlan}
+    | not (null pkgs) = noticeNoWrap verbosity . unlines $ map showPkgAndReason pkgs
     | otherwise = return ()
     where
       pkgs :: [GenericReadyPackage ElaboratedConfiguredPackage]

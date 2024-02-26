@@ -105,8 +105,6 @@ defaultTargetFlags =
 targetAction :: NixStyleFlags TargetFlags -> [String] -> GlobalFlags -> IO ()
 targetAction flags@NixStyleFlags{..} targetStrings globalFlags = do
   withContextAndSelectors RejectNoTargets Nothing flags targetStrings globalFlags BuildCommand $ \targetCtx ctx targetSelectors -> do
-    let targetAction'  = TargetActionConfigure
-
     baseCtx <- case targetCtx of
       ProjectContext -> return ctx
       GlobalContext -> return ctx
@@ -127,7 +125,7 @@ targetAction flags@NixStyleFlags{..} targetStrings globalFlags = do
 
         let elaboratedPlan' =
               pruneInstallPlanToTargets
-                targetAction'
+                TargetActionConfigure
                 targets
                 elaboratedPlan
         elaboratedPlan'' <-
@@ -141,8 +139,7 @@ targetAction flags@NixStyleFlags{..} targetStrings globalFlags = do
 
         return (elaboratedPlan'', targets)
 
-    --trace ("XXXX-Targets: " ++ show targetsMap) $
-    printPlanTargetForms verbosity baseCtx buildCtx
+    printPlanTargetForms verbosity buildCtx
   where
     verbosity = fromFlagOrDefault normal (configVerbosity configFlags)
 
