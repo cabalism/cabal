@@ -1,7 +1,7 @@
-{-# LANGUAGE MultiWayIf #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE ViewPatterns #-}
 
@@ -14,148 +14,74 @@ import Distribution.Client.Compat.Prelude
 import Prelude ()
 
 import Distribution.Client.CmdErrorMessages
-  ( Plural (..)
-  , renderComponentKind
+import Distribution.Client.ProjectFlags
+  ( removeIgnoreProjectOption
   )
-import Distribution.Client.DistDirLayout
-  ( DistDirLayout (..)
-  , ProjectRoot (..)
+import Distribution.Client.ProjectOrchestration
+import Distribution.Client.TargetProblem
+  ( TargetProblem'
   )
+import qualified Data.Map as Map
+import Distribution.Client.Errors
 import Distribution.Client.NixStyleOptions
   ( NixStyleFlags (..)
   , defaultNixStyleFlags
+  , nixStyleOptions
   )
-import Distribution.Client.ProjectConfig
-  ( ProjectConfig
-  , commandLineFlagsToProjectConfig
-  , projectConfigConfigFile
-  , projectConfigShared
-  , withGlobalConfig
-  , withProjectOrGlobalConfig
-  )
-import Distribution.Client.ProjectFlags
-  ( ProjectFlags (..)
-  , defaultProjectFlags
-  , projectFlagsOptions
-  )
-import Distribution.Client.ProjectOrchestration
-  ( CurrentCommand (..)
-  , ProjectBaseContext (..)
-  , establishProjectBaseContext
-  , establishProjectBaseContextWithRoot
+import Distribution.Client.ScriptUtils
+  ( AcceptNoTargets (..)
+  , TargetContext (..)
+  , updateContextAndWriteProjectFile
+  , withContextAndSelectors
   )
 import Distribution.Client.Setup
-  ( GlobalFlags (..)
-  )
-import Distribution.Client.TargetSelector
-  ( ComponentKind
-  , TargetSelector (..)
-  , readTargetSelectors
-  , reportTargetSelectorProblems
-  )
-import Distribution.Client.Types
-  ( PackageLocation (..)
-  , PackageSpecifier (..)
-  , UnresolvedSourcePackage
-  )
-import Distribution.Solver.Types.SourcePackage
-  ( SourcePackage (..)
-  )
-
-import Distribution.Client.Errors
-import Distribution.Client.SrcDist
-  ( packageDirToSdist
-  )
-import Distribution.Compat.Lens
-  ( _1
-  , _2
-  )
-import Distribution.Package
-  ( Package (packageId)
-  )
-import Distribution.PackageDescription.Configuration
-  ( flattenPackageDescription
-  )
-import Distribution.ReadE
-  ( succeedReadE
+  ( ConfigFlags (..)
+  , GlobalFlags
+  , yesNoOpt
   )
 import Distribution.Simple.Command
   ( CommandUI (..)
-  , OptionField
-  , ShowOrParseArgs
-  , liftOptionL
   , option
-  , reqArg
+  , usageAlternatives
   )
-import Distribution.Simple.PreProcess
-  ( knownSuffixHandlers
-  )
-import Distribution.Simple.Setup
-  ( Flag (..)
-  , configDistPref
-  , configVerbosity
-  , flagToList
-  , flagToMaybe
-  , fromFlagOrDefault
-  , optionDistPref
-  , optionVerbosity
-  , toFlag
-  , trueArg
-  )
-import Distribution.Simple.SrcDist
-  ( listPackageSourcesWithDie
-  )
+import Distribution.Simple.Flag (Flag (..), fromFlagOrDefault, toFlag)
 import Distribution.Simple.Utils
   ( dieWithException
-  , notice
-  , withOutputMarker
   , wrapText
-  )
-import Distribution.Types.ComponentName
-  ( ComponentName
-  , showComponentName
-  )
-import Distribution.Types.GenericPackageDescription (GenericPackageDescription)
-import Distribution.Types.PackageName
-  ( PackageName
-  , unPackageName
   )
 import Distribution.Verbosity
   ( normal
   )
-
-import qualified Data.ByteString.Lazy.Char8 as BSL
-import System.Directory
-  ( createDirectoryIfMissing
-  , getCurrentDirectory
-  , makeAbsolute
-  )
-import System.FilePath
-  ( makeRelative
-  , normalise
-  , (<.>)
-  , (</>)
-  )
+import Distribution.Client.CmdBuild (selectPackageTargets, selectComponentTarget)
 
 -------------------------------------------------------------------------------
 -- Command
 -------------------------------------------------------------------------------
 
-targetCommand :: CommandUI (ProjectFlags, TargetFlags)
+targetCommand :: CommandUI (NixStyleFlags TargetFlags)
 targetCommand =
   CommandUI
     { commandName = "v2-target"
     , commandSynopsis = "List target forms."
-    , commandUsage = \pname ->
-        "Usage: " ++ pname ++ " v2-target [FLAGS] [PACKAGES]\n"
+    , commandUsage = usageAlternatives "v2-target" ["[TARGETS] [FLAGS]"]
     , commandDescription = Just $ \_ ->
         wrapText
           "List all target forms, abbreviated and explicit."
     , commandNotes = Nothing
-    , commandDefaultFlags = (defaultProjectFlags, defaultTargetFlags)
-    , commandOptions = \showOrParseArgs ->
-        map (liftOptionL _1) (projectFlagsOptions showOrParseArgs)
-          ++ map (liftOptionL _2) (targetOptions showOrParseArgs)
+    , commandDefaultFlags = defaultNixStyleFlags defaultTargetFlags
+    , commandOptions =
+        removeIgnoreProjectOption
+          . nixStyleOptions
+            ( \showOrParseArgs ->
+                [ option
+                    []
+                    ["explicit-only"]
+                    "No abbreviations, only explicit forms."
+                    targetOnlyExplicit
+                    (\e flags -> flags{targetOnlyExplicit = e})
+                    (yesNoOpt showOrParseArgs)
+                ]
+            )
     }
 
 -------------------------------------------------------------------------------
@@ -163,30 +89,69 @@ targetCommand =
 -------------------------------------------------------------------------------
 
 data TargetFlags = TargetFlags
-  { targetExplicit :: Flag Bool
+  { targetOnlyExplicit :: Flag Bool
   }
 
 defaultTargetFlags :: TargetFlags
 defaultTargetFlags =
   TargetFlags
-    { targetExplicit = toFlag False
+    { targetOnlyExplicit = toFlag False
     }
-
-targetOptions :: ShowOrParseArgs -> [OptionField TargetFlags]
-targetOptions showOrParseArgs =
-  [ option
-      []
-      ["explicit-only"]
-      "No abbreviations, only explicit forms."
-      targetExplicit
-      (\e flags -> flags{targetExplicit = e})
-      trueArg
-  ]
 
 -------------------------------------------------------------------------------
 -- Action
 -------------------------------------------------------------------------------
 
-targetAction :: (ProjectFlags, TargetFlags) -> [String] -> GlobalFlags -> IO ()
-targetAction (pf@ProjectFlags{..}, TargetFlags{..}) targetStrings globalFlags = do
-  undefined
+targetAction :: NixStyleFlags TargetFlags -> [String] -> GlobalFlags -> IO ()
+targetAction flags@NixStyleFlags{..} targetStrings globalFlags = do
+  withContextAndSelectors RejectNoTargets Nothing flags targetStrings globalFlags BuildCommand $ \targetCtx ctx targetSelectors -> do
+    let targetAction'  = TargetActionConfigure
+
+    baseCtx <- case targetCtx of
+      ProjectContext -> return ctx
+      GlobalContext -> return ctx
+      ScriptContext path exemeta -> updateContextAndWriteProjectFile ctx path exemeta
+
+    buildCtx <-
+      runProjectPreBuildPhase verbosity baseCtx $ \elaboratedPlan -> do
+        -- Interpret the targets on the command line as build targets
+        -- (as opposed to say repl or haddock targets).
+        targets <-
+          either (reportBuildTargetProblems verbosity) return $
+            resolveTargets
+              selectPackageTargets
+              selectComponentTarget
+              elaboratedPlan
+              Nothing
+              targetSelectors
+
+        let elaboratedPlan' =
+              pruneInstallPlanToTargets
+                targetAction'
+                targets
+                elaboratedPlan
+        elaboratedPlan'' <-
+          if buildSettingOnlyDeps (buildSettings baseCtx)
+            then
+              either (reportCannotPruneDependencies verbosity) return $
+                pruneInstallPlanToDependencies
+                  (Map.keysSet targets)
+                  elaboratedPlan'
+            else return elaboratedPlan'
+
+        return (elaboratedPlan'', targets)
+
+    printPlan verbosity baseCtx buildCtx
+
+    buildOutcomes <- runProjectBuildPhase verbosity baseCtx buildCtx
+    runProjectPostBuildPhase verbosity baseCtx buildCtx buildOutcomes
+  where
+    verbosity = fromFlagOrDefault normal (configVerbosity configFlags)
+
+reportBuildTargetProblems :: Verbosity -> [TargetProblem'] -> IO a
+reportBuildTargetProblems verbosity problems =
+  reportTargetProblems verbosity "target" problems
+
+reportCannotPruneDependencies :: Verbosity -> CannotPruneDependencies -> IO a
+reportCannotPruneDependencies verbosity =
+  dieWithException verbosity . ReportCannotPruneDependencies . renderCannotPruneDependencies
