@@ -123,7 +123,6 @@ import Distribution.Simple.Setup
 import Distribution.Simple.Utils
   ( debug
   , lowercase
-  , warn
   )
 import Distribution.Types.CondTree
   ( CondBranch (..)
@@ -249,12 +248,11 @@ parseProjectSkeleton importsBy dir rootOrImport cacheDir httpTransport verbosity
 
         -- Once we canonicalize the import path, we can check for cyclical imports and duplicates
         normLocPath@(ProjectConfigPath (uniqueImport :| _)) <- canonicalizeConfigPath dir importLocPath
-        let seenImportsBy@(fmap fst -> seenImports) = importsBy
         let importsBy' = nub $ (uniqueImport, normLocPath) : importsBy
 
         debug verbosity $ "\nimport path, normalized\n=======================\n" ++ render (docProjectConfigPath normLocPath)
         debug verbosity "\nseen unique paths\n================="
-        mapM_ (debug verbosity . fst) seenImportsBy
+        mapM_ (debug verbosity . fst) importsBy
         debug verbosity "\n"
 
         if
@@ -262,15 +260,6 @@ parseProjectSkeleton importsBy dir rootOrImport cacheDir httpTransport verbosity
                 -- When hasDuplicatesConfigPath finds cycles in a single import
                 -- path we stop parsing and issue an error.
                 pure . parseFail $ ParseUtils.FromString (render $ cyclicalImportMsg uniqueImport normLocPath) (Just l)
-            -- WARNING: This can be improved if we make importsBy an IORef as it
-            -- will catch duplicates across different import paths.
-            | uniqueImport `elem` seenImports -> do
-                -- We've seen this canonicalized import before so it is a
-                -- duplicate by another path. We don't need to parse it again
-                -- but we issue a warning.
-                let dupImportsBy = (uniqueImport, normLocPath) : filter ((uniqueImport ==) . fst) seenImportsBy
-                warn verbosity . render $ duplicateImportMsg uniqueImport dupImportsBy
-                go configPath acc []
             | otherwise -> do
                 let fs = (\z -> CondNode z [normLocPath] mempty) <$> fieldsToConfig configPath (reverse acc)
                 res <- parseProjectSkeleton importsBy' dir importLocPath cacheDir httpTransport verbosity . ProjectConfigToParse =<< fetchImportConfig normLocPath
