@@ -120,6 +120,7 @@ makeRelativeConfigPath dir (ProjectConfigPath p) =
     <$> p
 
 -- | Normalizes and canonicalizes paths so that '..' segments can be removed.
+-- This function is idempotent.
 --
 -- It converts paths like this:
 -- @
@@ -149,15 +150,95 @@ makeRelativeConfigPath dir (ProjectConfigPath p) =
 --                            └─ hops/hops-9.config
 -- @
 --
--- That way we have @hops-8.config" instead of
+-- That way we have @hops-8.config@ instead of
 -- @./hops/../hops/../hops/../hops/../hops-8.config@.
 --
--- >>> :{
--- (\s -> (".." `isInfixOf` s, "hops-8.config" `isSuffixOf` s))
--- <$> canonicalizePath
--- "../cabal-testsuite/PackageTests/ConditionalAndImport/hops/../hops/../hops/../hops/../hops-8.config"
--- :}
--- (False,True)
+-- Let's see how @canonicalizePath@ works that is used in the implementation
+-- then we'll see how @canonicalizeConfigPath@ works. Each time we'll use these
+-- paths;
+-- * @hops/hops-1.config@
+-- * @hops/../hops-2.config@
+-- * @hops/../hops/hops-3.config@
+-- * @hops/../hops/../hops/../hops/../hops-8.config@
+-- * @hops/../hops/../hops/../hops/../hops/hops-9.config@
+--
+-- >>> d <- getCurrentDirectory
+-- >>> setCurrentDirectory "../cabal-testsuite/PackageTests/ConditionalAndImport"
+-- >>> p <- canonicalizePath "hops/hops-1.config"
+-- >>> q <- canonicalizePath p
+-- >>> setCurrentDirectory d
+-- >>> joinPath . reverse . take 3 . reverse $ splitPath q
+-- "ConditionalAndImport/hops/hops-1.config"
+--
+-- >>> d <- getCurrentDirectory
+-- >>> setCurrentDirectory "../cabal-testsuite/PackageTests/ConditionalAndImport"
+-- >>> p <- canonicalizePath "hops/../hops-2.config"
+-- >>> q <- canonicalizePath p
+-- >>> setCurrentDirectory d
+-- >>> joinPath . reverse . take 2 . reverse $ splitPath q
+-- "ConditionalAndImport/hops-2.config"
+--
+-- >>> d <- getCurrentDirectory
+-- >>> setCurrentDirectory "../cabal-testsuite/PackageTests/ConditionalAndImport"
+-- >>> p <- canonicalizePath "hops/../hops/hops-3.config"
+-- >>> q <- canonicalizePath p
+-- >>> setCurrentDirectory d
+-- >>> joinPath . reverse . take 3 . reverse $ splitPath q
+-- "ConditionalAndImport/hops/hops-3.config"
+--
+-- >>> d <- getCurrentDirectory
+-- >>> setCurrentDirectory "../cabal-testsuite/PackageTests/ConditionalAndImport"
+-- >>> p <- canonicalizePath "hops/../hops/../hops/../hops/../hops-8.config"
+-- >>> q <- canonicalizePath p
+-- >>> setCurrentDirectory d
+-- >>> joinPath . reverse . take 2 . reverse $ splitPath q
+-- "ConditionalAndImport/hops-8.config"
+--
+-- >>> d <- getCurrentDirectory
+-- >>> setCurrentDirectory "../cabal-testsuite/PackageTests/ConditionalAndImport"
+-- >>> p <- canonicalizePath "hops/../hops/../hops/../hops/../hops/hops-9.config"
+-- >>> q <- canonicalizePath p
+-- >>> setCurrentDirectory d
+-- >>> joinPath . reverse . take 3 . reverse $ splitPath q
+-- "ConditionalAndImport/hops/hops-9.config"
+--
+-- >>> d <- getCurrentDirectory
+-- >>> setCurrentDirectory "../cabal-testsuite/PackageTests/ConditionalAndImport"
+-- >>> p <- canonicalizeConfigPath "." (ProjectConfigPath $ "hops/hops-1.config" :| [])
+-- >>> ProjectConfigPath (q :| _) <- canonicalizeConfigPath "." p
+-- >>> setCurrentDirectory d
+-- >>> joinPath . reverse . take 3 . reverse $ splitPath q
+-- "ConditionalAndImport/hops/hops-1.config"
+--
+-- >>> let d = "../cabal-testsuite/PackageTests/ConditionalAndImport"
+-- >>> p <- canonicalizeConfigPath d (ProjectConfigPath $ "hops/hops-1.config" :| [])
+-- >>> ProjectConfigPath (q :| _) <- canonicalizeConfigPath d p
+-- >>> joinPath . reverse . take 3 . reverse $ splitPath q
+-- "ConditionalAndImport/hops/hops-1.config"
+--
+-- >>> let d = "../cabal-testsuite/PackageTests/ConditionalAndImport"
+-- >>> p <- canonicalizeConfigPath d (ProjectConfigPath $ "hops/../hops-2.config" :| [])
+-- >>> ProjectConfigPath (q :| _) <- canonicalizeConfigPath d p
+-- >>> joinPath . reverse . take 2 . reverse $ splitPath q
+-- "ConditionalAndImport/hops-2.config"
+--
+-- >>> let d = "../cabal-testsuite/PackageTests/ConditionalAndImport"
+-- >>> p <- canonicalizeConfigPath d (ProjectConfigPath $ "hops/../hops/hops-3.config" :| [])
+-- >>> ProjectConfigPath (q :| _) <- canonicalizeConfigPath d p
+-- >>> joinPath . reverse . take 3 . reverse $ splitPath q
+-- "ConditionalAndImport/hops/hops-3.config"
+--
+-- >>> let d = "../cabal-testsuite/PackageTests/ConditionalAndImport"
+-- >>> p <- canonicalizeConfigPath d (ProjectConfigPath $ "hops/../hops/../hops/../hops/../hops-8.config" :| [])
+-- >>> ProjectConfigPath (q :| _) <- canonicalizeConfigPath d p
+-- >>> joinPath . reverse . take 2 . reverse $ splitPath q
+-- "ConditionalAndImport/hops-8.config"
+--
+-- >>> let d = "../cabal-testsuite/PackageTests/ConditionalAndImport"
+-- >>> p <- canonicalizeConfigPath d (ProjectConfigPath $ "hops/../hops/../hops/../hops/../hops/hops-9.config" :| [])
+-- >>> ProjectConfigPath (q :| _) <- canonicalizeConfigPath d p
+-- >>> joinPath . reverse . take 3 . reverse $ splitPath q
+-- "ConditionalAndImport/hops/hops-9.config"
 canonicalizeConfigPath :: FilePath -> ProjectConfigPath -> IO ProjectConfigPath
 canonicalizeConfigPath dir (ProjectConfigPath p) = do
    xs <- sequence $ NE.scanr (\importee -> (>>= \importer ->
@@ -171,4 +252,5 @@ isURI :: FilePath -> Bool
 isURI = isJust  .parseURI
 
 -- $setup
+-- >>> :set -XViewPatterns
 -- >>> import Data.List
