@@ -32,6 +32,8 @@ module Distribution.Client.ProjectConfig.Legacy
   , renderPackageLocationToken
   ) where
 
+import Data.List.NonEmpty ((<|))
+import qualified Data.List.NonEmpty as NE
 import Distribution.Client.Compat.Prelude
 
 import Distribution.Types.Flag (FlagName, parsecFlagAssignment)
@@ -242,11 +244,11 @@ parseProject
 parseProject rootPath cacheDir httpTransport verbosity configToParse = do
   let (projectDir, projectFileName) = splitFileName rootPath
   projectPath@(ProjectConfigPath (canonicalRoot :| _)) <- canonicalizeConfigPath projectDir (ProjectConfigPath $ projectFileName :| [])
-  let importsBy = [(canonicalRoot, projectPath)]
+  let importsBy = (canonicalRoot, projectPath) :| []
   parseProjectSkeleton importsBy projectDir projectPath cacheDir httpTransport verbosity configToParse
 
 parseProjectSkeleton
-  :: [(FilePath, ProjectConfigPath)]
+  :: NonEmpty (FilePath, ProjectConfigPath)
   -- ^ The list of imports seen so far, used to detect cycles and duplicates
   -> FilePath
   -- ^ The directory of the project configuration, typically the directory of cabal.project
@@ -268,7 +270,7 @@ parseProjectSkeleton importsBy dir configPath cacheDir httpTransport verbosity (
 
         -- Once we canonicalize the import path, we can check for cyclical imports and duplicates
         normLocPath@(ProjectConfigPath (uniqueImport :| _)) <- canonicalizeConfigPath dir importLocPath
-        let importsBy' = nub $ (uniqueImport, normLocPath) : importsBy
+        let importsBy' = NE.nub $ (uniqueImport, normLocPath) <| importsBy
 
         debug verbosity $ "\nimport path, normalized\n=======================\n" ++ render (docProjectConfigPath normLocPath)
         debug verbosity "\nseen unique paths\n================="
