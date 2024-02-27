@@ -163,7 +163,7 @@ makeRelativeConfigPath dir (ProjectConfigPath p) =
 -- * @hops/../hops/../hops/../hops/../hops/hops-9.config@
 --
 -- >>> d <- getCurrentDirectory
--- >>> setCurrentDirectory "../cabal-testsuite/PackageTests/ConditionalAndImport"
+-- >>> setCurrentDirectory testDir
 -- >>> p <- canonicalizePath "hops/hops-1.config"
 -- >>> q <- canonicalizePath p
 -- >>> setCurrentDirectory d
@@ -171,7 +171,7 @@ makeRelativeConfigPath dir (ProjectConfigPath p) =
 -- "ConditionalAndImport/hops/hops-1.config"
 --
 -- >>> d <- getCurrentDirectory
--- >>> setCurrentDirectory "../cabal-testsuite/PackageTests/ConditionalAndImport"
+-- >>> setCurrentDirectory testDir
 -- >>> p <- canonicalizePath "hops/../hops-2.config"
 -- >>> q <- canonicalizePath p
 -- >>> setCurrentDirectory d
@@ -179,7 +179,7 @@ makeRelativeConfigPath dir (ProjectConfigPath p) =
 -- "ConditionalAndImport/hops-2.config"
 --
 -- >>> d <- getCurrentDirectory
--- >>> setCurrentDirectory "../cabal-testsuite/PackageTests/ConditionalAndImport"
+-- >>> setCurrentDirectory testDir
 -- >>> p <- canonicalizePath "hops/../hops/hops-3.config"
 -- >>> q <- canonicalizePath p
 -- >>> setCurrentDirectory d
@@ -187,7 +187,7 @@ makeRelativeConfigPath dir (ProjectConfigPath p) =
 -- "ConditionalAndImport/hops/hops-3.config"
 --
 -- >>> d <- getCurrentDirectory
--- >>> setCurrentDirectory "../cabal-testsuite/PackageTests/ConditionalAndImport"
+-- >>> setCurrentDirectory testDir
 -- >>> p <- canonicalizePath "hops/../hops/../hops/../hops/../hops-8.config"
 -- >>> q <- canonicalizePath p
 -- >>> setCurrentDirectory d
@@ -195,7 +195,7 @@ makeRelativeConfigPath dir (ProjectConfigPath p) =
 -- "ConditionalAndImport/hops-8.config"
 --
 -- >>> d <- getCurrentDirectory
--- >>> setCurrentDirectory "../cabal-testsuite/PackageTests/ConditionalAndImport"
+-- >>> setCurrentDirectory testDir
 -- >>> p <- canonicalizePath "hops/../hops/../hops/../hops/../hops/hops-9.config"
 -- >>> q <- canonicalizePath p
 -- >>> setCurrentDirectory d
@@ -203,38 +203,38 @@ makeRelativeConfigPath dir (ProjectConfigPath p) =
 -- "ConditionalAndImport/hops/hops-9.config"
 --
 -- >>> d <- getCurrentDirectory
--- >>> setCurrentDirectory "../cabal-testsuite/PackageTests/ConditionalAndImport"
+-- >>> setCurrentDirectory testDir
 -- >>> p <- canonicalizeConfigPath "." (ProjectConfigPath $ "hops/hops-1.config" :| [])
 -- >>> ProjectConfigPath (q :| _) <- canonicalizeConfigPath "." p
 -- >>> setCurrentDirectory d
 -- >>> joinPath . reverse . take 3 . reverse $ splitPath q
 -- "ConditionalAndImport/hops/hops-1.config"
 --
--- >>> let d = "../cabal-testsuite/PackageTests/ConditionalAndImport"
+-- >>> let d = testDir
 -- >>> p <- canonicalizeConfigPath d (ProjectConfigPath $ "hops/hops-1.config" :| [])
 -- >>> ProjectConfigPath (q :| _) <- canonicalizeConfigPath d p
 -- >>> joinPath . reverse . take 3 . reverse $ splitPath q
 -- "ConditionalAndImport/hops/hops-1.config"
 --
--- >>> let d = "../cabal-testsuite/PackageTests/ConditionalAndImport"
+-- >>> let d = testDir
 -- >>> p <- canonicalizeConfigPath d (ProjectConfigPath $ "hops/../hops-2.config" :| [])
 -- >>> ProjectConfigPath (q :| _) <- canonicalizeConfigPath d p
 -- >>> joinPath . reverse . take 2 . reverse $ splitPath q
 -- "ConditionalAndImport/hops-2.config"
 --
--- >>> let d = "../cabal-testsuite/PackageTests/ConditionalAndImport"
+-- >>> let d = testDir
 -- >>> p <- canonicalizeConfigPath d (ProjectConfigPath $ "hops/../hops/hops-3.config" :| [])
 -- >>> ProjectConfigPath (q :| _) <- canonicalizeConfigPath d p
 -- >>> joinPath . reverse . take 3 . reverse $ splitPath q
 -- "ConditionalAndImport/hops/hops-3.config"
 --
--- >>> let d = "../cabal-testsuite/PackageTests/ConditionalAndImport"
+-- >>> let d = testDir
 -- >>> p <- canonicalizeConfigPath d (ProjectConfigPath $ "hops/../hops/../hops/../hops/../hops-8.config" :| [])
 -- >>> ProjectConfigPath (q :| _) <- canonicalizeConfigPath d p
 -- >>> joinPath . reverse . take 2 . reverse $ splitPath q
 -- "ConditionalAndImport/hops-8.config"
 --
--- >>> let d = "../cabal-testsuite/PackageTests/ConditionalAndImport"
+-- >>> let d = testDir
 -- >>> p <- canonicalizeConfigPath d (ProjectConfigPath $ "hops/../hops/../hops/../hops/../hops/hops-9.config" :| [])
 -- >>> ProjectConfigPath (q :| _) <- canonicalizeConfigPath d p
 -- >>> joinPath . reverse . take 3 . reverse $ splitPath q
@@ -254,3 +254,4 @@ isURI = isJust  .parseURI
 -- $setup
 -- >>> :set -XViewPatterns
 -- >>> import Data.List
+-- >>> let testDir = "../cabal-testsuite/PackageTests/ConditionalAndImport"
