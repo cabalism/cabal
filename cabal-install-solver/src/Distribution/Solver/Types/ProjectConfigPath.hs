@@ -7,7 +7,6 @@ module Distribution.Solver.Types.ProjectConfigPath
     , projectConfigPathRoot
     , docProjectConfigPath
     , cyclicalImportMsg
-    , duplicateImportMsg
     , docProjectConfigPathFailReason
     , nullProjectConfigPath
     , consProjectConfigPath
@@ -62,12 +61,6 @@ docProjectConfigPath :: ProjectConfigPath -> Doc
 docProjectConfigPath (ProjectConfigPath (p :| [])) = text p
 docProjectConfigPath (ProjectConfigPath (p :| ps)) = vcat $
     text p : [ text " " <+> text "imported by:" <+> text l | l <- ps ]
-
-duplicateImportMsg :: FilePath -> [(FilePath, ProjectConfigPath)] -> Doc
-duplicateImportMsg uniqueImport dupImportsBy = vcat
-    [ text "duplicate import of" <+> text uniqueImport <> semi
-    , cat [nest 2 (docProjectConfigPath dib) | (_, dib) <- dupImportsBy]
-    ]
 
 -- | A message for a cyclical import, assuming the head of the path is the
 -- duplicate.
