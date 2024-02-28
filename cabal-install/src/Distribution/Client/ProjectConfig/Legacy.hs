@@ -242,28 +242,28 @@ parseProject rootPath cacheDir httpTransport verbosity configToParse = do
   let (projectDir, projectFileName) = splitFileName rootPath
   projectPath <- canonicalizeConfigPath projectDir (ProjectConfigPath $ projectFileName :| [])
   let importsBy = projectPath :| []
-  parseProjectSkeleton importsBy projectDir projectPath cacheDir httpTransport verbosity configToParse
+  parseProjectSkeleton importsBy projectDir cacheDir httpTransport verbosity projectPath configToParse
 
 parseProjectSkeleton
   :: NonEmpty ProjectConfigPath
   -- ^ The list of imports seen so far, used to detect cycles and duplicates
   -> FilePath
   -- ^ The directory of the project configuration, typically the directory of cabal.project
-  -> ProjectConfigPath
-  -- ^ The path of the file being imported, either the root or an import
   -> FilePath
   -> HttpTransport
   -> Verbosity
+  -> ProjectConfigPath
+  -- ^ The path of the file being parsed, either the root or an import
   -> ProjectConfigToParse
   -- ^ The contents of the file to parse
   -> IO (ParseResult ProjectConfigSkeleton)
-parseProjectSkeleton importsBy dir configPath cacheDir httpTransport verbosity (ProjectConfigToParse bs) =
+parseProjectSkeleton importsBy dir cacheDir httpTransport verbosity source (ProjectConfigToParse bs) =
   (sanityWalkPCS False =<<) <$> liftPR (go []) (ParseUtils.readFields bs)
   where
     go :: [ParseUtils.Field] -> [ParseUtils.Field] -> IO (ParseResult ProjectConfigSkeleton)
     go acc (x : xs) = case x of
       (ParseUtils.F l "import" importLoc) -> do
-        let importLocPath = importLoc `consProjectConfigPath` configPath
+        let importLocPath = importLoc `consProjectConfigPath` source
 
         -- Once we canonicalize the import path, we can check for cyclical imports and duplicates
         normLocPath <- canonicalizeConfigPath dir importLocPath
@@ -279,13 +279,13 @@ parseProjectSkeleton importsBy dir configPath cacheDir httpTransport verbosity (
                 -- path we stop parsing and issue an error.
                 pure . parseFail $ ParseUtils.FromString (render $ cyclicalImportMsg normLocPath) (Just l)
             | otherwise -> do
-                let fs = (\z -> CondNode z [normLocPath] mempty) <$> fieldsToConfig configPath (reverse acc)
-                res <- parseProjectSkeleton importsBy' dir importLocPath cacheDir httpTransport verbosity . ProjectConfigToParse =<< fetchImportConfig normLocPath
+                let fs = (\z -> CondNode z [normLocPath] mempty) <$> fieldsToConfig source (reverse acc)
+                res <- parseProjectSkeleton importsBy' dir cacheDir httpTransport verbosity importLocPath . ProjectConfigToParse =<< fetchImportConfig normLocPath
                 rest <- go [] xs
                 pure . fmap mconcat . sequence $ [fs, res, rest]
       (ParseUtils.Section l "if" p xs') -> do
         subpcs <- go [] xs'
-        let fs = singletonProjectConfigSkeleton <$> fieldsToConfig configPath (reverse acc)
+        let fs = singletonProjectConfigSkeleton <$> fieldsToConfig source (reverse acc)
         (elseClauses, rest) <- parseElseClauses xs
         let condNode =
               (\c pcs e -> CondNode mempty mempty [CondBranch c pcs e])
@@ -301,7 +301,7 @@ parseProjectSkeleton importsBy dir configPath cacheDir httpTransport verbosity (
       -- surfaces in solver rejection messages and we want all paths shown there
       -- to be relative to the directory of the project, not relative to the
       -- file they were imported from.
-      normConfigPath <- canonicalizeConfigPath dir configPath
+      normConfigPath <- canonicalizeConfigPath dir source
       pure . fmap singletonProjectConfigSkeleton . fieldsToConfig normConfigPath $ reverse acc
 
     parseElseClauses :: [ParseUtils.Field] -> IO (ParseResult (Maybe ProjectConfigSkeleton), ParseResult ProjectConfigSkeleton)
@@ -327,7 +327,7 @@ parseProjectSkeleton importsBy dir configPath cacheDir httpTransport verbosity (
         <$> parseLegacyProjectConfigFields fromConfigPath xs
 
     addProvenance :: FilePath -> ProjectConfig -> ProjectConfig
-    addProvenance source x = x{projectConfigProvenance = Set.singleton (Explicit source)}
+    addProvenance sourcePath x = x{projectConfigProvenance = Set.singleton (Explicit sourcePath)}
 
     adaptParseError _ (Right x) = pure x
     adaptParseError l (Left e) = parseFail $ ParseUtils.FromString (show e) (Just l)
