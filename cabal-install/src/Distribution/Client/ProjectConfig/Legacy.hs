@@ -323,7 +323,7 @@ parseProjectSkeleton importsBy dir configPath cacheDir httpTransport verbosity (
 
     fieldsToConfig :: ProjectConfigPath -> [ParseUtils.Field] -> ParseResult ProjectConfig
     fieldsToConfig fromConfigPath@(ProjectConfigPath (importee :| _)) xs =
-      (addProvenance importee . convertLegacyProjectConfig)
+      addProvenance importee . convertLegacyProjectConfig
         <$> parseLegacyProjectConfigFields fromConfigPath xs
 
     addProvenance :: FilePath -> ProjectConfig -> ProjectConfig
