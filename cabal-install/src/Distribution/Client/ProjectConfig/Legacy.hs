@@ -319,9 +319,9 @@ parseProjectSkeleton dir cacheDir httpTransport verbosity seenImports source (Pr
       _ -> (\r -> (pure Nothing, r)) <$> go [] x
 
     fieldsToConfig :: ProjectConfigPath -> [ParseUtils.Field] -> ParseResult ProjectConfig
-    fieldsToConfig fromConfigPath@(ProjectConfigPath (importee :| _)) xs =
+    fieldsToConfig sourceConfigPath@(ProjectConfigPath (importee :| _)) xs =
       addProvenance importee . convertLegacyProjectConfig
-        <$> parseLegacyProjectConfigFields fromConfigPath xs
+        <$> parseLegacyProjectConfigFields sourceConfigPath xs
 
     addProvenance :: FilePath -> ProjectConfig -> ProjectConfig
     addProvenance sourcePath x = x{projectConfigProvenance = Set.singleton (Explicit sourcePath)}
