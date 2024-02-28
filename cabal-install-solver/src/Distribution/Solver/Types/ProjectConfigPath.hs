@@ -1,6 +1,4 @@
 {-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE ParallelListComp #-}
 
 module Distribution.Solver.Types.ProjectConfigPath
     ( ProjectConfigPath(..)
