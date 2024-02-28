@@ -69,10 +69,13 @@ duplicateImportMsg uniqueImport dupImportsBy = vcat
     , cat [nest 2 (docProjectConfigPath dib) | (_, dib) <- dupImportsBy]
     ]
 
-cyclicalImportMsg :: FilePath -> ProjectConfigPath -> Doc
-cyclicalImportMsg uniqueImport normLocPath = vcat
-    [ text "cyclical import of" <+> text uniqueImport <> semi
-    , nest 2 (docProjectConfigPath normLocPath)
+-- | A message for a cyclical import, assuming the head of the path is the
+-- duplicate.
+cyclicalImportMsg :: ProjectConfigPath -> Doc
+cyclicalImportMsg path@(ProjectConfigPath (duplicate :| _)) =
+    vcat
+    [ text "cyclical import of" <+> text duplicate <> semi
+    , nest 2 (docProjectConfigPath path)
     ]
 
 docProjectConfigPathFailReason :: VR -> ProjectConfigPath -> Doc
