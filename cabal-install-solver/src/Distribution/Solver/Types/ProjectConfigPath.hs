@@ -9,7 +9,6 @@ module Distribution.Solver.Types.ProjectConfigPath
     , nullProjectConfigPath
     , consProjectConfigPath
     , hasDuplicatesConfigPath
-    , fullConfigPathRoot
     , canonicalizeConfigPath
     ) where
 
@@ -92,14 +91,6 @@ nullProjectConfigPath = ProjectConfigPath $ "unused" :| []
 -- the project root directory.
 hasDuplicatesConfigPath :: ProjectConfigPath -> Bool
 hasDuplicatesConfigPath (ProjectConfigPath p) = length p /= length (NE.nub p)
-
--- | If the project was a full path, we need to show the full path in messages
--- and do this by reconstructing the full path of the root (the project) from
--- its directory and file name.
-fullConfigPathRoot :: FilePath -> ProjectConfigPath -> ProjectConfigPath
-fullConfigPathRoot dir (ProjectConfigPath p) =
-    ProjectConfigPath . NE.fromList
-    $ NE.init p ++ [let root = NE.last p in dir </> root]
 
 -- | Prepends the path of the importee to the importer path.
 consProjectConfigPath :: FilePath -> ProjectConfigPath -> ProjectConfigPath
