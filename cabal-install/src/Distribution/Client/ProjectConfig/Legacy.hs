@@ -240,14 +240,14 @@ parseProject
 parseProject rootPath cacheDir httpTransport verbosity configToParse = do
   let (projectDir, projectFileName) = splitFileName rootPath
   projectPath <- canonicalizeConfigPath projectDir (ProjectConfigPath $ projectFileName :| [])
-  parseProjectSkeleton projectDir cacheDir httpTransport verbosity (projectPath :| []) projectPath configToParse
+  parseProjectSkeleton cacheDir httpTransport verbosity projectDir (projectPath :| []) projectPath configToParse
 
 parseProjectSkeleton
   :: FilePath
-  -- ^ The directory of the project configuration, typically the directory of cabal.project
-  -> FilePath
   -> HttpTransport
   -> Verbosity
+  -> FilePath
+  -- ^ The directory of the project configuration, typically the directory of cabal.project
   -> NonEmpty ProjectConfigPath
   -- ^ The list of imports seen so far, used to detect cycles and duplicates
   -> ProjectConfigPath
@@ -255,7 +255,7 @@ parseProjectSkeleton
   -> ProjectConfigToParse
   -- ^ The contents of the file to parse
   -> IO (ParseResult ProjectConfigSkeleton)
-parseProjectSkeleton dir cacheDir httpTransport verbosity seenImports source (ProjectConfigToParse bs) =
+parseProjectSkeleton cacheDir httpTransport verbosity dir seenImports source (ProjectConfigToParse bs) =
   (sanityWalkPCS False =<<) <$> liftPR (go []) (ParseUtils.readFields bs)
   where
     go :: [ParseUtils.Field] -> [ParseUtils.Field] -> IO (ParseResult ProjectConfigSkeleton)
@@ -277,7 +277,7 @@ parseProjectSkeleton dir cacheDir httpTransport verbosity seenImports source (Pr
           then pure . parseFail $ ParseUtils.FromString (render $ cyclicalImportMsg normLocPath) (Just l)
           else do
             let fs = (\z -> CondNode z [normLocPath] mempty) <$> fieldsToConfig source (reverse acc)
-            res <- parseProjectSkeleton dir cacheDir httpTransport verbosity seenImports' importLocPath . ProjectConfigToParse =<< fetchImportConfig normLocPath
+            res <- parseProjectSkeleton cacheDir httpTransport verbosity dir seenImports' importLocPath . ProjectConfigToParse =<< fetchImportConfig normLocPath
             rest <- go [] xs
             pure . fmap mconcat . sequence $ [fs, res, rest]
       (ParseUtils.Section l "if" p xs') -> do
