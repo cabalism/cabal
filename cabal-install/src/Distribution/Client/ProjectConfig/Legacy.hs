@@ -174,10 +174,7 @@ import Distribution.System (Arch, OS)
 import Distribution.Types.PackageVersionConstraint
   ( PackageVersionConstraint
   )
-import Text.PrettyPrint
-  ( Doc
-  , ($+$)
-  )
+import Text.PrettyPrint (Doc, render, ($+$))
 import qualified Text.PrettyPrint as Disp
 
 import qualified Data.ByteString.Char8 as BS
@@ -192,7 +189,6 @@ import Distribution.Client.HttpUtils
 import Distribution.Client.ReplFlags (multiReplOption)
 import System.Directory (createDirectoryIfMissing)
 import System.FilePath (isAbsolute, isPathSeparator, makeValid, splitFileName, (</>))
-import Text.PrettyPrint (render)
 
 ------------------------------------------------------------------
 -- Handle extended project config files with conditionals and imports.
