@@ -241,23 +241,22 @@ parseProject
 parseProject rootPath cacheDir httpTransport verbosity configToParse = do
   let (projectDir, projectFileName) = splitFileName rootPath
   projectPath <- canonicalizeConfigPath projectDir (ProjectConfigPath $ projectFileName :| [])
-  let importsBy = projectPath :| []
-  parseProjectSkeleton importsBy projectDir cacheDir httpTransport verbosity projectPath configToParse
+  parseProjectSkeleton projectDir cacheDir httpTransport verbosity (projectPath :| []) projectPath configToParse
 
 parseProjectSkeleton
-  :: NonEmpty ProjectConfigPath
-  -- ^ The list of imports seen so far, used to detect cycles and duplicates
-  -> FilePath
+  :: FilePath
   -- ^ The directory of the project configuration, typically the directory of cabal.project
   -> FilePath
   -> HttpTransport
   -> Verbosity
+  -> NonEmpty ProjectConfigPath
+  -- ^ The list of imports seen so far, used to detect cycles and duplicates
   -> ProjectConfigPath
   -- ^ The path of the file being parsed, either the root or an import
   -> ProjectConfigToParse
   -- ^ The contents of the file to parse
   -> IO (ParseResult ProjectConfigSkeleton)
-parseProjectSkeleton importsBy dir cacheDir httpTransport verbosity source (ProjectConfigToParse bs) =
+parseProjectSkeleton dir cacheDir httpTransport verbosity seenImports source (ProjectConfigToParse bs) =
   (sanityWalkPCS False =<<) <$> liftPR (go []) (ParseUtils.readFields bs)
   where
     go :: [ParseUtils.Field] -> [ParseUtils.Field] -> IO (ParseResult ProjectConfigSkeleton)
@@ -267,11 +266,11 @@ parseProjectSkeleton importsBy dir cacheDir httpTransport verbosity source (Proj
 
         -- Once we canonicalize the import path, we can check for cyclical imports and duplicates
         normLocPath <- canonicalizeConfigPath dir importLocPath
-        let importsBy' = NE.nub $ normLocPath <| importsBy
+        let seenImports' = NE.nub $ normLocPath <| seenImports
 
         debug verbosity $ "\nimport path, normalized\n=======================\n" ++ render (docProjectConfigPath normLocPath)
         debug verbosity "\nseen unique paths\n================="
-        mapM_ (debug verbosity . NE.head . coerce) importsBy
+        mapM_ (debug verbosity . NE.head . coerce) seenImports
 
         if
             | hasDuplicatesConfigPath normLocPath ->
@@ -280,7 +279,7 @@ parseProjectSkeleton importsBy dir cacheDir httpTransport verbosity source (Proj
                 pure . parseFail $ ParseUtils.FromString (render $ cyclicalImportMsg normLocPath) (Just l)
             | otherwise -> do
                 let fs = (\z -> CondNode z [normLocPath] mempty) <$> fieldsToConfig source (reverse acc)
-                res <- parseProjectSkeleton importsBy' dir cacheDir httpTransport verbosity importLocPath . ProjectConfigToParse =<< fetchImportConfig normLocPath
+                res <- parseProjectSkeleton dir cacheDir httpTransport verbosity seenImports' importLocPath . ProjectConfigToParse =<< fetchImportConfig normLocPath
                 rest <- go [] xs
                 pure . fmap mconcat . sequence $ [fs, res, rest]
       (ParseUtils.Section l "if" p xs') -> do
