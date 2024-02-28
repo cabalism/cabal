@@ -1,6 +1,5 @@
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE MultiWayIf #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -272,16 +271,15 @@ parseProjectSkeleton dir cacheDir httpTransport verbosity seenImports source (Pr
         debug verbosity "\nseen unique paths\n================="
         mapM_ (debug verbosity . NE.head . coerce) seenImports
 
-        if
-            | hasDuplicatesConfigPath normLocPath ->
-                -- When hasDuplicatesConfigPath finds cycles in a single import
-                -- path we stop parsing and issue an error.
-                pure . parseFail $ ParseUtils.FromString (render $ cyclicalImportMsg normLocPath) (Just l)
-            | otherwise -> do
-                let fs = (\z -> CondNode z [normLocPath] mempty) <$> fieldsToConfig source (reverse acc)
-                res <- parseProjectSkeleton dir cacheDir httpTransport verbosity seenImports' importLocPath . ProjectConfigToParse =<< fetchImportConfig normLocPath
-                rest <- go [] xs
-                pure . fmap mconcat . sequence $ [fs, res, rest]
+        -- When hasDuplicatesConfigPath finds cycles in a single import path we
+        -- stop parsing and issue an error.
+        if hasDuplicatesConfigPath normLocPath
+          then pure . parseFail $ ParseUtils.FromString (render $ cyclicalImportMsg normLocPath) (Just l)
+          else do
+            let fs = (\z -> CondNode z [normLocPath] mempty) <$> fieldsToConfig source (reverse acc)
+            res <- parseProjectSkeleton dir cacheDir httpTransport verbosity seenImports' importLocPath . ProjectConfigToParse =<< fetchImportConfig normLocPath
+            rest <- go [] xs
+            pure . fmap mconcat . sequence $ [fs, res, rest]
       (ParseUtils.Section l "if" p xs') -> do
         subpcs <- go [] xs'
         let fs = singletonProjectConfigSkeleton <$> fieldsToConfig source (reverse acc)
