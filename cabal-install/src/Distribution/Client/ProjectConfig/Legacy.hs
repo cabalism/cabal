@@ -810,6 +810,7 @@ convertLegacyBuildOnlyFlags
 
       InstallFlags
         { installDryRun = projectConfigDryRun
+        , installPrintTargets = projectConfigPrintTargets
         , installOnlyDownload = projectConfigOnlyDownload
         , installOnly = _
         , installOnlyDeps = projectConfigOnlyDeps
@@ -925,6 +926,7 @@ convertToLegacySharedConfig
           , installHaddockIndex = projectConfigHaddockIndex
           , installDest = Flag NoCopyDest
           , installDryRun = projectConfigDryRun
+          , installPrintTargets = projectConfigPrintTargets
           , installOnlyDownload = projectConfigOnlyDownload
           , installReinstall = mempty -- projectConfigReinstall,
           , installAvoidReinstalls = mempty -- projectConfigAvoidReinstalls,

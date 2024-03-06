@@ -410,6 +410,7 @@ instance Semigroup SavedConfig where
           { installDocumentation = combine installDocumentation
           , installHaddockIndex = combine installHaddockIndex
           , installDryRun = combine installDryRun
+          , installPrintTargets = combine installPrintTargets
           , installOnlyDownload = combine installOnlyDownload
           , installDest = combine installDest
           , installMaxBackjumps = combine installMaxBackjumps

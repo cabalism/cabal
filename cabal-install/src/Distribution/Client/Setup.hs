@@ -2110,6 +2110,7 @@ data InstallFlags = InstallFlags
   , installHaddockIndex :: Flag PathTemplate
   , installDest :: Flag Cabal.CopyDest
   , installDryRun :: Flag Bool
+  , installPrintTargets :: Flag Bool
   , installOnlyDownload :: Flag Bool
   , installMaxBackjumps :: Flag Int
   , installReorderGoals :: Flag ReorderGoals
@@ -2155,6 +2156,7 @@ defaultInstallFlags =
     , installHaddockIndex = Flag docIndexFile
     , installDest = Flag Cabal.NoCopyDest
     , installDryRun = Flag False
+    , installPrintTargets = Flag False
     , installOnlyDownload = Flag False
     , installMaxBackjumps = Flag defaultMaxBackjumps
     , installReorderGoals = Flag (ReorderGoals False)
@@ -2466,6 +2468,13 @@ installOptions showOrParseArgs =
       "Do not install anything, only print what would be installed."
       installDryRun
       (\v flags -> flags{installDryRun = v})
+      trueArg
+  , option
+      []
+      ["print-targets"]
+      "Print available build targets."
+      installPrintTargets
+      (\v flags -> flags{installPrintTargets = v})
       trueArg
   , option
       []

@@ -153,6 +153,7 @@ data ProjectConfig = ProjectConfig
 data ProjectConfigBuildOnly = ProjectConfigBuildOnly
   { projectConfigVerbosity :: Flag Verbosity
   , projectConfigDryRun :: Flag Bool
+  , projectConfigPrintTargets :: Flag Bool
   , projectConfigOnlyDeps :: Flag Bool
   , projectConfigOnlyDownload :: Flag Bool
   , projectConfigSummaryFile :: NubList PathTemplate
