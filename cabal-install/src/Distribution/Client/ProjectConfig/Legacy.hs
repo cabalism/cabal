@@ -31,9 +31,6 @@ module Distribution.Client.ProjectConfig.Legacy
   , renderPackageLocationToken
   ) where
 
-import Data.Coerce (coerce)
-import Data.List.NonEmpty ((<|))
-import qualified Data.List.NonEmpty as NE
 import Distribution.Client.Compat.Prelude
 
 import Distribution.Types.Flag (FlagName, parsecFlagAssignment)
@@ -240,7 +237,7 @@ parseProject
 parseProject rootPath cacheDir httpTransport verbosity configToParse = do
   let (projectDir, projectFileName) = splitFileName rootPath
   projectPath <- canonicalizeConfigPath projectDir (ProjectConfigPath $ projectFileName :| [])
-  parseProjectSkeleton cacheDir httpTransport verbosity projectDir (projectPath :| []) projectPath configToParse
+  parseProjectSkeleton cacheDir httpTransport verbosity projectDir projectPath configToParse
 
 parseProjectSkeleton
   :: FilePath
@@ -248,14 +245,12 @@ parseProjectSkeleton
   -> Verbosity
   -> FilePath
   -- ^ The directory of the project configuration, typically the directory of cabal.project
-  -> NonEmpty ProjectConfigPath
-  -- ^ The list of imports seen so far
   -> ProjectConfigPath
   -- ^ The path of the file being parsed, either the root or an import
   -> ProjectConfigToParse
   -- ^ The contents of the file to parse
   -> IO (ParseResult ProjectConfigSkeleton)
-parseProjectSkeleton cacheDir httpTransport verbosity dir seenImports source (ProjectConfigToParse bs) =
+parseProjectSkeleton cacheDir httpTransport verbosity dir source (ProjectConfigToParse bs) =
   (sanityWalkPCS False =<<) <$> liftPR (go []) (ParseUtils.readFields bs)
   where
     go :: [ParseUtils.Field] -> [ParseUtils.Field] -> IO (ParseResult ProjectConfigSkeleton)
@@ -265,17 +260,14 @@ parseProjectSkeleton cacheDir httpTransport verbosity dir seenImports source (Pr
 
         -- Once we canonicalize the import path, we can check for cyclical imports
         normLocPath <- canonicalizeConfigPath dir importLocPath
-        let seenImports' = NE.nub $ normLocPath <| seenImports
 
         debug verbosity $ "\nimport path, normalized\n=======================\n" ++ render (docProjectConfigPath normLocPath)
-        debug verbosity "\nseen unique paths\n================="
-        mapM_ (debug verbosity . NE.head . coerce) seenImports
 
         if isCyclicConfigPath normLocPath
           then pure . parseFail $ ParseUtils.FromString (render $ cyclicalImportMsg normLocPath) Nothing
           else do
             let fs = (\z -> CondNode z [normLocPath] mempty) <$> fieldsToConfig source (reverse acc)
-            res <- parseProjectSkeleton cacheDir httpTransport verbosity dir seenImports' importLocPath . ProjectConfigToParse =<< fetchImportConfig normLocPath
+            res <- parseProjectSkeleton cacheDir httpTransport verbosity dir importLocPath . ProjectConfigToParse =<< fetchImportConfig normLocPath
             rest <- go [] xs
             pure . fmap mconcat . sequence $ [fs, res, rest]
       (ParseUtils.Section l "if" p xs') -> do
