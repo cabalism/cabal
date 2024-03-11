@@ -96,6 +96,7 @@ import Distribution.Version
   )
 
 import qualified Data.Map as Map
+import Distribution.Solver.Types.ProjectConfigPath (ProjectConfigPath)
 import Distribution.Types.ParStrat
 
 -------------------------------
@@ -245,8 +246,8 @@ data ProjectConfigProvenance
     -- for how implicit configuration is determined.
     Implicit
   | -- | The path the project configuration was explicitly read from.
-    -- | The configuration was explicitly read from the specified 'FilePath'.
-    Explicit FilePath
+    -- | The configuration was explicitly read from the specified 'ProjectConfigPath'.
+    Explicit ProjectConfigPath
   deriving (Eq, Ord, Show, Generic)
 
 -- | Project configuration that is specific to each package, that is where we
