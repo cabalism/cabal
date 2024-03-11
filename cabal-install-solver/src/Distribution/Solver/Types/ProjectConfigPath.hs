@@ -105,8 +105,9 @@ makeRelativeConfigPath dir (ProjectConfigPath p) =
     $ (\segment -> (if isURI segment then segment else makeRelative dir segment))
     <$> p
 
--- | Normalizes and canonicalizes paths so that '..' segments can be removed.
--- This function is idempotent.
+-- | Normalizes and canonicalizes a path removing '.' and '..' indirections.
+-- Makes the path relative to the given directory (typically the project root)
+-- instead of relative to the file it was imported from.
 --
 -- It converts paths like this:
 -- @
