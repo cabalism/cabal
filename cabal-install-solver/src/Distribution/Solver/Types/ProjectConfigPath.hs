@@ -8,7 +8,7 @@ module Distribution.Solver.Types.ProjectConfigPath
     , docProjectConfigPathFailReason
     , nullProjectConfigPath
     , consProjectConfigPath
-    , hasDuplicatesConfigPath
+    , isCyclicConfigPath
     , canonicalizeConfigPath
     ) where
 
@@ -90,8 +90,8 @@ nullProjectConfigPath = ProjectConfigPath $ "unused" :| []
 -- @canonicalizeConfigPath@. This is because the import path may contain paths
 -- that are the same in relation to their importers but different in relation to
 -- the project root directory.
-hasDuplicatesConfigPath :: ProjectConfigPath -> Bool
-hasDuplicatesConfigPath (ProjectConfigPath p) = length p /= length (NE.nub p)
+isCyclicConfigPath :: ProjectConfigPath -> Bool
+isCyclicConfigPath (ProjectConfigPath p) = length p /= length (NE.nub p)
 
 -- | Prepends the path of the importee to the importer path.
 consProjectConfigPath :: FilePath -> ProjectConfigPath -> ProjectConfigPath
