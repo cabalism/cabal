@@ -249,7 +249,7 @@ parseProjectSkeleton
   -> FilePath
   -- ^ The directory of the project configuration, typically the directory of cabal.project
   -> NonEmpty ProjectConfigPath
-  -- ^ The list of imports seen so far, used to detect cycles and duplicates
+  -- ^ The list of imports seen so far
   -> ProjectConfigPath
   -- ^ The path of the file being parsed, either the root or an import
   -> ProjectConfigToParse
@@ -263,7 +263,7 @@ parseProjectSkeleton cacheDir httpTransport verbosity dir seenImports source (Pr
       (ParseUtils.F l "import" importLoc) -> do
         let importLocPath = importLoc `consProjectConfigPath` source
 
-        -- Once we canonicalize the import path, we can check for cyclical imports and duplicates
+        -- Once we canonicalize the import path, we can check for cyclical imports
         normLocPath <- canonicalizeConfigPath dir importLocPath
         let seenImports' = NE.nub $ normLocPath <| seenImports
 
@@ -271,9 +271,7 @@ parseProjectSkeleton cacheDir httpTransport verbosity dir seenImports source (Pr
         debug verbosity "\nseen unique paths\n================="
         mapM_ (debug verbosity . NE.head . coerce) seenImports
 
-        -- When hasDuplicatesConfigPath finds cycles in a single import path we
-        -- stop parsing and issue an error.
-        if hasDuplicatesConfigPath normLocPath
+        if isCyclicConfigPath normLocPath
           then pure . parseFail $ ParseUtils.FromString (render $ cyclicalImportMsg normLocPath) (Just l)
           else do
             let fs = (\z -> CondNode z [normLocPath] mempty) <$> fieldsToConfig source (reverse acc)
