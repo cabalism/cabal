@@ -109,16 +109,21 @@ main = cabalTest . withRepo "repo" . recordMode RecordMarked $ do
   log "checking that imports work skipping into a subfolder and then back out again and again"
   hopping <- cabal' "v2-build" [ "--project-file=hops-0.project" ]
   assertOutputContains "this build was affected by the following (project) config files:" hopping
-  assertOutputContains "hops-0.project" hopping
-  assertOutputContains "hops-2.config" hopping
-  assertOutputContains "hops-4.config" hopping
-  assertOutputContains "hops-6.config" hopping
-  assertOutputContains "hops-8.config" hopping
-  assertOutputContains "hops/hops-1.config" hopping
-  assertOutputContains "hops/hops-3.config" hopping
-  assertOutputContains "hops/hops-5.config" hopping
-  assertOutputContains "hops/hops-7.config" hopping
-  assertOutputContains "hops/hops-9.config" hopping
+  assertOutputContains "- ../hops-2.config" hopping
+  assertOutputContains "- ../hops-4.config" hopping
+  assertOutputContains "- ../hops-6.config" hopping
+  assertOutputContains "- ../hops-8.config" hopping
+  assertOutputContains "- hops-0.project" hopping
+  assertOutputContains "- hops-2.config" hopping
+  assertOutputContains "- hops-4.config" hopping
+  assertOutputContains "- hops-6.config" hopping
+  assertOutputContains "- hops-8.config" hopping
+  assertOutputContains "- hops/hops-1.config" hopping
+  assertOutputContains "- hops/hops-3.config" hopping
+  assertOutputContains "- hops/hops-5.config" hopping
+  assertOutputContains "- hops/hops-7.config" hopping
+  assertOutputContains "- hops/hops-9.config" hopping
+
 
   -- The project is named oops as it is like hops but has conflicting constraints.
   -- +-- oops-0.project
@@ -133,10 +138,19 @@ main = cabalTest . withRepo "repo" . recordMode RecordMarked $ do
   --          +-- oops/oops-9.config (has conflicting constraints)
   log "checking conflicting constraints skipping into a subfolder and then back out again and again"
   oopsing <- fails $ cabal' "v2-build" [ "all", "--project-file=oops-0.project" ]
-  assertOutputContains "rejecting: hashable-1.4.3.0" oopsing
-  assertOutputContains "oops-9.config requires ==1.4.2.0" oopsing
   assertOutputContains "rejecting: hashable-1.4.2.0" oopsing
-  assertOutputContains "oops-0.project requires ==1.4.3.0" oopsing
+  assertOutputContains "rejecting: hashable-1.4.3.0" oopsing
+  assertOutputContains "(constraint from oops-0.project requires ==1.4.3.0)" oopsing
+  assertOutputContains "(constraint from oops/oops-9.config requires ==1.4.2.0)" oopsing
+  assertOutputContains "imported by: oops-0.project" oopsing
+  assertOutputContains "imported by: oops-2.config" oopsing
+  assertOutputContains "imported by: oops-4.config" oopsing
+  assertOutputContains "imported by: oops-6.config" oopsing
+  assertOutputContains "imported by: oops-8.config" oopsing
+  assertOutputContains "imported by: oops/oops-1.config" oopsing
+  assertOutputContains "imported by: oops/oops-3.config" oopsing
+  assertOutputContains "imported by: oops/oops-5.config" oopsing
+  assertOutputContains "imported by: oops/oops-7.config" oopsing
 
   log "checking bad conditional"
   badIf <- fails $ cabal' "v2-build" [ "--project-file=bad-conditional.project" ]
