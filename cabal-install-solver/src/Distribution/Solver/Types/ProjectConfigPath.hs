@@ -42,9 +42,6 @@ newtype ProjectConfigPath = ProjectConfigPath (NonEmpty FilePath)
 instance Binary ProjectConfigPath
 instance Structured ProjectConfigPath
 
-pathRequiresVersion:: FilePath -> VR -> Doc
-pathRequiresVersion p vr = text p <+> text "requires" <+> text (prettyShow vr)
-
 -- | Renders the path like this;
 -- @
 -- D.config
@@ -69,12 +66,16 @@ cyclicalImportMsg path@(ProjectConfigPath (duplicate :| _)) =
     ]
 
 docProjectConfigPathFailReason :: VR -> ProjectConfigPath -> Doc
-docProjectConfigPathFailReason vr (ProjectConfigPath (p :| [])) =
-    parens $ pathRequiresVersion p vr
-docProjectConfigPathFailReason vr (ProjectConfigPath (p :| ps)) = vcat
-    [ parens (pathRequiresVersion p vr)
-    , cat [nest 2 $ text "imported by:" <+> text l | l <- ps ]
-    ]
+docProjectConfigPathFailReason vr pcp
+    | ProjectConfigPath (p :| []) <- pcp =
+        constraint p
+    | ProjectConfigPath (p :| ps) <- pcp = vcat
+        [ constraint p
+        , cat [nest 2 $ text "imported by:" <+> text l | l <- ps ]
+        ]
+    where
+        pathRequiresVersion p = text p <+> text "requires" <+> text (prettyShow vr)
+        constraint p = parens $ text "constraint from" <+> pathRequiresVersion p
 
 -- | The root of the path, the project itself.
 projectConfigPathRoot :: ProjectConfigPath -> FilePath
