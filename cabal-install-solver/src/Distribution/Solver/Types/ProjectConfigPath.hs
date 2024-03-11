@@ -140,63 +140,21 @@ makeRelativeConfigPath dir (ProjectConfigPath p) =
 -- @./hops/../hops/../hops/../hops/../hops-8.config@.
 --
 -- Let's see how @canonicalizePath@ works that is used in the implementation
--- then we'll see how @canonicalizeConfigPath@ works. Each time we'll use these
--- paths;
--- * @hops/hops-1.config@
--- * @hops/../hops-2.config@
--- * @hops/../hops/hops-3.config@
--- * @hops/../hops/../hops/../hops/../hops-8.config@
--- * @hops/../hops/../hops/../hops/../hops/hops-9.config@
+-- then we'll see how @canonicalizeConfigPath@ works.
 --
 -- >>> let d = testDir
--- >>> p <- canonicalizePath (d </> "hops/hops-1.config")
--- >>> makeRelative d <$> canonicalizePath p
--- "hops/hops-1.config"
---
--- >>> let d = testDir
--- >>> p <- canonicalizePath (d </> "hops/../hops-2.config")
--- >>> makeRelative d <$> canonicalizePath p
--- "hops-2.config"
---
--- >>> let d = testDir
--- >>> p <- canonicalizePath (d </> "hops/../hops/hops-3.config")
--- >>> makeRelative d <$> canonicalizePath p
--- "hops/hops-3.config"
---
--- >>> let d = testDir
--- >>> p <- canonicalizePath (d </> "hops/../hops/../hops/../hops/../hops-8.config")
--- >>> makeRelative d <$> canonicalizePath p
+-- >>> makeRelative d <$> canonicalizePath (d </> "hops/../hops/../hops/../hops/../hops-8.config")
 -- "hops-8.config"
---
--- >>> let d = testDir
--- >>> p <- canonicalizePath (d </> "hops/../hops/../hops/../hops/../hops/hops-9.config")
--- >>> makeRelative d <$> canonicalizePath p
--- "hops/hops-9.config"
---
--- >>> let d = testDir
--- >>> p <- canonicalizeConfigPath d (ProjectConfigPath $ (d </> "hops/hops-1.config") :| [])
--- >>> render . docProjectConfigPath <$> canonicalizeConfigPath d p
--- "hops/hops-1.config"
---
--- >>> let d = testDir
--- >>> p <- canonicalizeConfigPath d (ProjectConfigPath $ (d </> "hops/../hops-2.config") :| [])
--- >>> render . docProjectConfigPath <$> canonicalizeConfigPath d p
--- "hops-2.config"
---
--- >>> let d = testDir
--- >>> p <- canonicalizeConfigPath d (ProjectConfigPath $ (d </> "hops/../hops/hops-3.config") :| [])
--- >>> render . docProjectConfigPath <$> canonicalizeConfigPath d p
--- "hops/hops-3.config"
 --
 -- >>> let d = testDir
 -- >>> p <- canonicalizeConfigPath d (ProjectConfigPath $ (d </> "hops/../hops/../hops/../hops/../hops-8.config") :| [])
--- >>> render . docProjectConfigPath <$> canonicalizeConfigPath d p
+-- >>> render $ docProjectConfigPath p
 -- "hops-8.config"
 --
 -- >>> let d = testDir
--- >>> p <- canonicalizeConfigPath d (ProjectConfigPath $ (d </> "hops/../hops/../hops/../hops/../hops/hops-9.config") :| [])
--- >>> render . docProjectConfigPath <$> canonicalizeConfigPath d p
--- "hops/hops-9.config"
+-- >>> p <- canonicalizeConfigPath d (ProjectConfigPath ("hops/hops-9.config" :| ["../hops-8.config","hops/hops-7.config","../hops-6.config","hops/hops-5.config","../hops-4.config","hops/hops-3.config","../hops-2.config","hops/hops-1.config",d </> "hops-0.project"]))
+-- >>> render $ docProjectConfigPath p
+-- "hops/hops-9.config\n  imported by: hops-8.config\n  imported by: hops/hops-7.config\n  imported by: hops-6.config\n  imported by: hops/hops-5.config\n  imported by: hops-4.config\n  imported by: hops/hops-3.config\n  imported by: hops-2.config\n  imported by: hops/hops-1.config\n  imported by: hops-0.project"
 canonicalizeConfigPath :: FilePath -> ProjectConfigPath -> IO ProjectConfigPath
 canonicalizeConfigPath dir (ProjectConfigPath p) = do
    d <- makeAbsolute dir
