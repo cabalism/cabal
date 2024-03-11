@@ -151,10 +151,35 @@ makeRelativeConfigPath dir (ProjectConfigPath p) =
 -- >>> render $ docProjectConfigPath p
 -- "hops-8.config"
 --
--- >>> let d = testDir
--- >>> p <- canonicalizeConfigPath d (ProjectConfigPath ("hops/hops-9.config" :| ["../hops-8.config","hops/hops-7.config","../hops-6.config","hops/hops-5.config","../hops-4.config","hops/hops-3.config","../hops-2.config","hops/hops-1.config",d </> "hops-0.project"]))
--- >>> render $ docProjectConfigPath p
--- "hops/hops-9.config\n  imported by: hops-8.config\n  imported by: hops/hops-7.config\n  imported by: hops-6.config\n  imported by: hops/hops-5.config\n  imported by: hops-4.config\n  imported by: hops/hops-3.config\n  imported by: hops-2.config\n  imported by: hops/hops-1.config\n  imported by: hops-0.project"
+-- >>> :{
+--   do
+--     let expected = unlines
+--           [ "hops/hops-9.config"
+--           , "  imported by: hops-8.config"
+--           , "  imported by: hops/hops-7.config"
+--           , "  imported by: hops-6.config"
+--           , "  imported by: hops/hops-5.config"
+--           , "  imported by: hops-4.config"
+--           , "  imported by: hops/hops-3.config"
+--           , "  imported by: hops-2.config"
+--           , "  imported by: hops/hops-1.config"
+--           , "  imported by: hops-0.project"
+--           ]
+--     let d = testDir
+--     let configPath = ProjectConfigPath ("hops/hops-9.config" :|
+--           [ "../hops-8.config"
+--           , "hops/hops-7.config"
+--           , "../hops-6.config"
+--           , "hops/hops-5.config"
+--           , "../hops-4.config"
+--           , "hops/hops-3.config"
+--           , "../hops-2.config"
+--           , "hops/hops-1.config"
+--           , d </> "hops-0.project"])
+--     p <- canonicalizeConfigPath d configPath
+--     return $ expected == render (docProjectConfigPath p) ++ "\n"
+-- :}
+-- True
 canonicalizeConfigPath :: FilePath -> ProjectConfigPath -> IO ProjectConfigPath
 canonicalizeConfigPath dir (ProjectConfigPath p) = do
    d <- makeAbsolute dir
