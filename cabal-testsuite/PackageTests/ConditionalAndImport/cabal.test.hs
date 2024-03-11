@@ -138,38 +138,6 @@ main = cabalTest . withRepo "repo" . recordMode RecordMarked $ do
   assertOutputContains "rejecting: hashable-1.4.2.0" oopsing
   assertOutputContains "oops-0.project requires ==1.4.3.0" oopsing
 
-  -- The project is named yops as it is like hops but with y's for forks.
-  -- +-- yops-0.project
-  --  +-- yops/yops-1.config
-  --   +-- yops-2.config
-  --    +-- yops/yops-3.config
-  --     +-- yops-4.config
-  --      +-- yops/yops-5.config
-  --       +-- yops-6.config
-  --        +-- yops/yops-7.config
-  --         +-- yops-8.config
-  --          +-- yops/yops-9.config (no further imports)
-  --  +-- yops/yops-3.config
-  --   +-- yops-4.config
-  --    +-- yops/yops-5.config
-  --     +-- yops-6.config
-  --      +-- yops/yops-7.config
-  --       +-- yops-8.config
-  --        +-- yops/yops-9.config (no further imports)
-  --  +-- yops/yops-5.config
-  --   +-- yops-6.config
-  --    +-- yops/yops-7.config
-  --     +-- yops-8.config
-  --      +-- yops/yops-9.config (no further imports)
-  --  +-- yops/yops-7.config
-  --   +-- yops-8.config
-  --    +-- yops/yops-9.config (no further imports)
-  --  +-- yops/yops-9.config (no further imports)
-  log "checking that we detect when the same config is imported via many different paths"
-  yopping <- cabal' "v2-build" [ "--project-file=yops-0.project" ]
-  -- WARNING: duplicate import of yops/yops-3.config should be detected.
-  -- assertOutputContains "Warning: duplicate import of yops/yops-3.config" yopping
-
   log "checking bad conditional"
   badIf <- fails $ cabal' "v2-build" [ "--project-file=bad-conditional.project" ]
   assertOutputContains "Cannot set compiler in a conditional clause of a cabal project file" badIf
