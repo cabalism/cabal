@@ -260,7 +260,7 @@ parseProjectSkeleton cacheDir httpTransport verbosity dir seenImports source (Pr
   where
     go :: [ParseUtils.Field] -> [ParseUtils.Field] -> IO (ParseResult ProjectConfigSkeleton)
     go acc (x : xs) = case x of
-      (ParseUtils.F l "import" importLoc) -> do
+      (ParseUtils.F _ "import" importLoc) -> do
         let importLocPath = importLoc `consProjectConfigPath` source
 
         -- Once we canonicalize the import path, we can check for cyclical imports
@@ -272,7 +272,7 @@ parseProjectSkeleton cacheDir httpTransport verbosity dir seenImports source (Pr
         mapM_ (debug verbosity . NE.head . coerce) seenImports
 
         if isCyclicConfigPath normLocPath
-          then pure . parseFail $ ParseUtils.FromString (render $ cyclicalImportMsg normLocPath) (Just l)
+          then pure . parseFail $ ParseUtils.FromString (render $ cyclicalImportMsg normLocPath) Nothing
           else do
             let fs = (\z -> CondNode z [normLocPath] mempty) <$> fieldsToConfig source (reverse acc)
             res <- parseProjectSkeleton cacheDir httpTransport verbosity dir seenImports' importLocPath . ProjectConfigToParse =<< fetchImportConfig normLocPath
