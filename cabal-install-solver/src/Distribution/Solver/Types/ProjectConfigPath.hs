@@ -37,7 +37,7 @@ import Text.PrettyPrint
 -- List elements are relative to each other but once canonicalized, elements are
 -- relative to the directory of the project root.
 newtype ProjectConfigPath = ProjectConfigPath (NonEmpty FilePath)
-    deriving (Eq, Show, Generic)
+    deriving (Eq, Ord, Show, Generic)
 
 instance Binary ProjectConfigPath
 instance Structured ProjectConfigPath

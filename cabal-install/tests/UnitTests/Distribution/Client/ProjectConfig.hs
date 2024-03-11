@@ -18,6 +18,7 @@ import Control.Monad
 import Data.Either (isRight)
 import Data.Foldable (for_)
 import Data.List (intercalate, isPrefixOf, (\\))
+import Data.List.NonEmpty (NonEmpty (..))
 import Data.Map (Map)
 import qualified Data.Map as Map
 import Data.Maybe (fromMaybe)
@@ -649,7 +650,7 @@ projectConfigConstraintSource :: ConstraintSource
 projectConfigConstraintSource = ConstraintSourceProjectConfig nullProjectConfigPath
 
 instance Arbitrary ProjectConfigProvenance where
-  arbitrary = elements [Implicit, Explicit "cabal.project"]
+  arbitrary = elements [Implicit, Explicit (ProjectConfigPath $ "cabal.project" :| [])]
 
 instance Arbitrary PackageConfig where
   arbitrary =

@@ -314,7 +314,7 @@ parseProjectSkeleton cacheDir httpTransport verbosity dir source (ProjectConfigT
         <$> parseLegacyProjectConfigFields sourceConfigPath xs
 
     addProvenance :: FilePath -> ProjectConfig -> ProjectConfig
-    addProvenance sourcePath x = x{projectConfigProvenance = Set.singleton (Explicit sourcePath)}
+    addProvenance sourcePath x = x{projectConfigProvenance = Set.singleton (Explicit (ProjectConfigPath $ sourcePath :| []))}
 
     adaptParseError _ (Right x) = pure x
     adaptParseError l (Left e) = parseFail $ ParseUtils.FromString (show e) (Just l)
