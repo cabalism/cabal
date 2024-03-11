@@ -42,8 +42,8 @@ newtype ProjectConfigPath = ProjectConfigPath (NonEmpty FilePath)
 instance Binary ProjectConfigPath
 instance Structured ProjectConfigPath
 
-showFR :: VR -> FilePath -> Doc
-showFR vr p = text p <+> text "requires" <+> text (prettyShow vr)
+pathRequiresVersion:: FilePath -> VR -> Doc
+pathRequiresVersion p vr = text p <+> text "requires" <+> text (prettyShow vr)
 
 -- | Renders the path like this;
 -- @
@@ -70,9 +70,9 @@ cyclicalImportMsg path@(ProjectConfigPath (duplicate :| _)) =
 
 docProjectConfigPathFailReason :: VR -> ProjectConfigPath -> Doc
 docProjectConfigPathFailReason vr (ProjectConfigPath (p :| [])) =
-    parens $ showFR vr p
+    parens $ pathRequiresVersion p vr
 docProjectConfigPathFailReason vr (ProjectConfigPath (p :| ps)) = vcat
-    [ parens (showFR vr p)
+    [ parens (pathRequiresVersion p vr)
     , cat [nest 2 $ text "imported by:" <+> text l | l <- ps ]
     ]
 
