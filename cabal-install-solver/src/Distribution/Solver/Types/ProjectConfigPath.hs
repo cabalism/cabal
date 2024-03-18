@@ -133,7 +133,7 @@ makeRelativeConfigPath dir (ProjectConfigPath p) =
 --                         └─ ../hops-8.config
 --                            └─ hops/hops-9.config
 -- @
--- 
+--
 -- Into paths like this:
 -- @
 -- └─ hops-0.project
