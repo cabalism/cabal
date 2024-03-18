@@ -126,16 +126,69 @@ main = cabalTest . withRepo "repo" . recordMode RecordMarked $ do
   -- - hops/hops-7.config
   -- - hops/hops-9.config
   assertOutputContains "- hops-0.project" hopping
-  assertOutputContains "- hops-2.config" hopping
-  assertOutputContains "- hops-4.config" hopping
-  assertOutputContains "- hops-6.config" hopping
-  assertOutputContains "- hops-8.config" hopping
-  assertOutputContains "- hops/hops-1.config" hopping
-  assertOutputContains "- hops/hops-3.config" hopping
-  assertOutputContains "- hops/hops-5.config" hopping
-  assertOutputContains "- hops/hops-7.config" hopping
-  assertOutputContains "- hops/hops-9.config" hopping
-
+  flip assertOutputContains hopping
+    "- hops-2.config \
+    \    imported by: hops/hops-1.config \
+    \    imported by: hops-0.project"
+  flip assertOutputContains hopping
+    "- hops-4.config \
+    \    imported by: hops/hops-3.config \
+    \    imported by: hops-2.config \
+    \    imported by: hops/hops-1.config \
+    \    imported by: hops-0.project"
+  flip assertOutputContains hopping
+    "- hops-6.config \
+    \    imported by: hops/hops-5.config \
+    \    imported by: hops-4.config \
+    \    imported by: hops/hops-3.config \
+    \    imported by: hops-2.config \
+    \    imported by: hops/hops-1.config \
+    \    imported by: hops-0.project"
+  flip assertOutputContains hopping
+    "- hops-8.config \
+    \    imported by: hops/hops-7.config \
+    \    imported by: hops-6.config \
+    \    imported by: hops/hops-5.config \
+    \    imported by: hops-4.config \
+    \    imported by: hops/hops-3.config \
+    \    imported by: hops-2.config \
+    \    imported by: hops/hops-1.config \
+    \    imported by: hops-0.project"
+  flip assertOutputContains hopping
+    "- hops/hops-1.config \
+    \    imported by: hops-0.project"
+  flip assertOutputContains hopping
+    "- hops/hops-3.config \
+    \    imported by: hops-2.config \
+    \    imported by: hops/hops-1.config \
+    \    imported by: hops-0.project"
+  flip assertOutputContains hopping
+    "- hops/hops-5.config \
+    \    imported by: hops-4.config \
+    \    imported by: hops/hops-3.config \
+    \    imported by: hops-2.config \
+    \    imported by: hops/hops-1.config \
+    \    imported by: hops-0.project"
+  flip assertOutputContains hopping
+    "- hops/hops-7.config \
+    \    imported by: hops-6.config \
+    \    imported by: hops/hops-5.config \
+    \    imported by: hops-4.config \
+    \    imported by: hops/hops-3.config \
+    \    imported by: hops-2.config \
+    \    imported by: hops/hops-1.config \
+    \    imported by: hops-0.project"
+  flip assertOutputContains hopping
+    "- hops/hops-9.config \
+    \    imported by: hops-8.config \
+    \    imported by: hops/hops-7.config \
+    \    imported by: hops-6.config \
+    \    imported by: hops/hops-5.config \
+    \    imported by: hops-4.config \
+    \    imported by: hops/hops-3.config \
+    \    imported by: hops-2.config \
+    \    imported by: hops/hops-1.config \
+    \    imported by: hops-0.project"
 
   -- The project is named oops as it is like hops but has conflicting constraints.
   -- +-- oops-0.project
@@ -153,16 +206,17 @@ main = cabalTest . withRepo "repo" . recordMode RecordMarked $ do
   assertOutputContains "rejecting: hashable-1.4.2.0" oopsing
   assertOutputContains "rejecting: hashable-1.4.3.0" oopsing
   assertOutputContains "(constraint from oops-0.project requires ==1.4.3.0)" oopsing
-  assertOutputContains "(constraint from oops/oops-9.config requires ==1.4.2.0)" oopsing
-  assertOutputContains "imported by: oops-0.project" oopsing
-  assertOutputContains "imported by: oops-2.config" oopsing
-  assertOutputContains "imported by: oops-4.config" oopsing
-  assertOutputContains "imported by: oops-6.config" oopsing
-  assertOutputContains "imported by: oops-8.config" oopsing
-  assertOutputContains "imported by: oops/oops-1.config" oopsing
-  assertOutputContains "imported by: oops/oops-3.config" oopsing
-  assertOutputContains "imported by: oops/oops-5.config" oopsing
-  assertOutputContains "imported by: oops/oops-7.config" oopsing
+  flip assertOutputContains oopsing
+    "      (constraint from oops/oops-9.config requires ==1.4.2.0) \
+    \        imported by: oops-8.config \
+    \        imported by: oops/oops-7.config \
+    \        imported by: oops-6.config \
+    \        imported by: oops/oops-5.config \
+    \        imported by: oops-4.config \
+    \        imported by: oops/oops-3.config \
+    \        imported by: oops-2.config \
+    \        imported by: oops/oops-1.config \
+    \        imported by: oops-0.project"
 
   log "checking bad conditional"
   badIf <- fails $ cabal' "v2-build" [ "--project-file=bad-conditional.project" ]

@@ -268,7 +268,8 @@ parseProjectSkeleton cacheDir httpTransport verbosity projectDir source (Project
         if isCyclicConfigPath normLocPath
           then pure . parseFail $ ParseUtils.FromString (render $ cyclicalImportMsg normLocPath) Nothing
           else do
-            let fs = (\z -> CondNode z [normLocPath] mempty) <$> fieldsToConfig source (reverse acc)
+            normSource <- canonicalizeConfigPath projectDir source
+            let fs = (\z -> CondNode z [normLocPath] mempty) <$> fieldsToConfig normSource (reverse acc)
             res <- parseProjectSkeleton cacheDir httpTransport verbosity projectDir importLocPath . ProjectConfigToParse =<< fetchImportConfig normLocPath
             rest <- go [] xs
             pure . fmap mconcat . sequence $ [fs, res, rest]
@@ -286,12 +287,8 @@ parseProjectSkeleton cacheDir httpTransport verbosity projectDir source (Project
         pure . fmap mconcat . sequence $ [fs, condNode, rest]
       _ -> go (x : acc) xs
     go acc [] = do
-      -- We want a normalized path for @fieldsToConfig@. This eventually
-      -- surfaces in solver rejection messages and we want all paths shown there
-      -- to be relative to the directory of the project, not relative to the
-      -- file they were imported from.
-      normConfigPath <- canonicalizeConfigPath projectDir source
-      pure . fmap singletonProjectConfigSkeleton . fieldsToConfig normConfigPath $ reverse acc
+      normSource <- canonicalizeConfigPath projectDir source
+      pure . fmap singletonProjectConfigSkeleton . fieldsToConfig normSource $ reverse acc
 
     parseElseClauses :: [ParseUtils.Field] -> IO (ParseResult (Maybe ProjectConfigSkeleton), ParseResult ProjectConfigSkeleton)
     parseElseClauses x = case x of
@@ -310,13 +307,18 @@ parseProjectSkeleton cacheDir httpTransport verbosity projectDir source (Project
         pure (Just <$> condNode, rest)
       _ -> (\r -> (pure Nothing, r)) <$> go [] x
 
+    -- We want a normalized path for @fieldsToConfig@. This eventually surfaces
+    -- in solver rejection messages and build messages "this build was affected
+    -- by the following (project) config files" so we want all paths shown there
+    -- to be relative to the directory of the project, not relative to the file
+    -- they were imported from.
     fieldsToConfig :: ProjectConfigPath -> [ParseUtils.Field] -> ParseResult ProjectConfig
-    fieldsToConfig sourceConfigPath@(ProjectConfigPath (importee :| _)) xs =
-      addProvenance importee . convertLegacyProjectConfig
+    fieldsToConfig sourceConfigPath xs =
+      addProvenance sourceConfigPath . convertLegacyProjectConfig
         <$> parseLegacyProjectConfigFields sourceConfigPath xs
 
-    addProvenance :: FilePath -> ProjectConfig -> ProjectConfig
-    addProvenance sourcePath x = x{projectConfigProvenance = Set.singleton (Explicit (ProjectConfigPath $ sourcePath :| []))}
+    addProvenance :: ProjectConfigPath -> ProjectConfig -> ProjectConfig
+    addProvenance sourcePath x = x{projectConfigProvenance = Set.singleton $ Explicit sourcePath}
 
     adaptParseError _ (Right x) = pure x
     adaptParseError l (Left e) = parseFail $ ParseUtils.FromString (show e) (Just l)
