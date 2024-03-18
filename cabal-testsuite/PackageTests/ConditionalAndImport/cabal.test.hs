@@ -110,17 +110,22 @@ main = cabalTest . withRepo "repo" . recordMode RecordMarked $ do
   hopping <- cabal' "v2-build" [ "--project-file=hops-0.project" ]
   assertOutputContains "this build was affected by the following (project) config files:" hopping
   assertOutputContains "- hops-0.project" hopping
-  flip assertOutputContains hopping
+
+  assertOutputContains
     "- hops-2.config \
     \    imported by: hops/hops-1.config \
     \    imported by: hops-0.project"
-  flip assertOutputContains hopping
+    hopping
+
+  assertOutputContains
     "- hops-4.config \
     \    imported by: hops/hops-3.config \
     \    imported by: hops-2.config \
     \    imported by: hops/hops-1.config \
     \    imported by: hops-0.project"
-  flip assertOutputContains hopping
+    hopping
+
+  assertOutputContains
     "- hops-6.config \
     \    imported by: hops/hops-5.config \
     \    imported by: hops-4.config \
@@ -128,7 +133,9 @@ main = cabalTest . withRepo "repo" . recordMode RecordMarked $ do
     \    imported by: hops-2.config \
     \    imported by: hops/hops-1.config \
     \    imported by: hops-0.project"
-  flip assertOutputContains hopping
+    hopping
+
+  assertOutputContains
     "- hops-8.config \
     \    imported by: hops/hops-7.config \
     \    imported by: hops-6.config \
@@ -138,22 +145,30 @@ main = cabalTest . withRepo "repo" . recordMode RecordMarked $ do
     \    imported by: hops-2.config \
     \    imported by: hops/hops-1.config \
     \    imported by: hops-0.project"
-  flip assertOutputContains hopping
+    hopping
+
+  assertOutputContains
     "- hops/hops-1.config \
     \    imported by: hops-0.project"
-  flip assertOutputContains hopping
+    hopping
+
+  assertOutputContains
     "- hops/hops-3.config \
     \    imported by: hops-2.config \
     \    imported by: hops/hops-1.config \
     \    imported by: hops-0.project"
-  flip assertOutputContains hopping
+    hopping
+
+  assertOutputContains
     "- hops/hops-5.config \
     \    imported by: hops-4.config \
     \    imported by: hops/hops-3.config \
     \    imported by: hops-2.config \
     \    imported by: hops/hops-1.config \
     \    imported by: hops-0.project"
-  flip assertOutputContains hopping
+    hopping
+
+  assertOutputContains
     "- hops/hops-7.config \
     \    imported by: hops-6.config \
     \    imported by: hops/hops-5.config \
@@ -162,7 +177,9 @@ main = cabalTest . withRepo "repo" . recordMode RecordMarked $ do
     \    imported by: hops-2.config \
     \    imported by: hops/hops-1.config \
     \    imported by: hops-0.project"
-  flip assertOutputContains hopping
+    hopping
+
+  assertOutputContains
     "- hops/hops-9.config \
     \    imported by: hops-8.config \
     \    imported by: hops/hops-7.config \
@@ -173,6 +190,7 @@ main = cabalTest . withRepo "repo" . recordMode RecordMarked $ do
     \    imported by: hops-2.config \
     \    imported by: hops/hops-1.config \
     \    imported by: hops-0.project"
+    hopping
 
   -- The project is named oops as it is like hops but has conflicting constraints.
   -- +-- oops-0.project
@@ -190,7 +208,8 @@ main = cabalTest . withRepo "repo" . recordMode RecordMarked $ do
   assertOutputContains "rejecting: hashable-1.4.2.0" oopsing
   assertOutputContains "rejecting: hashable-1.4.3.0" oopsing
   assertOutputContains "(constraint from oops-0.project requires ==1.4.3.0)" oopsing
-  flip assertOutputContains oopsing
+
+  assertOutputContains
     "      (constraint from oops/oops-9.config requires ==1.4.2.0) \
     \        imported by: oops-8.config \
     \        imported by: oops/oops-7.config \
@@ -201,6 +220,7 @@ main = cabalTest . withRepo "repo" . recordMode RecordMarked $ do
     \        imported by: oops-2.config \
     \        imported by: oops/oops-1.config \
     \        imported by: oops-0.project"
+    oopsing
 
   log "checking bad conditional"
   badIf <- fails $ cabal' "v2-build" [ "--project-file=bad-conditional.project" ]
