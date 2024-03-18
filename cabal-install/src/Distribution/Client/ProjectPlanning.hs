@@ -210,7 +210,6 @@ import qualified Data.Map as Map
 import qualified Data.Set as Set
 import Distribution.Client.Errors
 import Distribution.Solver.Types.ProjectConfigPath
-import Distribution.Verbosity
 import System.FilePath
 import Text.PrettyPrint (colon, comma, fsep, hang, punctuate, quotes, text, vcat, ($$))
 import qualified Text.PrettyPrint as Disp
@@ -387,21 +386,15 @@ rebuildProjectConfig
           localPackages <- phaseReadLocalPackages (projectConfig <> cliConfig)
           return (projectConfig, localPackages)
 
-    when (verbosity >= verbose) $ do
-      canonicalPaths <-
-        sequence
-          [ canonicalizeConfigPath root path
-          | Explicit path <- Set.toList $ projectConfigProvenance projectConfig
-          , let root = projectConfigPathRoot path
-          ]
-
-      info verbosity . render $
-        vcat
-          ( text "this build was affected by the following (project) config files:"
-              : [ text "-" <+> docProjectConfigPath canonicalPath
-                | canonicalPath <- canonicalPaths
-                ]
-          )
+    sequence_
+      [ do
+        canonicalPath <- canonicalizeConfigPath root path
+        info verbosity . render . vcat $
+          text "this build was affected by the following (project) config files:"
+            : [text "-" <+> docProjectConfigPath canonicalPath]
+      | Explicit path <- Set.toList $ projectConfigProvenance projectConfig
+      , let root = projectConfigPathRoot path
+      ]
 
     return (projectConfig <> cliConfig, localPackages)
     where
