@@ -10,7 +10,7 @@ description:
   ...
   [__1] next goal: hashable
   [__1] rejecting: hashable-1.4.3.0
-        (cabal.project requires ==1.4.2.0)
+        (constraint from cabal.project requires ==1.4.2.0)
   [__1] rejecting: hashable-1.4.2.0
         (constraint from project-stackage/nightly-2023-12-07.config requires ==1.4.3.0)
           imported by: cabal.project
