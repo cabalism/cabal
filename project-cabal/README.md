@@ -60,7 +60,7 @@ project-cabal
 We have one `project-cabal/pkgs.config` that includes all package groups.
 
 ```
-$ cat project-cabal/pkgs.config 
+$ cat project-cabal/pkgs.config
 import: pkgs/cabal.config
 import: pkgs/install.config
 import: pkgs/buildinfo.config
