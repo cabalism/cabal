@@ -1,15 +1,26 @@
 {-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE LambdaCase #-}
 
 module Distribution.Solver.Types.ProjectConfigPath
-    ( ProjectConfigPath(..)
+    (
+    -- * Project Config Path Manipulation
+      ProjectConfigPath(..)
     , projectConfigPathRoot
+    , nullProjectConfigPath
+    , consProjectConfigPath
+
+    -- * Messages
     , docProjectConfigPath
     , cyclicalImportMsg
     , docProjectConfigPathFailReason
-    , nullProjectConfigPath
-    , consProjectConfigPath
+
+    -- * Checks and Normalization
     , isCyclicConfigPath
     , canonicalizeConfigPath
+
+    -- * Absolute Directory
+    , AbsoluteDir(..)
+    , mkAbsoluteDir
     ) where
 
 import Distribution.Solver.Compat.Prelude hiding (toList, (<>))
@@ -143,12 +154,12 @@ makeRelativeConfigPath dir (ProjectConfigPath p) =
 -- Let's see how @canonicalizePath@ works that is used in the implementation
 -- then we'll see how @canonicalizeConfigPath@ works.
 --
--- >>> let d = testDir
+-- >>> let AbsoluteDir d = testDir
 -- >>> makeRelative d <$> canonicalizePath (d </> "hops/../hops/../hops/../hops/../hops-8.config")
 -- "hops-8.config"
 --
--- >>> let d = testDir
--- >>> p <- canonicalizeConfigPath d (ProjectConfigPath $ (d </> "hops/../hops/../hops/../hops/../hops-8.config") :| [])
+-- >>> let ad@(AbsoluteDir d) = testDir
+-- >>> p <- canonicalizeConfigPath ad (ProjectConfigPath $ (d </> "hops/../hops/../hops/../hops/../hops-8.config") :| [])
 -- >>> render $ docProjectConfigPath p
 -- "hops-8.config"
 --
@@ -166,7 +177,7 @@ makeRelativeConfigPath dir (ProjectConfigPath p) =
 --           , "  imported by: hops/hops-1.config"
 --           , "  imported by: hops-0.project"
 --           ]
---     let d = testDir
+--     let ad@(AbsoluteDir d) = testDir
 --     let configPath = ProjectConfigPath ("hops/hops-9.config" :|
 --           [ "../hops-8.config"
 --           , "hops/hops-7.config"
@@ -177,23 +188,29 @@ makeRelativeConfigPath dir (ProjectConfigPath p) =
 --           , "../hops-2.config"
 --           , "hops/hops-1.config"
 --           , d </> "hops-0.project"])
---     p <- canonicalizeConfigPath d configPath
+--     p <- canonicalizeConfigPath ad configPath
 --     return $ expected == render (docProjectConfigPath p) ++ "\n"
 -- :}
 -- True
-canonicalizeConfigPath :: FilePath -> ProjectConfigPath -> IO ProjectConfigPath
-canonicalizeConfigPath dir (ProjectConfigPath p) = do
-   d <- makeAbsolute dir
-   xs <- sequence $ NE.scanr (\importee -> (>>= \importer ->
-        if isURI importee
-            then pure importee
-            else canonicalizePath $ d </> takeDirectory importer </> importee))
-        (pure ".") p
-   return . makeRelativeConfigPath d . ProjectConfigPath . NE.fromList $ NE.init xs
+canonicalizeConfigPath :: AbsoluteDir -> ProjectConfigPath -> IO ProjectConfigPath
+canonicalizeConfigPath (AbsoluteDir d) (ProjectConfigPath p) = do
+    xs <- sequence $ NE.scanr (\importee -> (>>= \importer ->
+            if isURI importee
+                then pure importee
+                else canonicalizePath $ d </> takeDirectory importer </> importee))
+            (pure ".") p
+    return . makeRelativeConfigPath d . ProjectConfigPath . NE.fromList $ NE.init xs
 
 isURI :: FilePath -> Bool
 isURI = isJust  .parseURI
 
+newtype AbsoluteDir = AbsoluteDir FilePath
+
+mkAbsoluteDir :: FilePath -> IO AbsoluteDir
+mkAbsoluteDir dir = doesDirectoryExist dir >>= \case
+    False -> error $ "mkAbsoluteDir: " ++ dir ++ " as a directory, does not exist"
+    True -> AbsoluteDir <$> makeAbsolute dir
+
 -- $setup
 -- >>> import Data.List
--- >>> testDir <- canonicalizePath "../cabal-testsuite/PackageTests/ConditionalAndImport"
+-- >>> testDir <- mkAbsoluteDir =<< canonicalizePath "../cabal-testsuite/PackageTests/ConditionalAndImport"

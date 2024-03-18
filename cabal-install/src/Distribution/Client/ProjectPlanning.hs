@@ -388,7 +388,8 @@ rebuildProjectConfig
 
     sequence_
       [ do
-        canonicalPath <- canonicalizeConfigPath root path
+        rootDir <- mkAbsoluteDir $ takeDirectory root
+        canonicalPath <- canonicalizeConfigPath rootDir path
         info verbosity . render . vcat $
           text "this build was affected by the following (project) config files:"
             : [text "-" <+> docProjectConfigPath canonicalPath]

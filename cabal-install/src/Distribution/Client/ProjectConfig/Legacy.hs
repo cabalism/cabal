@@ -31,6 +31,7 @@ module Distribution.Client.ProjectConfig.Legacy
   , renderPackageLocationToken
   ) where
 
+import Data.Coerce (coerce)
 import Distribution.Client.Compat.Prelude
 
 import Distribution.Types.Flag (FlagName, parsecFlagAssignment)
@@ -235,7 +236,8 @@ parseProject
   -- ^ The contents of the file to parse
   -> IO (ParseResult ProjectConfigSkeleton)
 parseProject rootPath cacheDir httpTransport verbosity configToParse = do
-  let (projectDir, projectFileName) = splitFileName rootPath
+  let (dir, projectFileName) = splitFileName rootPath
+  projectDir <- mkAbsoluteDir dir
   projectPath <- canonicalizeConfigPath projectDir (ProjectConfigPath $ projectFileName :| [])
   parseProjectSkeleton cacheDir httpTransport verbosity projectDir projectPath configToParse
 
@@ -243,14 +245,14 @@ parseProjectSkeleton
   :: FilePath
   -> HttpTransport
   -> Verbosity
-  -> FilePath
+  -> AbsoluteDir
   -- ^ The directory of the project configuration, typically the directory of cabal.project
   -> ProjectConfigPath
   -- ^ The path of the file being parsed, either the root or an import
   -> ProjectConfigToParse
   -- ^ The contents of the file to parse
   -> IO (ParseResult ProjectConfigSkeleton)
-parseProjectSkeleton cacheDir httpTransport verbosity dir source (ProjectConfigToParse bs) =
+parseProjectSkeleton cacheDir httpTransport verbosity projectDir source (ProjectConfigToParse bs) =
   (sanityWalkPCS False =<<) <$> liftPR (go []) (ParseUtils.readFields bs)
   where
     go :: [ParseUtils.Field] -> [ParseUtils.Field] -> IO (ParseResult ProjectConfigSkeleton)
@@ -259,7 +261,7 @@ parseProjectSkeleton cacheDir httpTransport verbosity dir source (ProjectConfigT
         let importLocPath = importLoc `consProjectConfigPath` source
 
         -- Once we canonicalize the import path, we can check for cyclical imports
-        normLocPath <- canonicalizeConfigPath dir importLocPath
+        normLocPath <- canonicalizeConfigPath projectDir importLocPath
 
         debug verbosity $ "\nimport path, normalized\n=======================\n" ++ render (docProjectConfigPath normLocPath)
 
@@ -267,7 +269,7 @@ parseProjectSkeleton cacheDir httpTransport verbosity dir source (ProjectConfigT
           then pure . parseFail $ ParseUtils.FromString (render $ cyclicalImportMsg normLocPath) Nothing
           else do
             let fs = (\z -> CondNode z [normLocPath] mempty) <$> fieldsToConfig source (reverse acc)
-            res <- parseProjectSkeleton cacheDir httpTransport verbosity dir importLocPath . ProjectConfigToParse =<< fetchImportConfig normLocPath
+            res <- parseProjectSkeleton cacheDir httpTransport verbosity projectDir importLocPath . ProjectConfigToParse =<< fetchImportConfig normLocPath
             rest <- go [] xs
             pure . fmap mconcat . sequence $ [fs, res, rest]
       (ParseUtils.Section l "if" p xs') -> do
@@ -288,7 +290,7 @@ parseProjectSkeleton cacheDir httpTransport verbosity dir source (ProjectConfigT
       -- surfaces in solver rejection messages and we want all paths shown there
       -- to be relative to the directory of the project, not relative to the
       -- file they were imported from.
-      normConfigPath <- canonicalizeConfigPath dir source
+      normConfigPath <- canonicalizeConfigPath projectDir source
       pure . fmap singletonProjectConfigSkeleton . fieldsToConfig normConfigPath $ reverse acc
 
     parseElseClauses :: [ParseUtils.Field] -> IO (ParseResult (Maybe ProjectConfigSkeleton), ParseResult ProjectConfigSkeleton)
@@ -340,7 +342,7 @@ parseProjectSkeleton cacheDir httpTransport verbosity dir source (ProjectConfigT
         BS.readFile fp
       Nothing ->
         BS.readFile $
-          if isAbsolute pci then pci else dir </> pci
+          if isAbsolute pci then pci else coerce projectDir </> pci
 
     modifiesCompiler :: ProjectConfig -> Bool
     modifiesCompiler pc = isSet projectConfigHcFlavor || isSet projectConfigHcPath || isSet projectConfigHcPkg
