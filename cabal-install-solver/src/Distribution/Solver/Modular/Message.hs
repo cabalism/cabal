@@ -12,7 +12,7 @@ import Data.Map (Map)
 import qualified Data.Map as M
 import Data.Set (Set)
 import qualified Data.Set as S
-import Data.Maybe (catMaybes, mapMaybe)
+import Data.Maybe (catMaybes, mapMaybe, isJust)
 import Prelude hiding (pi)
 
 import Distribution.Pretty (prettyShow) -- from Cabal
@@ -259,8 +259,13 @@ showOption qpn@(Q _pp pn) (POption i linkedTo) =
 -- "unexpected empty list of versions"
 showIsOrVs :: QPN -> [POption] -> String
 showIsOrVs _ [] = "unexpected empty list of versions"
-showIsOrVs q [x] = let POption i _ = x in showPI (PI q i)
-showIsOrVs q xs = showQPN q ++ "; " ++ (L.intercalate ", " [showI i | POption i _ <- xs])
+showIsOrVs q [x] = showOption q x
+showIsOrVs q xs = showQPN q ++ "; " ++ (L.intercalate ", "
+  [if isJust linkedTo
+    then showOption q x
+    else showI i -- Don't show the package, just the version
+  | x@(POption i linkedTo) <- xs
+  ])
 
 showGR :: QGoalReason -> String
 showGR UserGoal            = " (user goal)"
