@@ -271,11 +271,6 @@ tryVs xs
       let (vs, is) = L.partition ((== InRepo) . snd) [(v, l) | POption i _ <- xs, let I v l = i]
       in if null is then Vs (fst `map` vs) else Is xs
 
-partitionVs :: [POption] -> ([(Ver, Loc)], [Ver])
-partitionVs xs =
-    let (vs, is) = L.partition ((== InRepo) . snd) [(v, l) | POption i _ <- xs, let I v l = i]
-    in (is, fst `map` vs)
-
 -- | Shows a list of versions in a human-friendly way, abbreviated. Shows a list
 -- of instances in full.
 -- >>> showIsOrVs foobarQPN $ tryVs [v0, v1]
@@ -293,8 +288,7 @@ partitionVs xs =
 showIsOrVs :: QPN -> IsOrVs -> String
 showIsOrVs q (Vs xs) = showQPN q ++ "; " ++ L.intercalate ", " (showVer `map` xs)
 showIsOrVs _ (Is []) = "unexpected empty list of versions"
-showIsOrVs q (Is xs) = let (is, vs) = partitionVs xs in
-  showQPN q ++ "; " ++ L.intercalate ", " ([showI (I v l) | (v, l) <- is] ++ showVer `map` vs)
+showIsOrVs q (Is xs) = showQPN q ++ "; " ++ (L.intercalate ", " [showI i | POption i _ <- xs])
 
 showGR :: QGoalReason -> String
 showGR UserGoal            = " (user goal)"
