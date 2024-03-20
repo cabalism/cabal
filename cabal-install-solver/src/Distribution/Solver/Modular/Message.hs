@@ -278,16 +278,17 @@ tryVs xs
 -- >>> showIsOrVs foobarQPN $ tryVs [v0]
 -- "foo-bar-0"
 -- >>> showIsOrVs foobarQPN $ tryVs [i0, i1]
--- "foo-bar-0/installed-inplace, foo-bar-1/installed-inplace"
+-- "foo-bar; 0/installed-inplace, 1/installed-inplace"
 -- >>> showIsOrVs foobarQPN $ tryVs [i0, v1]
--- "foo-bar-0/installed-inplace, foo-bar-1"
+-- "foo-bar; 0/installed-inplace, 1"
 -- >>> showIsOrVs foobarQPN $ tryVs [v0, i1]
--- "foo-bar-0, foo-bar-1/installed-inplace"
+-- "foo-bar; 0, 1/installed-inplace"
 -- >>> showIsOrVs foobarQPN $ tryVs []
 -- "unexpected empty list of versions"
 showIsOrVs :: QPN -> IsOrVs -> String
 showIsOrVs q (Vs xs) = showQPN q ++ "; " ++ L.intercalate ", " (showVer `map` xs)
 showIsOrVs _ (Is []) = "unexpected empty list of versions"
+showIsOrVs q (Is [x]) = let POption i _ = x in showPI (PI q i)
 showIsOrVs q (Is xs) = showQPN q ++ "; " ++ (L.intercalate ", " [showI i | POption i _ <- xs])
 
 showGR :: QGoalReason -> String
