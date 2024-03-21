@@ -1,6 +1,7 @@
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE ViewPatterns #-}
+{-# LANGUAGE FlexibleInstances #-}
 
 module Distribution.Solver.Modular.Message (
     Message(..),
@@ -32,6 +33,10 @@ import Distribution.Solver.Types.PackagePath
 import Distribution.Solver.Types.Progress
 import Distribution.Types.LibraryName
 import Distribution.Types.UnqualComponentName
+import Distribution.Types.Version
+import Distribution.Parsec
+import Distribution.Pretty
+import qualified Text.PrettyPrint as Disp
 
 data Message =
     Enter           -- ^ increase indentation level
@@ -255,6 +260,14 @@ showOption qpn@(Q _pp pn) (POption i linkedTo) =
 -- "foo-bar; 0, 1/installed-inplace"
 -- >>> showIsOrVs foobarQPN []
 -- "unexpected empty list of versions"
+-- >>> simpleParsec csEx0 :: Maybe [Version]
+-- Just [mkVersion [3,10,2,1]]
+-- >>> simpleParsec csEx1 :: Maybe [Version]
+-- Just [mkVersion [3,10,2,1],mkVersion [3,10,2,0]]
+-- >>> simpleParsec cs :: Maybe [Version]
+-- Just [mkVersion [3,10,2,1],mkVersion [3,10,2,0],mkVersion [3,10,1,0],mkVersion [3,8,1,0],mkVersion [3,6,3,0],mkVersion [3,6,2,0],mkVersion [3,6,1,0],mkVersion [3,6,0,0],mkVersion [3,4,1,0],mkVersion [3,4,0,0],mkVersion [3,2,1,0],mkVersion [3,2,0,0],mkVersion [3,0,2,0],mkVersion [3,0,1,0],mkVersion [3,0,0,0],mkVersion [2,4,1,0],mkVersion [2,4,0,1],mkVersion [2,4,0,0],mkVersion [2,2,0,1],mkVersion [2,2,0,0],mkVersion [2,0,1,1],mkVersion [2,0,1,0],mkVersion [2,0,0,2],mkVersion [1,24,2,0],mkVersion [1,24,0,0],mkVersion [1,22,8,0],mkVersion [1,22,7,0],mkVersion [1,22,6,0],mkVersion [1,22,5,0],mkVersion [1,22,4,0],mkVersion [1,22,3,0],mkVersion [1,22,2,0],mkVersion [1,22,1,1],mkVersion [1,22,1,0],mkVersion [1,22,0,0],mkVersion [1,20,0,4],mkVersion [1,20,0,3],mkVersion [1,20,0,2],mkVersion [1,20,0,1],mkVersion [1,20,0,0],mkVersion [1,18,1,7],mkVersion [1,18,1,6],mkVersion [1,18,1,5],mkVersion [1,18,1,4],mkVersion [1,18,1,3],mkVersion [1,18,1,2],mkVersion [1,18,1,1],mkVersion [1,18,1],mkVersion [1,18,0],mkVersion [1,16,0,3],mkVersion [1,16,0,2],mkVersion [1,16,0,1],mkVersion [1,16,0],mkVersion [1,14,0],mkVersion [1,12,0],mkVersion [1,10,2,0],mkVersion [1,10,1,0],mkVersion [1,10,0,0],mkVersion [1,8,0,6],mkVersion [1,8,0,4],mkVersion [1,8,0,2],mkVersion [1,6,0,3],mkVersion [1,6,0,2],mkVersion [1,6,0,1],mkVersion [1,4,0,2],mkVersion [1,4,0,1],mkVersion [1,4,0,0],mkVersion [1,2,4,0],mkVersion [1,2,3,0],mkVersion [1,2,2,0],mkVersion [1,2,1],mkVersion [1,1,6],mkVersion [1,24,1,0]]
+-- >>> pretty (let Just vs = (simpleParsec cs :: Maybe [Version]) in vs)
+-- ""
 showIsOrVs :: QPN -> [POption] -> String
 showIsOrVs _ [] = "unexpected empty list of versions"
 showIsOrVs q [x] = showOption q x
@@ -324,12 +337,32 @@ showConflictingDep (ConflictingDep dr (PkgComponent qpn comp) ci) =
        Constrained vr -> showDependencyReason dr ++ " => " ++ showQPN qpn ++
                          componentStr ++ showVR vr
 
+instance Parsec [Version] where
+  parsec = do
+    vs <- parsecCommaList parsec
+    return vs
+
+instance Pretty [Version] where
+  pretty vs =
+    Disp.hcat
+      ( Disp.punctuate
+          (Disp.text ", ")
+          (map pretty vs)
+      )
+
+-- let cs = "3.10.2.1, 3.10.2.0/installed-fd40, 3.10.2.0, 3.10.1.0, 3.8.1.0, 3.6.3.0, 3.6.2.0, 3.6.1.0, 3.6.0.0, 3.4.1.0, 3.4.0.0, 3.2.1.0, 3.2.0.0, 3.0.2.0, 3.0.1.0, 3.0.0.0, 2.4.1.0, 2.4.0.1, 2.4.0.0, 2.2.0.1, 2.2.0.0, 2.0.1.1, 2.0.1.0, 2.0.0.2, 1.24.2.0, 1.24.0.0, 1.22.8.0, 1.22.7.0, 1.22.6.0, 1.22.5.0, 1.22.4.0, 1.22.3.0, 1.22.2.0, 1.22.1.1, 1.22.1.0, 1.22.0.0, 1.20.0.4, 1.20.0.3, 1.20.0.2, 1.20.0.1, 1.20.0.0, 1.18.1.7, 1.18.1.6, 1.18.1.5, 1.18.1.4, 1.18.1.3, 1.18.1.2, 1.18.1.1, 1.18.1, 1.18.0, 1.16.0.3, 1.16.0.2, 1.16.0.1, 1.16.0, 1.14.0, 1.12.0, 1.10.2.0, 1.10.1.0, 1.10.0.0, 1.8.0.6, 1.8.0.4, 1.8.0.2, 1.6.0.3, 1.6.0.2, 1.6.0.1, 1.4.0.2, 1.4.0.1, 1.4.0.0, 1.2.4.0, 1.2.3.0, 1.2.2.0, 1.2.1, 1.1.6, 1.24.1.0"
+
 -- $setup
 -- >>> import Distribution.Solver.Types.PackagePath
 -- >>> import Distribution.Types.Version
 -- >>> import Distribution.Types.UnitId
+-- >>> import Distribution.Parsec
+-- >>> import Data.Maybe
 -- >>> let foobarQPN = Q (PackagePath DefaultNamespace QualToplevel) (mkPackageName "foo-bar")
 -- >>> let v0 = POption (I (mkVersion [0]) InRepo) Nothing
 -- >>> let v1 = POption (I (mkVersion [1]) InRepo) Nothing
 -- >>> let i0 = POption (I (mkVersion [0]) (Inst $ mkUnitId "foo-bar-0-inplace")) Nothing
 -- >>> let i1 = POption (I (mkVersion [1]) (Inst $ mkUnitId "foo-bar-1-inplace")) Nothing
+-- >>> let csEx0 = "3.10.2.1"
+-- >>> let csEx1 = "3.10.2.1, 3.10.2.0"
+-- >>> let cs = "3.10.2.1, 3.10.2.0, 3.10.1.0, 3.8.1.0, 3.6.3.0, 3.6.2.0, 3.6.1.0, 3.6.0.0, 3.4.1.0, 3.4.0.0, 3.2.1.0, 3.2.0.0, 3.0.2.0, 3.0.1.0, 3.0.0.0, 2.4.1.0, 2.4.0.1, 2.4.0.0, 2.2.0.1, 2.2.0.0, 2.0.1.1, 2.0.1.0, 2.0.0.2, 1.24.2.0, 1.24.0.0, 1.22.8.0, 1.22.7.0, 1.22.6.0, 1.22.5.0, 1.22.4.0, 1.22.3.0, 1.22.2.0, 1.22.1.1, 1.22.1.0, 1.22.0.0, 1.20.0.4, 1.20.0.3, 1.20.0.2, 1.20.0.1, 1.20.0.0, 1.18.1.7, 1.18.1.6, 1.18.1.5, 1.18.1.4, 1.18.1.3, 1.18.1.2, 1.18.1.1, 1.18.1, 1.18.0, 1.16.0.3, 1.16.0.2, 1.16.0.1, 1.16.0, 1.14.0, 1.12.0, 1.10.2.0, 1.10.1.0, 1.10.0.0, 1.8.0.6, 1.8.0.4, 1.8.0.2, 1.6.0.3, 1.6.0.2, 1.6.0.1, 1.4.0.2, 1.4.0.1, 1.4.0.0, 1.2.4.0, 1.2.3.0, 1.2.2.0, 1.2.1, 1.1.6, 1.24.1.0"
