@@ -235,7 +235,7 @@ blurbOption :: ProgressAction -> QPN -> POption -> String
 blurbOption a q p = blurb a ++ showOption q p
 
 blurbOptions :: ProgressAction -> QPN -> [POption] -> String
-blurbOptions a q ps = blurb a ++ showIsOrVs q ps
+blurbOptions a q ps = blurb a ++ showOptions q ps
 
 showOption :: QPN -> POption -> String
 showOption qpn@(Q _pp pn) (POption i linkedTo) =
@@ -245,22 +245,22 @@ showOption qpn@(Q _pp pn) (POption i linkedTo) =
 
 -- | Shows a mixed list of instances and versions in a human-friendly way,
 -- abbreviated.
--- >>> showIsOrVs foobarQPN [v0, v1]
+-- >>> showOptions foobarQPN [v0, v1]
 -- "foo-bar; 0, 1"
--- >>> showIsOrVs foobarQPN [v0]
+-- >>> showOptions foobarQPN [v0]
 -- "foo-bar-0"
--- >>> showIsOrVs foobarQPN [i0, i1]
+-- >>> showOptions foobarQPN [i0, i1]
 -- "foo-bar; 0/installed-inplace, 1/installed-inplace"
--- >>> showIsOrVs foobarQPN [i0, v1]
+-- >>> showOptions foobarQPN [i0, v1]
 -- "foo-bar; 0/installed-inplace, 1"
--- >>> showIsOrVs foobarQPN [v0, i1]
+-- >>> showOptions foobarQPN [v0, i1]
 -- "foo-bar; 0, 1/installed-inplace"
--- >>> showIsOrVs foobarQPN []
+-- >>> showOptions foobarQPN []
 -- "unexpected empty list of versions"
-showIsOrVs :: QPN -> [POption] -> String
-showIsOrVs _ [] = "unexpected empty list of versions"
-showIsOrVs q [x] = showOption q x
-showIsOrVs q xs = showQPN q ++ "; " ++ (L.intercalate ", "
+showOptions :: QPN -> [POption] -> String
+showOptions _ [] = "unexpected empty list of versions"
+showOptions q [x] = showOption q x
+showOptions q xs = showQPN q ++ "; " ++ (L.intercalate ", "
   [if isJust linkedTo
     then showOption q x
     else showI i -- Don't show the package, just the version
