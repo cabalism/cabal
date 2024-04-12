@@ -1,5 +1,5 @@
 synopsis: Abbrevate solver rejection messages with installed versions
-packages: cabal-install
+packages: cabal-install-solver
 prs: #9824
 issues: #9823
 
