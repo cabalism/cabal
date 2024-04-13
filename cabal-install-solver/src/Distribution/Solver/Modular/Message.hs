@@ -258,9 +258,9 @@ showOption qpn@(Q _pp pn) (POption i linkedTo) =
 -- >>> showOptions foobarQPN []
 -- "unexpected empty list of versions"
 -- >>> showOptions foobarQPN [k1, k2]
--- "foo-bar; foo-bar~>foo-bar-1, foo-bar~>foo-bar-2"
+-- "foo-bar; foo-bar~>bazqux.foo-bar-1, foo-bar~>bazqux.foo-bar-2"
 -- >>> showOptions foobarQPN [v0, i1, k2]
--- "foo-bar; 0, 1/installed-inplace, foo-bar~>foo-bar-2"
+-- "foo-bar; 0, 1/installed-inplace, foo-bar~>bazqux.foo-bar-2"
 showOptions :: QPN -> [POption] -> String
 showOptions _ [] = "unexpected empty list of versions"
 showOptions q [x] = showOption q x
@@ -336,10 +336,11 @@ showConflictingDep (ConflictingDep dr (PkgComponent qpn comp) ci) =
 -- >>> import Distribution.Types.Version
 -- >>> import Distribution.Types.UnitId
 -- >>> let foobarPN = PackagePath DefaultNamespace QualToplevel
+-- >>> let bazquxPN = PackagePath (Independent $ mkPackageName "bazqux") QualToplevel
 -- >>> let foobarQPN = Q foobarPN (mkPackageName "foo-bar")
 -- >>> let v0 = POption (I (mkVersion [0]) InRepo) Nothing
 -- >>> let v1 = POption (I (mkVersion [1]) InRepo) Nothing
 -- >>> let i0 = POption (I (mkVersion [0]) (Inst $ mkUnitId "foo-bar-0-inplace")) Nothing
 -- >>> let i1 = POption (I (mkVersion [1]) (Inst $ mkUnitId "foo-bar-1-inplace")) Nothing
--- >>> let k1 = POption (I (mkVersion [1]) InRepo) (Just foobarPN)
--- >>> let k2 = POption (I (mkVersion [2]) InRepo) (Just foobarPN)
+-- >>> let k1 = POption (I (mkVersion [1]) InRepo) (Just bazquxPN)
+-- >>> let k2 = POption (I (mkVersion [2]) InRepo) (Just bazquxPN)
