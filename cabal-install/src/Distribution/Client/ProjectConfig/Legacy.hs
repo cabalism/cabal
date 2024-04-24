@@ -248,7 +248,7 @@ parseProject rootPath cacheDir httpTransport verbosity configToParse = do
   let (dir, projectFileName) = splitFileName rootPath
   projectDir <- makeAbsolute dir
   projectPath@(ProjectConfigPath (canonicalRoot :| _)) <- canonicalizeConfigPath projectDir (ProjectConfigPath $ projectFileName :| [])
-  importsBy :: IORef [(FilePath, ProjectConfigPath)] <- newIORef [(canonicalRoot, projectPath)]
+  importsBy <- newIORef [(canonicalRoot, projectPath)]
   parseProjectSkeleton cacheDir httpTransport verbosity importsBy projectDir projectPath configToParse
 
 parseProjectSkeleton
@@ -256,6 +256,7 @@ parseProjectSkeleton
   -> HttpTransport
   -> Verbosity
   -> IORef [(FilePath, ProjectConfigPath)]
+  -- ^ The imports seen so far, used to report on cycles and duplicates and to detect duplicates that are not cycles
   -> FilePath
   -- ^ The directory of the project configuration, typically the directory of cabal.project
   -> ProjectConfigPath
