@@ -282,9 +282,9 @@ parseProjectSkeleton cacheDir httpTransport verbosity importsBy projectDir sourc
 
         if
             | isCyclicConfigPath normLocPath ->
-                pure . parseFail $ ParseUtils.FromString (render $ cyclicalImportMsg normLocPath) Nothing
+                pure . parseFail $ ParseUtils.FromString (render $ duplicateImportMsg "cyclical (duplicate)" uniqueImport normLocPath seenImportsBy) Nothing
             | uniqueImport `elem` seenImports -> do
-                pure . parseFail $ ParseUtils.FromString (render $ duplicateImportMsg uniqueImport normLocPath seenImportsBy) Nothing
+                pure . parseFail $ ParseUtils.FromString (render $ duplicateImportMsg "duplicate" uniqueImport normLocPath seenImportsBy) Nothing
             | otherwise -> do
                 normSource <- canonicalizeConfigPath projectDir source
                 let fs = (\z -> CondNode z [normLocPath] mempty) <$> fieldsToConfig normSource (reverse acc)
