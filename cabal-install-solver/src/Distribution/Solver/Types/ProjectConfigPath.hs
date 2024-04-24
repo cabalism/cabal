@@ -73,13 +73,19 @@ cyclicalImportMsg path@(ProjectConfigPath (duplicate :| _)) =
     , nest 2 (docProjectConfigPath path)
     ]
 
--- | A message for a duplicate import.
+-- | A message for a duplicate import. If a check for cyclical imports has
+-- already been made then this would report a duplicate import by two different
+-- paths.
 duplicateImportMsg :: FilePath -> ProjectConfigPath -> [(FilePath, ProjectConfigPath)] -> Doc
-duplicateImportMsg duplicate path dupImportsBy =
+duplicateImportMsg duplicate path seenImportsBy =
     vcat
     [ text "duplicate import of" <+> text duplicate <> semi
     , nest 2 (docProjectConfigPath path)
-    , nest 2 (vcat [docProjectConfigPath dib | (_, dib) <- dupImportsBy])
+    , nest 2 $
+        vcat
+        [ docProjectConfigPath dib
+        | (_, dib) <- filter ((duplicate ==) . fst) seenImportsBy
+        ]
     ]
 
 docProjectConfigPathFailReason :: VR -> ProjectConfigPath -> Doc
