@@ -25,6 +25,20 @@ $(LEXER_HS) : templates/Lexer.x
 	cat -s $@ > Lexer.tmp
 	mv Lexer.tmp $@
 
+.PHONY: style
+style: ## Run the code styler
+	@fourmolu -q -i Cabal Cabal-syntax cabal-install
+
+.PHONY: style-modified
+style-modified: ## Run the code styler on modified files
+	@git ls-files --modified Cabal Cabal-syntax cabal-install \
+		| grep '.hs$$' | xargs -P $(PROCS) -I {} fourmolu -q -i {}
+
+.PHONY: style-commit
+style-commit: ## Run the code styler on the previous commit
+	@git diff --name-only HEAD $(COMMIT) Cabal Cabal-syntax cabal-install \
+		| grep '.hs$$' | xargs -P $(PROCS) -I {} fourmolu -q -i {}
+
 # source generation: SPDX
 
 SPDX_LICENSE_HS:=Cabal-syntax/src/Distribution/SPDX/LicenseId.hs
