@@ -1,23 +1,24 @@
 -- This file is generated. See Makefile's spdx rule
 {-# LANGUAGE DeriveDataTypeable #-}
-{-# LANGUAGE DeriveGeneric      #-}
-module Distribution.SPDX.LicenseExceptionId (
-    LicenseExceptionId (..),
-    licenseExceptionId,
-    licenseExceptionName,
-    mkLicenseExceptionId,
-    licenseExceptionIdList,
-    ) where
+{-# LANGUAGE DeriveGeneric #-}
+
+module Distribution.SPDX.LicenseExceptionId
+  ( LicenseExceptionId (..)
+  , licenseExceptionId
+  , licenseExceptionName
+  , mkLicenseExceptionId
+  , licenseExceptionIdList
+  ) where
 
 import Distribution.Compat.Prelude
 import Prelude ()
 
 import Distribution.Compat.Lens (set)
-import Distribution.Pretty
 import Distribution.Parsec
+import Distribution.Pretty
+import Distribution.SPDX.LicenseListVersion
 import Distribution.Utils.Generic (isAsciiAlphaNum)
 import Distribution.Utils.Structured (Structured (..), nominalStructure, typeVersion)
-import Distribution.SPDX.LicenseListVersion
 
 import qualified Data.Binary.Get as Binary
 import qualified Data.Binary.Put as Binary
@@ -31,73 +32,114 @@ import qualified Text.PrettyPrint as Disp
 
 -- | SPDX License Exceptions identifiers list v3.16
 data LicenseExceptionId
-    = DS389_exception -- ^ @389-exception@, 389 Directory Server Exception
-    | Autoconf_exception_2_0 -- ^ @Autoconf-exception-2.0@, Autoconf exception 2.0
-    | Autoconf_exception_3_0 -- ^ @Autoconf-exception-3.0@, Autoconf exception 3.0
-    | Bison_exception_2_2 -- ^ @Bison-exception-2.2@, Bison exception 2.2
-    | Bootloader_exception -- ^ @Bootloader-exception@, Bootloader Distribution Exception
-    | Classpath_exception_2_0 -- ^ @Classpath-exception-2.0@, Classpath exception 2.0
-    | CLISP_exception_2_0 -- ^ @CLISP-exception-2.0@, CLISP exception 2.0
-    | DigiRule_FOSS_exception -- ^ @DigiRule-FOSS-exception@, DigiRule FOSS License Exception
-    | ECos_exception_2_0 -- ^ @eCos-exception-2.0@, eCos exception 2.0
-    | Fawkes_Runtime_exception -- ^ @Fawkes-Runtime-exception@, Fawkes Runtime Exception
-    | FLTK_exception -- ^ @FLTK-exception@, FLTK exception
-    | Font_exception_2_0 -- ^ @Font-exception-2.0@, Font exception 2.0
-    | Freertos_exception_2_0 -- ^ @freertos-exception-2.0@, FreeRTOS Exception 2.0
-    | GCC_exception_2_0 -- ^ @GCC-exception-2.0@, GCC Runtime Library exception 2.0
-    | GCC_exception_3_1 -- ^ @GCC-exception-3.1@, GCC Runtime Library exception 3.1
-    | Gnu_javamail_exception -- ^ @gnu-javamail-exception@, GNU JavaMail exception
-    | GPL_3_0_linking_exception -- ^ @GPL-3.0-linking-exception@, GPL-3.0 Linking Exception, SPDX License List 3.9, SPDX License List 3.10, SPDX License List 3.16
-    | GPL_3_0_linking_source_exception -- ^ @GPL-3.0-linking-source-exception@, GPL-3.0 Linking Exception (with Corresponding Source), SPDX License List 3.9, SPDX License List 3.10, SPDX License List 3.16
-    | GPL_CC_1_0 -- ^ @GPL-CC-1.0@, GPL Cooperation Commitment 1.0, SPDX License List 3.6, SPDX License List 3.9, SPDX License List 3.10, SPDX License List 3.16
-    | I2p_gpl_java_exception -- ^ @i2p-gpl-java-exception@, i2p GPL+Java Exception
-    | LGPL_3_0_linking_exception -- ^ @LGPL-3.0-linking-exception@, LGPL-3.0 Linking Exception, SPDX License List 3.9, SPDX License List 3.10, SPDX License List 3.16
-    | Libtool_exception -- ^ @Libtool-exception@, Libtool Exception
-    | Linux_syscall_note -- ^ @Linux-syscall-note@, Linux Syscall Note
-    | LLVM_exception -- ^ @LLVM-exception@, LLVM Exception, SPDX License List 3.2, SPDX License List 3.6, SPDX License List 3.9, SPDX License List 3.10, SPDX License List 3.16
-    | LZMA_exception -- ^ @LZMA-exception@, LZMA exception
-    | Mif_exception -- ^ @mif-exception@, Macros and Inline Functions Exception
-    | Nokia_Qt_exception_1_1 -- ^ @Nokia-Qt-exception-1.1@, Nokia Qt LGPL exception 1.1, SPDX License List 3.0, SPDX License List 3.2
-    | OCaml_LGPL_linking_exception -- ^ @OCaml-LGPL-linking-exception@, OCaml LGPL Linking Exception, SPDX License List 3.6, SPDX License List 3.9, SPDX License List 3.10, SPDX License List 3.16
-    | OCCT_exception_1_0 -- ^ @OCCT-exception-1.0@, Open CASCADE Exception 1.0
-    | OpenJDK_assembly_exception_1_0 -- ^ @OpenJDK-assembly-exception-1.0@, OpenJDK Assembly exception 1.0, SPDX License List 3.2, SPDX License List 3.6, SPDX License List 3.9, SPDX License List 3.10, SPDX License List 3.16
-    | Openvpn_openssl_exception -- ^ @openvpn-openssl-exception@, OpenVPN OpenSSL Exception
-    | PS_or_PDF_font_exception_20170817 -- ^ @PS-or-PDF-font-exception-20170817@, PS/PDF font exception (2017-08-17), SPDX License List 3.2, SPDX License List 3.6, SPDX License List 3.9, SPDX License List 3.10, SPDX License List 3.16
-    | Qt_GPL_exception_1_0 -- ^ @Qt-GPL-exception-1.0@, Qt GPL exception 1.0, SPDX License List 3.2, SPDX License List 3.6, SPDX License List 3.9, SPDX License List 3.10, SPDX License List 3.16
-    | Qt_LGPL_exception_1_1 -- ^ @Qt-LGPL-exception-1.1@, Qt LGPL exception 1.1, SPDX License List 3.2, SPDX License List 3.6, SPDX License List 3.9, SPDX License List 3.10, SPDX License List 3.16
-    | Qwt_exception_1_0 -- ^ @Qwt-exception-1.0@, Qwt exception 1.0
-    | SHL_2_0 -- ^ @SHL-2.0@, Solderpad Hardware License v2.0, SPDX License List 3.9, SPDX License List 3.10, SPDX License List 3.16
-    | SHL_2_1 -- ^ @SHL-2.1@, Solderpad Hardware License v2.1, SPDX License List 3.9, SPDX License List 3.10, SPDX License List 3.16
-    | Swift_exception -- ^ @Swift-exception@, Swift Exception, SPDX License List 3.6, SPDX License List 3.9, SPDX License List 3.10, SPDX License List 3.16
-    | U_boot_exception_2_0 -- ^ @u-boot-exception-2.0@, U-Boot exception 2.0
-    | Universal_FOSS_exception_1_0 -- ^ @Universal-FOSS-exception-1.0@, Universal FOSS Exception, Version 1.0, SPDX License List 3.6, SPDX License List 3.9, SPDX License List 3.10, SPDX License List 3.16
-    | WxWindows_exception_3_1 -- ^ @WxWindows-exception-3.1@, WxWindows Library Exception 3.1
+  = -- | @389-exception@, 389 Directory Server Exception
+    DS389_exception
+  | -- | @Autoconf-exception-2.0@, Autoconf exception 2.0
+    Autoconf_exception_2_0
+  | -- | @Autoconf-exception-3.0@, Autoconf exception 3.0
+    Autoconf_exception_3_0
+  | -- | @Bison-exception-2.2@, Bison exception 2.2
+    Bison_exception_2_2
+  | -- | @Bootloader-exception@, Bootloader Distribution Exception
+    Bootloader_exception
+  | -- | @Classpath-exception-2.0@, Classpath exception 2.0
+    Classpath_exception_2_0
+  | -- | @CLISP-exception-2.0@, CLISP exception 2.0
+    CLISP_exception_2_0
+  | -- | @DigiRule-FOSS-exception@, DigiRule FOSS License Exception
+    DigiRule_FOSS_exception
+  | -- | @eCos-exception-2.0@, eCos exception 2.0
+    ECos_exception_2_0
+  | -- | @Fawkes-Runtime-exception@, Fawkes Runtime Exception
+    Fawkes_Runtime_exception
+  | -- | @FLTK-exception@, FLTK exception
+    FLTK_exception
+  | -- | @Font-exception-2.0@, Font exception 2.0
+    Font_exception_2_0
+  | -- | @freertos-exception-2.0@, FreeRTOS Exception 2.0
+    Freertos_exception_2_0
+  | -- | @GCC-exception-2.0@, GCC Runtime Library exception 2.0
+    GCC_exception_2_0
+  | -- | @GCC-exception-3.1@, GCC Runtime Library exception 3.1
+    GCC_exception_3_1
+  | -- | @gnu-javamail-exception@, GNU JavaMail exception
+    Gnu_javamail_exception
+  | -- | @GPL-3.0-linking-exception@, GPL-3.0 Linking Exception, SPDX License List 3.9, SPDX License List 3.10, SPDX License List 3.16
+    GPL_3_0_linking_exception
+  | -- | @GPL-3.0-linking-source-exception@, GPL-3.0 Linking Exception (with Corresponding Source), SPDX License List 3.9, SPDX License List 3.10, SPDX License List 3.16
+    GPL_3_0_linking_source_exception
+  | -- | @GPL-CC-1.0@, GPL Cooperation Commitment 1.0, SPDX License List 3.6, SPDX License List 3.9, SPDX License List 3.10, SPDX License List 3.16
+    GPL_CC_1_0
+  | -- | @i2p-gpl-java-exception@, i2p GPL+Java Exception
+    I2p_gpl_java_exception
+  | -- | @LGPL-3.0-linking-exception@, LGPL-3.0 Linking Exception, SPDX License List 3.9, SPDX License List 3.10, SPDX License List 3.16
+    LGPL_3_0_linking_exception
+  | -- | @Libtool-exception@, Libtool Exception
+    Libtool_exception
+  | -- | @Linux-syscall-note@, Linux Syscall Note
+    Linux_syscall_note
+  | -- | @LLVM-exception@, LLVM Exception, SPDX License List 3.2, SPDX License List 3.6, SPDX License List 3.9, SPDX License List 3.10, SPDX License List 3.16
+    LLVM_exception
+  | -- | @LZMA-exception@, LZMA exception
+    LZMA_exception
+  | -- | @mif-exception@, Macros and Inline Functions Exception
+    Mif_exception
+  | -- | @Nokia-Qt-exception-1.1@, Nokia Qt LGPL exception 1.1, SPDX License List 3.0, SPDX License List 3.2
+    Nokia_Qt_exception_1_1
+  | -- | @OCaml-LGPL-linking-exception@, OCaml LGPL Linking Exception, SPDX License List 3.6, SPDX License List 3.9, SPDX License List 3.10, SPDX License List 3.16
+    OCaml_LGPL_linking_exception
+  | -- | @OCCT-exception-1.0@, Open CASCADE Exception 1.0
+    OCCT_exception_1_0
+  | -- | @OpenJDK-assembly-exception-1.0@, OpenJDK Assembly exception 1.0, SPDX License List 3.2, SPDX License List 3.6, SPDX License List 3.9, SPDX License List 3.10, SPDX License List 3.16
+    OpenJDK_assembly_exception_1_0
+  | -- | @openvpn-openssl-exception@, OpenVPN OpenSSL Exception
+    Openvpn_openssl_exception
+  | -- | @PS-or-PDF-font-exception-20170817@, PS/PDF font exception (2017-08-17), SPDX License List 3.2, SPDX License List 3.6, SPDX License List 3.9, SPDX License List 3.10, SPDX License List 3.16
+    PS_or_PDF_font_exception_20170817
+  | -- | @Qt-GPL-exception-1.0@, Qt GPL exception 1.0, SPDX License List 3.2, SPDX License List 3.6, SPDX License List 3.9, SPDX License List 3.10, SPDX License List 3.16
+    Qt_GPL_exception_1_0
+  | -- | @Qt-LGPL-exception-1.1@, Qt LGPL exception 1.1, SPDX License List 3.2, SPDX License List 3.6, SPDX License List 3.9, SPDX License List 3.10, SPDX License List 3.16
+    Qt_LGPL_exception_1_1
+  | -- | @Qwt-exception-1.0@, Qwt exception 1.0
+    Qwt_exception_1_0
+  | -- | @SHL-2.0@, Solderpad Hardware License v2.0, SPDX License List 3.9, SPDX License List 3.10, SPDX License List 3.16
+    SHL_2_0
+  | -- | @SHL-2.1@, Solderpad Hardware License v2.1, SPDX License List 3.9, SPDX License List 3.10, SPDX License List 3.16
+    SHL_2_1
+  | -- | @Swift-exception@, Swift Exception, SPDX License List 3.6, SPDX License List 3.9, SPDX License List 3.10, SPDX License List 3.16
+    Swift_exception
+  | -- | @u-boot-exception-2.0@, U-Boot exception 2.0
+    U_boot_exception_2_0
+  | -- | @Universal-FOSS-exception-1.0@, Universal FOSS Exception, Version 1.0, SPDX License List 3.6, SPDX License List 3.9, SPDX License List 3.10, SPDX License List 3.16
+    Universal_FOSS_exception_1_0
+  | -- | @WxWindows-exception-3.1@, WxWindows Library Exception 3.1
+    WxWindows_exception_3_1
   deriving (Eq, Ord, Enum, Bounded, Show, Read, Typeable, Data, Generic)
 
 instance Binary LicenseExceptionId where
-    put = Binary.putWord8 . fromIntegral . fromEnum
-    get = do
-        i <- Binary.getWord8
-        if i > fromIntegral (fromEnum (maxBound :: LicenseExceptionId))
-        then fail "Too large LicenseExceptionId tag"
-        else return (toEnum (fromIntegral i))
+  put = Binary.putWord8 . fromIntegral . fromEnum
+  get = do
+    i <- Binary.getWord8
+    if i > fromIntegral (fromEnum (maxBound :: LicenseExceptionId))
+      then fail "Too large LicenseExceptionId tag"
+      else return (toEnum (fromIntegral i))
 
 -- note: remember to bump version each time the definition changes
 instance Structured LicenseExceptionId where
-    structure p = set typeVersion 306 $ nominalStructure p
+  structure p = set typeVersion 306 $ nominalStructure p
 
 instance Pretty LicenseExceptionId where
-    pretty = Disp.text . licenseExceptionId
+  pretty = Disp.text . licenseExceptionId
 
 instance Parsec LicenseExceptionId where
-    parsec = do
-        n <- some $ P.satisfy $ \c -> isAsciiAlphaNum c || c == '-' || c == '.'
-        v <- askCabalSpecVersion
-        maybe (fail $ "Unknown SPDX license exception identifier: " ++ n) return $
-            mkLicenseExceptionId (cabalSpecVersionToSPDXListVersion v) n
+  parsec = do
+    n <- some $ P.satisfy $ \c -> isAsciiAlphaNum c || c == '-' || c == '.'
+    v <- askCabalSpecVersion
+    maybe (fail $ "Unknown SPDX license exception identifier: " ++ n) return $
+      mkLicenseExceptionId (cabalSpecVersionToSPDXListVersion v) n
 
 instance NFData LicenseExceptionId where
-    rnf l = l `seq` ()
+  rnf l = l `seq` ()
 
 -------------------------------------------------------------------------------
 -- License Data
@@ -197,142 +239,154 @@ licenseExceptionName WxWindows_exception_3_1 = "WxWindows Library Exception 3.1"
 
 licenseExceptionIdList :: LicenseListVersion -> [LicenseExceptionId]
 licenseExceptionIdList LicenseListVersion_3_0 =
-    [ Nokia_Qt_exception_1_1
-    ]
+  [ Nokia_Qt_exception_1_1
+  ]
     ++ bulkOfLicenses
 licenseExceptionIdList LicenseListVersion_3_2 =
-    [ LLVM_exception
-    , Nokia_Qt_exception_1_1
-    , OpenJDK_assembly_exception_1_0
-    , PS_or_PDF_font_exception_20170817
-    , Qt_GPL_exception_1_0
-    , Qt_LGPL_exception_1_1
-    ]
+  [ LLVM_exception
+  , Nokia_Qt_exception_1_1
+  , OpenJDK_assembly_exception_1_0
+  , PS_or_PDF_font_exception_20170817
+  , Qt_GPL_exception_1_0
+  , Qt_LGPL_exception_1_1
+  ]
     ++ bulkOfLicenses
 licenseExceptionIdList LicenseListVersion_3_6 =
-    [ GPL_CC_1_0
-    , LLVM_exception
-    , OCaml_LGPL_linking_exception
-    , OpenJDK_assembly_exception_1_0
-    , PS_or_PDF_font_exception_20170817
-    , Qt_GPL_exception_1_0
-    , Qt_LGPL_exception_1_1
-    , Swift_exception
-    , Universal_FOSS_exception_1_0
-    ]
+  [ GPL_CC_1_0
+  , LLVM_exception
+  , OCaml_LGPL_linking_exception
+  , OpenJDK_assembly_exception_1_0
+  , PS_or_PDF_font_exception_20170817
+  , Qt_GPL_exception_1_0
+  , Qt_LGPL_exception_1_1
+  , Swift_exception
+  , Universal_FOSS_exception_1_0
+  ]
     ++ bulkOfLicenses
 licenseExceptionIdList LicenseListVersion_3_9 =
-    [ GPL_3_0_linking_exception
-    , GPL_3_0_linking_source_exception
-    , GPL_CC_1_0
-    , LGPL_3_0_linking_exception
-    , LLVM_exception
-    , OCaml_LGPL_linking_exception
-    , OpenJDK_assembly_exception_1_0
-    , PS_or_PDF_font_exception_20170817
-    , Qt_GPL_exception_1_0
-    , Qt_LGPL_exception_1_1
-    , SHL_2_0
-    , SHL_2_1
-    , Swift_exception
-    , Universal_FOSS_exception_1_0
-    ]
+  [ GPL_3_0_linking_exception
+  , GPL_3_0_linking_source_exception
+  , GPL_CC_1_0
+  , LGPL_3_0_linking_exception
+  , LLVM_exception
+  , OCaml_LGPL_linking_exception
+  , OpenJDK_assembly_exception_1_0
+  , PS_or_PDF_font_exception_20170817
+  , Qt_GPL_exception_1_0
+  , Qt_LGPL_exception_1_1
+  , SHL_2_0
+  , SHL_2_1
+  , Swift_exception
+  , Universal_FOSS_exception_1_0
+  ]
     ++ bulkOfLicenses
 licenseExceptionIdList LicenseListVersion_3_10 =
-    [ GPL_3_0_linking_exception
-    , GPL_3_0_linking_source_exception
-    , GPL_CC_1_0
-    , LGPL_3_0_linking_exception
-    , LLVM_exception
-    , OCaml_LGPL_linking_exception
-    , OpenJDK_assembly_exception_1_0
-    , PS_or_PDF_font_exception_20170817
-    , Qt_GPL_exception_1_0
-    , Qt_LGPL_exception_1_1
-    , SHL_2_0
-    , SHL_2_1
-    , Swift_exception
-    , Universal_FOSS_exception_1_0
-    ]
+  [ GPL_3_0_linking_exception
+  , GPL_3_0_linking_source_exception
+  , GPL_CC_1_0
+  , LGPL_3_0_linking_exception
+  , LLVM_exception
+  , OCaml_LGPL_linking_exception
+  , OpenJDK_assembly_exception_1_0
+  , PS_or_PDF_font_exception_20170817
+  , Qt_GPL_exception_1_0
+  , Qt_LGPL_exception_1_1
+  , SHL_2_0
+  , SHL_2_1
+  , Swift_exception
+  , Universal_FOSS_exception_1_0
+  ]
     ++ bulkOfLicenses
 licenseExceptionIdList LicenseListVersion_3_16 =
-    [ GPL_3_0_linking_exception
-    , GPL_3_0_linking_source_exception
-    , GPL_CC_1_0
-    , LGPL_3_0_linking_exception
-    , LLVM_exception
-    , OCaml_LGPL_linking_exception
-    , OpenJDK_assembly_exception_1_0
-    , PS_or_PDF_font_exception_20170817
-    , Qt_GPL_exception_1_0
-    , Qt_LGPL_exception_1_1
-    , SHL_2_0
-    , SHL_2_1
-    , Swift_exception
-    , Universal_FOSS_exception_1_0
-    ]
+  [ GPL_3_0_linking_exception
+  , GPL_3_0_linking_source_exception
+  , GPL_CC_1_0
+  , LGPL_3_0_linking_exception
+  , LLVM_exception
+  , OCaml_LGPL_linking_exception
+  , OpenJDK_assembly_exception_1_0
+  , PS_or_PDF_font_exception_20170817
+  , Qt_GPL_exception_1_0
+  , Qt_LGPL_exception_1_1
+  , SHL_2_0
+  , SHL_2_1
+  , Swift_exception
+  , Universal_FOSS_exception_1_0
+  ]
     ++ bulkOfLicenses
 
 -- | Create a 'LicenseExceptionId' from a 'String'.
 mkLicenseExceptionId :: LicenseListVersion -> String -> Maybe LicenseExceptionId
-mkLicenseExceptionId LicenseListVersion_3_0  s = Map.lookup s stringLookup_3_0
-mkLicenseExceptionId LicenseListVersion_3_2  s = Map.lookup s stringLookup_3_2
-mkLicenseExceptionId LicenseListVersion_3_6  s = Map.lookup s stringLookup_3_6
-mkLicenseExceptionId LicenseListVersion_3_9  s = Map.lookup s stringLookup_3_9
+mkLicenseExceptionId LicenseListVersion_3_0 s = Map.lookup s stringLookup_3_0
+mkLicenseExceptionId LicenseListVersion_3_2 s = Map.lookup s stringLookup_3_2
+mkLicenseExceptionId LicenseListVersion_3_6 s = Map.lookup s stringLookup_3_6
+mkLicenseExceptionId LicenseListVersion_3_9 s = Map.lookup s stringLookup_3_9
 mkLicenseExceptionId LicenseListVersion_3_10 s = Map.lookup s stringLookup_3_10
 mkLicenseExceptionId LicenseListVersion_3_16 s = Map.lookup s stringLookup_3_16
 
 stringLookup_3_0 :: Map String LicenseExceptionId
-stringLookup_3_0 = Map.fromList $ map (\i -> (licenseExceptionId i, i)) $
-    licenseExceptionIdList LicenseListVersion_3_0
+stringLookup_3_0 =
+  Map.fromList $
+    map (\i -> (licenseExceptionId i, i)) $
+      licenseExceptionIdList LicenseListVersion_3_0
 
 stringLookup_3_2 :: Map String LicenseExceptionId
-stringLookup_3_2 = Map.fromList $ map (\i -> (licenseExceptionId i, i)) $
-    licenseExceptionIdList LicenseListVersion_3_2
+stringLookup_3_2 =
+  Map.fromList $
+    map (\i -> (licenseExceptionId i, i)) $
+      licenseExceptionIdList LicenseListVersion_3_2
 
 stringLookup_3_6 :: Map String LicenseExceptionId
-stringLookup_3_6 = Map.fromList $ map (\i -> (licenseExceptionId i, i)) $
-    licenseExceptionIdList LicenseListVersion_3_6
+stringLookup_3_6 =
+  Map.fromList $
+    map (\i -> (licenseExceptionId i, i)) $
+      licenseExceptionIdList LicenseListVersion_3_6
 
 stringLookup_3_9 :: Map String LicenseExceptionId
-stringLookup_3_9 = Map.fromList $ map (\i -> (licenseExceptionId i, i)) $
-    licenseExceptionIdList LicenseListVersion_3_9
+stringLookup_3_9 =
+  Map.fromList $
+    map (\i -> (licenseExceptionId i, i)) $
+      licenseExceptionIdList LicenseListVersion_3_9
 
 stringLookup_3_10 :: Map String LicenseExceptionId
-stringLookup_3_10 = Map.fromList $ map (\i -> (licenseExceptionId i, i)) $
-    licenseExceptionIdList LicenseListVersion_3_10
+stringLookup_3_10 =
+  Map.fromList $
+    map (\i -> (licenseExceptionId i, i)) $
+      licenseExceptionIdList LicenseListVersion_3_10
 
 stringLookup_3_16 :: Map String LicenseExceptionId
-stringLookup_3_16 = Map.fromList $ map (\i -> (licenseExceptionId i, i)) $
-    licenseExceptionIdList LicenseListVersion_3_16
+stringLookup_3_16 =
+  Map.fromList $
+    map (\i -> (licenseExceptionId i, i)) $
+      licenseExceptionIdList LicenseListVersion_3_16
 
 --  | License exceptions in all SPDX License lists
 bulkOfLicenses :: [LicenseExceptionId]
 bulkOfLicenses =
-    [ DS389_exception
-    , Autoconf_exception_2_0
-    , Autoconf_exception_3_0
-    , Bison_exception_2_2
-    , Bootloader_exception
-    , Classpath_exception_2_0
-    , CLISP_exception_2_0
-    , DigiRule_FOSS_exception
-    , ECos_exception_2_0
-    , Fawkes_Runtime_exception
-    , FLTK_exception
-    , Font_exception_2_0
-    , Freertos_exception_2_0
-    , GCC_exception_2_0
-    , GCC_exception_3_1
-    , Gnu_javamail_exception
-    , I2p_gpl_java_exception
-    , Libtool_exception
-    , Linux_syscall_note
-    , LZMA_exception
-    , Mif_exception
-    , OCCT_exception_1_0
-    , Openvpn_openssl_exception
-    , Qwt_exception_1_0
-    , U_boot_exception_2_0
-    , WxWindows_exception_3_1
-    ]
+  [ DS389_exception
+  , Autoconf_exception_2_0
+  , Autoconf_exception_3_0
+  , Bison_exception_2_2
+  , Bootloader_exception
+  , Classpath_exception_2_0
+  , CLISP_exception_2_0
+  , DigiRule_FOSS_exception
+  , ECos_exception_2_0
+  , Fawkes_Runtime_exception
+  , FLTK_exception
+  , Font_exception_2_0
+  , Freertos_exception_2_0
+  , GCC_exception_2_0
+  , GCC_exception_3_1
+  , Gnu_javamail_exception
+  , I2p_gpl_java_exception
+  , Libtool_exception
+  , Linux_syscall_note
+  , LZMA_exception
+  , Mif_exception
+  , OCCT_exception_1_0
+  , Openvpn_openssl_exception
+  , Qwt_exception_1_0
+  , U_boot_exception_2_0
+  , WxWindows_exception_3_1
+  ]

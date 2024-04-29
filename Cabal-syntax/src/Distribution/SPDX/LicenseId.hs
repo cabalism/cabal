@@ -1,26 +1,28 @@
 -- This file is generated. See Makefile's spdx rule
 {-# LANGUAGE DeriveDataTypeable #-}
-module Distribution.SPDX.LicenseId (
-    LicenseId (..),
-    licenseId,
-    licenseName,
-    licenseIsOsiApproved,
-    licenseIsFsfLibre,
-    mkLicenseId,
-    licenseIdList,
+
+module Distribution.SPDX.LicenseId
+  ( LicenseId (..)
+  , licenseId
+  , licenseName
+  , licenseIsOsiApproved
+  , licenseIsFsfLibre
+  , mkLicenseId
+  , licenseIdList
+
     -- * Helpers
-    licenseIdMigrationMessage,
-    ) where
+  , licenseIdMigrationMessage
+  ) where
 
 import Distribution.Compat.Prelude
 import Prelude ()
 
 import Distribution.Compat.Lens (set)
-import Distribution.Pretty
 import Distribution.Parsec
+import Distribution.Pretty
+import Distribution.SPDX.LicenseListVersion
 import Distribution.Utils.Generic (isAsciiAlphaNum)
 import Distribution.Utils.Structured (Structured (..), nominalStructure, typeVersion)
-import Distribution.SPDX.LicenseListVersion
 
 import qualified Data.Binary.Get as Binary
 import qualified Data.Binary.Put as Binary
@@ -34,481 +36,938 @@ import qualified Text.PrettyPrint as Disp
 
 -- | SPDX License identifiers list v3.16
 data LicenseId
-    = NullBSD -- ^ @0BSD@, BSD Zero Clause License
-    | AAL -- ^ @AAL@, Attribution Assurance License
-    | Abstyles -- ^ @Abstyles@, Abstyles License
-    | Adobe_2006 -- ^ @Adobe-2006@, Adobe Systems Incorporated Source Code License Agreement
-    | Adobe_Glyph -- ^ @Adobe-Glyph@, Adobe Glyph List License
-    | ADSL -- ^ @ADSL@, Amazon Digital Services License
-    | AFL_1_1 -- ^ @AFL-1.1@, Academic Free License v1.1
-    | AFL_1_2 -- ^ @AFL-1.2@, Academic Free License v1.2
-    | AFL_2_0 -- ^ @AFL-2.0@, Academic Free License v2.0
-    | AFL_2_1 -- ^ @AFL-2.1@, Academic Free License v2.1
-    | AFL_3_0 -- ^ @AFL-3.0@, Academic Free License v3.0
-    | Afmparse -- ^ @Afmparse@, Afmparse License
-    | AGPL_1_0 -- ^ @AGPL-1.0@, Affero General Public License v1.0, SPDX License List 3.0
-    | AGPL_1_0_only -- ^ @AGPL-1.0-only@, Affero General Public License v1.0 only, SPDX License List 3.2, SPDX License List 3.6, SPDX License List 3.9, SPDX License List 3.10, SPDX License List 3.16
-    | AGPL_1_0_or_later -- ^ @AGPL-1.0-or-later@, Affero General Public License v1.0 or later, SPDX License List 3.2, SPDX License List 3.6, SPDX License List 3.9, SPDX License List 3.10, SPDX License List 3.16
-    | AGPL_3_0_only -- ^ @AGPL-3.0-only@, GNU Affero General Public License v3.0 only
-    | AGPL_3_0_or_later -- ^ @AGPL-3.0-or-later@, GNU Affero General Public License v3.0 or later
-    | Aladdin -- ^ @Aladdin@, Aladdin Free Public License
-    | AMDPLPA -- ^ @AMDPLPA@, AMD's plpa_map.c License
-    | AML -- ^ @AML@, Apple MIT License
-    | AMPAS -- ^ @AMPAS@, Academy of Motion Picture Arts and Sciences BSD
-    | ANTLR_PD_fallback -- ^ @ANTLR-PD-fallback@, ANTLR Software Rights Notice with license fallback, SPDX License List 3.16
-    | ANTLR_PD -- ^ @ANTLR-PD@, ANTLR Software Rights Notice
-    | Apache_1_0 -- ^ @Apache-1.0@, Apache License 1.0
-    | Apache_1_1 -- ^ @Apache-1.1@, Apache License 1.1
-    | Apache_2_0 -- ^ @Apache-2.0@, Apache License 2.0
-    | APAFML -- ^ @APAFML@, Adobe Postscript AFM License
-    | APL_1_0 -- ^ @APL-1.0@, Adaptive Public License 1.0
-    | App_s2p -- ^ @App-s2p@, App::s2p License, SPDX License List 3.16
-    | APSL_1_0 -- ^ @APSL-1.0@, Apple Public Source License 1.0
-    | APSL_1_1 -- ^ @APSL-1.1@, Apple Public Source License 1.1
-    | APSL_1_2 -- ^ @APSL-1.2@, Apple Public Source License 1.2
-    | APSL_2_0 -- ^ @APSL-2.0@, Apple Public Source License 2.0
-    | Artistic_1_0_cl8 -- ^ @Artistic-1.0-cl8@, Artistic License 1.0 w/clause 8
-    | Artistic_1_0_Perl -- ^ @Artistic-1.0-Perl@, Artistic License 1.0 (Perl)
-    | Artistic_1_0 -- ^ @Artistic-1.0@, Artistic License 1.0
-    | Artistic_2_0 -- ^ @Artistic-2.0@, Artistic License 2.0
-    | Bahyph -- ^ @Bahyph@, Bahyph License
-    | Barr -- ^ @Barr@, Barr License
-    | Beerware -- ^ @Beerware@, Beerware License
-    | BitTorrent_1_0 -- ^ @BitTorrent-1.0@, BitTorrent Open Source License v1.0
-    | BitTorrent_1_1 -- ^ @BitTorrent-1.1@, BitTorrent Open Source License v1.1
-    | Blessing -- ^ @blessing@, SQLite Blessing, SPDX License List 3.6, SPDX License List 3.9, SPDX License List 3.10, SPDX License List 3.16
-    | BlueOak_1_0_0 -- ^ @BlueOak-1.0.0@, Blue Oak Model License 1.0.0, SPDX License List 3.6, SPDX License List 3.9, SPDX License List 3.10, SPDX License List 3.16
-    | Borceux -- ^ @Borceux@, Borceux license
-    | BSD_1_Clause -- ^ @BSD-1-Clause@, BSD 1-Clause License
-    | BSD_2_Clause_FreeBSD -- ^ @BSD-2-Clause-FreeBSD@, BSD 2-Clause FreeBSD License, SPDX License List 3.0, SPDX License List 3.2, SPDX License List 3.6, SPDX License List 3.9
-    | BSD_2_Clause_NetBSD -- ^ @BSD-2-Clause-NetBSD@, BSD 2-Clause NetBSD License, SPDX License List 3.0, SPDX License List 3.2, SPDX License List 3.6
-    | BSD_2_Clause_Patent -- ^ @BSD-2-Clause-Patent@, BSD-2-Clause Plus Patent License
-    | BSD_2_Clause_Views -- ^ @BSD-2-Clause-Views@, BSD 2-Clause with views sentence, SPDX License List 3.10, SPDX License List 3.16
-    | BSD_2_Clause -- ^ @BSD-2-Clause@, BSD 2-Clause "Simplified" License
-    | BSD_3_Clause_Attribution -- ^ @BSD-3-Clause-Attribution@, BSD with attribution
-    | BSD_3_Clause_Clear -- ^ @BSD-3-Clause-Clear@, BSD 3-Clause Clear License
-    | BSD_3_Clause_LBNL -- ^ @BSD-3-Clause-LBNL@, Lawrence Berkeley National Labs BSD variant license
-    | BSD_3_Clause_Modification -- ^ @BSD-3-Clause-Modification@, BSD 3-Clause Modification, SPDX License List 3.16
-    | BSD_3_Clause_No_Military_License -- ^ @BSD-3-Clause-No-Military-License@, BSD 3-Clause No Military License, SPDX License List 3.16
-    | BSD_3_Clause_No_Nuclear_License_2014 -- ^ @BSD-3-Clause-No-Nuclear-License-2014@, BSD 3-Clause No Nuclear License 2014
-    | BSD_3_Clause_No_Nuclear_License -- ^ @BSD-3-Clause-No-Nuclear-License@, BSD 3-Clause No Nuclear License
-    | BSD_3_Clause_No_Nuclear_Warranty -- ^ @BSD-3-Clause-No-Nuclear-Warranty@, BSD 3-Clause No Nuclear Warranty
-    | BSD_3_Clause_Open_MPI -- ^ @BSD-3-Clause-Open-MPI@, BSD 3-Clause Open MPI variant, SPDX License List 3.6, SPDX License List 3.9, SPDX License List 3.10, SPDX License List 3.16
-    | BSD_3_Clause -- ^ @BSD-3-Clause@, BSD 3-Clause "New" or "Revised" License
-    | BSD_4_Clause_Shortened -- ^ @BSD-4-Clause-Shortened@, BSD 4 Clause Shortened, SPDX License List 3.16
-    | BSD_4_Clause_UC -- ^ @BSD-4-Clause-UC@, BSD-4-Clause (University of California-Specific)
-    | BSD_4_Clause -- ^ @BSD-4-Clause@, BSD 4-Clause "Original" or "Old" License
-    | BSD_Protection -- ^ @BSD-Protection@, BSD Protection License
-    | BSD_Source_Code -- ^ @BSD-Source-Code@, BSD Source Code Attribution
-    | BSL_1_0 -- ^ @BSL-1.0@, Boost Software License 1.0
-    | Bzip2_1_0_5 -- ^ @bzip2-1.0.5@, bzip2 and libbzip2 License v1.0.5, SPDX License List 3.0, SPDX License List 3.2, SPDX License List 3.6, SPDX License List 3.9, SPDX License List 3.10
-    | BUSL_1_1 -- ^ @BUSL-1.1@, Business Source License 1.1, SPDX License List 3.16
-    | Bzip2_1_0_6 -- ^ @bzip2-1.0.6@, bzip2 and libbzip2 License v1.0.6
-    | C_UDA_1_0 -- ^ @C-UDA-1.0@, Computational Use of Data Agreement v1.0, SPDX License List 3.16
-    | CAL_1_0_Combined_Work_Exception -- ^ @CAL-1.0-Combined-Work-Exception@, Cryptographic Autonomy License 1.0 (Combined Work Exception), SPDX License List 3.9, SPDX License List 3.10, SPDX License List 3.16
-    | CAL_1_0 -- ^ @CAL-1.0@, Cryptographic Autonomy License 1.0, SPDX License List 3.9, SPDX License List 3.10, SPDX License List 3.16
-    | Caldera -- ^ @Caldera@, Caldera License
-    | CATOSL_1_1 -- ^ @CATOSL-1.1@, Computer Associates Trusted Open Source License 1.1
-    | CC_BY_1_0 -- ^ @CC-BY-1.0@, Creative Commons Attribution 1.0 Generic
-    | CC_BY_2_0 -- ^ @CC-BY-2.0@, Creative Commons Attribution 2.0 Generic
-    | CC_BY_2_5_AU -- ^ @CC-BY-2.5-AU@, Creative Commons Attribution 2.5 Australia, SPDX License List 3.16
-    | CC_BY_2_5 -- ^ @CC-BY-2.5@, Creative Commons Attribution 2.5 Generic
-    | CC_BY_3_0_AT -- ^ @CC-BY-3.0-AT@, Creative Commons Attribution 3.0 Austria, SPDX License List 3.10, SPDX License List 3.16
-    | CC_BY_3_0_DE -- ^ @CC-BY-3.0-DE@, Creative Commons Attribution 3.0 Germany, SPDX License List 3.16
-    | CC_BY_3_0_NL -- ^ @CC-BY-3.0-NL@, Creative Commons Attribution 3.0 Netherlands, SPDX License List 3.16
-    | CC_BY_3_0_US -- ^ @CC-BY-3.0-US@, Creative Commons Attribution 3.0 United States, SPDX License List 3.16
-    | CC_BY_3_0 -- ^ @CC-BY-3.0@, Creative Commons Attribution 3.0 Unported
-    | CC_BY_4_0 -- ^ @CC-BY-4.0@, Creative Commons Attribution 4.0 International
-    | CC_BY_NC_1_0 -- ^ @CC-BY-NC-1.0@, Creative Commons Attribution Non Commercial 1.0 Generic
-    | CC_BY_NC_2_0 -- ^ @CC-BY-NC-2.0@, Creative Commons Attribution Non Commercial 2.0 Generic
-    | CC_BY_NC_2_5 -- ^ @CC-BY-NC-2.5@, Creative Commons Attribution Non Commercial 2.5 Generic
-    | CC_BY_NC_3_0_DE -- ^ @CC-BY-NC-3.0-DE@, Creative Commons Attribution Non Commercial 3.0 Germany, SPDX License List 3.16
-    | CC_BY_NC_3_0 -- ^ @CC-BY-NC-3.0@, Creative Commons Attribution Non Commercial 3.0 Unported
-    | CC_BY_NC_4_0 -- ^ @CC-BY-NC-4.0@, Creative Commons Attribution Non Commercial 4.0 International
-    | CC_BY_NC_ND_1_0 -- ^ @CC-BY-NC-ND-1.0@, Creative Commons Attribution Non Commercial No Derivatives 1.0 Generic
-    | CC_BY_NC_ND_2_0 -- ^ @CC-BY-NC-ND-2.0@, Creative Commons Attribution Non Commercial No Derivatives 2.0 Generic
-    | CC_BY_NC_ND_2_5 -- ^ @CC-BY-NC-ND-2.5@, Creative Commons Attribution Non Commercial No Derivatives 2.5 Generic
-    | CC_BY_NC_ND_3_0_DE -- ^ @CC-BY-NC-ND-3.0-DE@, Creative Commons Attribution Non Commercial No Derivatives 3.0 Germany, SPDX License List 3.16
-    | CC_BY_NC_ND_3_0_IGO -- ^ @CC-BY-NC-ND-3.0-IGO@, Creative Commons Attribution Non Commercial No Derivatives 3.0 IGO, SPDX License List 3.10, SPDX License List 3.16
-    | CC_BY_NC_ND_3_0 -- ^ @CC-BY-NC-ND-3.0@, Creative Commons Attribution Non Commercial No Derivatives 3.0 Unported
-    | CC_BY_NC_ND_4_0 -- ^ @CC-BY-NC-ND-4.0@, Creative Commons Attribution Non Commercial No Derivatives 4.0 International
-    | CC_BY_NC_SA_1_0 -- ^ @CC-BY-NC-SA-1.0@, Creative Commons Attribution Non Commercial Share Alike 1.0 Generic
-    | CC_BY_NC_SA_2_0_FR -- ^ @CC-BY-NC-SA-2.0-FR@, Creative Commons Attribution-NonCommercial-ShareAlike 2.0 France, SPDX License List 3.16
-    | CC_BY_NC_SA_2_0_UK -- ^ @CC-BY-NC-SA-2.0-UK@, Creative Commons Attribution Non Commercial Share Alike 2.0 England and Wales, SPDX License List 3.16
-    | CC_BY_NC_SA_2_0 -- ^ @CC-BY-NC-SA-2.0@, Creative Commons Attribution Non Commercial Share Alike 2.0 Generic
-    | CC_BY_NC_SA_2_5 -- ^ @CC-BY-NC-SA-2.5@, Creative Commons Attribution Non Commercial Share Alike 2.5 Generic
-    | CC_BY_NC_SA_3_0_DE -- ^ @CC-BY-NC-SA-3.0-DE@, Creative Commons Attribution Non Commercial Share Alike 3.0 Germany, SPDX License List 3.16
-    | CC_BY_NC_SA_3_0_IGO -- ^ @CC-BY-NC-SA-3.0-IGO@, Creative Commons Attribution Non Commercial Share Alike 3.0 IGO, SPDX License List 3.16
-    | CC_BY_NC_SA_3_0 -- ^ @CC-BY-NC-SA-3.0@, Creative Commons Attribution Non Commercial Share Alike 3.0 Unported
-    | CC_BY_NC_SA_4_0 -- ^ @CC-BY-NC-SA-4.0@, Creative Commons Attribution Non Commercial Share Alike 4.0 International
-    | CC_BY_ND_1_0 -- ^ @CC-BY-ND-1.0@, Creative Commons Attribution No Derivatives 1.0 Generic
-    | CC_BY_ND_2_0 -- ^ @CC-BY-ND-2.0@, Creative Commons Attribution No Derivatives 2.0 Generic
-    | CC_BY_ND_2_5 -- ^ @CC-BY-ND-2.5@, Creative Commons Attribution No Derivatives 2.5 Generic
-    | CC_BY_ND_3_0_DE -- ^ @CC-BY-ND-3.0-DE@, Creative Commons Attribution No Derivatives 3.0 Germany, SPDX License List 3.16
-    | CC_BY_ND_3_0 -- ^ @CC-BY-ND-3.0@, Creative Commons Attribution No Derivatives 3.0 Unported
-    | CC_BY_ND_4_0 -- ^ @CC-BY-ND-4.0@, Creative Commons Attribution No Derivatives 4.0 International
-    | CC_BY_SA_1_0 -- ^ @CC-BY-SA-1.0@, Creative Commons Attribution Share Alike 1.0 Generic
-    | CC_BY_SA_2_0_UK -- ^ @CC-BY-SA-2.0-UK@, Creative Commons Attribution Share Alike 2.0 England and Wales, SPDX License List 3.16
-    | CC_BY_SA_2_0 -- ^ @CC-BY-SA-2.0@, Creative Commons Attribution Share Alike 2.0 Generic
-    | CC_BY_SA_2_1_JP -- ^ @CC-BY-SA-2.1-JP@, Creative Commons Attribution Share Alike 2.1 Japan, SPDX License List 3.16
-    | CC_BY_SA_2_5 -- ^ @CC-BY-SA-2.5@, Creative Commons Attribution Share Alike 2.5 Generic
-    | CC_BY_SA_3_0_AT -- ^ @CC-BY-SA-3.0-AT@, Creative Commons Attribution Share Alike 3.0 Austria, SPDX License List 3.10, SPDX License List 3.16
-    | CC_BY_SA_3_0_DE -- ^ @CC-BY-SA-3.0-DE@, Creative Commons Attribution Share Alike 3.0 Germany, SPDX License List 3.16
-    | CC_BY_SA_3_0 -- ^ @CC-BY-SA-3.0@, Creative Commons Attribution Share Alike 3.0 Unported
-    | CC_BY_SA_4_0 -- ^ @CC-BY-SA-4.0@, Creative Commons Attribution Share Alike 4.0 International
-    | CC_PDDC -- ^ @CC-PDDC@, Creative Commons Public Domain Dedication and Certification, SPDX License List 3.6, SPDX License List 3.9, SPDX License List 3.10, SPDX License List 3.16
-    | CC0_1_0 -- ^ @CC0-1.0@, Creative Commons Zero v1.0 Universal
-    | CDDL_1_0 -- ^ @CDDL-1.0@, Common Development and Distribution License 1.0
-    | CDDL_1_1 -- ^ @CDDL-1.1@, Common Development and Distribution License 1.1
-    | CDL_1_0 -- ^ @CDL-1.0@, Common Documentation License 1.0, SPDX License List 3.16
-    | CDLA_Permissive_1_0 -- ^ @CDLA-Permissive-1.0@, Community Data License Agreement Permissive 1.0
-    | CDLA_Permissive_2_0 -- ^ @CDLA-Permissive-2.0@, Community Data License Agreement Permissive 2.0, SPDX License List 3.16
-    | CDLA_Sharing_1_0 -- ^ @CDLA-Sharing-1.0@, Community Data License Agreement Sharing 1.0
-    | CECILL_1_0 -- ^ @CECILL-1.0@, CeCILL Free Software License Agreement v1.0
-    | CECILL_1_1 -- ^ @CECILL-1.1@, CeCILL Free Software License Agreement v1.1
-    | CECILL_2_0 -- ^ @CECILL-2.0@, CeCILL Free Software License Agreement v2.0
-    | CECILL_2_1 -- ^ @CECILL-2.1@, CeCILL Free Software License Agreement v2.1
-    | CECILL_B -- ^ @CECILL-B@, CeCILL-B Free Software License Agreement
-    | CECILL_C -- ^ @CECILL-C@, CeCILL-C Free Software License Agreement
-    | CERN_OHL_1_1 -- ^ @CERN-OHL-1.1@, CERN Open Hardware Licence v1.1, SPDX License List 3.6, SPDX License List 3.9, SPDX License List 3.10, SPDX License List 3.16
-    | CERN_OHL_1_2 -- ^ @CERN-OHL-1.2@, CERN Open Hardware Licence v1.2, SPDX License List 3.6, SPDX License List 3.9, SPDX License List 3.10, SPDX License List 3.16
-    | CERN_OHL_P_2_0 -- ^ @CERN-OHL-P-2.0@, CERN Open Hardware Licence Version 2 - Permissive, SPDX License List 3.9, SPDX License List 3.10, SPDX License List 3.16
-    | CERN_OHL_S_2_0 -- ^ @CERN-OHL-S-2.0@, CERN Open Hardware Licence Version 2 - Strongly Reciprocal, SPDX License List 3.9, SPDX License List 3.10, SPDX License List 3.16
-    | CERN_OHL_W_2_0 -- ^ @CERN-OHL-W-2.0@, CERN Open Hardware Licence Version 2 - Weakly Reciprocal, SPDX License List 3.9, SPDX License List 3.10, SPDX License List 3.16
-    | ClArtistic -- ^ @ClArtistic@, Clarified Artistic License
-    | CNRI_Jython -- ^ @CNRI-Jython@, CNRI Jython License
-    | CNRI_Python_GPL_Compatible -- ^ @CNRI-Python-GPL-Compatible@, CNRI Python Open Source GPL Compatible License Agreement
-    | CNRI_Python -- ^ @CNRI-Python@, CNRI Python License
-    | COIL_1_0 -- ^ @COIL-1.0@, Copyfree Open Innovation License, SPDX License List 3.16
-    | Community_Spec_1_0 -- ^ @Community-Spec-1.0@, Community Specification License 1.0, SPDX License List 3.16
-    | Condor_1_1 -- ^ @Condor-1.1@, Condor Public License v1.1
-    | Copyleft_next_0_3_0 -- ^ @copyleft-next-0.3.0@, copyleft-next 0.3.0, SPDX License List 3.6, SPDX License List 3.9, SPDX License List 3.10, SPDX License List 3.16
-    | Copyleft_next_0_3_1 -- ^ @copyleft-next-0.3.1@, copyleft-next 0.3.1, SPDX License List 3.6, SPDX License List 3.9, SPDX License List 3.10, SPDX License List 3.16
-    | CPAL_1_0 -- ^ @CPAL-1.0@, Common Public Attribution License 1.0
-    | CPL_1_0 -- ^ @CPL-1.0@, Common Public License 1.0
-    | CPOL_1_02 -- ^ @CPOL-1.02@, Code Project Open License 1.02
-    | Crossword -- ^ @Crossword@, Crossword License
-    | CrystalStacker -- ^ @CrystalStacker@, CrystalStacker License
-    | CUA_OPL_1_0 -- ^ @CUA-OPL-1.0@, CUA Office Public License v1.0
-    | Cube -- ^ @Cube@, Cube License
-    | Curl -- ^ @curl@, curl License
-    | D_FSL_1_0 -- ^ @D-FSL-1.0@, Deutsche Freie Software Lizenz
-    | Diffmark -- ^ @diffmark@, diffmark license
-    | DL_DE_BY_2_0 -- ^ @DL-DE-BY-2.0@, Data licence Germany – attribution – version 2.0, SPDX License List 3.16
-    | DOC -- ^ @DOC@, DOC License
-    | Dotseqn -- ^ @Dotseqn@, Dotseqn License
-    | DRL_1_0 -- ^ @DRL-1.0@, Detection Rule License 1.0, SPDX License List 3.16
-    | DSDP -- ^ @DSDP@, DSDP License
-    | Dvipdfm -- ^ @dvipdfm@, dvipdfm License
-    | ECL_1_0 -- ^ @ECL-1.0@, Educational Community License v1.0
-    | ECL_2_0 -- ^ @ECL-2.0@, Educational Community License v2.0
-    | EFL_1_0 -- ^ @EFL-1.0@, Eiffel Forum License v1.0
-    | EFL_2_0 -- ^ @EFL-2.0@, Eiffel Forum License v2.0
-    | EGenix -- ^ @eGenix@, eGenix.com Public License 1.1.0
-    | Elastic_2_0 -- ^ @Elastic-2.0@, Elastic License 2.0, SPDX License List 3.16
-    | Entessa -- ^ @Entessa@, Entessa Public License v1.0
-    | EPICS -- ^ @EPICS@, EPICS Open License, SPDX License List 3.10, SPDX License List 3.16
-    | EPL_1_0 -- ^ @EPL-1.0@, Eclipse Public License 1.0
-    | EPL_2_0 -- ^ @EPL-2.0@, Eclipse Public License 2.0
-    | ErlPL_1_1 -- ^ @ErlPL-1.1@, Erlang Public License v1.1
-    | Etalab_2_0 -- ^ @etalab-2.0@, Etalab Open License 2.0, SPDX License List 3.9, SPDX License List 3.10, SPDX License List 3.16
-    | EUDatagrid -- ^ @EUDatagrid@, EU DataGrid Software License
-    | EUPL_1_0 -- ^ @EUPL-1.0@, European Union Public License 1.0
-    | EUPL_1_1 -- ^ @EUPL-1.1@, European Union Public License 1.1
-    | EUPL_1_2 -- ^ @EUPL-1.2@, European Union Public License 1.2
-    | Eurosym -- ^ @Eurosym@, Eurosym License
-    | Fair -- ^ @Fair@, Fair License
-    | FDK_AAC -- ^ @FDK-AAC@, Fraunhofer FDK AAC Codec Library, SPDX License List 3.16
-    | Frameworx_1_0 -- ^ @Frameworx-1.0@, Frameworx Open License 1.0
-    | FreeBSD_DOC -- ^ @FreeBSD-DOC@, FreeBSD Documentation License, SPDX License List 3.16
-    | FreeImage -- ^ @FreeImage@, FreeImage Public License v1.0
-    | FSFAP -- ^ @FSFAP@, FSF All Permissive License
-    | FSFULLR -- ^ @FSFULLR@, FSF Unlimited License (with License Retention)
-    | FSFUL -- ^ @FSFUL@, FSF Unlimited License
-    | FTL -- ^ @FTL@, Freetype Project License
-    | GD -- ^ @GD@, GD License, SPDX License List 3.16
-    | GFDL_1_1_invariants_only -- ^ @GFDL-1.1-invariants-only@, GNU Free Documentation License v1.1 only - invariants, SPDX License List 3.10, SPDX License List 3.16
-    | GFDL_1_1_invariants_or_later -- ^ @GFDL-1.1-invariants-or-later@, GNU Free Documentation License v1.1 or later - invariants, SPDX License List 3.10, SPDX License List 3.16
-    | GFDL_1_1_no_invariants_only -- ^ @GFDL-1.1-no-invariants-only@, GNU Free Documentation License v1.1 only - no invariants, SPDX License List 3.10, SPDX License List 3.16
-    | GFDL_1_1_no_invariants_or_later -- ^ @GFDL-1.1-no-invariants-or-later@, GNU Free Documentation License v1.1 or later - no invariants, SPDX License List 3.10, SPDX License List 3.16
-    | GFDL_1_1_only -- ^ @GFDL-1.1-only@, GNU Free Documentation License v1.1 only
-    | GFDL_1_1_or_later -- ^ @GFDL-1.1-or-later@, GNU Free Documentation License v1.1 or later
-    | GFDL_1_2_invariants_only -- ^ @GFDL-1.2-invariants-only@, GNU Free Documentation License v1.2 only - invariants, SPDX License List 3.10, SPDX License List 3.16
-    | GFDL_1_2_invariants_or_later -- ^ @GFDL-1.2-invariants-or-later@, GNU Free Documentation License v1.2 or later - invariants, SPDX License List 3.10, SPDX License List 3.16
-    | GFDL_1_2_no_invariants_only -- ^ @GFDL-1.2-no-invariants-only@, GNU Free Documentation License v1.2 only - no invariants, SPDX License List 3.10, SPDX License List 3.16
-    | GFDL_1_2_no_invariants_or_later -- ^ @GFDL-1.2-no-invariants-or-later@, GNU Free Documentation License v1.2 or later - no invariants, SPDX License List 3.10, SPDX License List 3.16
-    | GFDL_1_2_only -- ^ @GFDL-1.2-only@, GNU Free Documentation License v1.2 only
-    | GFDL_1_2_or_later -- ^ @GFDL-1.2-or-later@, GNU Free Documentation License v1.2 or later
-    | GFDL_1_3_invariants_only -- ^ @GFDL-1.3-invariants-only@, GNU Free Documentation License v1.3 only - invariants, SPDX License List 3.10, SPDX License List 3.16
-    | GFDL_1_3_invariants_or_later -- ^ @GFDL-1.3-invariants-or-later@, GNU Free Documentation License v1.3 or later - invariants, SPDX License List 3.10, SPDX License List 3.16
-    | GFDL_1_3_no_invariants_only -- ^ @GFDL-1.3-no-invariants-only@, GNU Free Documentation License v1.3 only - no invariants, SPDX License List 3.10, SPDX License List 3.16
-    | GFDL_1_3_no_invariants_or_later -- ^ @GFDL-1.3-no-invariants-or-later@, GNU Free Documentation License v1.3 or later - no invariants, SPDX License List 3.10, SPDX License List 3.16
-    | GFDL_1_3_only -- ^ @GFDL-1.3-only@, GNU Free Documentation License v1.3 only
-    | GFDL_1_3_or_later -- ^ @GFDL-1.3-or-later@, GNU Free Documentation License v1.3 or later
-    | Giftware -- ^ @Giftware@, Giftware License
-    | GL2PS -- ^ @GL2PS@, GL2PS License
-    | Glide -- ^ @Glide@, 3dfx Glide License
-    | Glulxe -- ^ @Glulxe@, Glulxe License
-    | GLWTPL -- ^ @GLWTPL@, Good Luck With That Public License, SPDX License List 3.10, SPDX License List 3.16
-    | Gnuplot -- ^ @gnuplot@, gnuplot License
-    | GPL_1_0_only -- ^ @GPL-1.0-only@, GNU General Public License v1.0 only
-    | GPL_1_0_or_later -- ^ @GPL-1.0-or-later@, GNU General Public License v1.0 or later
-    | GPL_2_0_only -- ^ @GPL-2.0-only@, GNU General Public License v2.0 only
-    | GPL_2_0_or_later -- ^ @GPL-2.0-or-later@, GNU General Public License v2.0 or later
-    | GPL_3_0_only -- ^ @GPL-3.0-only@, GNU General Public License v3.0 only
-    | GPL_3_0_or_later -- ^ @GPL-3.0-or-later@, GNU General Public License v3.0 or later
-    | GSOAP_1_3b -- ^ @gSOAP-1.3b@, gSOAP Public License v1.3b
-    | HaskellReport -- ^ @HaskellReport@, Haskell Language Report License
-    | Hippocratic_2_1 -- ^ @Hippocratic-2.1@, Hippocratic License 2.1, SPDX License List 3.9, SPDX License List 3.10, SPDX License List 3.16
-    | HPND_sell_variant -- ^ @HPND-sell-variant@, Historical Permission Notice and Disclaimer - sell variant, SPDX License List 3.6, SPDX License List 3.9, SPDX License List 3.10, SPDX License List 3.16
-    | HPND -- ^ @HPND@, Historical Permission Notice and Disclaimer
-    | HTMLTIDY -- ^ @HTMLTIDY@, HTML Tidy License, SPDX License List 3.16
-    | IBM_pibs -- ^ @IBM-pibs@, IBM PowerPC Initialization and Boot Software
-    | ICU -- ^ @ICU@, ICU License
-    | IJG -- ^ @IJG@, Independent JPEG Group License
-    | ImageMagick -- ^ @ImageMagick@, ImageMagick License
-    | IMatix -- ^ @iMatix@, iMatix Standard Function Library Agreement
-    | Imlib2 -- ^ @Imlib2@, Imlib2 License
-    | Info_ZIP -- ^ @Info-ZIP@, Info-ZIP License
-    | Intel_ACPI -- ^ @Intel-ACPI@, Intel ACPI Software License Agreement
-    | Intel -- ^ @Intel@, Intel Open Source License
-    | Interbase_1_0 -- ^ @Interbase-1.0@, Interbase Public License v1.0
-    | IPA -- ^ @IPA@, IPA Font License
-    | IPL_1_0 -- ^ @IPL-1.0@, IBM Public License v1.0
-    | ISC -- ^ @ISC@, ISC License
-    | Jam -- ^ @Jam@, Jam License, SPDX License List 3.16
-    | JasPer_2_0 -- ^ @JasPer-2.0@, JasPer License
-    | JPNIC -- ^ @JPNIC@, Japan Network Information Center License, SPDX License List 3.6, SPDX License List 3.9, SPDX License List 3.10, SPDX License List 3.16
-    | JSON -- ^ @JSON@, JSON License
-    | LAL_1_2 -- ^ @LAL-1.2@, Licence Art Libre 1.2
-    | LAL_1_3 -- ^ @LAL-1.3@, Licence Art Libre 1.3
-    | Latex2e -- ^ @Latex2e@, Latex2e License
-    | Leptonica -- ^ @Leptonica@, Leptonica License
-    | LGPL_2_0_only -- ^ @LGPL-2.0-only@, GNU Library General Public License v2 only
-    | LGPL_2_0_or_later -- ^ @LGPL-2.0-or-later@, GNU Library General Public License v2 or later
-    | LGPL_2_1_only -- ^ @LGPL-2.1-only@, GNU Lesser General Public License v2.1 only
-    | LGPL_2_1_or_later -- ^ @LGPL-2.1-or-later@, GNU Lesser General Public License v2.1 or later
-    | LGPL_3_0_only -- ^ @LGPL-3.0-only@, GNU Lesser General Public License v3.0 only
-    | LGPL_3_0_or_later -- ^ @LGPL-3.0-or-later@, GNU Lesser General Public License v3.0 or later
-    | LGPLLR -- ^ @LGPLLR@, Lesser General Public License For Linguistic Resources
-    | Libpng_2_0 -- ^ @libpng-2.0@, PNG Reference Library version 2, SPDX License List 3.6, SPDX License List 3.9, SPDX License List 3.10, SPDX License List 3.16
-    | Libpng -- ^ @Libpng@, libpng License
-    | Libselinux_1_0 -- ^ @libselinux-1.0@, libselinux public domain notice, SPDX License List 3.9, SPDX License List 3.10, SPDX License List 3.16
-    | Libtiff -- ^ @libtiff@, libtiff License
-    | LiLiQ_P_1_1 -- ^ @LiLiQ-P-1.1@, Licence Libre du Québec – Permissive version 1.1
-    | LiLiQ_R_1_1 -- ^ @LiLiQ-R-1.1@, Licence Libre du Québec – Réciprocité version 1.1
-    | LiLiQ_Rplus_1_1 -- ^ @LiLiQ-Rplus-1.1@, Licence Libre du Québec – Réciprocité forte version 1.1
-    | Linux_man_pages_copyleft -- ^ @Linux-man-pages-copyleft@, Linux man-pages Copyleft, SPDX License List 3.16
-    | Linux_OpenIB -- ^ @Linux-OpenIB@, Linux Kernel Variant of OpenIB.org license, SPDX License List 3.2, SPDX License List 3.6, SPDX License List 3.9, SPDX License List 3.10, SPDX License List 3.16
-    | LPL_1_02 -- ^ @LPL-1.02@, Lucent Public License v1.02
-    | LPL_1_0 -- ^ @LPL-1.0@, Lucent Public License Version 1.0
-    | LPPL_1_0 -- ^ @LPPL-1.0@, LaTeX Project Public License v1.0
-    | LPPL_1_1 -- ^ @LPPL-1.1@, LaTeX Project Public License v1.1
-    | LPPL_1_2 -- ^ @LPPL-1.2@, LaTeX Project Public License v1.2
-    | LPPL_1_3a -- ^ @LPPL-1.3a@, LaTeX Project Public License v1.3a
-    | LPPL_1_3c -- ^ @LPPL-1.3c@, LaTeX Project Public License v1.3c
-    | MakeIndex -- ^ @MakeIndex@, MakeIndex License
-    | MirOS -- ^ @MirOS@, The MirOS Licence
-    | MIT_0 -- ^ @MIT-0@, MIT No Attribution, SPDX License List 3.2, SPDX License List 3.6, SPDX License List 3.9, SPDX License List 3.10, SPDX License List 3.16
-    | MIT_advertising -- ^ @MIT-advertising@, Enlightenment License (e16)
-    | MIT_CMU -- ^ @MIT-CMU@, CMU License
-    | MIT_enna -- ^ @MIT-enna@, enna License
-    | MIT_feh -- ^ @MIT-feh@, feh License
-    | MIT_Modern_Variant -- ^ @MIT-Modern-Variant@, MIT License Modern Variant, SPDX License List 3.16
-    | MIT_open_group -- ^ @MIT-open-group@, MIT Open Group variant, SPDX License List 3.16
-    | MITNFA -- ^ @MITNFA@, MIT +no-false-attribs license
-    | MIT -- ^ @MIT@, MIT License
-    | Motosoto -- ^ @Motosoto@, Motosoto License
-    | Mpich2 -- ^ @mpich2@, mpich2 License
-    | MPL_1_0 -- ^ @MPL-1.0@, Mozilla Public License 1.0
-    | MPL_1_1 -- ^ @MPL-1.1@, Mozilla Public License 1.1
-    | MPL_2_0_no_copyleft_exception -- ^ @MPL-2.0-no-copyleft-exception@, Mozilla Public License 2.0 (no copyleft exception)
-    | MPL_2_0 -- ^ @MPL-2.0@, Mozilla Public License 2.0
-    | MS_PL -- ^ @MS-PL@, Microsoft Public License
-    | MS_RL -- ^ @MS-RL@, Microsoft Reciprocal License
-    | MTLL -- ^ @MTLL@, Matrix Template Library License
-    | MulanPSL_1_0 -- ^ @MulanPSL-1.0@, Mulan Permissive Software License, Version 1, SPDX License List 3.9, SPDX License List 3.10, SPDX License List 3.16
-    | MulanPSL_2_0 -- ^ @MulanPSL-2.0@, Mulan Permissive Software License, Version 2, SPDX License List 3.9, SPDX License List 3.10, SPDX License List 3.16
-    | Multics -- ^ @Multics@, Multics License
-    | Mup -- ^ @Mup@, Mup License
-    | NAIST_2003 -- ^ @NAIST-2003@, Nara Institute of Science and Technology License (2003), SPDX License List 3.16
-    | NASA_1_3 -- ^ @NASA-1.3@, NASA Open Source Agreement 1.3
-    | Naumen -- ^ @Naumen@, Naumen Public License
-    | NBPL_1_0 -- ^ @NBPL-1.0@, Net Boolean Public License v1
-    | NCGL_UK_2_0 -- ^ @NCGL-UK-2.0@, Non-Commercial Government Licence, SPDX License List 3.9, SPDX License List 3.10, SPDX License List 3.16
-    | NCSA -- ^ @NCSA@, University of Illinois/NCSA Open Source License
-    | Net_SNMP -- ^ @Net-SNMP@, Net-SNMP License
-    | NetCDF -- ^ @NetCDF@, NetCDF license
-    | Newsletr -- ^ @Newsletr@, Newsletr License
-    | NGPL -- ^ @NGPL@, Nethack General Public License
-    | NIST_PD_fallback -- ^ @NIST-PD-fallback@, NIST Public Domain Notice with license fallback, SPDX License List 3.10, SPDX License List 3.16
-    | NIST_PD -- ^ @NIST-PD@, NIST Public Domain Notice, SPDX License List 3.10, SPDX License List 3.16
-    | NLOD_1_0 -- ^ @NLOD-1.0@, Norwegian Licence for Open Government Data (NLOD) 1.0
-    | NLOD_2_0 -- ^ @NLOD-2.0@, Norwegian Licence for Open Government Data (NLOD) 2.0, SPDX License List 3.16
-    | NLPL -- ^ @NLPL@, No Limit Public License
-    | Nokia -- ^ @Nokia@, Nokia Open Source License
-    | NOSL -- ^ @NOSL@, Netizen Open Source License
-    | Noweb -- ^ @Noweb@, Noweb License
-    | NPL_1_0 -- ^ @NPL-1.0@, Netscape Public License v1.0
-    | NPL_1_1 -- ^ @NPL-1.1@, Netscape Public License v1.1
-    | NPOSL_3_0 -- ^ @NPOSL-3.0@, Non-Profit Open Software License 3.0
-    | NRL -- ^ @NRL@, NRL License
-    | NTP_0 -- ^ @NTP-0@, NTP No Attribution, SPDX License List 3.9, SPDX License List 3.10, SPDX License List 3.16
-    | NTP -- ^ @NTP@, NTP License
-    | O_UDA_1_0 -- ^ @O-UDA-1.0@, Open Use of Data Agreement v1.0, SPDX License List 3.9, SPDX License List 3.10, SPDX License List 3.16
-    | OCCT_PL -- ^ @OCCT-PL@, Open CASCADE Technology Public License
-    | OCLC_2_0 -- ^ @OCLC-2.0@, OCLC Research Public License 2.0
-    | ODbL_1_0 -- ^ @ODbL-1.0@, Open Data Commons Open Database License v1.0
-    | ODC_By_1_0 -- ^ @ODC-By-1.0@, Open Data Commons Attribution License v1.0, SPDX License List 3.2, SPDX License List 3.6, SPDX License List 3.9, SPDX License List 3.10, SPDX License List 3.16
-    | OFL_1_0_no_RFN -- ^ @OFL-1.0-no-RFN@, SIL Open Font License 1.0 with no Reserved Font Name, SPDX License List 3.9, SPDX License List 3.10, SPDX License List 3.16
-    | OFL_1_0_RFN -- ^ @OFL-1.0-RFN@, SIL Open Font License 1.0 with Reserved Font Name, SPDX License List 3.9, SPDX License List 3.10, SPDX License List 3.16
-    | OFL_1_0 -- ^ @OFL-1.0@, SIL Open Font License 1.0
-    | OFL_1_1_no_RFN -- ^ @OFL-1.1-no-RFN@, SIL Open Font License 1.1 with no Reserved Font Name, SPDX License List 3.9, SPDX License List 3.10, SPDX License List 3.16
-    | OFL_1_1_RFN -- ^ @OFL-1.1-RFN@, SIL Open Font License 1.1 with Reserved Font Name, SPDX License List 3.9, SPDX License List 3.10, SPDX License List 3.16
-    | OFL_1_1 -- ^ @OFL-1.1@, SIL Open Font License 1.1
-    | OGC_1_0 -- ^ @OGC-1.0@, OGC Software License, Version 1.0, SPDX License List 3.9, SPDX License List 3.10, SPDX License List 3.16
-    | OGDL_Taiwan_1_0 -- ^ @OGDL-Taiwan-1.0@, Taiwan Open Government Data License, version 1.0, SPDX License List 3.16
-    | OGL_Canada_2_0 -- ^ @OGL-Canada-2.0@, Open Government Licence - Canada, SPDX License List 3.9, SPDX License List 3.10, SPDX License List 3.16
-    | OGL_UK_1_0 -- ^ @OGL-UK-1.0@, Open Government Licence v1.0, SPDX License List 3.6, SPDX License List 3.9, SPDX License List 3.10, SPDX License List 3.16
-    | OGL_UK_2_0 -- ^ @OGL-UK-2.0@, Open Government Licence v2.0, SPDX License List 3.6, SPDX License List 3.9, SPDX License List 3.10, SPDX License List 3.16
-    | OGL_UK_3_0 -- ^ @OGL-UK-3.0@, Open Government Licence v3.0, SPDX License List 3.6, SPDX License List 3.9, SPDX License List 3.10, SPDX License List 3.16
-    | OGTSL -- ^ @OGTSL@, Open Group Test Suite License
-    | OLDAP_1_1 -- ^ @OLDAP-1.1@, Open LDAP Public License v1.1
-    | OLDAP_1_2 -- ^ @OLDAP-1.2@, Open LDAP Public License v1.2
-    | OLDAP_1_3 -- ^ @OLDAP-1.3@, Open LDAP Public License v1.3
-    | OLDAP_1_4 -- ^ @OLDAP-1.4@, Open LDAP Public License v1.4
-    | OLDAP_2_0_1 -- ^ @OLDAP-2.0.1@, Open LDAP Public License v2.0.1
-    | OLDAP_2_0 -- ^ @OLDAP-2.0@, Open LDAP Public License v2.0 (or possibly 2.0A and 2.0B)
-    | OLDAP_2_1 -- ^ @OLDAP-2.1@, Open LDAP Public License v2.1
-    | OLDAP_2_2_1 -- ^ @OLDAP-2.2.1@, Open LDAP Public License v2.2.1
-    | OLDAP_2_2_2 -- ^ @OLDAP-2.2.2@, Open LDAP Public License 2.2.2
-    | OLDAP_2_2 -- ^ @OLDAP-2.2@, Open LDAP Public License v2.2
-    | OLDAP_2_3 -- ^ @OLDAP-2.3@, Open LDAP Public License v2.3
-    | OLDAP_2_4 -- ^ @OLDAP-2.4@, Open LDAP Public License v2.4
-    | OLDAP_2_5 -- ^ @OLDAP-2.5@, Open LDAP Public License v2.5
-    | OLDAP_2_6 -- ^ @OLDAP-2.6@, Open LDAP Public License v2.6
-    | OLDAP_2_7 -- ^ @OLDAP-2.7@, Open LDAP Public License v2.7
-    | OLDAP_2_8 -- ^ @OLDAP-2.8@, Open LDAP Public License v2.8
-    | OML -- ^ @OML@, Open Market License
-    | OpenSSL -- ^ @OpenSSL@, OpenSSL License
-    | OPL_1_0 -- ^ @OPL-1.0@, Open Public License v1.0
-    | OPUBL_1_0 -- ^ @OPUBL-1.0@, Open Publication License v1.0, SPDX License List 3.16
-    | OSET_PL_2_1 -- ^ @OSET-PL-2.1@, OSET Public License version 2.1
-    | OSL_1_0 -- ^ @OSL-1.0@, Open Software License 1.0
-    | OSL_1_1 -- ^ @OSL-1.1@, Open Software License 1.1
-    | OSL_2_0 -- ^ @OSL-2.0@, Open Software License 2.0
-    | OSL_2_1 -- ^ @OSL-2.1@, Open Software License 2.1
-    | OSL_3_0 -- ^ @OSL-3.0@, Open Software License 3.0
-    | Parity_6_0_0 -- ^ @Parity-6.0.0@, The Parity Public License 6.0.0, SPDX License List 3.6, SPDX License List 3.9, SPDX License List 3.10, SPDX License List 3.16
-    | Parity_7_0_0 -- ^ @Parity-7.0.0@, The Parity Public License 7.0.0, SPDX License List 3.9, SPDX License List 3.10, SPDX License List 3.16
-    | PDDL_1_0 -- ^ @PDDL-1.0@, Open Data Commons Public Domain Dedication & License 1.0
-    | PHP_3_01 -- ^ @PHP-3.01@, PHP License v3.01
-    | PHP_3_0 -- ^ @PHP-3.0@, PHP License v3.0
-    | Plexus -- ^ @Plexus@, Plexus Classworlds License
-    | PolyForm_Noncommercial_1_0_0 -- ^ @PolyForm-Noncommercial-1.0.0@, PolyForm Noncommercial License 1.0.0, SPDX License List 3.9, SPDX License List 3.10, SPDX License List 3.16
-    | PolyForm_Small_Business_1_0_0 -- ^ @PolyForm-Small-Business-1.0.0@, PolyForm Small Business License 1.0.0, SPDX License List 3.9, SPDX License List 3.10, SPDX License List 3.16
-    | PostgreSQL -- ^ @PostgreSQL@, PostgreSQL License
-    | PSF_2_0 -- ^ @PSF-2.0@, Python Software Foundation License 2.0, SPDX License List 3.9, SPDX License List 3.10, SPDX License List 3.16
-    | Psfrag -- ^ @psfrag@, psfrag License
-    | Psutils -- ^ @psutils@, psutils License
-    | Python_2_0 -- ^ @Python-2.0@, Python License 2.0
-    | Qhull -- ^ @Qhull@, Qhull License
-    | QPL_1_0 -- ^ @QPL-1.0@, Q Public License 1.0
-    | Rdisc -- ^ @Rdisc@, Rdisc License
-    | RHeCos_1_1 -- ^ @RHeCos-1.1@, Red Hat eCos Public License v1.1
-    | RPL_1_1 -- ^ @RPL-1.1@, Reciprocal Public License 1.1
-    | RPL_1_5 -- ^ @RPL-1.5@, Reciprocal Public License 1.5
-    | RPSL_1_0 -- ^ @RPSL-1.0@, RealNetworks Public Source License v1.0
-    | RSA_MD -- ^ @RSA-MD@, RSA Message-Digest License
-    | RSCPL -- ^ @RSCPL@, Ricoh Source Code Public License
-    | Ruby -- ^ @Ruby@, Ruby License
-    | SAX_PD -- ^ @SAX-PD@, Sax Public Domain Notice
-    | Saxpath -- ^ @Saxpath@, Saxpath License
-    | SCEA -- ^ @SCEA@, SCEA Shared Source License
-    | SchemeReport -- ^ @SchemeReport@, Scheme Language Report License, SPDX License List 3.16
-    | Sendmail_8_23 -- ^ @Sendmail-8.23@, Sendmail License 8.23, SPDX License List 3.6, SPDX License List 3.9, SPDX License List 3.10, SPDX License List 3.16
-    | Sendmail -- ^ @Sendmail@, Sendmail License
-    | SGI_B_1_0 -- ^ @SGI-B-1.0@, SGI Free Software License B v1.0
-    | SGI_B_1_1 -- ^ @SGI-B-1.1@, SGI Free Software License B v1.1
-    | SGI_B_2_0 -- ^ @SGI-B-2.0@, SGI Free Software License B v2.0
-    | SHL_0_51 -- ^ @SHL-0.51@, Solderpad Hardware License, Version 0.51, SPDX License List 3.6, SPDX License List 3.9, SPDX License List 3.10, SPDX License List 3.16
-    | SHL_0_5 -- ^ @SHL-0.5@, Solderpad Hardware License v0.5, SPDX License List 3.6, SPDX License List 3.9, SPDX License List 3.10, SPDX License List 3.16
-    | SimPL_2_0 -- ^ @SimPL-2.0@, Simple Public License 2.0
-    | SISSL_1_2 -- ^ @SISSL-1.2@, Sun Industry Standards Source License v1.2
-    | SISSL -- ^ @SISSL@, Sun Industry Standards Source License v1.1
-    | Sleepycat -- ^ @Sleepycat@, Sleepycat License
-    | SMLNJ -- ^ @SMLNJ@, Standard ML of New Jersey License
-    | SMPPL -- ^ @SMPPL@, Secure Messaging Protocol Public License
-    | SNIA -- ^ @SNIA@, SNIA Public License 1.1
-    | Spencer_86 -- ^ @Spencer-86@, Spencer License 86
-    | Spencer_94 -- ^ @Spencer-94@, Spencer License 94
-    | Spencer_99 -- ^ @Spencer-99@, Spencer License 99
-    | SPL_1_0 -- ^ @SPL-1.0@, Sun Public License v1.0
-    | SSH_OpenSSH -- ^ @SSH-OpenSSH@, SSH OpenSSH license, SPDX License List 3.9, SPDX License List 3.10, SPDX License List 3.16
-    | SSH_short -- ^ @SSH-short@, SSH short notice, SPDX License List 3.9, SPDX License List 3.10, SPDX License List 3.16
-    | SSPL_1_0 -- ^ @SSPL-1.0@, Server Side Public License, v 1, SPDX License List 3.6, SPDX License List 3.9, SPDX License List 3.10, SPDX License List 3.16
-    | SugarCRM_1_1_3 -- ^ @SugarCRM-1.1.3@, SugarCRM Public License v1.1.3
-    | SWL -- ^ @SWL@, Scheme Widget Library (SWL) Software License Agreement
-    | TAPR_OHL_1_0 -- ^ @TAPR-OHL-1.0@, TAPR Open Hardware License v1.0, SPDX License List 3.6, SPDX License List 3.9, SPDX License List 3.10, SPDX License List 3.16
-    | TCL -- ^ @TCL@, TCL/TK License
-    | TCP_wrappers -- ^ @TCP-wrappers@, TCP Wrappers License
-    | TMate -- ^ @TMate@, TMate Open Source License
-    | TORQUE_1_1 -- ^ @TORQUE-1.1@, TORQUE v2.5+ Software License v1.1
-    | TOSL -- ^ @TOSL@, Trusster Open Source License
-    | TU_Berlin_1_0 -- ^ @TU-Berlin-1.0@, Technische Universitaet Berlin License 1.0, SPDX License List 3.2, SPDX License List 3.6, SPDX License List 3.9, SPDX License List 3.10, SPDX License List 3.16
-    | TU_Berlin_2_0 -- ^ @TU-Berlin-2.0@, Technische Universitaet Berlin License 2.0, SPDX License List 3.2, SPDX License List 3.6, SPDX License List 3.9, SPDX License List 3.10, SPDX License List 3.16
-    | UCL_1_0 -- ^ @UCL-1.0@, Upstream Compatibility License v1.0, SPDX License List 3.9, SPDX License List 3.10, SPDX License List 3.16
-    | Unicode_DFS_2015 -- ^ @Unicode-DFS-2015@, Unicode License Agreement - Data Files and Software (2015)
-    | Unicode_DFS_2016 -- ^ @Unicode-DFS-2016@, Unicode License Agreement - Data Files and Software (2016)
-    | Unicode_TOU -- ^ @Unicode-TOU@, Unicode Terms of Use
-    | Unlicense -- ^ @Unlicense@, The Unlicense
-    | UPL_1_0 -- ^ @UPL-1.0@, Universal Permissive License v1.0
-    | Vim -- ^ @Vim@, Vim License
-    | VOSTROM -- ^ @VOSTROM@, VOSTROM Public License for Open Source
-    | VSL_1_0 -- ^ @VSL-1.0@, Vovida Software License v1.0
-    | W3C_19980720 -- ^ @W3C-19980720@, W3C Software Notice and License (1998-07-20)
-    | W3C_20150513 -- ^ @W3C-20150513@, W3C Software Notice and Document License (2015-05-13)
-    | W3C -- ^ @W3C@, W3C Software Notice and License (2002-12-31)
-    | Watcom_1_0 -- ^ @Watcom-1.0@, Sybase Open Watcom Public License 1.0
-    | Wsuipa -- ^ @Wsuipa@, Wsuipa License
-    | WTFPL -- ^ @WTFPL@, Do What The F*ck You Want To Public License
-    | X11_distribute_modifications_variant -- ^ @X11-distribute-modifications-variant@, X11 License Distribution Modification Variant, SPDX License List 3.16
-    | X11 -- ^ @X11@, X11 License
-    | Xerox -- ^ @Xerox@, Xerox License
-    | XFree86_1_1 -- ^ @XFree86-1.1@, XFree86 License 1.1
-    | Xinetd -- ^ @xinetd@, xinetd License
-    | Xnet -- ^ @Xnet@, X.Net License
-    | Xpp -- ^ @xpp@, XPP License
-    | XSkat -- ^ @XSkat@, XSkat License
-    | YPL_1_0 -- ^ @YPL-1.0@, Yahoo! Public License v1.0
-    | YPL_1_1 -- ^ @YPL-1.1@, Yahoo! Public License v1.1
-    | Zed -- ^ @Zed@, Zed License
-    | Zend_2_0 -- ^ @Zend-2.0@, Zend License v2.0
-    | Zimbra_1_3 -- ^ @Zimbra-1.3@, Zimbra Public License v1.3
-    | Zimbra_1_4 -- ^ @Zimbra-1.4@, Zimbra Public License v1.4
-    | Zlib_acknowledgement -- ^ @zlib-acknowledgement@, zlib/libpng License with Acknowledgement
-    | Zlib -- ^ @Zlib@, zlib License
-    | ZPL_1_1 -- ^ @ZPL-1.1@, Zope Public License 1.1
-    | ZPL_2_0 -- ^ @ZPL-2.0@, Zope Public License 2.0
-    | ZPL_2_1 -- ^ @ZPL-2.1@, Zope Public License 2.1
+  = -- | @0BSD@, BSD Zero Clause License
+    NullBSD
+  | -- | @AAL@, Attribution Assurance License
+    AAL
+  | -- | @Abstyles@, Abstyles License
+    Abstyles
+  | -- | @Adobe-2006@, Adobe Systems Incorporated Source Code License Agreement
+    Adobe_2006
+  | -- | @Adobe-Glyph@, Adobe Glyph List License
+    Adobe_Glyph
+  | -- | @ADSL@, Amazon Digital Services License
+    ADSL
+  | -- | @AFL-1.1@, Academic Free License v1.1
+    AFL_1_1
+  | -- | @AFL-1.2@, Academic Free License v1.2
+    AFL_1_2
+  | -- | @AFL-2.0@, Academic Free License v2.0
+    AFL_2_0
+  | -- | @AFL-2.1@, Academic Free License v2.1
+    AFL_2_1
+  | -- | @AFL-3.0@, Academic Free License v3.0
+    AFL_3_0
+  | -- | @Afmparse@, Afmparse License
+    Afmparse
+  | -- | @AGPL-1.0@, Affero General Public License v1.0, SPDX License List 3.0
+    AGPL_1_0
+  | -- | @AGPL-1.0-only@, Affero General Public License v1.0 only, SPDX License List 3.2, SPDX License List 3.6, SPDX License List 3.9, SPDX License List 3.10, SPDX License List 3.16
+    AGPL_1_0_only
+  | -- | @AGPL-1.0-or-later@, Affero General Public License v1.0 or later, SPDX License List 3.2, SPDX License List 3.6, SPDX License List 3.9, SPDX License List 3.10, SPDX License List 3.16
+    AGPL_1_0_or_later
+  | -- | @AGPL-3.0-only@, GNU Affero General Public License v3.0 only
+    AGPL_3_0_only
+  | -- | @AGPL-3.0-or-later@, GNU Affero General Public License v3.0 or later
+    AGPL_3_0_or_later
+  | -- | @Aladdin@, Aladdin Free Public License
+    Aladdin
+  | -- | @AMDPLPA@, AMD's plpa_map.c License
+    AMDPLPA
+  | -- | @AML@, Apple MIT License
+    AML
+  | -- | @AMPAS@, Academy of Motion Picture Arts and Sciences BSD
+    AMPAS
+  | -- | @ANTLR-PD-fallback@, ANTLR Software Rights Notice with license fallback, SPDX License List 3.16
+    ANTLR_PD_fallback
+  | -- | @ANTLR-PD@, ANTLR Software Rights Notice
+    ANTLR_PD
+  | -- | @Apache-1.0@, Apache License 1.0
+    Apache_1_0
+  | -- | @Apache-1.1@, Apache License 1.1
+    Apache_1_1
+  | -- | @Apache-2.0@, Apache License 2.0
+    Apache_2_0
+  | -- | @APAFML@, Adobe Postscript AFM License
+    APAFML
+  | -- | @APL-1.0@, Adaptive Public License 1.0
+    APL_1_0
+  | -- | @App-s2p@, App::s2p License, SPDX License List 3.16
+    App_s2p
+  | -- | @APSL-1.0@, Apple Public Source License 1.0
+    APSL_1_0
+  | -- | @APSL-1.1@, Apple Public Source License 1.1
+    APSL_1_1
+  | -- | @APSL-1.2@, Apple Public Source License 1.2
+    APSL_1_2
+  | -- | @APSL-2.0@, Apple Public Source License 2.0
+    APSL_2_0
+  | -- | @Artistic-1.0-cl8@, Artistic License 1.0 w/clause 8
+    Artistic_1_0_cl8
+  | -- | @Artistic-1.0-Perl@, Artistic License 1.0 (Perl)
+    Artistic_1_0_Perl
+  | -- | @Artistic-1.0@, Artistic License 1.0
+    Artistic_1_0
+  | -- | @Artistic-2.0@, Artistic License 2.0
+    Artistic_2_0
+  | -- | @Bahyph@, Bahyph License
+    Bahyph
+  | -- | @Barr@, Barr License
+    Barr
+  | -- | @Beerware@, Beerware License
+    Beerware
+  | -- | @BitTorrent-1.0@, BitTorrent Open Source License v1.0
+    BitTorrent_1_0
+  | -- | @BitTorrent-1.1@, BitTorrent Open Source License v1.1
+    BitTorrent_1_1
+  | -- | @blessing@, SQLite Blessing, SPDX License List 3.6, SPDX License List 3.9, SPDX License List 3.10, SPDX License List 3.16
+    Blessing
+  | -- | @BlueOak-1.0.0@, Blue Oak Model License 1.0.0, SPDX License List 3.6, SPDX License List 3.9, SPDX License List 3.10, SPDX License List 3.16
+    BlueOak_1_0_0
+  | -- | @Borceux@, Borceux license
+    Borceux
+  | -- | @BSD-1-Clause@, BSD 1-Clause License
+    BSD_1_Clause
+  | -- | @BSD-2-Clause-FreeBSD@, BSD 2-Clause FreeBSD License, SPDX License List 3.0, SPDX License List 3.2, SPDX License List 3.6, SPDX License List 3.9
+    BSD_2_Clause_FreeBSD
+  | -- | @BSD-2-Clause-NetBSD@, BSD 2-Clause NetBSD License, SPDX License List 3.0, SPDX License List 3.2, SPDX License List 3.6
+    BSD_2_Clause_NetBSD
+  | -- | @BSD-2-Clause-Patent@, BSD-2-Clause Plus Patent License
+    BSD_2_Clause_Patent
+  | -- | @BSD-2-Clause-Views@, BSD 2-Clause with views sentence, SPDX License List 3.10, SPDX License List 3.16
+    BSD_2_Clause_Views
+  | -- | @BSD-2-Clause@, BSD 2-Clause "Simplified" License
+    BSD_2_Clause
+  | -- | @BSD-3-Clause-Attribution@, BSD with attribution
+    BSD_3_Clause_Attribution
+  | -- | @BSD-3-Clause-Clear@, BSD 3-Clause Clear License
+    BSD_3_Clause_Clear
+  | -- | @BSD-3-Clause-LBNL@, Lawrence Berkeley National Labs BSD variant license
+    BSD_3_Clause_LBNL
+  | -- | @BSD-3-Clause-Modification@, BSD 3-Clause Modification, SPDX License List 3.16
+    BSD_3_Clause_Modification
+  | -- | @BSD-3-Clause-No-Military-License@, BSD 3-Clause No Military License, SPDX License List 3.16
+    BSD_3_Clause_No_Military_License
+  | -- | @BSD-3-Clause-No-Nuclear-License-2014@, BSD 3-Clause No Nuclear License 2014
+    BSD_3_Clause_No_Nuclear_License_2014
+  | -- | @BSD-3-Clause-No-Nuclear-License@, BSD 3-Clause No Nuclear License
+    BSD_3_Clause_No_Nuclear_License
+  | -- | @BSD-3-Clause-No-Nuclear-Warranty@, BSD 3-Clause No Nuclear Warranty
+    BSD_3_Clause_No_Nuclear_Warranty
+  | -- | @BSD-3-Clause-Open-MPI@, BSD 3-Clause Open MPI variant, SPDX License List 3.6, SPDX License List 3.9, SPDX License List 3.10, SPDX License List 3.16
+    BSD_3_Clause_Open_MPI
+  | -- | @BSD-3-Clause@, BSD 3-Clause "New" or "Revised" License
+    BSD_3_Clause
+  | -- | @BSD-4-Clause-Shortened@, BSD 4 Clause Shortened, SPDX License List 3.16
+    BSD_4_Clause_Shortened
+  | -- | @BSD-4-Clause-UC@, BSD-4-Clause (University of California-Specific)
+    BSD_4_Clause_UC
+  | -- | @BSD-4-Clause@, BSD 4-Clause "Original" or "Old" License
+    BSD_4_Clause
+  | -- | @BSD-Protection@, BSD Protection License
+    BSD_Protection
+  | -- | @BSD-Source-Code@, BSD Source Code Attribution
+    BSD_Source_Code
+  | -- | @BSL-1.0@, Boost Software License 1.0
+    BSL_1_0
+  | -- | @bzip2-1.0.5@, bzip2 and libbzip2 License v1.0.5, SPDX License List 3.0, SPDX License List 3.2, SPDX License List 3.6, SPDX License List 3.9, SPDX License List 3.10
+    Bzip2_1_0_5
+  | -- | @BUSL-1.1@, Business Source License 1.1, SPDX License List 3.16
+    BUSL_1_1
+  | -- | @bzip2-1.0.6@, bzip2 and libbzip2 License v1.0.6
+    Bzip2_1_0_6
+  | -- | @C-UDA-1.0@, Computational Use of Data Agreement v1.0, SPDX License List 3.16
+    C_UDA_1_0
+  | -- | @CAL-1.0-Combined-Work-Exception@, Cryptographic Autonomy License 1.0 (Combined Work Exception), SPDX License List 3.9, SPDX License List 3.10, SPDX License List 3.16
+    CAL_1_0_Combined_Work_Exception
+  | -- | @CAL-1.0@, Cryptographic Autonomy License 1.0, SPDX License List 3.9, SPDX License List 3.10, SPDX License List 3.16
+    CAL_1_0
+  | -- | @Caldera@, Caldera License
+    Caldera
+  | -- | @CATOSL-1.1@, Computer Associates Trusted Open Source License 1.1
+    CATOSL_1_1
+  | -- | @CC-BY-1.0@, Creative Commons Attribution 1.0 Generic
+    CC_BY_1_0
+  | -- | @CC-BY-2.0@, Creative Commons Attribution 2.0 Generic
+    CC_BY_2_0
+  | -- | @CC-BY-2.5-AU@, Creative Commons Attribution 2.5 Australia, SPDX License List 3.16
+    CC_BY_2_5_AU
+  | -- | @CC-BY-2.5@, Creative Commons Attribution 2.5 Generic
+    CC_BY_2_5
+  | -- | @CC-BY-3.0-AT@, Creative Commons Attribution 3.0 Austria, SPDX License List 3.10, SPDX License List 3.16
+    CC_BY_3_0_AT
+  | -- | @CC-BY-3.0-DE@, Creative Commons Attribution 3.0 Germany, SPDX License List 3.16
+    CC_BY_3_0_DE
+  | -- | @CC-BY-3.0-NL@, Creative Commons Attribution 3.0 Netherlands, SPDX License List 3.16
+    CC_BY_3_0_NL
+  | -- | @CC-BY-3.0-US@, Creative Commons Attribution 3.0 United States, SPDX License List 3.16
+    CC_BY_3_0_US
+  | -- | @CC-BY-3.0@, Creative Commons Attribution 3.0 Unported
+    CC_BY_3_0
+  | -- | @CC-BY-4.0@, Creative Commons Attribution 4.0 International
+    CC_BY_4_0
+  | -- | @CC-BY-NC-1.0@, Creative Commons Attribution Non Commercial 1.0 Generic
+    CC_BY_NC_1_0
+  | -- | @CC-BY-NC-2.0@, Creative Commons Attribution Non Commercial 2.0 Generic
+    CC_BY_NC_2_0
+  | -- | @CC-BY-NC-2.5@, Creative Commons Attribution Non Commercial 2.5 Generic
+    CC_BY_NC_2_5
+  | -- | @CC-BY-NC-3.0-DE@, Creative Commons Attribution Non Commercial 3.0 Germany, SPDX License List 3.16
+    CC_BY_NC_3_0_DE
+  | -- | @CC-BY-NC-3.0@, Creative Commons Attribution Non Commercial 3.0 Unported
+    CC_BY_NC_3_0
+  | -- | @CC-BY-NC-4.0@, Creative Commons Attribution Non Commercial 4.0 International
+    CC_BY_NC_4_0
+  | -- | @CC-BY-NC-ND-1.0@, Creative Commons Attribution Non Commercial No Derivatives 1.0 Generic
+    CC_BY_NC_ND_1_0
+  | -- | @CC-BY-NC-ND-2.0@, Creative Commons Attribution Non Commercial No Derivatives 2.0 Generic
+    CC_BY_NC_ND_2_0
+  | -- | @CC-BY-NC-ND-2.5@, Creative Commons Attribution Non Commercial No Derivatives 2.5 Generic
+    CC_BY_NC_ND_2_5
+  | -- | @CC-BY-NC-ND-3.0-DE@, Creative Commons Attribution Non Commercial No Derivatives 3.0 Germany, SPDX License List 3.16
+    CC_BY_NC_ND_3_0_DE
+  | -- | @CC-BY-NC-ND-3.0-IGO@, Creative Commons Attribution Non Commercial No Derivatives 3.0 IGO, SPDX License List 3.10, SPDX License List 3.16
+    CC_BY_NC_ND_3_0_IGO
+  | -- | @CC-BY-NC-ND-3.0@, Creative Commons Attribution Non Commercial No Derivatives 3.0 Unported
+    CC_BY_NC_ND_3_0
+  | -- | @CC-BY-NC-ND-4.0@, Creative Commons Attribution Non Commercial No Derivatives 4.0 International
+    CC_BY_NC_ND_4_0
+  | -- | @CC-BY-NC-SA-1.0@, Creative Commons Attribution Non Commercial Share Alike 1.0 Generic
+    CC_BY_NC_SA_1_0
+  | -- | @CC-BY-NC-SA-2.0-FR@, Creative Commons Attribution-NonCommercial-ShareAlike 2.0 France, SPDX License List 3.16
+    CC_BY_NC_SA_2_0_FR
+  | -- | @CC-BY-NC-SA-2.0-UK@, Creative Commons Attribution Non Commercial Share Alike 2.0 England and Wales, SPDX License List 3.16
+    CC_BY_NC_SA_2_0_UK
+  | -- | @CC-BY-NC-SA-2.0@, Creative Commons Attribution Non Commercial Share Alike 2.0 Generic
+    CC_BY_NC_SA_2_0
+  | -- | @CC-BY-NC-SA-2.5@, Creative Commons Attribution Non Commercial Share Alike 2.5 Generic
+    CC_BY_NC_SA_2_5
+  | -- | @CC-BY-NC-SA-3.0-DE@, Creative Commons Attribution Non Commercial Share Alike 3.0 Germany, SPDX License List 3.16
+    CC_BY_NC_SA_3_0_DE
+  | -- | @CC-BY-NC-SA-3.0-IGO@, Creative Commons Attribution Non Commercial Share Alike 3.0 IGO, SPDX License List 3.16
+    CC_BY_NC_SA_3_0_IGO
+  | -- | @CC-BY-NC-SA-3.0@, Creative Commons Attribution Non Commercial Share Alike 3.0 Unported
+    CC_BY_NC_SA_3_0
+  | -- | @CC-BY-NC-SA-4.0@, Creative Commons Attribution Non Commercial Share Alike 4.0 International
+    CC_BY_NC_SA_4_0
+  | -- | @CC-BY-ND-1.0@, Creative Commons Attribution No Derivatives 1.0 Generic
+    CC_BY_ND_1_0
+  | -- | @CC-BY-ND-2.0@, Creative Commons Attribution No Derivatives 2.0 Generic
+    CC_BY_ND_2_0
+  | -- | @CC-BY-ND-2.5@, Creative Commons Attribution No Derivatives 2.5 Generic
+    CC_BY_ND_2_5
+  | -- | @CC-BY-ND-3.0-DE@, Creative Commons Attribution No Derivatives 3.0 Germany, SPDX License List 3.16
+    CC_BY_ND_3_0_DE
+  | -- | @CC-BY-ND-3.0@, Creative Commons Attribution No Derivatives 3.0 Unported
+    CC_BY_ND_3_0
+  | -- | @CC-BY-ND-4.0@, Creative Commons Attribution No Derivatives 4.0 International
+    CC_BY_ND_4_0
+  | -- | @CC-BY-SA-1.0@, Creative Commons Attribution Share Alike 1.0 Generic
+    CC_BY_SA_1_0
+  | -- | @CC-BY-SA-2.0-UK@, Creative Commons Attribution Share Alike 2.0 England and Wales, SPDX License List 3.16
+    CC_BY_SA_2_0_UK
+  | -- | @CC-BY-SA-2.0@, Creative Commons Attribution Share Alike 2.0 Generic
+    CC_BY_SA_2_0
+  | -- | @CC-BY-SA-2.1-JP@, Creative Commons Attribution Share Alike 2.1 Japan, SPDX License List 3.16
+    CC_BY_SA_2_1_JP
+  | -- | @CC-BY-SA-2.5@, Creative Commons Attribution Share Alike 2.5 Generic
+    CC_BY_SA_2_5
+  | -- | @CC-BY-SA-3.0-AT@, Creative Commons Attribution Share Alike 3.0 Austria, SPDX License List 3.10, SPDX License List 3.16
+    CC_BY_SA_3_0_AT
+  | -- | @CC-BY-SA-3.0-DE@, Creative Commons Attribution Share Alike 3.0 Germany, SPDX License List 3.16
+    CC_BY_SA_3_0_DE
+  | -- | @CC-BY-SA-3.0@, Creative Commons Attribution Share Alike 3.0 Unported
+    CC_BY_SA_3_0
+  | -- | @CC-BY-SA-4.0@, Creative Commons Attribution Share Alike 4.0 International
+    CC_BY_SA_4_0
+  | -- | @CC-PDDC@, Creative Commons Public Domain Dedication and Certification, SPDX License List 3.6, SPDX License List 3.9, SPDX License List 3.10, SPDX License List 3.16
+    CC_PDDC
+  | -- | @CC0-1.0@, Creative Commons Zero v1.0 Universal
+    CC0_1_0
+  | -- | @CDDL-1.0@, Common Development and Distribution License 1.0
+    CDDL_1_0
+  | -- | @CDDL-1.1@, Common Development and Distribution License 1.1
+    CDDL_1_1
+  | -- | @CDL-1.0@, Common Documentation License 1.0, SPDX License List 3.16
+    CDL_1_0
+  | -- | @CDLA-Permissive-1.0@, Community Data License Agreement Permissive 1.0
+    CDLA_Permissive_1_0
+  | -- | @CDLA-Permissive-2.0@, Community Data License Agreement Permissive 2.0, SPDX License List 3.16
+    CDLA_Permissive_2_0
+  | -- | @CDLA-Sharing-1.0@, Community Data License Agreement Sharing 1.0
+    CDLA_Sharing_1_0
+  | -- | @CECILL-1.0@, CeCILL Free Software License Agreement v1.0
+    CECILL_1_0
+  | -- | @CECILL-1.1@, CeCILL Free Software License Agreement v1.1
+    CECILL_1_1
+  | -- | @CECILL-2.0@, CeCILL Free Software License Agreement v2.0
+    CECILL_2_0
+  | -- | @CECILL-2.1@, CeCILL Free Software License Agreement v2.1
+    CECILL_2_1
+  | -- | @CECILL-B@, CeCILL-B Free Software License Agreement
+    CECILL_B
+  | -- | @CECILL-C@, CeCILL-C Free Software License Agreement
+    CECILL_C
+  | -- | @CERN-OHL-1.1@, CERN Open Hardware Licence v1.1, SPDX License List 3.6, SPDX License List 3.9, SPDX License List 3.10, SPDX License List 3.16
+    CERN_OHL_1_1
+  | -- | @CERN-OHL-1.2@, CERN Open Hardware Licence v1.2, SPDX License List 3.6, SPDX License List 3.9, SPDX License List 3.10, SPDX License List 3.16
+    CERN_OHL_1_2
+  | -- | @CERN-OHL-P-2.0@, CERN Open Hardware Licence Version 2 - Permissive, SPDX License List 3.9, SPDX License List 3.10, SPDX License List 3.16
+    CERN_OHL_P_2_0
+  | -- | @CERN-OHL-S-2.0@, CERN Open Hardware Licence Version 2 - Strongly Reciprocal, SPDX License List 3.9, SPDX License List 3.10, SPDX License List 3.16
+    CERN_OHL_S_2_0
+  | -- | @CERN-OHL-W-2.0@, CERN Open Hardware Licence Version 2 - Weakly Reciprocal, SPDX License List 3.9, SPDX License List 3.10, SPDX License List 3.16
+    CERN_OHL_W_2_0
+  | -- | @ClArtistic@, Clarified Artistic License
+    ClArtistic
+  | -- | @CNRI-Jython@, CNRI Jython License
+    CNRI_Jython
+  | -- | @CNRI-Python-GPL-Compatible@, CNRI Python Open Source GPL Compatible License Agreement
+    CNRI_Python_GPL_Compatible
+  | -- | @CNRI-Python@, CNRI Python License
+    CNRI_Python
+  | -- | @COIL-1.0@, Copyfree Open Innovation License, SPDX License List 3.16
+    COIL_1_0
+  | -- | @Community-Spec-1.0@, Community Specification License 1.0, SPDX License List 3.16
+    Community_Spec_1_0
+  | -- | @Condor-1.1@, Condor Public License v1.1
+    Condor_1_1
+  | -- | @copyleft-next-0.3.0@, copyleft-next 0.3.0, SPDX License List 3.6, SPDX License List 3.9, SPDX License List 3.10, SPDX License List 3.16
+    Copyleft_next_0_3_0
+  | -- | @copyleft-next-0.3.1@, copyleft-next 0.3.1, SPDX License List 3.6, SPDX License List 3.9, SPDX License List 3.10, SPDX License List 3.16
+    Copyleft_next_0_3_1
+  | -- | @CPAL-1.0@, Common Public Attribution License 1.0
+    CPAL_1_0
+  | -- | @CPL-1.0@, Common Public License 1.0
+    CPL_1_0
+  | -- | @CPOL-1.02@, Code Project Open License 1.02
+    CPOL_1_02
+  | -- | @Crossword@, Crossword License
+    Crossword
+  | -- | @CrystalStacker@, CrystalStacker License
+    CrystalStacker
+  | -- | @CUA-OPL-1.0@, CUA Office Public License v1.0
+    CUA_OPL_1_0
+  | -- | @Cube@, Cube License
+    Cube
+  | -- | @curl@, curl License
+    Curl
+  | -- | @D-FSL-1.0@, Deutsche Freie Software Lizenz
+    D_FSL_1_0
+  | -- | @diffmark@, diffmark license
+    Diffmark
+  | -- | @DL-DE-BY-2.0@, Data licence Germany – attribution – version 2.0, SPDX License List 3.16
+    DL_DE_BY_2_0
+  | -- | @DOC@, DOC License
+    DOC
+  | -- | @Dotseqn@, Dotseqn License
+    Dotseqn
+  | -- | @DRL-1.0@, Detection Rule License 1.0, SPDX License List 3.16
+    DRL_1_0
+  | -- | @DSDP@, DSDP License
+    DSDP
+  | -- | @dvipdfm@, dvipdfm License
+    Dvipdfm
+  | -- | @ECL-1.0@, Educational Community License v1.0
+    ECL_1_0
+  | -- | @ECL-2.0@, Educational Community License v2.0
+    ECL_2_0
+  | -- | @EFL-1.0@, Eiffel Forum License v1.0
+    EFL_1_0
+  | -- | @EFL-2.0@, Eiffel Forum License v2.0
+    EFL_2_0
+  | -- | @eGenix@, eGenix.com Public License 1.1.0
+    EGenix
+  | -- | @Elastic-2.0@, Elastic License 2.0, SPDX License List 3.16
+    Elastic_2_0
+  | -- | @Entessa@, Entessa Public License v1.0
+    Entessa
+  | -- | @EPICS@, EPICS Open License, SPDX License List 3.10, SPDX License List 3.16
+    EPICS
+  | -- | @EPL-1.0@, Eclipse Public License 1.0
+    EPL_1_0
+  | -- | @EPL-2.0@, Eclipse Public License 2.0
+    EPL_2_0
+  | -- | @ErlPL-1.1@, Erlang Public License v1.1
+    ErlPL_1_1
+  | -- | @etalab-2.0@, Etalab Open License 2.0, SPDX License List 3.9, SPDX License List 3.10, SPDX License List 3.16
+    Etalab_2_0
+  | -- | @EUDatagrid@, EU DataGrid Software License
+    EUDatagrid
+  | -- | @EUPL-1.0@, European Union Public License 1.0
+    EUPL_1_0
+  | -- | @EUPL-1.1@, European Union Public License 1.1
+    EUPL_1_1
+  | -- | @EUPL-1.2@, European Union Public License 1.2
+    EUPL_1_2
+  | -- | @Eurosym@, Eurosym License
+    Eurosym
+  | -- | @Fair@, Fair License
+    Fair
+  | -- | @FDK-AAC@, Fraunhofer FDK AAC Codec Library, SPDX License List 3.16
+    FDK_AAC
+  | -- | @Frameworx-1.0@, Frameworx Open License 1.0
+    Frameworx_1_0
+  | -- | @FreeBSD-DOC@, FreeBSD Documentation License, SPDX License List 3.16
+    FreeBSD_DOC
+  | -- | @FreeImage@, FreeImage Public License v1.0
+    FreeImage
+  | -- | @FSFAP@, FSF All Permissive License
+    FSFAP
+  | -- | @FSFULLR@, FSF Unlimited License (with License Retention)
+    FSFULLR
+  | -- | @FSFUL@, FSF Unlimited License
+    FSFUL
+  | -- | @FTL@, Freetype Project License
+    FTL
+  | -- | @GD@, GD License, SPDX License List 3.16
+    GD
+  | -- | @GFDL-1.1-invariants-only@, GNU Free Documentation License v1.1 only - invariants, SPDX License List 3.10, SPDX License List 3.16
+    GFDL_1_1_invariants_only
+  | -- | @GFDL-1.1-invariants-or-later@, GNU Free Documentation License v1.1 or later - invariants, SPDX License List 3.10, SPDX License List 3.16
+    GFDL_1_1_invariants_or_later
+  | -- | @GFDL-1.1-no-invariants-only@, GNU Free Documentation License v1.1 only - no invariants, SPDX License List 3.10, SPDX License List 3.16
+    GFDL_1_1_no_invariants_only
+  | -- | @GFDL-1.1-no-invariants-or-later@, GNU Free Documentation License v1.1 or later - no invariants, SPDX License List 3.10, SPDX License List 3.16
+    GFDL_1_1_no_invariants_or_later
+  | -- | @GFDL-1.1-only@, GNU Free Documentation License v1.1 only
+    GFDL_1_1_only
+  | -- | @GFDL-1.1-or-later@, GNU Free Documentation License v1.1 or later
+    GFDL_1_1_or_later
+  | -- | @GFDL-1.2-invariants-only@, GNU Free Documentation License v1.2 only - invariants, SPDX License List 3.10, SPDX License List 3.16
+    GFDL_1_2_invariants_only
+  | -- | @GFDL-1.2-invariants-or-later@, GNU Free Documentation License v1.2 or later - invariants, SPDX License List 3.10, SPDX License List 3.16
+    GFDL_1_2_invariants_or_later
+  | -- | @GFDL-1.2-no-invariants-only@, GNU Free Documentation License v1.2 only - no invariants, SPDX License List 3.10, SPDX License List 3.16
+    GFDL_1_2_no_invariants_only
+  | -- | @GFDL-1.2-no-invariants-or-later@, GNU Free Documentation License v1.2 or later - no invariants, SPDX License List 3.10, SPDX License List 3.16
+    GFDL_1_2_no_invariants_or_later
+  | -- | @GFDL-1.2-only@, GNU Free Documentation License v1.2 only
+    GFDL_1_2_only
+  | -- | @GFDL-1.2-or-later@, GNU Free Documentation License v1.2 or later
+    GFDL_1_2_or_later
+  | -- | @GFDL-1.3-invariants-only@, GNU Free Documentation License v1.3 only - invariants, SPDX License List 3.10, SPDX License List 3.16
+    GFDL_1_3_invariants_only
+  | -- | @GFDL-1.3-invariants-or-later@, GNU Free Documentation License v1.3 or later - invariants, SPDX License List 3.10, SPDX License List 3.16
+    GFDL_1_3_invariants_or_later
+  | -- | @GFDL-1.3-no-invariants-only@, GNU Free Documentation License v1.3 only - no invariants, SPDX License List 3.10, SPDX License List 3.16
+    GFDL_1_3_no_invariants_only
+  | -- | @GFDL-1.3-no-invariants-or-later@, GNU Free Documentation License v1.3 or later - no invariants, SPDX License List 3.10, SPDX License List 3.16
+    GFDL_1_3_no_invariants_or_later
+  | -- | @GFDL-1.3-only@, GNU Free Documentation License v1.3 only
+    GFDL_1_3_only
+  | -- | @GFDL-1.3-or-later@, GNU Free Documentation License v1.3 or later
+    GFDL_1_3_or_later
+  | -- | @Giftware@, Giftware License
+    Giftware
+  | -- | @GL2PS@, GL2PS License
+    GL2PS
+  | -- | @Glide@, 3dfx Glide License
+    Glide
+  | -- | @Glulxe@, Glulxe License
+    Glulxe
+  | -- | @GLWTPL@, Good Luck With That Public License, SPDX License List 3.10, SPDX License List 3.16
+    GLWTPL
+  | -- | @gnuplot@, gnuplot License
+    Gnuplot
+  | -- | @GPL-1.0-only@, GNU General Public License v1.0 only
+    GPL_1_0_only
+  | -- | @GPL-1.0-or-later@, GNU General Public License v1.0 or later
+    GPL_1_0_or_later
+  | -- | @GPL-2.0-only@, GNU General Public License v2.0 only
+    GPL_2_0_only
+  | -- | @GPL-2.0-or-later@, GNU General Public License v2.0 or later
+    GPL_2_0_or_later
+  | -- | @GPL-3.0-only@, GNU General Public License v3.0 only
+    GPL_3_0_only
+  | -- | @GPL-3.0-or-later@, GNU General Public License v3.0 or later
+    GPL_3_0_or_later
+  | -- | @gSOAP-1.3b@, gSOAP Public License v1.3b
+    GSOAP_1_3b
+  | -- | @HaskellReport@, Haskell Language Report License
+    HaskellReport
+  | -- | @Hippocratic-2.1@, Hippocratic License 2.1, SPDX License List 3.9, SPDX License List 3.10, SPDX License List 3.16
+    Hippocratic_2_1
+  | -- | @HPND-sell-variant@, Historical Permission Notice and Disclaimer - sell variant, SPDX License List 3.6, SPDX License List 3.9, SPDX License List 3.10, SPDX License List 3.16
+    HPND_sell_variant
+  | -- | @HPND@, Historical Permission Notice and Disclaimer
+    HPND
+  | -- | @HTMLTIDY@, HTML Tidy License, SPDX License List 3.16
+    HTMLTIDY
+  | -- | @IBM-pibs@, IBM PowerPC Initialization and Boot Software
+    IBM_pibs
+  | -- | @ICU@, ICU License
+    ICU
+  | -- | @IJG@, Independent JPEG Group License
+    IJG
+  | -- | @ImageMagick@, ImageMagick License
+    ImageMagick
+  | -- | @iMatix@, iMatix Standard Function Library Agreement
+    IMatix
+  | -- | @Imlib2@, Imlib2 License
+    Imlib2
+  | -- | @Info-ZIP@, Info-ZIP License
+    Info_ZIP
+  | -- | @Intel-ACPI@, Intel ACPI Software License Agreement
+    Intel_ACPI
+  | -- | @Intel@, Intel Open Source License
+    Intel
+  | -- | @Interbase-1.0@, Interbase Public License v1.0
+    Interbase_1_0
+  | -- | @IPA@, IPA Font License
+    IPA
+  | -- | @IPL-1.0@, IBM Public License v1.0
+    IPL_1_0
+  | -- | @ISC@, ISC License
+    ISC
+  | -- | @Jam@, Jam License, SPDX License List 3.16
+    Jam
+  | -- | @JasPer-2.0@, JasPer License
+    JasPer_2_0
+  | -- | @JPNIC@, Japan Network Information Center License, SPDX License List 3.6, SPDX License List 3.9, SPDX License List 3.10, SPDX License List 3.16
+    JPNIC
+  | -- | @JSON@, JSON License
+    JSON
+  | -- | @LAL-1.2@, Licence Art Libre 1.2
+    LAL_1_2
+  | -- | @LAL-1.3@, Licence Art Libre 1.3
+    LAL_1_3
+  | -- | @Latex2e@, Latex2e License
+    Latex2e
+  | -- | @Leptonica@, Leptonica License
+    Leptonica
+  | -- | @LGPL-2.0-only@, GNU Library General Public License v2 only
+    LGPL_2_0_only
+  | -- | @LGPL-2.0-or-later@, GNU Library General Public License v2 or later
+    LGPL_2_0_or_later
+  | -- | @LGPL-2.1-only@, GNU Lesser General Public License v2.1 only
+    LGPL_2_1_only
+  | -- | @LGPL-2.1-or-later@, GNU Lesser General Public License v2.1 or later
+    LGPL_2_1_or_later
+  | -- | @LGPL-3.0-only@, GNU Lesser General Public License v3.0 only
+    LGPL_3_0_only
+  | -- | @LGPL-3.0-or-later@, GNU Lesser General Public License v3.0 or later
+    LGPL_3_0_or_later
+  | -- | @LGPLLR@, Lesser General Public License For Linguistic Resources
+    LGPLLR
+  | -- | @libpng-2.0@, PNG Reference Library version 2, SPDX License List 3.6, SPDX License List 3.9, SPDX License List 3.10, SPDX License List 3.16
+    Libpng_2_0
+  | -- | @Libpng@, libpng License
+    Libpng
+  | -- | @libselinux-1.0@, libselinux public domain notice, SPDX License List 3.9, SPDX License List 3.10, SPDX License List 3.16
+    Libselinux_1_0
+  | -- | @libtiff@, libtiff License
+    Libtiff
+  | -- | @LiLiQ-P-1.1@, Licence Libre du Québec – Permissive version 1.1
+    LiLiQ_P_1_1
+  | -- | @LiLiQ-R-1.1@, Licence Libre du Québec – Réciprocité version 1.1
+    LiLiQ_R_1_1
+  | -- | @LiLiQ-Rplus-1.1@, Licence Libre du Québec – Réciprocité forte version 1.1
+    LiLiQ_Rplus_1_1
+  | -- | @Linux-man-pages-copyleft@, Linux man-pages Copyleft, SPDX License List 3.16
+    Linux_man_pages_copyleft
+  | -- | @Linux-OpenIB@, Linux Kernel Variant of OpenIB.org license, SPDX License List 3.2, SPDX License List 3.6, SPDX License List 3.9, SPDX License List 3.10, SPDX License List 3.16
+    Linux_OpenIB
+  | -- | @LPL-1.02@, Lucent Public License v1.02
+    LPL_1_02
+  | -- | @LPL-1.0@, Lucent Public License Version 1.0
+    LPL_1_0
+  | -- | @LPPL-1.0@, LaTeX Project Public License v1.0
+    LPPL_1_0
+  | -- | @LPPL-1.1@, LaTeX Project Public License v1.1
+    LPPL_1_1
+  | -- | @LPPL-1.2@, LaTeX Project Public License v1.2
+    LPPL_1_2
+  | -- | @LPPL-1.3a@, LaTeX Project Public License v1.3a
+    LPPL_1_3a
+  | -- | @LPPL-1.3c@, LaTeX Project Public License v1.3c
+    LPPL_1_3c
+  | -- | @MakeIndex@, MakeIndex License
+    MakeIndex
+  | -- | @MirOS@, The MirOS Licence
+    MirOS
+  | -- | @MIT-0@, MIT No Attribution, SPDX License List 3.2, SPDX License List 3.6, SPDX License List 3.9, SPDX License List 3.10, SPDX License List 3.16
+    MIT_0
+  | -- | @MIT-advertising@, Enlightenment License (e16)
+    MIT_advertising
+  | -- | @MIT-CMU@, CMU License
+    MIT_CMU
+  | -- | @MIT-enna@, enna License
+    MIT_enna
+  | -- | @MIT-feh@, feh License
+    MIT_feh
+  | -- | @MIT-Modern-Variant@, MIT License Modern Variant, SPDX License List 3.16
+    MIT_Modern_Variant
+  | -- | @MIT-open-group@, MIT Open Group variant, SPDX License List 3.16
+    MIT_open_group
+  | -- | @MITNFA@, MIT +no-false-attribs license
+    MITNFA
+  | -- | @MIT@, MIT License
+    MIT
+  | -- | @Motosoto@, Motosoto License
+    Motosoto
+  | -- | @mpich2@, mpich2 License
+    Mpich2
+  | -- | @MPL-1.0@, Mozilla Public License 1.0
+    MPL_1_0
+  | -- | @MPL-1.1@, Mozilla Public License 1.1
+    MPL_1_1
+  | -- | @MPL-2.0-no-copyleft-exception@, Mozilla Public License 2.0 (no copyleft exception)
+    MPL_2_0_no_copyleft_exception
+  | -- | @MPL-2.0@, Mozilla Public License 2.0
+    MPL_2_0
+  | -- | @MS-PL@, Microsoft Public License
+    MS_PL
+  | -- | @MS-RL@, Microsoft Reciprocal License
+    MS_RL
+  | -- | @MTLL@, Matrix Template Library License
+    MTLL
+  | -- | @MulanPSL-1.0@, Mulan Permissive Software License, Version 1, SPDX License List 3.9, SPDX License List 3.10, SPDX License List 3.16
+    MulanPSL_1_0
+  | -- | @MulanPSL-2.0@, Mulan Permissive Software License, Version 2, SPDX License List 3.9, SPDX License List 3.10, SPDX License List 3.16
+    MulanPSL_2_0
+  | -- | @Multics@, Multics License
+    Multics
+  | -- | @Mup@, Mup License
+    Mup
+  | -- | @NAIST-2003@, Nara Institute of Science and Technology License (2003), SPDX License List 3.16
+    NAIST_2003
+  | -- | @NASA-1.3@, NASA Open Source Agreement 1.3
+    NASA_1_3
+  | -- | @Naumen@, Naumen Public License
+    Naumen
+  | -- | @NBPL-1.0@, Net Boolean Public License v1
+    NBPL_1_0
+  | -- | @NCGL-UK-2.0@, Non-Commercial Government Licence, SPDX License List 3.9, SPDX License List 3.10, SPDX License List 3.16
+    NCGL_UK_2_0
+  | -- | @NCSA@, University of Illinois/NCSA Open Source License
+    NCSA
+  | -- | @Net-SNMP@, Net-SNMP License
+    Net_SNMP
+  | -- | @NetCDF@, NetCDF license
+    NetCDF
+  | -- | @Newsletr@, Newsletr License
+    Newsletr
+  | -- | @NGPL@, Nethack General Public License
+    NGPL
+  | -- | @NIST-PD-fallback@, NIST Public Domain Notice with license fallback, SPDX License List 3.10, SPDX License List 3.16
+    NIST_PD_fallback
+  | -- | @NIST-PD@, NIST Public Domain Notice, SPDX License List 3.10, SPDX License List 3.16
+    NIST_PD
+  | -- | @NLOD-1.0@, Norwegian Licence for Open Government Data (NLOD) 1.0
+    NLOD_1_0
+  | -- | @NLOD-2.0@, Norwegian Licence for Open Government Data (NLOD) 2.0, SPDX License List 3.16
+    NLOD_2_0
+  | -- | @NLPL@, No Limit Public License
+    NLPL
+  | -- | @Nokia@, Nokia Open Source License
+    Nokia
+  | -- | @NOSL@, Netizen Open Source License
+    NOSL
+  | -- | @Noweb@, Noweb License
+    Noweb
+  | -- | @NPL-1.0@, Netscape Public License v1.0
+    NPL_1_0
+  | -- | @NPL-1.1@, Netscape Public License v1.1
+    NPL_1_1
+  | -- | @NPOSL-3.0@, Non-Profit Open Software License 3.0
+    NPOSL_3_0
+  | -- | @NRL@, NRL License
+    NRL
+  | -- | @NTP-0@, NTP No Attribution, SPDX License List 3.9, SPDX License List 3.10, SPDX License List 3.16
+    NTP_0
+  | -- | @NTP@, NTP License
+    NTP
+  | -- | @O-UDA-1.0@, Open Use of Data Agreement v1.0, SPDX License List 3.9, SPDX License List 3.10, SPDX License List 3.16
+    O_UDA_1_0
+  | -- | @OCCT-PL@, Open CASCADE Technology Public License
+    OCCT_PL
+  | -- | @OCLC-2.0@, OCLC Research Public License 2.0
+    OCLC_2_0
+  | -- | @ODbL-1.0@, Open Data Commons Open Database License v1.0
+    ODbL_1_0
+  | -- | @ODC-By-1.0@, Open Data Commons Attribution License v1.0, SPDX License List 3.2, SPDX License List 3.6, SPDX License List 3.9, SPDX License List 3.10, SPDX License List 3.16
+    ODC_By_1_0
+  | -- | @OFL-1.0-no-RFN@, SIL Open Font License 1.0 with no Reserved Font Name, SPDX License List 3.9, SPDX License List 3.10, SPDX License List 3.16
+    OFL_1_0_no_RFN
+  | -- | @OFL-1.0-RFN@, SIL Open Font License 1.0 with Reserved Font Name, SPDX License List 3.9, SPDX License List 3.10, SPDX License List 3.16
+    OFL_1_0_RFN
+  | -- | @OFL-1.0@, SIL Open Font License 1.0
+    OFL_1_0
+  | -- | @OFL-1.1-no-RFN@, SIL Open Font License 1.1 with no Reserved Font Name, SPDX License List 3.9, SPDX License List 3.10, SPDX License List 3.16
+    OFL_1_1_no_RFN
+  | -- | @OFL-1.1-RFN@, SIL Open Font License 1.1 with Reserved Font Name, SPDX License List 3.9, SPDX License List 3.10, SPDX License List 3.16
+    OFL_1_1_RFN
+  | -- | @OFL-1.1@, SIL Open Font License 1.1
+    OFL_1_1
+  | -- | @OGC-1.0@, OGC Software License, Version 1.0, SPDX License List 3.9, SPDX License List 3.10, SPDX License List 3.16
+    OGC_1_0
+  | -- | @OGDL-Taiwan-1.0@, Taiwan Open Government Data License, version 1.0, SPDX License List 3.16
+    OGDL_Taiwan_1_0
+  | -- | @OGL-Canada-2.0@, Open Government Licence - Canada, SPDX License List 3.9, SPDX License List 3.10, SPDX License List 3.16
+    OGL_Canada_2_0
+  | -- | @OGL-UK-1.0@, Open Government Licence v1.0, SPDX License List 3.6, SPDX License List 3.9, SPDX License List 3.10, SPDX License List 3.16
+    OGL_UK_1_0
+  | -- | @OGL-UK-2.0@, Open Government Licence v2.0, SPDX License List 3.6, SPDX License List 3.9, SPDX License List 3.10, SPDX License List 3.16
+    OGL_UK_2_0
+  | -- | @OGL-UK-3.0@, Open Government Licence v3.0, SPDX License List 3.6, SPDX License List 3.9, SPDX License List 3.10, SPDX License List 3.16
+    OGL_UK_3_0
+  | -- | @OGTSL@, Open Group Test Suite License
+    OGTSL
+  | -- | @OLDAP-1.1@, Open LDAP Public License v1.1
+    OLDAP_1_1
+  | -- | @OLDAP-1.2@, Open LDAP Public License v1.2
+    OLDAP_1_2
+  | -- | @OLDAP-1.3@, Open LDAP Public License v1.3
+    OLDAP_1_3
+  | -- | @OLDAP-1.4@, Open LDAP Public License v1.4
+    OLDAP_1_4
+  | -- | @OLDAP-2.0.1@, Open LDAP Public License v2.0.1
+    OLDAP_2_0_1
+  | -- | @OLDAP-2.0@, Open LDAP Public License v2.0 (or possibly 2.0A and 2.0B)
+    OLDAP_2_0
+  | -- | @OLDAP-2.1@, Open LDAP Public License v2.1
+    OLDAP_2_1
+  | -- | @OLDAP-2.2.1@, Open LDAP Public License v2.2.1
+    OLDAP_2_2_1
+  | -- | @OLDAP-2.2.2@, Open LDAP Public License 2.2.2
+    OLDAP_2_2_2
+  | -- | @OLDAP-2.2@, Open LDAP Public License v2.2
+    OLDAP_2_2
+  | -- | @OLDAP-2.3@, Open LDAP Public License v2.3
+    OLDAP_2_3
+  | -- | @OLDAP-2.4@, Open LDAP Public License v2.4
+    OLDAP_2_4
+  | -- | @OLDAP-2.5@, Open LDAP Public License v2.5
+    OLDAP_2_5
+  | -- | @OLDAP-2.6@, Open LDAP Public License v2.6
+    OLDAP_2_6
+  | -- | @OLDAP-2.7@, Open LDAP Public License v2.7
+    OLDAP_2_7
+  | -- | @OLDAP-2.8@, Open LDAP Public License v2.8
+    OLDAP_2_8
+  | -- | @OML@, Open Market License
+    OML
+  | -- | @OpenSSL@, OpenSSL License
+    OpenSSL
+  | -- | @OPL-1.0@, Open Public License v1.0
+    OPL_1_0
+  | -- | @OPUBL-1.0@, Open Publication License v1.0, SPDX License List 3.16
+    OPUBL_1_0
+  | -- | @OSET-PL-2.1@, OSET Public License version 2.1
+    OSET_PL_2_1
+  | -- | @OSL-1.0@, Open Software License 1.0
+    OSL_1_0
+  | -- | @OSL-1.1@, Open Software License 1.1
+    OSL_1_1
+  | -- | @OSL-2.0@, Open Software License 2.0
+    OSL_2_0
+  | -- | @OSL-2.1@, Open Software License 2.1
+    OSL_2_1
+  | -- | @OSL-3.0@, Open Software License 3.0
+    OSL_3_0
+  | -- | @Parity-6.0.0@, The Parity Public License 6.0.0, SPDX License List 3.6, SPDX License List 3.9, SPDX License List 3.10, SPDX License List 3.16
+    Parity_6_0_0
+  | -- | @Parity-7.0.0@, The Parity Public License 7.0.0, SPDX License List 3.9, SPDX License List 3.10, SPDX License List 3.16
+    Parity_7_0_0
+  | -- | @PDDL-1.0@, Open Data Commons Public Domain Dedication & License 1.0
+    PDDL_1_0
+  | -- | @PHP-3.01@, PHP License v3.01
+    PHP_3_01
+  | -- | @PHP-3.0@, PHP License v3.0
+    PHP_3_0
+  | -- | @Plexus@, Plexus Classworlds License
+    Plexus
+  | -- | @PolyForm-Noncommercial-1.0.0@, PolyForm Noncommercial License 1.0.0, SPDX License List 3.9, SPDX License List 3.10, SPDX License List 3.16
+    PolyForm_Noncommercial_1_0_0
+  | -- | @PolyForm-Small-Business-1.0.0@, PolyForm Small Business License 1.0.0, SPDX License List 3.9, SPDX License List 3.10, SPDX License List 3.16
+    PolyForm_Small_Business_1_0_0
+  | -- | @PostgreSQL@, PostgreSQL License
+    PostgreSQL
+  | -- | @PSF-2.0@, Python Software Foundation License 2.0, SPDX License List 3.9, SPDX License List 3.10, SPDX License List 3.16
+    PSF_2_0
+  | -- | @psfrag@, psfrag License
+    Psfrag
+  | -- | @psutils@, psutils License
+    Psutils
+  | -- | @Python-2.0@, Python License 2.0
+    Python_2_0
+  | -- | @Qhull@, Qhull License
+    Qhull
+  | -- | @QPL-1.0@, Q Public License 1.0
+    QPL_1_0
+  | -- | @Rdisc@, Rdisc License
+    Rdisc
+  | -- | @RHeCos-1.1@, Red Hat eCos Public License v1.1
+    RHeCos_1_1
+  | -- | @RPL-1.1@, Reciprocal Public License 1.1
+    RPL_1_1
+  | -- | @RPL-1.5@, Reciprocal Public License 1.5
+    RPL_1_5
+  | -- | @RPSL-1.0@, RealNetworks Public Source License v1.0
+    RPSL_1_0
+  | -- | @RSA-MD@, RSA Message-Digest License
+    RSA_MD
+  | -- | @RSCPL@, Ricoh Source Code Public License
+    RSCPL
+  | -- | @Ruby@, Ruby License
+    Ruby
+  | -- | @SAX-PD@, Sax Public Domain Notice
+    SAX_PD
+  | -- | @Saxpath@, Saxpath License
+    Saxpath
+  | -- | @SCEA@, SCEA Shared Source License
+    SCEA
+  | -- | @SchemeReport@, Scheme Language Report License, SPDX License List 3.16
+    SchemeReport
+  | -- | @Sendmail-8.23@, Sendmail License 8.23, SPDX License List 3.6, SPDX License List 3.9, SPDX License List 3.10, SPDX License List 3.16
+    Sendmail_8_23
+  | -- | @Sendmail@, Sendmail License
+    Sendmail
+  | -- | @SGI-B-1.0@, SGI Free Software License B v1.0
+    SGI_B_1_0
+  | -- | @SGI-B-1.1@, SGI Free Software License B v1.1
+    SGI_B_1_1
+  | -- | @SGI-B-2.0@, SGI Free Software License B v2.0
+    SGI_B_2_0
+  | -- | @SHL-0.51@, Solderpad Hardware License, Version 0.51, SPDX License List 3.6, SPDX License List 3.9, SPDX License List 3.10, SPDX License List 3.16
+    SHL_0_51
+  | -- | @SHL-0.5@, Solderpad Hardware License v0.5, SPDX License List 3.6, SPDX License List 3.9, SPDX License List 3.10, SPDX License List 3.16
+    SHL_0_5
+  | -- | @SimPL-2.0@, Simple Public License 2.0
+    SimPL_2_0
+  | -- | @SISSL-1.2@, Sun Industry Standards Source License v1.2
+    SISSL_1_2
+  | -- | @SISSL@, Sun Industry Standards Source License v1.1
+    SISSL
+  | -- | @Sleepycat@, Sleepycat License
+    Sleepycat
+  | -- | @SMLNJ@, Standard ML of New Jersey License
+    SMLNJ
+  | -- | @SMPPL@, Secure Messaging Protocol Public License
+    SMPPL
+  | -- | @SNIA@, SNIA Public License 1.1
+    SNIA
+  | -- | @Spencer-86@, Spencer License 86
+    Spencer_86
+  | -- | @Spencer-94@, Spencer License 94
+    Spencer_94
+  | -- | @Spencer-99@, Spencer License 99
+    Spencer_99
+  | -- | @SPL-1.0@, Sun Public License v1.0
+    SPL_1_0
+  | -- | @SSH-OpenSSH@, SSH OpenSSH license, SPDX License List 3.9, SPDX License List 3.10, SPDX License List 3.16
+    SSH_OpenSSH
+  | -- | @SSH-short@, SSH short notice, SPDX License List 3.9, SPDX License List 3.10, SPDX License List 3.16
+    SSH_short
+  | -- | @SSPL-1.0@, Server Side Public License, v 1, SPDX License List 3.6, SPDX License List 3.9, SPDX License List 3.10, SPDX License List 3.16
+    SSPL_1_0
+  | -- | @SugarCRM-1.1.3@, SugarCRM Public License v1.1.3
+    SugarCRM_1_1_3
+  | -- | @SWL@, Scheme Widget Library (SWL) Software License Agreement
+    SWL
+  | -- | @TAPR-OHL-1.0@, TAPR Open Hardware License v1.0, SPDX License List 3.6, SPDX License List 3.9, SPDX License List 3.10, SPDX License List 3.16
+    TAPR_OHL_1_0
+  | -- | @TCL@, TCL/TK License
+    TCL
+  | -- | @TCP-wrappers@, TCP Wrappers License
+    TCP_wrappers
+  | -- | @TMate@, TMate Open Source License
+    TMate
+  | -- | @TORQUE-1.1@, TORQUE v2.5+ Software License v1.1
+    TORQUE_1_1
+  | -- | @TOSL@, Trusster Open Source License
+    TOSL
+  | -- | @TU-Berlin-1.0@, Technische Universitaet Berlin License 1.0, SPDX License List 3.2, SPDX License List 3.6, SPDX License List 3.9, SPDX License List 3.10, SPDX License List 3.16
+    TU_Berlin_1_0
+  | -- | @TU-Berlin-2.0@, Technische Universitaet Berlin License 2.0, SPDX License List 3.2, SPDX License List 3.6, SPDX License List 3.9, SPDX License List 3.10, SPDX License List 3.16
+    TU_Berlin_2_0
+  | -- | @UCL-1.0@, Upstream Compatibility License v1.0, SPDX License List 3.9, SPDX License List 3.10, SPDX License List 3.16
+    UCL_1_0
+  | -- | @Unicode-DFS-2015@, Unicode License Agreement - Data Files and Software (2015)
+    Unicode_DFS_2015
+  | -- | @Unicode-DFS-2016@, Unicode License Agreement - Data Files and Software (2016)
+    Unicode_DFS_2016
+  | -- | @Unicode-TOU@, Unicode Terms of Use
+    Unicode_TOU
+  | -- | @Unlicense@, The Unlicense
+    Unlicense
+  | -- | @UPL-1.0@, Universal Permissive License v1.0
+    UPL_1_0
+  | -- | @Vim@, Vim License
+    Vim
+  | -- | @VOSTROM@, VOSTROM Public License for Open Source
+    VOSTROM
+  | -- | @VSL-1.0@, Vovida Software License v1.0
+    VSL_1_0
+  | -- | @W3C-19980720@, W3C Software Notice and License (1998-07-20)
+    W3C_19980720
+  | -- | @W3C-20150513@, W3C Software Notice and Document License (2015-05-13)
+    W3C_20150513
+  | -- | @W3C@, W3C Software Notice and License (2002-12-31)
+    W3C
+  | -- | @Watcom-1.0@, Sybase Open Watcom Public License 1.0
+    Watcom_1_0
+  | -- | @Wsuipa@, Wsuipa License
+    Wsuipa
+  | -- | @WTFPL@, Do What The F*ck You Want To Public License
+    WTFPL
+  | -- | @X11-distribute-modifications-variant@, X11 License Distribution Modification Variant, SPDX License List 3.16
+    X11_distribute_modifications_variant
+  | -- | @X11@, X11 License
+    X11
+  | -- | @Xerox@, Xerox License
+    Xerox
+  | -- | @XFree86-1.1@, XFree86 License 1.1
+    XFree86_1_1
+  | -- | @xinetd@, xinetd License
+    Xinetd
+  | -- | @Xnet@, X.Net License
+    Xnet
+  | -- | @xpp@, XPP License
+    Xpp
+  | -- | @XSkat@, XSkat License
+    XSkat
+  | -- | @YPL-1.0@, Yahoo! Public License v1.0
+    YPL_1_0
+  | -- | @YPL-1.1@, Yahoo! Public License v1.1
+    YPL_1_1
+  | -- | @Zed@, Zed License
+    Zed
+  | -- | @Zend-2.0@, Zend License v2.0
+    Zend_2_0
+  | -- | @Zimbra-1.3@, Zimbra Public License v1.3
+    Zimbra_1_3
+  | -- | @Zimbra-1.4@, Zimbra Public License v1.4
+    Zimbra_1_4
+  | -- | @zlib-acknowledgement@, zlib/libpng License with Acknowledgement
+    Zlib_acknowledgement
+  | -- | @Zlib@, zlib License
+    Zlib
+  | -- | @ZPL-1.1@, Zope Public License 1.1
+    ZPL_1_1
+  | -- | @ZPL-2.0@, Zope Public License 2.0
+    ZPL_2_0
+  | -- | @ZPL-2.1@, Zope Public License 2.1
+    ZPL_2_1
   deriving (Eq, Ord, Enum, Bounded, Show, Read, Typeable, Data)
 
 instance Binary LicenseId where
-    -- Word16 is encoded in big endianess
-    -- https://github.com/kolmodin/binary/blob/master/src/Data/Binary/Class.hs#L220-LL227
-    put = Binary.putWord16be . fromIntegral . fromEnum
-    get = do
-        i <- Binary.getWord16be
-        if i > fromIntegral (fromEnum (maxBound :: LicenseId))
-        then fail "Too large LicenseId tag"
-        else return (toEnum (fromIntegral i))
+  -- Word16 is encoded in big endianess
+  -- https://github.com/kolmodin/binary/blob/master/src/Data/Binary/Class.hs#L220-LL227
+  put = Binary.putWord16be . fromIntegral . fromEnum
+  get = do
+    i <- Binary.getWord16be
+    if i > fromIntegral (fromEnum (maxBound :: LicenseId))
+      then fail "Too large LicenseId tag"
+      else return (toEnum (fromIntegral i))
 
 -- note: remember to bump version each time the definition changes
 instance Structured LicenseId where
-    structure p = set typeVersion 306 $ nominalStructure p
+  structure p = set typeVersion 306 $ nominalStructure p
 
 instance Pretty LicenseId where
-    pretty = Disp.text . licenseId
+  pretty = Disp.text . licenseId
 
 -- |
 -- >>> eitherParsec "BSD-3-Clause" :: Either String LicenseId
@@ -516,16 +975,15 @@ instance Pretty LicenseId where
 --
 -- >>> eitherParsec "BSD3" :: Either String LicenseId
 -- Left "...Unknown SPDX license identifier: 'BSD3' Do you mean BSD-3-Clause?"
---
 instance Parsec LicenseId where
-    parsec = do
-        n <- some $ P.satisfy $ \c -> isAsciiAlphaNum c || c == '-' || c == '.'
-        v <- askCabalSpecVersion
-        maybe (fail $ "Unknown SPDX license identifier: '" ++  n ++ "' " ++ licenseIdMigrationMessage n) return $
-            mkLicenseId (cabalSpecVersionToSPDXListVersion v) n
+  parsec = do
+    n <- some $ P.satisfy $ \c -> isAsciiAlphaNum c || c == '-' || c == '.'
+    v <- askCabalSpecVersion
+    maybe (fail $ "Unknown SPDX license identifier: '" ++ n ++ "' " ++ licenseIdMigrationMessage n) return $
+      mkLicenseId (cabalSpecVersionToSPDXListVersion v) n
 
 instance NFData LicenseId where
-    rnf l = l `seq` ()
+  rnf l = l `seq` ()
 
 -- | Help message for migrating from non-SPDX license identifiers.
 --
@@ -552,20 +1010,19 @@ instance NFData LicenseId where
 --
 -- >>> traverse eitherParsec ["GPL-2.0-only", "GPL-3.0-only", "LGPL-2.1-only", "MIT", "ISC", "MPL-2.0", "Apache-2.0"] :: Either String [LicenseId]
 -- Right [GPL_2_0_only,GPL_3_0_only,LGPL_2_1_only,MIT,ISC,MPL_2_0,Apache_2_0]
---
 licenseIdMigrationMessage :: String -> String
-licenseIdMigrationMessage = go where
-    go l | gnuVariant l    = "SPDX license list 3.0 deprecated suffixless variants of GNU family of licenses. Use " ++ l ++ "-only or " ++ l ++ "-or-later."
-    go "BSD3"              = "Do you mean BSD-3-Clause?"
-    go "BSD2"              = "Do you mean BSD-2-Clause?"
+licenseIdMigrationMessage = go
+  where
+    go l | gnuVariant l = "SPDX license list 3.0 deprecated suffixless variants of GNU family of licenses. Use " ++ l ++ "-only or " ++ l ++ "-or-later."
+    go "BSD3" = "Do you mean BSD-3-Clause?"
+    go "BSD2" = "Do you mean BSD-2-Clause?"
     go "AllRightsReserved" = "You can use NONE as a value of license field."
-    go "OtherLicense"      = "SPDX license list contains plenty of licenses. See https://spdx.org/licenses/. Also they can be combined into complex expressions with AND and OR."
-    go "PublicDomain"      = "Public Domain is a complex matter. See https://wiki.spdx.org/view/Legal_Team/Decisions/Dealing_with_Public_Domain_within_SPDX_Files. Consider using a proper license."
-
+    go "OtherLicense" = "SPDX license list contains plenty of licenses. See https://spdx.org/licenses/. Also they can be combined into complex expressions with AND and OR."
+    go "PublicDomain" = "Public Domain is a complex matter. See https://wiki.spdx.org/view/Legal_Team/Decisions/Dealing_with_Public_Domain_within_SPDX_Files. Consider using a proper license."
     -- otherwise, we don't know
     go _ = ""
 
-    gnuVariant = flip elem ["GPL-2.0", "GPL-3.0", "LGPL-2.1", "LGPL-3.0", "AGPL-3.0" ]
+    gnuVariant = flip elem ["GPL-2.0", "GPL-3.0", "LGPL-2.1", "LGPL-3.0", "AGPL-3.0"]
 
 -------------------------------------------------------------------------------
 -- License Data
@@ -1628,7 +2085,6 @@ licenseIsOsiApproved _ = False
 -- See <https://www.gnu.org/licenses/license-list.en.html>
 --
 -- @since 3.4.0.0
---
 licenseIsFsfLibre :: LicenseId -> Bool
 licenseIsFsfLibre AFL_1_1 = True
 licenseIsFsfLibre AFL_1_2 = True
@@ -1749,684 +2205,696 @@ licenseIsFsfLibre _ = False
 
 licenseIdList :: LicenseListVersion -> [LicenseId]
 licenseIdList LicenseListVersion_3_0 =
-    [ AGPL_1_0
-    , BSD_2_Clause_FreeBSD
-    , BSD_2_Clause_NetBSD
-    , Bzip2_1_0_5
-    ]
+  [ AGPL_1_0
+  , BSD_2_Clause_FreeBSD
+  , BSD_2_Clause_NetBSD
+  , Bzip2_1_0_5
+  ]
     ++ bulkOfLicenses
 licenseIdList LicenseListVersion_3_2 =
-    [ AGPL_1_0_only
-    , AGPL_1_0_or_later
-    , BSD_2_Clause_FreeBSD
-    , BSD_2_Clause_NetBSD
-    , Bzip2_1_0_5
-    , Linux_OpenIB
-    , MIT_0
-    , ODC_By_1_0
-    , TU_Berlin_1_0
-    , TU_Berlin_2_0
-    ]
+  [ AGPL_1_0_only
+  , AGPL_1_0_or_later
+  , BSD_2_Clause_FreeBSD
+  , BSD_2_Clause_NetBSD
+  , Bzip2_1_0_5
+  , Linux_OpenIB
+  , MIT_0
+  , ODC_By_1_0
+  , TU_Berlin_1_0
+  , TU_Berlin_2_0
+  ]
     ++ bulkOfLicenses
 licenseIdList LicenseListVersion_3_6 =
-    [ AGPL_1_0_only
-    , AGPL_1_0_or_later
-    , Blessing
-    , BlueOak_1_0_0
-    , BSD_2_Clause_FreeBSD
-    , BSD_2_Clause_NetBSD
-    , BSD_3_Clause_Open_MPI
-    , Bzip2_1_0_5
-    , CC_PDDC
-    , CERN_OHL_1_1
-    , CERN_OHL_1_2
-    , Copyleft_next_0_3_0
-    , Copyleft_next_0_3_1
-    , HPND_sell_variant
-    , JPNIC
-    , Libpng_2_0
-    , Linux_OpenIB
-    , MIT_0
-    , ODC_By_1_0
-    , OGL_UK_1_0
-    , OGL_UK_2_0
-    , OGL_UK_3_0
-    , Parity_6_0_0
-    , Sendmail_8_23
-    , SHL_0_51
-    , SHL_0_5
-    , SSPL_1_0
-    , TAPR_OHL_1_0
-    , TU_Berlin_1_0
-    , TU_Berlin_2_0
-    ]
+  [ AGPL_1_0_only
+  , AGPL_1_0_or_later
+  , Blessing
+  , BlueOak_1_0_0
+  , BSD_2_Clause_FreeBSD
+  , BSD_2_Clause_NetBSD
+  , BSD_3_Clause_Open_MPI
+  , Bzip2_1_0_5
+  , CC_PDDC
+  , CERN_OHL_1_1
+  , CERN_OHL_1_2
+  , Copyleft_next_0_3_0
+  , Copyleft_next_0_3_1
+  , HPND_sell_variant
+  , JPNIC
+  , Libpng_2_0
+  , Linux_OpenIB
+  , MIT_0
+  , ODC_By_1_0
+  , OGL_UK_1_0
+  , OGL_UK_2_0
+  , OGL_UK_3_0
+  , Parity_6_0_0
+  , Sendmail_8_23
+  , SHL_0_51
+  , SHL_0_5
+  , SSPL_1_0
+  , TAPR_OHL_1_0
+  , TU_Berlin_1_0
+  , TU_Berlin_2_0
+  ]
     ++ bulkOfLicenses
 licenseIdList LicenseListVersion_3_9 =
-    [ AGPL_1_0_only
-    , AGPL_1_0_or_later
-    , Blessing
-    , BlueOak_1_0_0
-    , BSD_2_Clause_FreeBSD
-    , BSD_3_Clause_Open_MPI
-    , Bzip2_1_0_5
-    , CAL_1_0_Combined_Work_Exception
-    , CAL_1_0
-    , CC_PDDC
-    , CERN_OHL_1_1
-    , CERN_OHL_1_2
-    , CERN_OHL_P_2_0
-    , CERN_OHL_S_2_0
-    , CERN_OHL_W_2_0
-    , Copyleft_next_0_3_0
-    , Copyleft_next_0_3_1
-    , Etalab_2_0
-    , Hippocratic_2_1
-    , HPND_sell_variant
-    , JPNIC
-    , Libpng_2_0
-    , Libselinux_1_0
-    , Linux_OpenIB
-    , MIT_0
-    , MulanPSL_1_0
-    , MulanPSL_2_0
-    , NCGL_UK_2_0
-    , NTP_0
-    , O_UDA_1_0
-    , ODC_By_1_0
-    , OFL_1_0_no_RFN
-    , OFL_1_0_RFN
-    , OFL_1_1_no_RFN
-    , OFL_1_1_RFN
-    , OGC_1_0
-    , OGL_Canada_2_0
-    , OGL_UK_1_0
-    , OGL_UK_2_0
-    , OGL_UK_3_0
-    , Parity_6_0_0
-    , Parity_7_0_0
-    , PolyForm_Noncommercial_1_0_0
-    , PolyForm_Small_Business_1_0_0
-    , PSF_2_0
-    , Sendmail_8_23
-    , SHL_0_51
-    , SHL_0_5
-    , SSH_OpenSSH
-    , SSH_short
-    , SSPL_1_0
-    , TAPR_OHL_1_0
-    , TU_Berlin_1_0
-    , TU_Berlin_2_0
-    , UCL_1_0
-    ]
+  [ AGPL_1_0_only
+  , AGPL_1_0_or_later
+  , Blessing
+  , BlueOak_1_0_0
+  , BSD_2_Clause_FreeBSD
+  , BSD_3_Clause_Open_MPI
+  , Bzip2_1_0_5
+  , CAL_1_0_Combined_Work_Exception
+  , CAL_1_0
+  , CC_PDDC
+  , CERN_OHL_1_1
+  , CERN_OHL_1_2
+  , CERN_OHL_P_2_0
+  , CERN_OHL_S_2_0
+  , CERN_OHL_W_2_0
+  , Copyleft_next_0_3_0
+  , Copyleft_next_0_3_1
+  , Etalab_2_0
+  , Hippocratic_2_1
+  , HPND_sell_variant
+  , JPNIC
+  , Libpng_2_0
+  , Libselinux_1_0
+  , Linux_OpenIB
+  , MIT_0
+  , MulanPSL_1_0
+  , MulanPSL_2_0
+  , NCGL_UK_2_0
+  , NTP_0
+  , O_UDA_1_0
+  , ODC_By_1_0
+  , OFL_1_0_no_RFN
+  , OFL_1_0_RFN
+  , OFL_1_1_no_RFN
+  , OFL_1_1_RFN
+  , OGC_1_0
+  , OGL_Canada_2_0
+  , OGL_UK_1_0
+  , OGL_UK_2_0
+  , OGL_UK_3_0
+  , Parity_6_0_0
+  , Parity_7_0_0
+  , PolyForm_Noncommercial_1_0_0
+  , PolyForm_Small_Business_1_0_0
+  , PSF_2_0
+  , Sendmail_8_23
+  , SHL_0_51
+  , SHL_0_5
+  , SSH_OpenSSH
+  , SSH_short
+  , SSPL_1_0
+  , TAPR_OHL_1_0
+  , TU_Berlin_1_0
+  , TU_Berlin_2_0
+  , UCL_1_0
+  ]
     ++ bulkOfLicenses
 licenseIdList LicenseListVersion_3_10 =
-    [ AGPL_1_0_only
-    , AGPL_1_0_or_later
-    , Blessing
-    , BlueOak_1_0_0
-    , BSD_2_Clause_Views
-    , BSD_3_Clause_Open_MPI
-    , Bzip2_1_0_5
-    , CAL_1_0_Combined_Work_Exception
-    , CAL_1_0
-    , CC_BY_3_0_AT
-    , CC_BY_NC_ND_3_0_IGO
-    , CC_BY_SA_3_0_AT
-    , CC_PDDC
-    , CERN_OHL_1_1
-    , CERN_OHL_1_2
-    , CERN_OHL_P_2_0
-    , CERN_OHL_S_2_0
-    , CERN_OHL_W_2_0
-    , Copyleft_next_0_3_0
-    , Copyleft_next_0_3_1
-    , EPICS
-    , Etalab_2_0
-    , GFDL_1_1_invariants_only
-    , GFDL_1_1_invariants_or_later
-    , GFDL_1_1_no_invariants_only
-    , GFDL_1_1_no_invariants_or_later
-    , GFDL_1_2_invariants_only
-    , GFDL_1_2_invariants_or_later
-    , GFDL_1_2_no_invariants_only
-    , GFDL_1_2_no_invariants_or_later
-    , GFDL_1_3_invariants_only
-    , GFDL_1_3_invariants_or_later
-    , GFDL_1_3_no_invariants_only
-    , GFDL_1_3_no_invariants_or_later
-    , GLWTPL
-    , Hippocratic_2_1
-    , HPND_sell_variant
-    , JPNIC
-    , Libpng_2_0
-    , Libselinux_1_0
-    , Linux_OpenIB
-    , MIT_0
-    , MulanPSL_1_0
-    , MulanPSL_2_0
-    , NCGL_UK_2_0
-    , NIST_PD_fallback
-    , NIST_PD
-    , NTP_0
-    , O_UDA_1_0
-    , ODC_By_1_0
-    , OFL_1_0_no_RFN
-    , OFL_1_0_RFN
-    , OFL_1_1_no_RFN
-    , OFL_1_1_RFN
-    , OGC_1_0
-    , OGL_Canada_2_0
-    , OGL_UK_1_0
-    , OGL_UK_2_0
-    , OGL_UK_3_0
-    , Parity_6_0_0
-    , Parity_7_0_0
-    , PolyForm_Noncommercial_1_0_0
-    , PolyForm_Small_Business_1_0_0
-    , PSF_2_0
-    , Sendmail_8_23
-    , SHL_0_51
-    , SHL_0_5
-    , SSH_OpenSSH
-    , SSH_short
-    , SSPL_1_0
-    , TAPR_OHL_1_0
-    , TU_Berlin_1_0
-    , TU_Berlin_2_0
-    , UCL_1_0
-    ]
+  [ AGPL_1_0_only
+  , AGPL_1_0_or_later
+  , Blessing
+  , BlueOak_1_0_0
+  , BSD_2_Clause_Views
+  , BSD_3_Clause_Open_MPI
+  , Bzip2_1_0_5
+  , CAL_1_0_Combined_Work_Exception
+  , CAL_1_0
+  , CC_BY_3_0_AT
+  , CC_BY_NC_ND_3_0_IGO
+  , CC_BY_SA_3_0_AT
+  , CC_PDDC
+  , CERN_OHL_1_1
+  , CERN_OHL_1_2
+  , CERN_OHL_P_2_0
+  , CERN_OHL_S_2_0
+  , CERN_OHL_W_2_0
+  , Copyleft_next_0_3_0
+  , Copyleft_next_0_3_1
+  , EPICS
+  , Etalab_2_0
+  , GFDL_1_1_invariants_only
+  , GFDL_1_1_invariants_or_later
+  , GFDL_1_1_no_invariants_only
+  , GFDL_1_1_no_invariants_or_later
+  , GFDL_1_2_invariants_only
+  , GFDL_1_2_invariants_or_later
+  , GFDL_1_2_no_invariants_only
+  , GFDL_1_2_no_invariants_or_later
+  , GFDL_1_3_invariants_only
+  , GFDL_1_3_invariants_or_later
+  , GFDL_1_3_no_invariants_only
+  , GFDL_1_3_no_invariants_or_later
+  , GLWTPL
+  , Hippocratic_2_1
+  , HPND_sell_variant
+  , JPNIC
+  , Libpng_2_0
+  , Libselinux_1_0
+  , Linux_OpenIB
+  , MIT_0
+  , MulanPSL_1_0
+  , MulanPSL_2_0
+  , NCGL_UK_2_0
+  , NIST_PD_fallback
+  , NIST_PD
+  , NTP_0
+  , O_UDA_1_0
+  , ODC_By_1_0
+  , OFL_1_0_no_RFN
+  , OFL_1_0_RFN
+  , OFL_1_1_no_RFN
+  , OFL_1_1_RFN
+  , OGC_1_0
+  , OGL_Canada_2_0
+  , OGL_UK_1_0
+  , OGL_UK_2_0
+  , OGL_UK_3_0
+  , Parity_6_0_0
+  , Parity_7_0_0
+  , PolyForm_Noncommercial_1_0_0
+  , PolyForm_Small_Business_1_0_0
+  , PSF_2_0
+  , Sendmail_8_23
+  , SHL_0_51
+  , SHL_0_5
+  , SSH_OpenSSH
+  , SSH_short
+  , SSPL_1_0
+  , TAPR_OHL_1_0
+  , TU_Berlin_1_0
+  , TU_Berlin_2_0
+  , UCL_1_0
+  ]
     ++ bulkOfLicenses
 licenseIdList LicenseListVersion_3_16 =
-    [ AGPL_1_0_only
-    , AGPL_1_0_or_later
-    , ANTLR_PD_fallback
-    , App_s2p
-    , Blessing
-    , BlueOak_1_0_0
-    , BSD_2_Clause_Views
-    , BSD_3_Clause_Modification
-    , BSD_3_Clause_No_Military_License
-    , BSD_3_Clause_Open_MPI
-    , BSD_4_Clause_Shortened
-    , BUSL_1_1
-    , C_UDA_1_0
-    , CAL_1_0_Combined_Work_Exception
-    , CAL_1_0
-    , CC_BY_2_5_AU
-    , CC_BY_3_0_AT
-    , CC_BY_3_0_DE
-    , CC_BY_3_0_NL
-    , CC_BY_3_0_US
-    , CC_BY_NC_3_0_DE
-    , CC_BY_NC_ND_3_0_DE
-    , CC_BY_NC_ND_3_0_IGO
-    , CC_BY_NC_SA_2_0_FR
-    , CC_BY_NC_SA_2_0_UK
-    , CC_BY_NC_SA_3_0_DE
-    , CC_BY_NC_SA_3_0_IGO
-    , CC_BY_ND_3_0_DE
-    , CC_BY_SA_2_0_UK
-    , CC_BY_SA_2_1_JP
-    , CC_BY_SA_3_0_AT
-    , CC_BY_SA_3_0_DE
-    , CC_PDDC
-    , CDL_1_0
-    , CDLA_Permissive_2_0
-    , CERN_OHL_1_1
-    , CERN_OHL_1_2
-    , CERN_OHL_P_2_0
-    , CERN_OHL_S_2_0
-    , CERN_OHL_W_2_0
-    , COIL_1_0
-    , Community_Spec_1_0
-    , Copyleft_next_0_3_0
-    , Copyleft_next_0_3_1
-    , DL_DE_BY_2_0
-    , DRL_1_0
-    , Elastic_2_0
-    , EPICS
-    , Etalab_2_0
-    , FDK_AAC
-    , FreeBSD_DOC
-    , GD
-    , GFDL_1_1_invariants_only
-    , GFDL_1_1_invariants_or_later
-    , GFDL_1_1_no_invariants_only
-    , GFDL_1_1_no_invariants_or_later
-    , GFDL_1_2_invariants_only
-    , GFDL_1_2_invariants_or_later
-    , GFDL_1_2_no_invariants_only
-    , GFDL_1_2_no_invariants_or_later
-    , GFDL_1_3_invariants_only
-    , GFDL_1_3_invariants_or_later
-    , GFDL_1_3_no_invariants_only
-    , GFDL_1_3_no_invariants_or_later
-    , GLWTPL
-    , Hippocratic_2_1
-    , HPND_sell_variant
-    , HTMLTIDY
-    , Jam
-    , JPNIC
-    , Libpng_2_0
-    , Libselinux_1_0
-    , Linux_man_pages_copyleft
-    , Linux_OpenIB
-    , MIT_0
-    , MIT_Modern_Variant
-    , MIT_open_group
-    , MulanPSL_1_0
-    , MulanPSL_2_0
-    , NAIST_2003
-    , NCGL_UK_2_0
-    , NIST_PD_fallback
-    , NIST_PD
-    , NLOD_2_0
-    , NTP_0
-    , O_UDA_1_0
-    , ODC_By_1_0
-    , OFL_1_0_no_RFN
-    , OFL_1_0_RFN
-    , OFL_1_1_no_RFN
-    , OFL_1_1_RFN
-    , OGC_1_0
-    , OGDL_Taiwan_1_0
-    , OGL_Canada_2_0
-    , OGL_UK_1_0
-    , OGL_UK_2_0
-    , OGL_UK_3_0
-    , OPUBL_1_0
-    , Parity_6_0_0
-    , Parity_7_0_0
-    , PolyForm_Noncommercial_1_0_0
-    , PolyForm_Small_Business_1_0_0
-    , PSF_2_0
-    , SchemeReport
-    , Sendmail_8_23
-    , SHL_0_51
-    , SHL_0_5
-    , SSH_OpenSSH
-    , SSH_short
-    , SSPL_1_0
-    , TAPR_OHL_1_0
-    , TU_Berlin_1_0
-    , TU_Berlin_2_0
-    , UCL_1_0
-    , X11_distribute_modifications_variant
-    ]
+  [ AGPL_1_0_only
+  , AGPL_1_0_or_later
+  , ANTLR_PD_fallback
+  , App_s2p
+  , Blessing
+  , BlueOak_1_0_0
+  , BSD_2_Clause_Views
+  , BSD_3_Clause_Modification
+  , BSD_3_Clause_No_Military_License
+  , BSD_3_Clause_Open_MPI
+  , BSD_4_Clause_Shortened
+  , BUSL_1_1
+  , C_UDA_1_0
+  , CAL_1_0_Combined_Work_Exception
+  , CAL_1_0
+  , CC_BY_2_5_AU
+  , CC_BY_3_0_AT
+  , CC_BY_3_0_DE
+  , CC_BY_3_0_NL
+  , CC_BY_3_0_US
+  , CC_BY_NC_3_0_DE
+  , CC_BY_NC_ND_3_0_DE
+  , CC_BY_NC_ND_3_0_IGO
+  , CC_BY_NC_SA_2_0_FR
+  , CC_BY_NC_SA_2_0_UK
+  , CC_BY_NC_SA_3_0_DE
+  , CC_BY_NC_SA_3_0_IGO
+  , CC_BY_ND_3_0_DE
+  , CC_BY_SA_2_0_UK
+  , CC_BY_SA_2_1_JP
+  , CC_BY_SA_3_0_AT
+  , CC_BY_SA_3_0_DE
+  , CC_PDDC
+  , CDL_1_0
+  , CDLA_Permissive_2_0
+  , CERN_OHL_1_1
+  , CERN_OHL_1_2
+  , CERN_OHL_P_2_0
+  , CERN_OHL_S_2_0
+  , CERN_OHL_W_2_0
+  , COIL_1_0
+  , Community_Spec_1_0
+  , Copyleft_next_0_3_0
+  , Copyleft_next_0_3_1
+  , DL_DE_BY_2_0
+  , DRL_1_0
+  , Elastic_2_0
+  , EPICS
+  , Etalab_2_0
+  , FDK_AAC
+  , FreeBSD_DOC
+  , GD
+  , GFDL_1_1_invariants_only
+  , GFDL_1_1_invariants_or_later
+  , GFDL_1_1_no_invariants_only
+  , GFDL_1_1_no_invariants_or_later
+  , GFDL_1_2_invariants_only
+  , GFDL_1_2_invariants_or_later
+  , GFDL_1_2_no_invariants_only
+  , GFDL_1_2_no_invariants_or_later
+  , GFDL_1_3_invariants_only
+  , GFDL_1_3_invariants_or_later
+  , GFDL_1_3_no_invariants_only
+  , GFDL_1_3_no_invariants_or_later
+  , GLWTPL
+  , Hippocratic_2_1
+  , HPND_sell_variant
+  , HTMLTIDY
+  , Jam
+  , JPNIC
+  , Libpng_2_0
+  , Libselinux_1_0
+  , Linux_man_pages_copyleft
+  , Linux_OpenIB
+  , MIT_0
+  , MIT_Modern_Variant
+  , MIT_open_group
+  , MulanPSL_1_0
+  , MulanPSL_2_0
+  , NAIST_2003
+  , NCGL_UK_2_0
+  , NIST_PD_fallback
+  , NIST_PD
+  , NLOD_2_0
+  , NTP_0
+  , O_UDA_1_0
+  , ODC_By_1_0
+  , OFL_1_0_no_RFN
+  , OFL_1_0_RFN
+  , OFL_1_1_no_RFN
+  , OFL_1_1_RFN
+  , OGC_1_0
+  , OGDL_Taiwan_1_0
+  , OGL_Canada_2_0
+  , OGL_UK_1_0
+  , OGL_UK_2_0
+  , OGL_UK_3_0
+  , OPUBL_1_0
+  , Parity_6_0_0
+  , Parity_7_0_0
+  , PolyForm_Noncommercial_1_0_0
+  , PolyForm_Small_Business_1_0_0
+  , PSF_2_0
+  , SchemeReport
+  , Sendmail_8_23
+  , SHL_0_51
+  , SHL_0_5
+  , SSH_OpenSSH
+  , SSH_short
+  , SSPL_1_0
+  , TAPR_OHL_1_0
+  , TU_Berlin_1_0
+  , TU_Berlin_2_0
+  , UCL_1_0
+  , X11_distribute_modifications_variant
+  ]
     ++ bulkOfLicenses
 
 -- | Create a 'LicenseId' from a 'String'.
 mkLicenseId :: LicenseListVersion -> String -> Maybe LicenseId
-mkLicenseId LicenseListVersion_3_0  s = Map.lookup s stringLookup_3_0
-mkLicenseId LicenseListVersion_3_2  s = Map.lookup s stringLookup_3_2
-mkLicenseId LicenseListVersion_3_6  s = Map.lookup s stringLookup_3_6
-mkLicenseId LicenseListVersion_3_9  s = Map.lookup s stringLookup_3_9
+mkLicenseId LicenseListVersion_3_0 s = Map.lookup s stringLookup_3_0
+mkLicenseId LicenseListVersion_3_2 s = Map.lookup s stringLookup_3_2
+mkLicenseId LicenseListVersion_3_6 s = Map.lookup s stringLookup_3_6
+mkLicenseId LicenseListVersion_3_9 s = Map.lookup s stringLookup_3_9
 mkLicenseId LicenseListVersion_3_10 s = Map.lookup s stringLookup_3_10
 mkLicenseId LicenseListVersion_3_16 s = Map.lookup s stringLookup_3_16
 
 stringLookup_3_0 :: Map String LicenseId
-stringLookup_3_0 = Map.fromList $ map (\i -> (licenseId i, i)) $
-    licenseIdList LicenseListVersion_3_0
+stringLookup_3_0 =
+  Map.fromList $
+    map (\i -> (licenseId i, i)) $
+      licenseIdList LicenseListVersion_3_0
 
 stringLookup_3_2 :: Map String LicenseId
-stringLookup_3_2 = Map.fromList $ map (\i -> (licenseId i, i)) $
-    licenseIdList LicenseListVersion_3_2
+stringLookup_3_2 =
+  Map.fromList $
+    map (\i -> (licenseId i, i)) $
+      licenseIdList LicenseListVersion_3_2
 
 stringLookup_3_6 :: Map String LicenseId
-stringLookup_3_6 = Map.fromList $ map (\i -> (licenseId i, i)) $
-    licenseIdList LicenseListVersion_3_6
+stringLookup_3_6 =
+  Map.fromList $
+    map (\i -> (licenseId i, i)) $
+      licenseIdList LicenseListVersion_3_6
 
 stringLookup_3_9 :: Map String LicenseId
-stringLookup_3_9 = Map.fromList $ map (\i -> (licenseId i, i)) $
-    licenseIdList LicenseListVersion_3_9
+stringLookup_3_9 =
+  Map.fromList $
+    map (\i -> (licenseId i, i)) $
+      licenseIdList LicenseListVersion_3_9
 
 stringLookup_3_10 :: Map String LicenseId
-stringLookup_3_10 = Map.fromList $ map (\i -> (licenseId i, i)) $
-    licenseIdList LicenseListVersion_3_10
+stringLookup_3_10 =
+  Map.fromList $
+    map (\i -> (licenseId i, i)) $
+      licenseIdList LicenseListVersion_3_10
 
 stringLookup_3_16 :: Map String LicenseId
-stringLookup_3_16 = Map.fromList $ map (\i -> (licenseId i, i)) $
-    licenseIdList LicenseListVersion_3_16
+stringLookup_3_16 =
+  Map.fromList $
+    map (\i -> (licenseId i, i)) $
+      licenseIdList LicenseListVersion_3_16
 
 --  | Licenses in all SPDX License lists
 bulkOfLicenses :: [LicenseId]
 bulkOfLicenses =
-    [ NullBSD
-    , AAL
-    , Abstyles
-    , Adobe_2006
-    , Adobe_Glyph
-    , ADSL
-    , AFL_1_1
-    , AFL_1_2
-    , AFL_2_0
-    , AFL_2_1
-    , AFL_3_0
-    , Afmparse
-    , AGPL_3_0_only
-    , AGPL_3_0_or_later
-    , Aladdin
-    , AMDPLPA
-    , AML
-    , AMPAS
-    , ANTLR_PD
-    , Apache_1_0
-    , Apache_1_1
-    , Apache_2_0
-    , APAFML
-    , APL_1_0
-    , APSL_1_0
-    , APSL_1_1
-    , APSL_1_2
-    , APSL_2_0
-    , Artistic_1_0_cl8
-    , Artistic_1_0_Perl
-    , Artistic_1_0
-    , Artistic_2_0
-    , Bahyph
-    , Barr
-    , Beerware
-    , BitTorrent_1_0
-    , BitTorrent_1_1
-    , Borceux
-    , BSD_1_Clause
-    , BSD_2_Clause_Patent
-    , BSD_2_Clause
-    , BSD_3_Clause_Attribution
-    , BSD_3_Clause_Clear
-    , BSD_3_Clause_LBNL
-    , BSD_3_Clause_No_Nuclear_License_2014
-    , BSD_3_Clause_No_Nuclear_License
-    , BSD_3_Clause_No_Nuclear_Warranty
-    , BSD_3_Clause
-    , BSD_4_Clause_UC
-    , BSD_4_Clause
-    , BSD_Protection
-    , BSD_Source_Code
-    , BSL_1_0
-    , Bzip2_1_0_6
-    , Caldera
-    , CATOSL_1_1
-    , CC_BY_1_0
-    , CC_BY_2_0
-    , CC_BY_2_5
-    , CC_BY_3_0
-    , CC_BY_4_0
-    , CC_BY_NC_1_0
-    , CC_BY_NC_2_0
-    , CC_BY_NC_2_5
-    , CC_BY_NC_3_0
-    , CC_BY_NC_4_0
-    , CC_BY_NC_ND_1_0
-    , CC_BY_NC_ND_2_0
-    , CC_BY_NC_ND_2_5
-    , CC_BY_NC_ND_3_0
-    , CC_BY_NC_ND_4_0
-    , CC_BY_NC_SA_1_0
-    , CC_BY_NC_SA_2_0
-    , CC_BY_NC_SA_2_5
-    , CC_BY_NC_SA_3_0
-    , CC_BY_NC_SA_4_0
-    , CC_BY_ND_1_0
-    , CC_BY_ND_2_0
-    , CC_BY_ND_2_5
-    , CC_BY_ND_3_0
-    , CC_BY_ND_4_0
-    , CC_BY_SA_1_0
-    , CC_BY_SA_2_0
-    , CC_BY_SA_2_5
-    , CC_BY_SA_3_0
-    , CC_BY_SA_4_0
-    , CC0_1_0
-    , CDDL_1_0
-    , CDDL_1_1
-    , CDLA_Permissive_1_0
-    , CDLA_Sharing_1_0
-    , CECILL_1_0
-    , CECILL_1_1
-    , CECILL_2_0
-    , CECILL_2_1
-    , CECILL_B
-    , CECILL_C
-    , ClArtistic
-    , CNRI_Jython
-    , CNRI_Python_GPL_Compatible
-    , CNRI_Python
-    , Condor_1_1
-    , CPAL_1_0
-    , CPL_1_0
-    , CPOL_1_02
-    , Crossword
-    , CrystalStacker
-    , CUA_OPL_1_0
-    , Cube
-    , Curl
-    , D_FSL_1_0
-    , Diffmark
-    , DOC
-    , Dotseqn
-    , DSDP
-    , Dvipdfm
-    , ECL_1_0
-    , ECL_2_0
-    , EFL_1_0
-    , EFL_2_0
-    , EGenix
-    , Entessa
-    , EPL_1_0
-    , EPL_2_0
-    , ErlPL_1_1
-    , EUDatagrid
-    , EUPL_1_0
-    , EUPL_1_1
-    , EUPL_1_2
-    , Eurosym
-    , Fair
-    , Frameworx_1_0
-    , FreeImage
-    , FSFAP
-    , FSFULLR
-    , FSFUL
-    , FTL
-    , GFDL_1_1_only
-    , GFDL_1_1_or_later
-    , GFDL_1_2_only
-    , GFDL_1_2_or_later
-    , GFDL_1_3_only
-    , GFDL_1_3_or_later
-    , Giftware
-    , GL2PS
-    , Glide
-    , Glulxe
-    , Gnuplot
-    , GPL_1_0_only
-    , GPL_1_0_or_later
-    , GPL_2_0_only
-    , GPL_2_0_or_later
-    , GPL_3_0_only
-    , GPL_3_0_or_later
-    , GSOAP_1_3b
-    , HaskellReport
-    , HPND
-    , IBM_pibs
-    , ICU
-    , IJG
-    , ImageMagick
-    , IMatix
-    , Imlib2
-    , Info_ZIP
-    , Intel_ACPI
-    , Intel
-    , Interbase_1_0
-    , IPA
-    , IPL_1_0
-    , ISC
-    , JasPer_2_0
-    , JSON
-    , LAL_1_2
-    , LAL_1_3
-    , Latex2e
-    , Leptonica
-    , LGPL_2_0_only
-    , LGPL_2_0_or_later
-    , LGPL_2_1_only
-    , LGPL_2_1_or_later
-    , LGPL_3_0_only
-    , LGPL_3_0_or_later
-    , LGPLLR
-    , Libpng
-    , Libtiff
-    , LiLiQ_P_1_1
-    , LiLiQ_R_1_1
-    , LiLiQ_Rplus_1_1
-    , LPL_1_02
-    , LPL_1_0
-    , LPPL_1_0
-    , LPPL_1_1
-    , LPPL_1_2
-    , LPPL_1_3a
-    , LPPL_1_3c
-    , MakeIndex
-    , MirOS
-    , MIT_advertising
-    , MIT_CMU
-    , MIT_enna
-    , MIT_feh
-    , MITNFA
-    , MIT
-    , Motosoto
-    , Mpich2
-    , MPL_1_0
-    , MPL_1_1
-    , MPL_2_0_no_copyleft_exception
-    , MPL_2_0
-    , MS_PL
-    , MS_RL
-    , MTLL
-    , Multics
-    , Mup
-    , NASA_1_3
-    , Naumen
-    , NBPL_1_0
-    , NCSA
-    , Net_SNMP
-    , NetCDF
-    , Newsletr
-    , NGPL
-    , NLOD_1_0
-    , NLPL
-    , Nokia
-    , NOSL
-    , Noweb
-    , NPL_1_0
-    , NPL_1_1
-    , NPOSL_3_0
-    , NRL
-    , NTP
-    , OCCT_PL
-    , OCLC_2_0
-    , ODbL_1_0
-    , OFL_1_0
-    , OFL_1_1
-    , OGTSL
-    , OLDAP_1_1
-    , OLDAP_1_2
-    , OLDAP_1_3
-    , OLDAP_1_4
-    , OLDAP_2_0_1
-    , OLDAP_2_0
-    , OLDAP_2_1
-    , OLDAP_2_2_1
-    , OLDAP_2_2_2
-    , OLDAP_2_2
-    , OLDAP_2_3
-    , OLDAP_2_4
-    , OLDAP_2_5
-    , OLDAP_2_6
-    , OLDAP_2_7
-    , OLDAP_2_8
-    , OML
-    , OpenSSL
-    , OPL_1_0
-    , OSET_PL_2_1
-    , OSL_1_0
-    , OSL_1_1
-    , OSL_2_0
-    , OSL_2_1
-    , OSL_3_0
-    , PDDL_1_0
-    , PHP_3_01
-    , PHP_3_0
-    , Plexus
-    , PostgreSQL
-    , Psfrag
-    , Psutils
-    , Python_2_0
-    , Qhull
-    , QPL_1_0
-    , Rdisc
-    , RHeCos_1_1
-    , RPL_1_1
-    , RPL_1_5
-    , RPSL_1_0
-    , RSA_MD
-    , RSCPL
-    , Ruby
-    , SAX_PD
-    , Saxpath
-    , SCEA
-    , Sendmail
-    , SGI_B_1_0
-    , SGI_B_1_1
-    , SGI_B_2_0
-    , SimPL_2_0
-    , SISSL_1_2
-    , SISSL
-    , Sleepycat
-    , SMLNJ
-    , SMPPL
-    , SNIA
-    , Spencer_86
-    , Spencer_94
-    , Spencer_99
-    , SPL_1_0
-    , SugarCRM_1_1_3
-    , SWL
-    , TCL
-    , TCP_wrappers
-    , TMate
-    , TORQUE_1_1
-    , TOSL
-    , Unicode_DFS_2015
-    , Unicode_DFS_2016
-    , Unicode_TOU
-    , Unlicense
-    , UPL_1_0
-    , Vim
-    , VOSTROM
-    , VSL_1_0
-    , W3C_19980720
-    , W3C_20150513
-    , W3C
-    , Watcom_1_0
-    , Wsuipa
-    , WTFPL
-    , X11
-    , Xerox
-    , XFree86_1_1
-    , Xinetd
-    , Xnet
-    , Xpp
-    , XSkat
-    , YPL_1_0
-    , YPL_1_1
-    , Zed
-    , Zend_2_0
-    , Zimbra_1_3
-    , Zimbra_1_4
-    , Zlib_acknowledgement
-    , Zlib
-    , ZPL_1_1
-    , ZPL_2_0
-    , ZPL_2_1
-    ]
+  [ NullBSD
+  , AAL
+  , Abstyles
+  , Adobe_2006
+  , Adobe_Glyph
+  , ADSL
+  , AFL_1_1
+  , AFL_1_2
+  , AFL_2_0
+  , AFL_2_1
+  , AFL_3_0
+  , Afmparse
+  , AGPL_3_0_only
+  , AGPL_3_0_or_later
+  , Aladdin
+  , AMDPLPA
+  , AML
+  , AMPAS
+  , ANTLR_PD
+  , Apache_1_0
+  , Apache_1_1
+  , Apache_2_0
+  , APAFML
+  , APL_1_0
+  , APSL_1_0
+  , APSL_1_1
+  , APSL_1_2
+  , APSL_2_0
+  , Artistic_1_0_cl8
+  , Artistic_1_0_Perl
+  , Artistic_1_0
+  , Artistic_2_0
+  , Bahyph
+  , Barr
+  , Beerware
+  , BitTorrent_1_0
+  , BitTorrent_1_1
+  , Borceux
+  , BSD_1_Clause
+  , BSD_2_Clause_Patent
+  , BSD_2_Clause
+  , BSD_3_Clause_Attribution
+  , BSD_3_Clause_Clear
+  , BSD_3_Clause_LBNL
+  , BSD_3_Clause_No_Nuclear_License_2014
+  , BSD_3_Clause_No_Nuclear_License
+  , BSD_3_Clause_No_Nuclear_Warranty
+  , BSD_3_Clause
+  , BSD_4_Clause_UC
+  , BSD_4_Clause
+  , BSD_Protection
+  , BSD_Source_Code
+  , BSL_1_0
+  , Bzip2_1_0_6
+  , Caldera
+  , CATOSL_1_1
+  , CC_BY_1_0
+  , CC_BY_2_0
+  , CC_BY_2_5
+  , CC_BY_3_0
+  , CC_BY_4_0
+  , CC_BY_NC_1_0
+  , CC_BY_NC_2_0
+  , CC_BY_NC_2_5
+  , CC_BY_NC_3_0
+  , CC_BY_NC_4_0
+  , CC_BY_NC_ND_1_0
+  , CC_BY_NC_ND_2_0
+  , CC_BY_NC_ND_2_5
+  , CC_BY_NC_ND_3_0
+  , CC_BY_NC_ND_4_0
+  , CC_BY_NC_SA_1_0
+  , CC_BY_NC_SA_2_0
+  , CC_BY_NC_SA_2_5
+  , CC_BY_NC_SA_3_0
+  , CC_BY_NC_SA_4_0
+  , CC_BY_ND_1_0
+  , CC_BY_ND_2_0
+  , CC_BY_ND_2_5
+  , CC_BY_ND_3_0
+  , CC_BY_ND_4_0
+  , CC_BY_SA_1_0
+  , CC_BY_SA_2_0
+  , CC_BY_SA_2_5
+  , CC_BY_SA_3_0
+  , CC_BY_SA_4_0
+  , CC0_1_0
+  , CDDL_1_0
+  , CDDL_1_1
+  , CDLA_Permissive_1_0
+  , CDLA_Sharing_1_0
+  , CECILL_1_0
+  , CECILL_1_1
+  , CECILL_2_0
+  , CECILL_2_1
+  , CECILL_B
+  , CECILL_C
+  , ClArtistic
+  , CNRI_Jython
+  , CNRI_Python_GPL_Compatible
+  , CNRI_Python
+  , Condor_1_1
+  , CPAL_1_0
+  , CPL_1_0
+  , CPOL_1_02
+  , Crossword
+  , CrystalStacker
+  , CUA_OPL_1_0
+  , Cube
+  , Curl
+  , D_FSL_1_0
+  , Diffmark
+  , DOC
+  , Dotseqn
+  , DSDP
+  , Dvipdfm
+  , ECL_1_0
+  , ECL_2_0
+  , EFL_1_0
+  , EFL_2_0
+  , EGenix
+  , Entessa
+  , EPL_1_0
+  , EPL_2_0
+  , ErlPL_1_1
+  , EUDatagrid
+  , EUPL_1_0
+  , EUPL_1_1
+  , EUPL_1_2
+  , Eurosym
+  , Fair
+  , Frameworx_1_0
+  , FreeImage
+  , FSFAP
+  , FSFULLR
+  , FSFUL
+  , FTL
+  , GFDL_1_1_only
+  , GFDL_1_1_or_later
+  , GFDL_1_2_only
+  , GFDL_1_2_or_later
+  , GFDL_1_3_only
+  , GFDL_1_3_or_later
+  , Giftware
+  , GL2PS
+  , Glide
+  , Glulxe
+  , Gnuplot
+  , GPL_1_0_only
+  , GPL_1_0_or_later
+  , GPL_2_0_only
+  , GPL_2_0_or_later
+  , GPL_3_0_only
+  , GPL_3_0_or_later
+  , GSOAP_1_3b
+  , HaskellReport
+  , HPND
+  , IBM_pibs
+  , ICU
+  , IJG
+  , ImageMagick
+  , IMatix
+  , Imlib2
+  , Info_ZIP
+  , Intel_ACPI
+  , Intel
+  , Interbase_1_0
+  , IPA
+  , IPL_1_0
+  , ISC
+  , JasPer_2_0
+  , JSON
+  , LAL_1_2
+  , LAL_1_3
+  , Latex2e
+  , Leptonica
+  , LGPL_2_0_only
+  , LGPL_2_0_or_later
+  , LGPL_2_1_only
+  , LGPL_2_1_or_later
+  , LGPL_3_0_only
+  , LGPL_3_0_or_later
+  , LGPLLR
+  , Libpng
+  , Libtiff
+  , LiLiQ_P_1_1
+  , LiLiQ_R_1_1
+  , LiLiQ_Rplus_1_1
+  , LPL_1_02
+  , LPL_1_0
+  , LPPL_1_0
+  , LPPL_1_1
+  , LPPL_1_2
+  , LPPL_1_3a
+  , LPPL_1_3c
+  , MakeIndex
+  , MirOS
+  , MIT_advertising
+  , MIT_CMU
+  , MIT_enna
+  , MIT_feh
+  , MITNFA
+  , MIT
+  , Motosoto
+  , Mpich2
+  , MPL_1_0
+  , MPL_1_1
+  , MPL_2_0_no_copyleft_exception
+  , MPL_2_0
+  , MS_PL
+  , MS_RL
+  , MTLL
+  , Multics
+  , Mup
+  , NASA_1_3
+  , Naumen
+  , NBPL_1_0
+  , NCSA
+  , Net_SNMP
+  , NetCDF
+  , Newsletr
+  , NGPL
+  , NLOD_1_0
+  , NLPL
+  , Nokia
+  , NOSL
+  , Noweb
+  , NPL_1_0
+  , NPL_1_1
+  , NPOSL_3_0
+  , NRL
+  , NTP
+  , OCCT_PL
+  , OCLC_2_0
+  , ODbL_1_0
+  , OFL_1_0
+  , OFL_1_1
+  , OGTSL
+  , OLDAP_1_1
+  , OLDAP_1_2
+  , OLDAP_1_3
+  , OLDAP_1_4
+  , OLDAP_2_0_1
+  , OLDAP_2_0
+  , OLDAP_2_1
+  , OLDAP_2_2_1
+  , OLDAP_2_2_2
+  , OLDAP_2_2
+  , OLDAP_2_3
+  , OLDAP_2_4
+  , OLDAP_2_5
+  , OLDAP_2_6
+  , OLDAP_2_7
+  , OLDAP_2_8
+  , OML
+  , OpenSSL
+  , OPL_1_0
+  , OSET_PL_2_1
+  , OSL_1_0
+  , OSL_1_1
+  , OSL_2_0
+  , OSL_2_1
+  , OSL_3_0
+  , PDDL_1_0
+  , PHP_3_01
+  , PHP_3_0
+  , Plexus
+  , PostgreSQL
+  , Psfrag
+  , Psutils
+  , Python_2_0
+  , Qhull
+  , QPL_1_0
+  , Rdisc
+  , RHeCos_1_1
+  , RPL_1_1
+  , RPL_1_5
+  , RPSL_1_0
+  , RSA_MD
+  , RSCPL
+  , Ruby
+  , SAX_PD
+  , Saxpath
+  , SCEA
+  , Sendmail
+  , SGI_B_1_0
+  , SGI_B_1_1
+  , SGI_B_2_0
+  , SimPL_2_0
+  , SISSL_1_2
+  , SISSL
+  , Sleepycat
+  , SMLNJ
+  , SMPPL
+  , SNIA
+  , Spencer_86
+  , Spencer_94
+  , Spencer_99
+  , SPL_1_0
+  , SugarCRM_1_1_3
+  , SWL
+  , TCL
+  , TCP_wrappers
+  , TMate
+  , TORQUE_1_1
+  , TOSL
+  , Unicode_DFS_2015
+  , Unicode_DFS_2016
+  , Unicode_TOU
+  , Unlicense
+  , UPL_1_0
+  , Vim
+  , VOSTROM
+  , VSL_1_0
+  , W3C_19980720
+  , W3C_20150513
+  , W3C
+  , Watcom_1_0
+  , Wsuipa
+  , WTFPL
+  , X11
+  , Xerox
+  , XFree86_1_1
+  , Xinetd
+  , Xnet
+  , Xpp
+  , XSkat
+  , YPL_1_0
+  , YPL_1_1
+  , Zed
+  , Zend_2_0
+  , Zimbra_1_3
+  , Zimbra_1_4
+  , Zlib_acknowledgement
+  , Zlib
+  , ZPL_1_1
+  , ZPL_2_0
+  , ZPL_2_1
+  ]

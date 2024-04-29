@@ -5,6 +5,7 @@
 {-# LANGUAGE RankNTypes #-}
 
 -----------------------------------------------------------------------------
+
 -- |
 -- Module      :  Distribution.Simple.Program.Find
 -- Copyright   :  Duncan Coutts 2013
@@ -24,34 +25,39 @@
 -- So we need an extension of the usual 'findExecutable' that can look in
 -- additional locations, either before, after or instead of the normal OS
 -- locations.
---
-module Distribution.Simple.Program.Find (
-    -- * Program search path
-    ProgramSearchPath,
-    ProgramSearchPathEntry(..),
-    defaultProgramSearchPath,
-    findProgramOnSearchPath,
-    programSearchPathAsPATHVar,
-    logExtraProgramSearchPath,
-    getSystemSearchPath,
-    getExtraPathEnv,
-    simpleProgram
+module Distribution.Simple.Program.Find
+  ( -- * Program search path
+    ProgramSearchPath
+  , ProgramSearchPathEntry (..)
+  , defaultProgramSearchPath
+  , findProgramOnSearchPath
+  , programSearchPathAsPATHVar
+  , logExtraProgramSearchPath
+  , getSystemSearchPath
+  , getExtraPathEnv
+  , simpleProgram
   ) where
 
-import Prelude ()
 import Distribution.Compat.Prelude
+import Prelude ()
 
-import Distribution.Verbosity
+import Distribution.Compat.Environment
 import Distribution.Simple.Program.Types
 import Distribution.Simple.Utils
 import Distribution.System
-import Distribution.Compat.Environment
+import Distribution.Verbosity
 
 import qualified System.Directory as Directory
-         ( findExecutable )
+  ( findExecutable
+  )
 import System.FilePath as FilePath
-         ( (</>), (<.>), splitSearchPath, searchPathSeparator, getSearchPath
-         , takeDirectory )
+  ( getSearchPath
+  , searchPathSeparator
+  , splitSearchPath
+  , takeDirectory
+  , (<.>)
+  , (</>)
+  )
 #if defined(mingw32_HOST_OS)
 import qualified System.Win32 as Win32
 #endif
@@ -68,69 +74,74 @@ logExtraProgramSearchPath verbosity extraPaths =
     "Including the following directories in PATH:"
       : map ("- " ++) extraPaths
 
-findProgramOnSearchPath :: Verbosity -> ProgramSearchPath
-                        -> FilePath -> IO (Maybe (FilePath, [FilePath]))
+findProgramOnSearchPath
+  :: Verbosity
+  -> ProgramSearchPath
+  -> FilePath
+  -> IO (Maybe (FilePath, [FilePath]))
 findProgramOnSearchPath verbosity searchpath prog = do
-    debug verbosity $ "Searching for " ++ prog ++ " in path."
-    res <- tryPathElems [] searchpath
-    case res of
-      Nothing   -> debug verbosity ("Cannot find " ++ prog ++ " on the path")
-      Just (path, _) -> debug verbosity ("Found " ++ prog ++ " at "++ path)
-    return res
+  debug verbosity $ "Searching for " ++ prog ++ " in path."
+  res <- tryPathElems [] searchpath
+  case res of
+    Nothing -> debug verbosity ("Cannot find " ++ prog ++ " on the path")
+    Just (path, _) -> debug verbosity ("Found " ++ prog ++ " at " ++ path)
+  return res
   where
-    tryPathElems :: [[FilePath]] -> [ProgramSearchPathEntry]
-                 -> IO (Maybe (FilePath, [FilePath]))
-    tryPathElems _     []       = return Nothing
-    tryPathElems tried (pe:pes) = do
+    tryPathElems
+      :: [[FilePath]]
+      -> [ProgramSearchPathEntry]
+      -> IO (Maybe (FilePath, [FilePath]))
+    tryPathElems _ [] = return Nothing
+    tryPathElems tried (pe : pes) = do
       res <- tryPathElem pe
       case res of
-        (Nothing,      notfoundat) -> tryPathElems (notfoundat : tried) pes
+        (Nothing, notfoundat) -> tryPathElems (notfoundat : tried) pes
         (Just foundat, notfoundat) -> return (Just (foundat, alltried))
           where
             alltried = concat (reverse (notfoundat : tried))
 
     tryPathElem :: ProgramSearchPathEntry -> IO (Maybe FilePath, [FilePath])
     tryPathElem (ProgramSearchPathDir dir) =
-        findFirstExe [ dir </> prog <.> ext | ext <- exeExtensions ]
-
+      findFirstExe [dir </> prog <.> ext | ext <- exeExtensions]
     -- On windows, getSystemSearchPath is not guaranteed 100% correct so we
     -- use findExecutable and then approximate the not-found-at locations.
     tryPathElem ProgramSearchPathDefault | buildOS == Windows = do
-      mExe    <- firstJustM [ findExecutable (prog <.> ext) | ext <- exeExtensions ]
+      mExe <- firstJustM [findExecutable (prog <.> ext) | ext <- exeExtensions]
       syspath <- getSystemSearchPath
       case mExe of
         Nothing ->
-          let notfoundat = [ dir </> prog | dir <- syspath ] in
-          return (Nothing, notfoundat)
-
+          let notfoundat = [dir </> prog | dir <- syspath]
+           in return (Nothing, notfoundat)
         Just foundat -> do
-          let founddir   = takeDirectory foundat
-              notfoundat = [ dir </> prog
-                           | dir <- takeWhile (/= founddir) syspath ]
+          let founddir = takeDirectory foundat
+              notfoundat =
+                [ dir </> prog
+                | dir <- takeWhile (/= founddir) syspath
+                ]
           return (Just foundat, notfoundat)
 
     -- On other OSs we can just do the simple thing
     tryPathElem ProgramSearchPathDefault = do
       dirs <- getSystemSearchPath
-      findFirstExe [ dir </> prog <.> ext | dir <- dirs, ext <- exeExtensions ]
+      findFirstExe [dir </> prog <.> ext | dir <- dirs, ext <- exeExtensions]
 
     findFirstExe :: [FilePath] -> IO (Maybe FilePath, [FilePath])
     findFirstExe = go []
       where
-        go fs' []     = return (Nothing, reverse fs')
-        go fs' (f:fs) = do
+        go fs' [] = return (Nothing, reverse fs')
+        go fs' (f : fs) = do
           isExe <- doesExecutableExist f
           if isExe
             then return (Just f, reverse fs')
-            else go (f:fs') fs
+            else go (f : fs') fs
 
     -- Helper for evaluating actions until the first one returns 'Just'
     firstJustM :: Monad m => [m (Maybe a)] -> m (Maybe a)
     firstJustM [] = return Nothing
-    firstJustM (ma:mas) = do
+    firstJustM (ma : mas) = do
       a <- ma
       case a of
-        Just _  -> return a
+        Just _ -> return a
         Nothing -> firstJustM mas
 
 -- | Adds some paths to the "PATH" entry in the key-value environment provided
@@ -157,17 +168,16 @@ getExtraPathEnv verbosity env extras = do
 -- algorithm looks at more than just the @%PATH%@.
 programSearchPathAsPATHVar :: ProgramSearchPath -> IO String
 programSearchPathAsPATHVar searchpath = do
-    ess <- traverse getEntries searchpath
-    return (intercalate [searchPathSeparator] (concat ess))
+  ess <- traverse getEntries searchpath
+  return (intercalate [searchPathSeparator] (concat ess))
   where
     getEntries (ProgramSearchPathDir dir) = return [dir]
-    getEntries ProgramSearchPathDefault   = do
+    getEntries ProgramSearchPathDefault = do
       env <- getEnvironment
       return (maybe [] splitSearchPath (lookup "PATH" env))
 
 -- | Get the system search path. On Unix systems this is just the @$PATH@ env
 -- var, but on windows it's a bit more complicated.
---
 getSystemSearchPath :: IO [FilePath]
 getSystemSearchPath = fmap nub $ do
 #if defined(mingw32_HOST_OS)
@@ -207,19 +217,18 @@ findExecutable prog = do
         _     -> return mExe
 #endif
 
-
 -- | Make a simple named program.
 --
 -- By default we'll just search for it in the path and not try to find the
 -- version name. You can override these behaviours if necessary, eg:
 --
 -- > (simpleProgram "foo") { programFindLocation = ... , programFindVersion ... }
---
 simpleProgram :: String -> Program
-simpleProgram name = Program {
-    programName         = name,
-    programFindLocation = \v p -> findProgramOnSearchPath v p name,
-    programFindVersion  = \_ _ -> return Nothing,
-    programPostConf     = \_ p -> return p,
-    programNormaliseArgs   = \_ _ -> id
-  }
+simpleProgram name =
+  Program
+    { programName = name
+    , programFindLocation = \v p -> findProgramOnSearchPath v p name
+    , programFindVersion = \_ _ -> return Nothing
+    , programPostConf = \_ p -> return p
+    , programNormaliseArgs = \_ _ -> id
+    }

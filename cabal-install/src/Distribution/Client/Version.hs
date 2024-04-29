@@ -1,5 +1,4 @@
 -- | Provides the version number of @cabal-install@.
-
 module Distribution.Client.Version
   ( cabalInstallVersion
   ) where
