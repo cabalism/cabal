@@ -83,11 +83,22 @@ docProjectConfigPath (ProjectConfigPath (p :| ps)) = vcat $
 --     tests.config"
 -- @
 --
+-- @
+-- a.project
+-- dir-a/
+-- dir-b/
+-- dir-c/
+--   b.config
+--   b.config
+--   b.config
+--     dir-c/
+--       a.config"
+-- @
+--
 -- >>> :{
 --   do
 --     let ps =
 --              [ ProjectConfigPath ("project-cabal/constraints.config" :| ["cabal.project"])
---              , ProjectConfigPath ("project-cabal/ghc-latest.config" :| ["cabal.project"])
 --              , ProjectConfigPath ("project-cabal/ghc-latest.config" :| ["cabal.project"])
 --              , ProjectConfigPath ("project-cabal/ghc-options.config" :| ["cabal.project"])
 --              , ProjectConfigPath ("project-cabal/pkgs.config" :| ["cabal.project"])
@@ -102,6 +113,19 @@ docProjectConfigPath (ProjectConfigPath (p :| ps)) = vcat $
 --     return . render $ docProjectConfigPaths ps
 -- :}
 -- "cabal.project\nproject-cabal/\n  constraints.config\n  ghc-latest.config\n  ghc-options.config\n  pkgs.config\n  pkgs/\n    benchmarks.config\n    buildinfo.config\n    cabal.config\n    install.config\n    integration-tests.config\n    tests.config"
+--
+-- >>> :{
+--   do
+--     let ps =
+--              [ ProjectConfigPath ("dir-a/b.config" :| ["a.project"])
+--              , ProjectConfigPath ("dir-b/b.config" :| ["a.project"])
+--              , ProjectConfigPath ("dir-c/b.config" :| ["a.project"])
+--              , ProjectConfigPath ("dir-a/dir-b/dir-c/a.config" :| ["a.project"])
+--              , ProjectConfigPath ("a.project" :| [])
+--              ]
+--     return . render $ docProjectConfigPaths ps
+-- :}
+-- "a.project\ndir-a/\ndir-b/\ndir-c/\n  b.config\n  b.config\n  b.config\n    dir-c/\n      a.config"
 docProjectConfigPaths :: [ProjectConfigPath] -> Doc
 docProjectConfigPaths ps =
     vcat
