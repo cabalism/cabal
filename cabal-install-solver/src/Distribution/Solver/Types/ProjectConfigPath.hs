@@ -138,7 +138,7 @@ docProjectConfigPaths ps =
         files = (False,) <$> ys
         ancestors =
             [ (True, (d, reverse $ d : ds))
-            | d : ds <- nub . snd $ unzip ys
+            | d : ds <- nub $ map snd ys
             ]
 
 -- | For all paths up the tree, the leaf and its paths.
