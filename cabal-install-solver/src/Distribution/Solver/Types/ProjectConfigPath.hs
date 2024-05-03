@@ -1,5 +1,7 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE TupleSections #-}
+{-# LANGUAGE ViewPatterns #-}
 
 module Distribution.Solver.Types.ProjectConfigPath
     (
@@ -11,6 +13,7 @@ module Distribution.Solver.Types.ProjectConfigPath
 
     -- * Messages
     , docProjectConfigPath
+    , docProjectConfigPaths
     , cyclicalImportMsg
     , docProjectConfigPathFailReason
 
@@ -56,12 +59,78 @@ instance Structured ProjectConfigPath
 --   imported by: B.config
 --   imported by: A.project
 -- @
--- >>> render . docProjectConfigPath $ ProjectConfigPath $ "D.config" :| ["C.config", "B.config", "A.project" ]
+-- >>> render . docProjectConfigPath $ ProjectConfigPath $ "D.config" :| ["C.config", "B.config", "A.project"]
 -- "D.config\n  imported by: C.config\n  imported by: B.config\n  imported by: A.project"
 docProjectConfigPath :: ProjectConfigPath -> Doc
 docProjectConfigPath (ProjectConfigPath (p :| [])) = text p
 docProjectConfigPath (ProjectConfigPath (p :| ps)) = vcat $
     text p : [ text " " <+> text "imported by:" <+> text l | l <- ps ]
+
+-- | Renders the paths, by increasing depth, like this;
+-- @
+-- cabal.project
+-- project-cabal/
+--   constraints.config
+--   ghc-latest.config
+--   ghc-options.config
+--   pkgs.config
+--   pkgs/
+--     benchmarks.config
+--     buildinfo.config
+--     cabal.config
+--     install.config
+--     integration-tests.config
+--     tests.config"
+-- @
+--
+-- >>> :{
+--   do
+--     let ps =
+--              [ ProjectConfigPath ("project-cabal/constraints.config" :| ["cabal.project"])
+--              , ProjectConfigPath ("project-cabal/ghc-latest.config" :| ["cabal.project"])
+--              , ProjectConfigPath ("project-cabal/ghc-latest.config" :| ["cabal.project"])
+--              , ProjectConfigPath ("project-cabal/ghc-options.config" :| ["cabal.project"])
+--              , ProjectConfigPath ("project-cabal/pkgs.config" :| ["cabal.project"])
+--              , ProjectConfigPath ("project-cabal/pkgs/benchmarks.config" :| ["project-cabal/pkgs.config","cabal.project"])
+--              , ProjectConfigPath ("project-cabal/pkgs/buildinfo.config" :| ["project-cabal/pkgs.config","cabal.project"])
+--              , ProjectConfigPath ("project-cabal/pkgs/cabal.config" :| ["project-cabal/pkgs.config","cabal.project"])
+--              , ProjectConfigPath ("project-cabal/pkgs/install.config" :| ["project-cabal/pkgs.config","cabal.project"])
+--              , ProjectConfigPath ("project-cabal/pkgs/integration-tests.config" :| ["project-cabal/pkgs.config","cabal.project"])
+--              , ProjectConfigPath ("project-cabal/pkgs/tests.config" :| ["project-cabal/pkgs.config","cabal.project"])
+--              , ProjectConfigPath ("cabal.project" :| [])
+--              ]
+--     return . render $ docProjectConfigPaths ps
+-- :}
+-- "cabal.project\nproject-cabal/\n  constraints.config\n  ghc-latest.config\n  ghc-options.config\n  pkgs.config\n  pkgs/\n    benchmarks.config\n    buildinfo.config\n    cabal.config\n    install.config\n    integration-tests.config\n    tests.config"
+docProjectConfigPaths :: [ProjectConfigPath] -> Doc
+docProjectConfigPaths ps =
+    vcat
+    [ nest (2 * (length pathTo - (if isDir then 1 else 0))) $ text l
+    | (isDir, (l, pathTo)) <- sortBy (compare `on` f) (files ++ ancestors)
+    ]
+    where
+        f (isDir, (_, xs)) = (length xs, not isDir)
+        ys = nub . concat $ projectConfigPathLeafs <$> ps
+        files = (False,) <$> ys
+        ancestors =
+            [ (True, (d, reverse $ d : ds))
+            | d : ds <- nub . snd $ unzip ys
+            ]
+
+-- | For all paths up the tree, the leaf and its paths.
+projectConfigPathLeafs :: ProjectConfigPath -> [(FilePath, [FilePath])]
+projectConfigPathLeafs x@(ProjectConfigPath (_ :| [])) =
+    [projectConfigPathLeaf x]
+projectConfigPathLeafs (ProjectConfigPath (x :| (y : ys))) =
+    projectConfigPathLeaf (ProjectConfigPath $ x :| []) : projectConfigPathLeafs (ProjectConfigPath $ y :| ys)
+
+-- | Splits the path into the leaf and the rest of the path.
+projectConfigPathLeaf :: ProjectConfigPath -> (FilePath, [FilePath])
+projectConfigPathLeaf (ProjectConfigPath xs) =
+    case reverse . splitPath $ head xs of
+        [y] -> (y, [])
+        y : ys -> (y, ys)
+        [] -> ("", [])
 
 -- | A message for a cyclical import, assuming the head of the path is the
 -- duplicate.
