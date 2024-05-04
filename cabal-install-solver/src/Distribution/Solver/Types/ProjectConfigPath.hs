@@ -85,15 +85,19 @@ docProjectConfigPath (ProjectConfigPath (p :| ps)) = vcat $
 -- @
 --
 -- @
--- 0.project
+-- "0.project
 -- dir-a/
 --   1.config
+--   dir-b/
 --     dir-c/
 --       4.config
+--       dir-d/
+--         dir-e/
+--           5.config
 -- dir-b/
 --   2.config
 -- dir-c/
---   3.config"
+--   3.config
 -- @
 --
 -- >>> :{
@@ -122,16 +126,17 @@ docProjectConfigPath (ProjectConfigPath (p :| ps)) = vcat $
 --              , ProjectConfigPath ("dir-b/2.config" :| ["0.project"])
 --              , ProjectConfigPath ("dir-c/3.config" :| ["0.project"])
 --              , ProjectConfigPath ("dir-a/dir-b/dir-c/4.config" :| ["0.project"])
+--              , ProjectConfigPath ("dir-a/dir-b/dir-c/dir-d/dir-e/5.config" :| ["0.project"])
 --              , ProjectConfigPath ("0.project" :| [])
 --              ]
 --     return . render $ docProjectConfigPaths ps
 -- :}
--- "0.project\ndir-a/\n  1.config\n    dir-c/\n      4.config\ndir-b/\n  2.config\ndir-c/\n  3.config"
+-- "0.project\ndir-a/\n  1.config\n  dir-b/\n    dir-c/\n      4.config\n      dir-d/\n        dir-e/\n          5.config\ndir-b/\n  2.config\ndir-c/\n  3.config"
 docProjectConfigPaths :: [ProjectConfigPath] -> Doc
 docProjectConfigPaths ps =
     vcat
     [ nest (2 * (length pathTo - (if isDir then 1 else 0))) $ text l
-    | (isDir, (l, pathTo)) <- sortBy (compare `on` f) (files ++ ancestors)
+    | (isDir, (l, pathTo)) <- nub $ sortBy (compare `on` f) (files ++ ((True,) <$> (ancestors (map snd ys))))
     ]
     where
         f (isDir, (x, xs)) =
@@ -139,12 +144,15 @@ docProjectConfigPaths ps =
                 | null xs -> "/" </> x -- prefix with / to sort root(s) first
                 | isDir -> joinPath (reverse xs)
                 | otherwise -> joinPath (reverse $ x : xs)
-        ys = nub . concat $ projectConfigPathLeafs <$> ps
+        ys = concat $ projectConfigPathLeafs <$> ps
         files = (False,) <$> ys
-        ancestors =
-            [ (True, (d, d : ds))
-            | d : ds <- nub $ map snd ys
-            ]
+
+ancestors :: [[a]] -> [(a, [a])]
+ancestors dys =
+    concat
+    [ [(d, d : ds)] ++ ancestors [ds]
+    | d : ds <- dys
+    ]
 
 -- | For all paths up the tree, the leaf and its paths.
 projectConfigPathLeafs :: ProjectConfigPath -> [(FilePath, [FilePath])]
