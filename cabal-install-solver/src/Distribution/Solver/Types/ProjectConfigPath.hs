@@ -1,5 +1,6 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE MultiWayIf #-}
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE ViewPatterns #-}
 
@@ -84,15 +85,15 @@ docProjectConfigPath (ProjectConfigPath (p :| ps)) = vcat $
 -- @
 --
 -- @
--- a.project
+-- 0.project
 -- dir-a/
--- dir-b/
--- dir-c/
---   b.config
---   b.config
---   b.config
+--   1.config
 --     dir-c/
---       a.config"
+--       4.config
+-- dir-b/
+--   2.config
+-- dir-c/
+--   3.config"
 -- @
 --
 -- >>> :{
@@ -117,15 +118,15 @@ docProjectConfigPath (ProjectConfigPath (p :| ps)) = vcat $
 -- >>> :{
 --   do
 --     let ps =
---              [ ProjectConfigPath ("dir-a/b.config" :| ["a.project"])
---              , ProjectConfigPath ("dir-b/b.config" :| ["a.project"])
---              , ProjectConfigPath ("dir-c/b.config" :| ["a.project"])
---              , ProjectConfigPath ("dir-a/dir-b/dir-c/a.config" :| ["a.project"])
---              , ProjectConfigPath ("a.project" :| [])
+--              [ ProjectConfigPath ("dir-a/1.config" :| ["0.project"])
+--              , ProjectConfigPath ("dir-b/2.config" :| ["0.project"])
+--              , ProjectConfigPath ("dir-c/3.config" :| ["0.project"])
+--              , ProjectConfigPath ("dir-a/dir-b/dir-c/4.config" :| ["0.project"])
+--              , ProjectConfigPath ("0.project" :| [])
 --              ]
 --     return . render $ docProjectConfigPaths ps
 -- :}
--- "a.project\ndir-a/\ndir-b/\ndir-c/\n  b.config\n  b.config\n  b.config\n    dir-c/\n      a.config"
+-- "0.project\ndir-a/\n  1.config\n    dir-c/\n      4.config\ndir-b/\n  2.config\ndir-c/\n  3.config"
 docProjectConfigPaths :: [ProjectConfigPath] -> Doc
 docProjectConfigPaths ps =
     vcat
@@ -133,11 +134,15 @@ docProjectConfigPaths ps =
     | (isDir, (l, pathTo)) <- sortBy (compare `on` f) (files ++ ancestors)
     ]
     where
-        f (isDir, (_, xs)) = (length xs, not isDir)
+        f (isDir, (x, xs)) =
+            if
+                | null xs -> "/" </> x -- prefix with / to sort root(s) first
+                | isDir -> joinPath (reverse xs)
+                | otherwise -> joinPath (reverse $ x : xs)
         ys = nub . concat $ projectConfigPathLeafs <$> ps
         files = (False,) <$> ys
         ancestors =
-            [ (True, (d, reverse $ d : ds))
+            [ (True, (d, d : ds))
             | d : ds <- nub $ map snd ys
             ]
 
@@ -150,8 +155,8 @@ projectConfigPathLeafs (ProjectConfigPath (x :| (y : ys))) =
 
 -- | Splits the path into the leaf and the rest of the path.
 projectConfigPathLeaf :: ProjectConfigPath -> (FilePath, [FilePath])
-projectConfigPathLeaf (ProjectConfigPath xs) =
-    case reverse . splitPath $ head xs of
+projectConfigPathLeaf (ProjectConfigPath (x :| _)) =
+    case reverse $ splitPath x of
         [y] -> (y, [])
         y : ys -> (y, ys)
         [] -> ("", [])
@@ -296,3 +301,17 @@ isURI = isJust . parseURI
 -- $setup
 -- >>> import Data.List
 -- >>> testDir <- makeAbsolute =<< canonicalizePath "../cabal-testsuite/PackageTests/ConditionalAndImport"
+
+-- //cabal.project
+-- /project-cabal
+-- /project-cabal/constraints.config
+-- /project-cabal/ghc-latest.config
+-- /project-cabal/ghc-options.config
+-- /project-cabal/pkgs
+-- /project-cabal/pkgs.config
+-- /project-cabal/pkgs/benchmarks.config
+-- /project-cabal/pkgs/buildinfo.config
+-- /project-cabal/pkgs/cabal.config
+-- /project-cabal/pkgs/install.config
+-- /project-cabal/pkgs/integration-tests.config
+-- /project-cabal/pkgs/tests.config
