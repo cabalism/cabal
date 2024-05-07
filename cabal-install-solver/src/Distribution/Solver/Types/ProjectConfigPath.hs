@@ -1,6 +1,7 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE MultiWayIf #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE ViewPatterns #-}
 
@@ -23,11 +24,12 @@ module Distribution.Solver.Types.ProjectConfigPath
     , canonicalizeConfigPath
     ) where
 
-import Distribution.Solver.Compat.Prelude hiding (toList, (<>))
+import Distribution.Solver.Compat.Prelude hiding (toList, (<>), get, put)
 import Prelude (sequence)
 
 import Data.Coerce (coerce)
 import Data.List.NonEmpty ((<|))
+import Data.Tree
 import Network.URI (parseURI)
 import System.Directory
 import System.FilePath
@@ -133,41 +135,76 @@ docProjectConfigPath (ProjectConfigPath (p :| ps)) = vcat $
 -- :}
 -- "0.p\na/\n  1.c\n  b/\n    c/\n      4.c\n      d/\n        e/\n          5.c\nb/\n  2.c\nc/\n  3.c"
 docProjectConfigPaths :: [ProjectConfigPath] -> Doc
-docProjectConfigPaths ps =
-    vcat
-    [ nest (2 * (length pathTo - (if isDir then 1 else 0))) $ text l
-    | (isDir, (l, pathTo)) <- nub $ sortBy (compare `on` f) (files ++ ((True,) <$> (ancestors (map snd ys))))
-    ]
+docProjectConfigPaths = renderTree . treeFromPaths
+
+    -- vcat
+    -- [ nest (2 * (length pathTo - (if isDir then 1 else 0))) $ text l
+    -- | (isDir, (l, pathTo)) <- nub $ sortBy (compare `on` f) (files ++ ((True,) <$> (ancestors (map snd ys))))
+    -- ]
+    -- where
+    --     f (isDir, (x, xs)) =
+    --         if
+    --             | null xs -> "/" </> x -- prefix with / to sort root(s) first
+    --             | isDir -> joinPath (reverse xs)
+    --             | otherwise -> joinPath (reverse $ x : xs)
+    --     ys = concat $ projectConfigPathLeafs <$> ps
+    --     files = (False,) <$> ys
+
+-- | Renders the tree of paths.
+renderTree :: Tree FilePath -> Doc
+renderTree = go 0
     where
-        f (isDir, (x, xs)) =
-            if
-                | null xs -> "/" </> x -- prefix with / to sort root(s) first
-                | isDir -> joinPath (reverse xs)
-                | otherwise -> joinPath (reverse $ x : xs)
-        ys = concat $ projectConfigPathLeafs <$> ps
-        files = (False,) <$> ys
+        go :: Int -> Tree FilePath -> Doc
+        go n (Node x ts) = vcat
+            [ nest (2 * n) $ text x
+            , vcat $ go (n + 1) <$> ts
+            ]
 
-ancestors :: [[a]] -> [(a, [a])]
-ancestors dys =
-    concat
-    [ [(d, d : ds)] ++ ancestors [ds]
-    | d : ds <- dys
-    ]
+-- | File or Directory
+data FD = D FilePath | F FilePath deriving (Eq, Ord)
 
--- | For all paths up the tree, the leaf and its paths.
-projectConfigPathLeafs :: ProjectConfigPath -> [(FilePath, [FilePath])]
-projectConfigPathLeafs x@(ProjectConfigPath (_ :| [])) =
-    [projectConfigPathLeaf x]
-projectConfigPathLeafs (ProjectConfigPath (x :| (y : ys))) =
-    projectConfigPathLeaf (ProjectConfigPath $ x :| []) : projectConfigPathLeafs (ProjectConfigPath $ y :| ys)
+unFD :: FD -> FilePath
+unFD (D x) = x
+unFD (F x) = x
 
--- | Splits the path into the leaf and the rest of the path.
-projectConfigPathLeaf :: ProjectConfigPath -> (FilePath, [FilePath])
-projectConfigPathLeaf (ProjectConfigPath (x :| _)) =
+treeFromPaths :: [ProjectConfigPath] -> Tree FilePath
+treeFromPaths ps =
+    case f of
+        [x] -> x
+    where
+        leaves :: [[FD]]
+        leaves = depthLast <$> ps
+
+        f = unfoldForest mkTree [([], leaves)]
+
+type W = [[FD]]
+type B = ([FD], W)
+
+mkTree :: B -> (FilePath, [B])
+mkTree (seen, unseen@((y : _) : xs)) =
+    if all (\case [] -> True; (x: _) -> x == y) xs
+        then
+            -- They all have the same head, so we can remove the head and reset seen.
+            let unseen = filter (not . null) $ filter (\case [] -> False; (x:_) -> x == y) xs
+            in (unFD y, [([], unseen)])
+        else
+            -- Sort and pick the first element of the head of a list that we haven't seen.
+            case sort $ filter (\(x:_) -> x `notElem` seen) xs of
+                [] -> error "mkTree: empty list"
+                (z : _) : _ ->
+                    let seen' = z : seen
+                    in (unFD z, [(seen', unseen)])
+
+depthLast :: ProjectConfigPath -> [FD]
+depthLast (leaf -> xs) = reverse xs
+
+-- | Splits the path into a list with the leaf first.
+leaf :: ProjectConfigPath -> [FD]
+leaf (ProjectConfigPath (x :| _)) =
     case reverse $ splitPath x of
-        [y] -> (y, [])
-        y : ys -> (y, ys)
-        [] -> ("", [])
+        [y] -> [F y]
+        y : ys -> F y : let n = length ys - 1 in (D <$> take (n - 1) ys) ++ (F <$> drop n ys)
+        [] -> []
 
 -- | A message for a cyclical import, assuming the head of the path is the
 -- duplicate.
