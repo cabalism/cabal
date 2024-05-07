@@ -181,6 +181,7 @@ type W = [[FD]]
 type B = ([FD], W)
 
 mkTree :: B -> (FilePath, [B])
+mkTree (seen, []) = error "111111"
 mkTree (seen, unseen@((y : _) : xs)) =
     if all (\case [] -> True; (x: _) -> x == y) xs
         then
@@ -190,10 +191,13 @@ mkTree (seen, unseen@((y : _) : xs)) =
         else
             -- Sort and pick the first element of the head of a list that we haven't seen.
             case sort $ filter (\(x:_) -> x `notElem` seen) xs of
-                [] -> error "mkTree: empty list"
                 (z : _) : _ ->
                     let seen' = z : seen
                     in (unFD z, [(seen', unseen)])
+                [] ->
+                    -- They all have been seen now, so we can remove the head and reset seen.
+                    let unseen = filter (not . null) $ filter (\case [] -> False; (x:_) -> x == y) xs
+                    in (unFD y, [([], unseen)])
 
 depthLast :: ProjectConfigPath -> [FD]
 depthLast (leaf -> xs) = reverse xs
