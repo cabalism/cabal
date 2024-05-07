@@ -85,19 +85,19 @@ docProjectConfigPath (ProjectConfigPath (p :| ps)) = vcat $
 -- @
 --
 -- @
--- "0.project
--- dir-a/
---   1.config
---   dir-b/
---     dir-c/
---       4.config
---       dir-d/
---         dir-e/
---           5.config
--- dir-b/
---   2.config
--- dir-c/
---   3.config
+-- 0.p
+-- a/
+--   1.c
+--   b/
+--     c/
+--       4.c
+--       d/
+--         e/
+--           5.c
+-- b/
+--   2.c
+-- c/
+--   3.c
 -- @
 --
 -- >>> :{
@@ -122,16 +122,16 @@ docProjectConfigPath (ProjectConfigPath (p :| ps)) = vcat $
 -- >>> :{
 --   do
 --     let ps =
---              [ ProjectConfigPath ("dir-a/1.config" :| ["0.project"])
---              , ProjectConfigPath ("dir-b/2.config" :| ["0.project"])
---              , ProjectConfigPath ("dir-c/3.config" :| ["0.project"])
---              , ProjectConfigPath ("dir-a/dir-b/dir-c/4.config" :| ["0.project"])
---              , ProjectConfigPath ("dir-a/dir-b/dir-c/dir-d/dir-e/5.config" :| ["0.project"])
---              , ProjectConfigPath ("0.project" :| [])
+--              [ ProjectConfigPath ("a/1.c" :| ["0.p"])
+--              , ProjectConfigPath ("b/2.c" :| ["0.p"])
+--              , ProjectConfigPath ("c/3.c" :| ["0.p"])
+--              , ProjectConfigPath ("a/b/c/4.c" :| ["0.p"])
+--              , ProjectConfigPath ("a/b/c/d/e/5.c" :| ["0.p"])
+--              , ProjectConfigPath ("0.p" :| [])
 --              ]
 --     return . render $ docProjectConfigPaths ps
 -- :}
--- "0.project\ndir-a/\n  1.config\n  dir-b/\n    dir-c/\n      4.config\n      dir-d/\n        dir-e/\n          5.config\ndir-b/\n  2.config\ndir-c/\n  3.config"
+-- "0.p\na/\n  1.c\n  b/\n    c/\n      4.c\n      d/\n        e/\n          5.c\nb/\n  2.c\nc/\n  3.c"
 docProjectConfigPaths :: [ProjectConfigPath] -> Doc
 docProjectConfigPaths ps =
     vcat
