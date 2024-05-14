@@ -127,6 +127,7 @@ import Distribution.Simple.Setup
 import Distribution.Simple.Utils
   ( debug
   , lowercase
+  , ordNub
   )
 import Distribution.Types.CondTree
   ( CondBranch (..)
@@ -274,7 +275,7 @@ parseProjectSkeleton cacheDir httpTransport verbosity importsBy projectDir sourc
 
         -- Once we canonicalize the import path, we can check for cyclical and duplicate imports
         normLocPath@(ProjectConfigPath (uniqueImport :| _)) <- canonicalizeConfigPath projectDir importLocPath
-        seenImportsBy@(fmap fst -> seenImports) <- atomicModifyIORef' importsBy (\ibs -> (nub $ (uniqueImport, normLocPath) : ibs, ibs))
+        seenImportsBy@(fmap fst -> seenImports) <- atomicModifyIORef' importsBy (\ibs -> (ordNub $ (uniqueImport, normLocPath) : ibs, ibs))
 
         debug verbosity $ "\nimport path, normalized\n=======================\n" ++ render (docProjectConfigPath normLocPath)
         debug verbosity "\nseen unique paths\n================="
