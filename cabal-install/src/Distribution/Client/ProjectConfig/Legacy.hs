@@ -127,7 +127,6 @@ import Distribution.Simple.Setup
 import Distribution.Simple.Utils
   ( debug
   , lowercase
-  , ordNub
   )
 import Distribution.Types.CondTree
   ( CondBranch (..)
@@ -139,7 +138,8 @@ import Distribution.Types.CondTree
   )
 import Distribution.Types.SourceRepo (RepoType)
 import Distribution.Utils.NubList
-  ( fromNubList
+  ( NubList
+  , fromNubList
   , overNubList
   , toNubList
   )
@@ -249,14 +249,14 @@ parseProject rootPath cacheDir httpTransport verbosity configToParse = do
   let (dir, projectFileName) = splitFileName rootPath
   projectDir <- makeAbsolute dir
   projectPath@(ProjectConfigPath (canonicalRoot :| _)) <- canonicalizeConfigPath projectDir (ProjectConfigPath $ projectFileName :| [])
-  importsBy <- newIORef [(canonicalRoot, projectPath)]
+  importsBy <- newIORef $ toNubList [(canonicalRoot, projectPath)]
   parseProjectSkeleton cacheDir httpTransport verbosity importsBy projectDir projectPath configToParse
 
 parseProjectSkeleton
   :: FilePath
   -> HttpTransport
   -> Verbosity
-  -> IORef [(FilePath, ProjectConfigPath)]
+  -> IORef (NubList (FilePath, ProjectConfigPath))
   -- ^ The imports seen so far, used to report on cycles and duplicates and to detect duplicates that are not cycles
   -> FilePath
   -- ^ The directory of the project configuration, typically the directory of cabal.project
@@ -275,11 +275,11 @@ parseProjectSkeleton cacheDir httpTransport verbosity importsBy projectDir sourc
 
         -- Once we canonicalize the import path, we can check for cyclical and duplicate imports
         normLocPath@(ProjectConfigPath (uniqueImport :| _)) <- canonicalizeConfigPath projectDir importLocPath
-        seenImportsBy@(fmap fst -> seenImports) <- atomicModifyIORef' importsBy (\ibs -> (ordNub $ (uniqueImport, normLocPath) : ibs, ibs))
+        seenImportsBy@(fmap fst -> seenImports) <- fromNubList <$> atomicModifyIORef' importsBy (\ibs -> (toNubList [(uniqueImport, normLocPath)] <> ibs, ibs))
 
         debug verbosity $ "\nimport path, normalized\n=======================\n" ++ render (docProjectConfigPath normLocPath)
         debug verbosity "\nseen unique paths\n================="
-        mapM_ (debug verbosity . fst) seenImportsBy
+        mapM_ (debug verbosity) seenImports
         debug verbosity "\n"
 
         if
