@@ -58,6 +58,17 @@ The ``myapp.cabal`` file is a package description file, commonly referred to as 
         hs-source-dirs:   app
         default-language: Haskell2010
 
+.. warning::
+
+    The version bounds on base, a boot library distributed with GHC, are tied to
+    the GHC version visible when ``cabal init`` is run. If run with a later
+    version of GHC you might see a difference in the version bounds.
+
+    .. code-block:: diff
+
+        - build-depends:    base ^>=4.19.0.0
+        + build-depends:    base ^>=4.20.0.0
+
 It contains metadata (package name and version, author name, license, etc.) and sections
 to define package components. Components can be used to split large codebases into smaller,
 more managable building blocks.
@@ -189,7 +200,7 @@ the following file named ``myscript``:
     #!/usr/bin/env cabal
     {- cabal:
     build-depends:
-      base ^>=4.19.0.0,
+      base,
       haskell-say ^>=1.0.0.0
     -}
 
@@ -197,6 +208,19 @@ the following file named ``myscript``:
 
     main :: IO ()
     main = haskellSay "Hello, Haskell!"
+
+.. note::
+
+    Version bounds are recommended but widening or dropping version bound
+    constraints on some packages, especially boot packages like base, for
+    single-file scripts will allow the script to run with a wider range of GHC
+    versions.
+
+    .. code-block:: diff
+
+        build-depends:
+        -   base ^>=4.19.0.0,
+        +   base,
 
 The necessary sections of a ``.cabal`` file are placed
 directly into the script as a comment.
