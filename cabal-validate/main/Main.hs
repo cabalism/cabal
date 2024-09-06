@@ -1,4 +1,22 @@
-module Main where
+#!/usr/bin/env cabal
+{- cabal:
+build-depends:
+        base >=4 && <5
+        , ansi-terminal >=1 && <2
+        , turtle >=1 && <2
+        , optparse-applicative >=0.18 && <1
+        , containers >=0.6 && <1
+        , directory >=1.0 && <2
+        , text >=2 && <3
+        , terminal-size >=0.3 && <1
+        , time >=1 && <2
+-}
+
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE NoFieldSelectors #-}
+{-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE OverloadedRecordDot #-}
+{-# LANGUAGE TypeApplications #-}
 
 import Control.Applicative (Alternative (many, (<|>)), (<**>))
 import Control.Monad (forM_, unless)
