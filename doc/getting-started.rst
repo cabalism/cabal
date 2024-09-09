@@ -211,10 +211,9 @@ the following file named ``myscript``:
 
 .. note::
 
-    Version bounds are recommended but widening or dropping version bound
-    constraints on some packages, especially boot packages like base, for
-    single-file scripts will allow the script to run with a wider range of GHC
-    versions.
+    Widening or dropping version bound constraints on *packages included with
+    the compiler* [#boot-packages]_, like ``base``, may allow single-file
+    scripts to run with a wider range of compiler versions.
 
     .. code-block:: diff
 
@@ -253,3 +252,9 @@ Now that you know how to set up a simple Haskell package using Cabal, check out
 some of the resources on the Haskell website's `documentation page
 <https://www.haskell.org/documentation/>`__ or read more about packages and
 Cabal on the :doc:`What Cabal does <cabal-context>` page.
+
+.. [#boot-packages] Packages included with the compiler are also called boot
+   packages. Each GHC compiler version has accompanying `release notes`_ that
+   list these included packages.
+
+.. _release notes: https://downloads.haskell.org/ghc/latest/docs/users_guide/release-notes.html
