@@ -128,6 +128,7 @@ import Distribution.Simple.Setup
 import Distribution.Simple.Utils
   ( debug
   , lowercase
+  , warn
   )
 import Distribution.Types.CondTree
   ( CondBranch (..)
@@ -283,17 +284,20 @@ parseProjectSkeleton cacheDir httpTransport verbosity importsBy projectDir sourc
         mapM_ (debug verbosity) seenImports
         debug verbosity "\n"
 
-        if
-            | isCyclicConfigPath normLocPath ->
-                pure . parseFail $ ParseUtils.FromString (render $ cyclicalImportMsg normLocPath) Nothing
-            | uniqueImport `elem` seenImports -> do
-                pure . parseFail $ ParseUtils.FromString (render $ duplicateImportMsg uniqueImport normLocPath seenImportsBy) Nothing
-            | otherwise -> do
-                normSource <- canonicalizeConfigPath projectDir source
-                let fs = (\z -> CondNode z [normLocPath] mempty) <$> fieldsToConfig normSource (reverse acc)
-                res <- parseProjectSkeleton cacheDir httpTransport verbosity importsBy projectDir importLocPath . ProjectConfigToParse =<< fetchImportConfig normLocPath
-                rest <- go [] xs
-                pure . fmap mconcat . sequence $ [fs, res, rest]
+        if isCyclicConfigPath normLocPath
+          then pure . parseFail $ ParseUtils.FromString (render $ cyclicalImportMsg normLocPath) Nothing
+          else do
+            normSource <- canonicalizeConfigPath projectDir source
+            let fs = (\z -> CondNode z [normLocPath] mempty) <$> fieldsToConfig normSource (reverse acc)
+            res <- parseProjectSkeleton cacheDir httpTransport verbosity importsBy projectDir importLocPath . ProjectConfigToParse =<< fetchImportConfig normLocPath
+            uniqueFields <-
+              if uniqueImport `elem` seenImports
+                then do
+                  warn verbosity . render $ duplicateImportMsg uniqueImport normLocPath seenImportsBy
+                  return []
+                else return xs
+            rest <- go [] uniqueFields
+            pure . fmap mconcat . sequence $ [fs, res, rest]
       (ParseUtils.Section l "if" p xs') -> do
         subpcs <- go [] xs'
         let fs = singletonProjectConfigSkeleton <$> fieldsToConfig source (reverse acc)
