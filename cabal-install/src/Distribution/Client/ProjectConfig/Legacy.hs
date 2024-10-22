@@ -133,6 +133,7 @@ import Distribution.Simple.Utils
   ( debug
   , lowercase
   , noticeDoc
+  , warn
   )
 import Distribution.Types.CondTree
   ( CondBranch (..)
@@ -310,7 +311,13 @@ parseProjectSkeleton cacheDir httpTransport verbosity importsBy projectDir sourc
                   (noticeDoc verbosity $ untrimmedUriImportMsg (Disp.text "Warning:") importLocPath)
                 let fs = (\z -> CondNode z [normLocPath] mempty) <$> fieldsToConfig normSource (reverse acc)
                 res <- parseProjectSkeleton cacheDir httpTransport verbosity importsBy projectDir importLocPath . ProjectConfigToParse =<< fetchImportConfig normLocPath
-                rest <- go [] xs
+                uniqueFields <-
+                  if uniqueImport `elem` seenImports
+                    then do
+                      warn verbosity . render $ duplicateImportMsg uniqueImport normLocPath seenImportsBy
+                      return []
+                    else return xs
+                rest <- go [] uniqueFields
                 pure . fmap mconcat . sequence $ [projectParse Nothing normSource fs, res, rest]
       (ParseUtils.Section l "if" p xs') -> do
         normSource <- canonicalizeConfigPath projectDir source
