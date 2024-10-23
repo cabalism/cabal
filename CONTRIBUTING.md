@@ -206,7 +206,24 @@ formatting:
 > installing it this way is:
 >
 > ```
-> $ cabal install fourmolu-0.12.0.0 --overwrite-policy=always --ignore-project --with-compiler=ghc-9.6
+> $ cabal install fourmolu-0.12.0.0 --overwrite-policy=always --ignore-project
+> ```
+
+> [!Tip]
+> If you have multiple versions of GHC installed with `ghcup`, a series specific
+> ghc can be used by adding an option of `--with-compiler=ghc-x.y` (for the
+> latest installed `x.y.z` version in the `x.y` series) or an option of
+> `--with-compiler=ghc-x.y.z` to the above install command.
+>
+> ```
+> $ ghc --numeric-version
+> 9.10.1
+>
+> $ ghc-9.6 --numeric-version
+> 9.6.6
+>
+> $ ghc-9.4.8 --numeric-version
+> 9.4.8
 > ```
 
 (This assumes you have a ghc version in the 9.6 series installed via ghcup.)
