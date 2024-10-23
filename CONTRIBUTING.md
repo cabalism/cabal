@@ -210,8 +210,8 @@ formatting:
 > ```
 
 > [!Tip]
-> If you have multiple versions of GHC installed with `ghcup`, a series specific
-> ghc can be used by adding an option of `--with-compiler=ghc-x.y` (for the
+> If you have multiple versions of GHC installed with `ghcup`, a series-specific
+> GHC can be used by adding an option of `--with-compiler=ghc-x.y` (for the
 > latest installed `x.y.z` version in the `x.y` series) or an option of
 > `--with-compiler=ghc-x.y.z` to the above install command.
 >
