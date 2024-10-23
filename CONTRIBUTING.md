@@ -225,8 +225,11 @@ formatting:
 > $ ghc-9.4.8 --numeric-version
 > 9.4.8
 > ```
+>
+> If not using the `--with-compiler` option then the system `ghc` version should
+> be one in the `ghc-9.2`, `ghc-9.4` or `ghc-9.6` series when installing
+> `fourmolu`.
 
-(This assumes you have a ghc version in the 9.6 series installed via ghcup.)
 ## Whitespace Conventions
 
 We use automated whitespace convention checking. Violations can be fixed by
