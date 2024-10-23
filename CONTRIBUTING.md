@@ -190,14 +190,24 @@ of their patch is not influenced by their setup or implicit knowledge of the sys
 
 ## Code Style
 
-We use automated formatting with Fourmolu to enforce a unified style across the code bases. It is checked in the CI process.
-After installing Fourmolu 0.12, there are some makefile targets to help formatting
-the code base.
-
+We use automated formatting, checked in the CI process, to enforce a unified
+style across the code bases and include these makefile targets to help with
+formatting:
 
 * `make style` - Format the `Cabal`, `Cabal-syntax` and `cabal-install` directories.
 * `make style-modified` - Format files modified in the current tree.
 * `make style-commit COMMIT=<ref>` - Format files modified between HEAD and the given reference.
+
+> [!NOTE]
+> We use `fourmolu-0.12.0.0` for formatting. If installing it with `cabal
+> install`, please make sure to use a version of `GHC >= 9.2.1 && < 9.8`. That
+> it requires `GHC2021` sets the lower bound and its reliance on
+> `ghc-lib-parser` sets the upper bound on GHC versions. The command for
+> installing it this way is:
+>
+> ```
+> $ cabal install fourmolu-0.12.0.0 --overwrite-policy=always --ignore-project
+> ```
 
 ## Whitespace Conventions
 
