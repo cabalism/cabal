@@ -200,15 +200,16 @@ formatting:
 
 > [!NOTE]
 > We use `fourmolu-0.12.0.0` for formatting. If installing it with `cabal
-> install`, please make sure to use a version of `GHC >= 9.2.1 && < 9.8`. That
-> it requires `GHC2021` sets the lower bound and its reliance on
-> `ghc-lib-parser` sets the upper bound on GHC versions. The command for
+> install`, please make sure to use a version of `GHC >= 9.2.1 && < 9.8`.
+> Its requirement of `GHC2021` sets the lower bound, and its reliance on
+> `ghc-lib-parser` sets the upper bound on GHC versions. A command for
 > installing it this way is:
 >
 > ```
-> $ cabal install fourmolu-0.12.0.0 --overwrite-policy=always --ignore-project
+> $ cabal install fourmolu-0.12.0.0 --overwrite-policy=always --ignore-project --with-compiler=ghc-9.6
 > ```
 
+(This assumes you have a ghc version in the 9.6 series installed via ghcup.)
 ## Whitespace Conventions
 
 We use automated whitespace convention checking. Violations can be fixed by
