@@ -230,6 +230,15 @@ formatting:
 > be one in the `ghc-9.2`, `ghc-9.4` or `ghc-9.6` series when installing
 > `fourmolu`.
 
+> [!WARNING]
+> If you have need of another `fourmolu` version for other work and want to
+> switch between versions then your options are reinstalling or using a nix shell
+> or something similar. It is not yet possible to specify development
+> environment tools within a package with different constraints on dependencies,
+> see [issue-9230][issue-9230].
+
+[issue-9230]: https://github.com/haskell/cabal/issues/9230
+
 ## Whitespace Conventions
 
 We use automated whitespace convention checking. Violations can be fixed by
