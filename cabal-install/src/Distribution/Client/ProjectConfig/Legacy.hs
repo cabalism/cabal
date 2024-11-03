@@ -128,7 +128,7 @@ import Distribution.Simple.Setup
 import Distribution.Simple.Utils
   ( debug
   , lowercase
-  , warn
+  , noticeDoc
   )
 import Distribution.Types.CondTree
   ( CondBranch (..)
@@ -293,7 +293,7 @@ parseProjectSkeleton cacheDir httpTransport verbosity importsBy projectDir sourc
             uniqueFields <-
               if uniqueImport `elem` seenImports
                 then do
-                  warn verbosity . render $ duplicateImportMsg uniqueImport normLocPath seenImportsBy
+                  noticeDoc verbosity $ duplicateImportMsg uniqueImport normLocPath seenImportsBy
                   return []
                 else return xs
             rest <- go [] uniqueFields
