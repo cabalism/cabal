@@ -135,6 +135,17 @@ duplicate import of yops/yops-3.config;
     imported by: yops-2.config
     imported by: yops/yops-1.config
     imported by: yops-0.project
+# checking that we detect when the same config is imported via many different paths
+# cabal v2-build
+Error: [Cabal-7090]
+Error parsing project file <ROOT>/woops-0.project:
+duplicate import of woops/woops-3.config;
+  woops/woops-3.config
+    imported by: woops-0.project
+  woops/woops-3.config
+    imported by: woops-2.config
+    imported by: woops/woops-1.config
+    imported by: woops-0.project
 # checking bad conditional
 # cabal v2-build
 Error: [Cabal-7090]
