@@ -314,7 +314,7 @@ parseProjectSkeleton cacheDir httpTransport verbosity importsBy projectDir sourc
                 uniqueFields <-
                   if uniqueImport `elem` seenImports
                     then do
-                      warn verbosity . render $ duplicateImportMsg uniqueImport normLocPath seenImportsBy
+                      noticeDoc verbosity $ duplicateImportMsg uniqueImport normLocPath seenImportsBy
                       return []
                     else return xs
                 rest <- go [] uniqueFields
