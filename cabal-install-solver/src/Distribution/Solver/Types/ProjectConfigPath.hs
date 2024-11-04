@@ -174,18 +174,19 @@ docProjectConfigFiles ps = vcat
 
 -- | A message for a cyclical import, a "cyclical import of".
 cyclicalImportMsg :: ProjectConfigPath -> Doc
-cyclicalImportMsg path@(ProjectConfigPath (duplicate :| _)) = seenImportMsg "cyclical" duplicate path []
+cyclicalImportMsg path@(ProjectConfigPath (duplicate :| _)) =
+    seenImportMsg (text "cyclical import of" <+> text duplicate <> semi) duplicate path []
 
 -- | A message for a duplicate import, a "duplicate import of". If a check for
 -- cyclical imports has already been made then this would report a duplicate
 -- import by two different paths.
-duplicateImportMsg :: FilePath -> ProjectConfigPath -> [(FilePath, ProjectConfigPath)] -> Doc
-duplicateImportMsg = seenImportMsg "duplicate"
+duplicateImportMsg :: Doc -> FilePath -> ProjectConfigPath -> [(FilePath, ProjectConfigPath)] -> Doc
+duplicateImportMsg intro = seenImportMsg intro
 
-seenImportMsg :: String -> FilePath -> ProjectConfigPath -> [(FilePath, ProjectConfigPath)] -> Doc
-seenImportMsg seen duplicate path seenImportsBy =
+seenImportMsg :: Doc -> FilePath -> ProjectConfigPath -> [(FilePath, ProjectConfigPath)] -> Doc
+seenImportMsg intro duplicate path seenImportsBy =
     vcat
-    [ text seen <+> text "import of" <+> text duplicate <> semi
+    [ intro
     , nest 2 (docProjectConfigPath path)
     , nest 2 $
         vcat

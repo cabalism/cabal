@@ -208,8 +208,12 @@ import Text.PrettyPrint
   ( Doc
   , render
   , ($+$)
+  , vcat
+  , text
+  , semi
   )
-import qualified Text.PrettyPrint as Disp
+import qualified Text.PrettyPrint as Disp (empty, int, text, render)
+import Data.List (sortOn)
 
 ------------------------------------------------------------------
 -- Handle extended project config files with conditionals and imports.
@@ -260,15 +264,29 @@ parseProject
   -> ProjectConfigToParse
   -- ^ The contents of the file to parse
   -> IO (ProjectParseResult ProjectConfigSkeleton)
-parseProject rootPath cacheDir httpTransport verbosity configToParse =
-  do
-    let (dir, projectFileName) = splitFileName rootPath
-    projectDir <- makeAbsolute dir
-    projectPath@(ProjectConfigPath (canonicalRoot :| _)) <- canonicalizeConfigPath projectDir (ProjectConfigPath $ projectFileName :| [])
-    importsBy <- newIORef $ toNubList [(canonicalRoot, projectPath)]
-    parseProjectSkeleton cacheDir httpTransport verbosity importsBy projectDir projectPath configToParse
-    -- NOTE: Reverse the warnings so they are in line number order.
-    <&> \case ProjectParseOk ws x -> ProjectParseOk (reverse ws) x; x -> x
+parseProject rootPath cacheDir httpTransport verbosity configToParse = do
+  let (dir, projectFileName) = splitFileName rootPath
+  projectDir <- makeAbsolute dir
+  projectPath@(ProjectConfigPath (canonicalRoot :| _)) <- canonicalizeConfigPath projectDir (ProjectConfigPath $ projectFileName :| [])
+  importsBy <- newIORef $ toNubList [(canonicalRoot, projectPath)]
+  dupesMap <- newIORef mempty
+  result <- parseProjectSkeleton cacheDir httpTransport verbosity importsBy dupesMap projectDir projectPath configToParse
+  dupes <- Map.filter ((> 1) . length) <$> readIORef dupesMap
+  unless (Map.null dupes) (noticeDoc verbosity $ vcat (dupesMsg <$> Map.toList dupes))
+  return result
+
+data Dupes = Dupes
+  { dupesUniqueImport :: FilePath
+  , dupesNormLocPath :: ProjectConfigPath
+  , dupesSeenImportsBy :: [(FilePath, ProjectConfigPath)]
+  }
+
+type DupesMap = Map FilePath [Dupes]
+
+dupesMsg :: (FilePath, [Dupes]) -> Doc
+dupesMsg (duplicate, ds@(take 1 . sortOn dupesUniqueImport -> dupes)) = vcat $
+  ((text "Warning:" <+> Disp.int (length ds) <+> text "imports of" <+> text duplicate) <> semi)
+  : ((\Dupes{..} -> duplicateImportMsg Disp.empty dupesUniqueImport dupesNormLocPath dupesSeenImportsBy) <$> dupes)
 
 parseProjectSkeleton
   :: FilePath
@@ -276,6 +294,8 @@ parseProjectSkeleton
   -> Verbosity
   -> IORef (NubList (FilePath, ProjectConfigPath))
   -- ^ The imports seen so far, used to report on cycles and duplicates and to detect duplicates that are not cycles
+  -> IORef DupesMap
+  -- ^ The duplicates seen so far, used to defer reporting on duplicates
   -> FilePath
   -- ^ The directory of the project configuration, typically the directory of cabal.project
   -> ProjectConfigPath
@@ -283,7 +303,7 @@ parseProjectSkeleton
   -> ProjectConfigToParse
   -- ^ The contents of the file to parse
   -> IO (ProjectParseResult ProjectConfigSkeleton)
-parseProjectSkeleton cacheDir httpTransport verbosity importsBy projectDir source (ProjectConfigToParse bs) =
+parseProjectSkeleton cacheDir httpTransport verbosity importsBy dupesMap projectDir source (ProjectConfigToParse bs) =
   (sanityWalkPCS False =<<) <$> liftPR source (go []) (ParseUtils.readFields bs)
   where
     go :: [ParseUtils.Field] -> [ParseUtils.Field] -> IO (ProjectParseResult ProjectConfigSkeleton)
@@ -310,13 +330,9 @@ parseProjectSkeleton cacheDir httpTransport verbosity importsBy projectDir sourc
                   (isUntrimmedUriConfigPath importLocPath)
                   (noticeDoc verbosity $ untrimmedUriImportMsg (Disp.text "Warning:") importLocPath)
                 let fs = (\z -> CondNode z [normLocPath] mempty) <$> fieldsToConfig normSource (reverse acc)
-                res <- parseProjectSkeleton cacheDir httpTransport verbosity importsBy projectDir importLocPath . ProjectConfigToParse =<< fetchImportConfig normLocPath
-                uniqueFields <-
-                  if uniqueImport `elem` seenImports
-                    then do
-                      noticeDoc verbosity $ duplicateImportMsg uniqueImport normLocPath seenImportsBy
-                      return []
-                    else return xs
+                let uniqueFields = if uniqueImport `elem` seenImports then [] else xs
+                atomicModifyIORef' dupesMap $ \dm -> (Map.insertWith (++) uniqueImport [Dupes uniqueImport normLocPath seenImportsBy] dm, ())
+                res <- parseProjectSkeleton cacheDir httpTransport verbosity importsBy dupesMap projectDir importLocPath . ProjectConfigToParse =<< fetchImportConfig normLocPath
                 rest <- go [] uniqueFields
                 pure . fmap mconcat . sequence $ [projectParse Nothing normSource fs, res, rest]
       (ParseUtils.Section l "if" p xs') -> do
