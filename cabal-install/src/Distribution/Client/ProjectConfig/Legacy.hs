@@ -187,6 +187,7 @@ import Distribution.Utils.Path hiding
   )
 
 import qualified Data.ByteString.Char8 as BS
+import Data.List (sortOn)
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 import Network.URI (URI (..), parseURI)
@@ -195,13 +196,12 @@ import System.FilePath (isAbsolute, isPathSeparator, makeValid, splitFileName, (
 import Text.PrettyPrint
   ( Doc
   , render
-  , ($+$)
-  , vcat
-  , text
   , semi
+  , text
+  , vcat
+  , ($+$)
   )
-import qualified Text.PrettyPrint as Disp (empty, int, text, render)
-import Data.List (sortOn)
+import qualified Text.PrettyPrint as Disp (empty, int, render, text)
 
 ------------------------------------------------------------------
 -- Handle extended project config files with conditionals and imports.
@@ -267,13 +267,18 @@ data Dupes = Dupes
   , dupesNormLocPath :: ProjectConfigPath
   , dupesSeenImportsBy :: [(FilePath, ProjectConfigPath)]
   }
+  deriving (Eq)
+
+instance Ord Dupes where
+  compare = compare `on` length . dupesSeenImportsBy
 
 type DupesMap = Map FilePath [Dupes]
 
 dupesMsg :: (FilePath, [Dupes]) -> Doc
-dupesMsg (duplicate, ds@(take 1 . sortOn dupesUniqueImport -> dupes)) = vcat $
-  ((text "Warning:" <+> Disp.int (length ds) <+> text "imports of" <+> text duplicate) <> semi)
-  : ((\Dupes{..} -> duplicateImportMsg Disp.empty dupesUniqueImport dupesNormLocPath dupesSeenImportsBy) <$> dupes)
+dupesMsg (duplicate, ds@(take 1 . sortOn dupesNormLocPath -> dupes)) =
+  vcat $
+    ((text "Warning:" <+> Disp.int (length ds) <+> text "imports of" <+> text duplicate) <> semi)
+      : ((\Dupes{..} -> duplicateImportMsg Disp.empty dupesUniqueImport dupesNormLocPath dupesSeenImportsBy) <$> dupes)
 
 parseProjectSkeleton
   :: FilePath
