@@ -1,4 +1,5 @@
 {-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE ViewPatterns #-}
 
 module Distribution.Solver.Types.ProjectConfigPath
     (
@@ -24,7 +25,7 @@ import Prelude (sequence)
 
 import Data.Coerce (coerce)
 import Data.List.NonEmpty ((<|))
-import Network.URI (parseURI)
+import Network.URI (parseURI, parseAbsoluteURI)
 import System.Directory
 import System.FilePath
 import qualified Data.List.NonEmpty as NE
@@ -44,7 +45,23 @@ import Text.PrettyPrint
 -- List elements are relative to each other but once canonicalized, elements are
 -- relative to the directory of the project root.
 newtype ProjectConfigPath = ProjectConfigPath (NonEmpty FilePath)
-    deriving (Eq, Ord, Show, Generic)
+    deriving (Eq, Show, Generic)
+
+instance Ord ProjectConfigPath where
+    compare (ProjectConfigPath (NE.toList -> as)) (ProjectConfigPath (NE.toList -> bs)) =
+        case (as, bs) of
+            (a:as', b:bs') -> case (parseAbsoluteURI a, parseAbsoluteURI b) of
+                (Just _, Just _) -> let uriOrd = compare a b in if uriOrd /= EQ then uriOrd else
+                    compare as' bs'
+                (Just _, Nothing) -> GT
+                (Nothing, Just _) -> LT
+                (Nothing, Nothing) -> compare (splitPath a) (splitPath b)
+            _ -> let lenOrd = compare (length as) (length bs) in if lenOrd /= EQ then lenOrd else
+                    let pathOrd = compare (length ass) (length bss) in if pathOrd /= EQ then pathOrd else
+                        compare ass bss
+        where
+            ass = splitPath <$> as
+            bss = splitPath <$> bs
 
 instance Binary ProjectConfigPath
 instance Structured ProjectConfigPath
