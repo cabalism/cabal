@@ -258,6 +258,9 @@ main = cabalTest . withRepo "repo" . recordMode RecordMarked $ do
   log "checking if we detect when the same config is imported via many different paths (we don't)"
   yopping <- cabal' "v2-build" [ "--project-file=yops-0.project" ]
 
+  log "checking if we detect when the same config is imported via many different paths (we don't)"
+  woopping <- cabal' "v2-build" [ "--project-file=woops-0.project" ]
+
   log "checking bad conditional"
   badIf <- fails $ cabal' "v2-build" [ "--project-file=bad-conditional.project" ]
   assertOutputContains "Cannot set compiler in a conditional clause of a cabal project file" badIf
