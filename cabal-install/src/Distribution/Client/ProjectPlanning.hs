@@ -397,11 +397,9 @@ rebuildProjectConfig
           localPackages <- phaseReadLocalPackages (projectConfig <> cliConfig)
           return (projectConfig, localPackages)
 
-    sequence_
-      [ do
-        notice verbosity . render . vcat $
-          text "Configuration is affected by the following files:"
-            : [text "-" <+> docProjectConfigPath path]
+    notice verbosity . render . vcat $
+      text "Configuration is affected by the following files:" :
+      [ text "-" <+> docProjectConfigPath path
       | Explicit path <- Set.toList $ projectConfigProvenance projectConfig
       ]
 
