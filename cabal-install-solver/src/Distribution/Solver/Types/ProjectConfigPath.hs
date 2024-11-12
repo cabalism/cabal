@@ -8,10 +8,12 @@ module Distribution.Solver.Types.ProjectConfigPath
     , projectConfigPathRoot
     , nullProjectConfigPath
     , consProjectConfigPath
+    , unconsProjectConfigPath
 
     -- * Messages
     , docProjectConfigPath
     , docProjectConfigPaths
+    , docProjectConfigFiles
     , cyclicalImportMsg
     , duplicateImportMsg
     , docProjectConfigPathFailReason
@@ -22,6 +24,7 @@ module Distribution.Solver.Types.ProjectConfigPath
     ) where
 
 import Distribution.Solver.Compat.Prelude hiding (toList, (<>))
+import qualified Distribution.Solver.Compat.Prelude as P ((<>))
 import Prelude (sequence)
 
 import Data.Coerce (coerce)
@@ -33,6 +36,7 @@ import qualified Data.List.NonEmpty as NE
 import Distribution.Solver.Modular.Version (VR)
 import Distribution.Pretty (prettyShow)
 import Text.PrettyPrint
+import Distribution.Simple.Utils (ordNub)
 
 -- | Path to a configuration file, either a singleton project root, or a longer
 -- list representing a path to an import.  The path is a non-empty list that we
@@ -49,20 +53,23 @@ newtype ProjectConfigPath = ProjectConfigPath (NonEmpty FilePath)
     deriving (Eq, Show, Generic)
 
 instance Ord ProjectConfigPath where
-    compare (ProjectConfigPath (NE.toList -> as)) (ProjectConfigPath (NE.toList -> bs)) =
+    compare pa@(ProjectConfigPath (NE.toList -> as)) pb@(ProjectConfigPath (NE.toList -> bs)) =
         case (as, bs) of
-            (a:as', b:bs') -> case (parseAbsoluteURI a, parseAbsoluteURI b) of
-                (Just _, Just _) -> let uriOrd = compare a b in if uriOrd /= EQ then uriOrd else
-                    compare as' bs'
+            (a:_, b:_) -> case (parseAbsoluteURI a, parseAbsoluteURI b) of
+                (Just ua, Just ub) -> compare ua ub P.<> compare aImporters bImporters
                 (Just _, Nothing) -> GT
                 (Nothing, Just _) -> LT
-                (Nothing, Nothing) -> compare (splitPath a) (splitPath b)
-            _ -> let lenOrd = compare (length as) (length bs) in if lenOrd /= EQ then lenOrd else
-                    let pathOrd = compare (length ass) (length bss) in if pathOrd /= EQ then pathOrd else
-                        compare ass bss
+                (Nothing, Nothing) -> compare (splitPath a) (splitPath b) P.<> compare aImporters bImporters
+            _ -> defOrd
         where
-            ass = splitPath <$> as
-            bss = splitPath <$> bs
+            aPaths = splitPath <$> as
+            bPaths = splitPath <$> bs
+            aImporters = snd $ unconsProjectConfigPath pa
+            bImporters = snd $ unconsProjectConfigPath pb
+            defOrd =
+                compare (length as) (length bs)
+                P.<> compare (length aPaths) (length bPaths)
+                P.<> compare aPaths bPaths
 
 instance Binary ProjectConfigPath
 instance Structured ProjectConfigPath
@@ -119,6 +126,12 @@ docProjectConfigPaths :: [ProjectConfigPath] -> Doc
 docProjectConfigPaths ps = vcat
     [ text "-" <+> text p | ProjectConfigPath (p :| _) <- ps ]
 
+docProjectConfigFiles :: [ProjectConfigPath] -> Doc
+docProjectConfigFiles ps = vcat
+    [ text "-" <+> text p
+    | p <- ordNub [ p | ProjectConfigPath (p :| _) <- ps ]
+    ]
+
 -- | A message for a cyclical import, a "cyclical import of".
 cyclicalImportMsg :: ProjectConfigPath -> Doc
 cyclicalImportMsg path@(ProjectConfigPath (duplicate :| _)) =
@@ -173,6 +186,10 @@ isCyclicConfigPath (ProjectConfigPath p) = length p /= length (NE.nub p)
 -- | Prepends the path of the importee to the importer path.
 consProjectConfigPath :: FilePath -> ProjectConfigPath -> ProjectConfigPath
 consProjectConfigPath p ps = ProjectConfigPath (p <| coerce ps)
+
+-- | Split the path into the importee and the importer path.
+unconsProjectConfigPath :: ProjectConfigPath -> (FilePath, Maybe ProjectConfigPath)
+unconsProjectConfigPath ps = fmap ProjectConfigPath <$> (NE.uncons $ coerce ps)
 
 -- | Make paths relative to the directory of the root of the project, not
 -- relative to the file they were imported from.
