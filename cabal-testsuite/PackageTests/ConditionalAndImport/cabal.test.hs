@@ -261,6 +261,49 @@ main = cabalTest . withRepo "repo" . recordMode RecordMarked $ do
   log "checking if we detect when the same config is imported via many different paths (we don't)"
   woopping <- cabal' "v2-build" [ "--project-file=woops-0.project" ]
 
+  log "checking \"using config from message\" without URI imports"
+  withDirectory "yops" $ do
+    yopping <- fails $ cabal' "v2-build" [ "--project-file=../yops-0.project" ]
+    assertOutputContains
+      (normalizeWindowsOutput "When using configuration from: \
+      \ - /tmp/cabal-testsuite-286573/yops-0.project \
+      \ - /tmp/cabal-testsuite-286573/yops-2.config \
+      \ - /tmp/cabal-testsuite-286573/yops-4.config \
+      \ - /tmp/cabal-testsuite-286573/yops-6.config \
+      \ - /tmp/cabal-testsuite-286573/yops-8.config \
+      \ - /tmp/cabal-testsuite-286573/yops/yops-1.config \
+      \ - /tmp/cabal-testsuite-286573/yops/yops-3.config \
+      \ - /tmp/cabal-testsuite-286573/yops/yops-5.config \
+      \ - /tmp/cabal-testsuite-286573/yops/yops-7.config \
+      \ - /tmp/cabal-testsuite-286573/yops/yops-9.config \
+      \ The following errors occurred: \
+      \  - The package directory '.' does not contain any .cabal file.")
+      yopping
+
+    return ()
+
+  log "checking \"using config from message\" with URI imports"
+  withDirectory "woops" $ do
+    woopping <- fails $ cabal' "v2-build" [ "--project-file=../woops-0.project" ]
+    assertOutputContains
+      (normalizeWindowsOutput "When using configuration from: \
+      \ - /tmp/cabal-testsuite-282695/woops-0.project \
+      \ - /tmp/cabal-testsuite-282695/woops-2.config \
+      \ - /tmp/cabal-testsuite-282695/woops-4.config \
+      \ - /tmp/cabal-testsuite-282695/woops-6.config \
+      \ - /tmp/cabal-testsuite-282695/woops-8.config \
+      \ - /tmp/cabal-testsuite-282695/woops/woops-1.config \
+      \ - /tmp/cabal-testsuite-282695/woops/woops-3.config \
+      \ - /tmp/cabal-testsuite-282695/woops/woops-5.config \
+      \ - /tmp/cabal-testsuite-282695/woops/woops-7.config \
+      \ - /tmp/cabal-testsuite-282695/woops/woops-9.config \
+      \ - https://www.stackage.org/lts-21.25/cabal.config \
+      \ The following errors occurred: \
+      \  - The package directory '.' does not contain any .cabal file.")
+      woopping
+
+    return ()
+
   log "checking bad conditional"
   badIf <- fails $ cabal' "v2-build" [ "--project-file=bad-conditional.project" ]
   assertOutputContains "Cannot set compiler in a conditional clause of a cabal project file" badIf
