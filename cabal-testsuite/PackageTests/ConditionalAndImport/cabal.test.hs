@@ -264,19 +264,30 @@ main = cabalTest . withRepo "repo" . recordMode RecordMarked $ do
   log "checking \"using config from message\" without URI imports"
   withDirectory "yops" $ do
     yopping <- fails $ cabal' "v2-build" [ "--project-file=../yops-0.project" ]
+
+    -- Use assertRegex when the output is tainted by the temp directory, like
+    -- this:
+    --
+    --   When using configuration from:
+    --   - /tmp/cabal-testsuite-286573/yops-0.project
+    --   - /tmp/cabal-testsuite-286573/yops-2.config etc
+    assertRegex
+      "Project configuration is listed in full"
+      "When using configuration from:\n \
+        \ .*yops-0\\.project\n \
+        \ .*yops-2\\.config\n \
+        \ .*yops-4\\.config\n \
+        \ .*yops-6\\.config\n \
+        \ .*yops-8\\.config\n \
+        \ .*yops-1\\.config\n \
+        \ .*yops-3\\.config\n \
+        \ .*yops-5\\.config\n \
+        \ .*yops-7\\.config\n \
+        \ .*yops-9\\.config\n"
+      yopping
+
     assertOutputContains
-      (normalizeWindowsOutput "When using configuration from: \
-      \ - /tmp/cabal-testsuite-286573/yops-0.project \
-      \ - /tmp/cabal-testsuite-286573/yops-2.config \
-      \ - /tmp/cabal-testsuite-286573/yops-4.config \
-      \ - /tmp/cabal-testsuite-286573/yops-6.config \
-      \ - /tmp/cabal-testsuite-286573/yops-8.config \
-      \ - /tmp/cabal-testsuite-286573/yops/yops-1.config \
-      \ - /tmp/cabal-testsuite-286573/yops/yops-3.config \
-      \ - /tmp/cabal-testsuite-286573/yops/yops-5.config \
-      \ - /tmp/cabal-testsuite-286573/yops/yops-7.config \
-      \ - /tmp/cabal-testsuite-286573/yops/yops-9.config \
-      \ The following errors occurred: \
+      (normalizeWindowsOutput "The following errors occurred: \
       \  - The package directory '.' does not contain any .cabal file.")
       yopping
 
@@ -285,20 +296,31 @@ main = cabalTest . withRepo "repo" . recordMode RecordMarked $ do
   log "checking \"using config from message\" with URI imports"
   withDirectory "woops" $ do
     woopping <- fails $ cabal' "v2-build" [ "--project-file=../woops-0.project" ]
+
+    -- Use assertRegex when the output is tainted by the temp directory, like
+    -- this:
+    --
+    --   When using configuration from:
+    --   - /tmp/cabal-testsuite-282695/woops-0.project
+    --   - /tmp/cabal-testsuite-282695/woops-2.config etc
+    assertRegex
+      "Project configuration is listed in full"
+      "When using configuration from:\n \
+        \ .*woops-0\\.project\n \
+        \ .*woops-2\\.config\n \
+        \ .*woops-4\\.config\n \
+        \ .*woops-6\\.config\n \
+        \ .*woops-8\\.config\n \
+        \ .*woops-1\\.config\n \
+        \ .*woops-3\\.config\n \
+        \ .*woops-5\\.config\n \
+        \ .*woops-7\\.config\n \
+        \ .*woops-9\\.config\n \
+        \ .*https://www.stackage.org/lts-21.25/cabal.config\n"
+      woopping
+
     assertOutputContains
-      (normalizeWindowsOutput "When using configuration from: \
-      \ - /tmp/cabal-testsuite-282695/woops-0.project \
-      \ - /tmp/cabal-testsuite-282695/woops-2.config \
-      \ - /tmp/cabal-testsuite-282695/woops-4.config \
-      \ - /tmp/cabal-testsuite-282695/woops-6.config \
-      \ - /tmp/cabal-testsuite-282695/woops-8.config \
-      \ - /tmp/cabal-testsuite-282695/woops/woops-1.config \
-      \ - /tmp/cabal-testsuite-282695/woops/woops-3.config \
-      \ - /tmp/cabal-testsuite-282695/woops/woops-5.config \
-      \ - /tmp/cabal-testsuite-282695/woops/woops-7.config \
-      \ - /tmp/cabal-testsuite-282695/woops/woops-9.config \
-      \ - https://www.stackage.org/lts-21.25/cabal.config \
-      \ The following errors occurred: \
+      (normalizeWindowsOutput "The following errors occurred: \
       \  - The package directory '.' does not contain any .cabal file.")
       woopping
 

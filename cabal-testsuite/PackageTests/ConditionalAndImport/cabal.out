@@ -655,6 +655,10 @@ In order, the following will be built:
 Configuring my-0.1...
 Preprocessing library for my-0.1...
 Building library for my-0.1...
+# checking "using config from message" without URI imports
+# cabal v2-build
+# checking "using config from message" with URI imports
+# cabal v2-build
 # checking bad conditional
 # cabal v2-build
 Error: [Cabal-7090]
