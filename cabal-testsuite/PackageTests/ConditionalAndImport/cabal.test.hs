@@ -273,17 +273,17 @@ main = cabalTest . withRepo "repo" . recordMode RecordMarked $ do
     --   - /tmp/cabal-testsuite-286573/yops-2.config etc
     assertRegex
       "Project configuration without URI imports is listed in full"
-      "When using configuration from:\n \
-        \ .*yops-0\\.project\n \
-        \ .*yops-2\\.config\n \
-        \ .*yops-4\\.config\n \
-        \ .*yops-6\\.config\n \
-        \ .*yops-8\\.config\n \
-        \ .*yops-1\\.config\n \
-        \ .*yops-3\\.config\n \
-        \ .*yops-5\\.config\n \
-        \ .*yops-7\\.config\n \
-        \ .*yops-9\\.config\n"
+      "When using configuration from:(\n|\r\n) \
+        \ .*yops-0\\.project(\n|\r\n) \
+        \ .*yops-2\\.config(\n|\r\n) \
+        \ .*yops-4\\.config(\n|\r\n) \
+        \ .*yops-6\\.config(\n|\r\n) \
+        \ .*yops-8\\.config(\n|\r\n) \
+        \ .*yops-1\\.config(\n|\r\n) \
+        \ .*yops-3\\.config(\n|\r\n) \
+        \ .*yops-5\\.config(\n|\r\n) \
+        \ .*yops-7\\.config(\n|\r\n) \
+        \ .*yops-9\\.config(\n|\r\n)"
       yopping
 
     assertOutputContains
@@ -305,18 +305,18 @@ main = cabalTest . withRepo "repo" . recordMode RecordMarked $ do
     --   - /tmp/cabal-testsuite-282695/woops-2.config etc
     assertRegex
       "Project configuration with URI imports is listed in full"
-      "When using configuration from:\n \
-        \ .*woops-0\\.project\n \
-        \ .*woops-2\\.config\n \
-        \ .*woops-4\\.config\n \
-        \ .*woops-6\\.config\n \
-        \ .*woops-8\\.config\n \
-        \ .*woops-1\\.config\n \
-        \ .*woops-3\\.config\n \
-        \ .*woops-5\\.config\n \
-        \ .*woops-7\\.config\n \
-        \ .*woops-9\\.config\n \
-        \ .*https://www.stackage.org/lts-21.25/cabal.config\n"
+      "When using configuration from:(\n|\r\n) \
+        \ .*woops-0\\.project(\n|\r\n) \
+        \ .*woops-2\\.config(\n|\r\n) \
+        \ .*woops-4\\.config(\n|\r\n) \
+        \ .*woops-6\\.config(\n|\r\n) \
+        \ .*woops-8\\.config(\n|\r\n) \
+        \ .*woops-1\\.config(\n|\r\n) \
+        \ .*woops-3\\.config(\n|\r\n) \
+        \ .*woops-5\\.config(\n|\r\n) \
+        \ .*woops-7\\.config(\n|\r\n) \
+        \ .*woops-9\\.config(\n|\r\n) \
+        \ .*https://www.stackage.org/lts-21.25/cabal.config(\n|\r\n)"
       woopping
 
     assertOutputContains
