@@ -272,7 +272,7 @@ main = cabalTest . withRepo "repo" . recordMode RecordMarked $ do
     --   - /tmp/cabal-testsuite-286573/yops-0.project
     --   - /tmp/cabal-testsuite-286573/yops-2.config etc
     assertRegex
-      "Project configuration is listed in full"
+      "Project configuration without URI imports is listed in full"
       "When using configuration from:\n \
         \ .*yops-0\\.project\n \
         \ .*yops-2\\.config\n \
@@ -304,7 +304,7 @@ main = cabalTest . withRepo "repo" . recordMode RecordMarked $ do
     --   - /tmp/cabal-testsuite-282695/woops-0.project
     --   - /tmp/cabal-testsuite-282695/woops-2.config etc
     assertRegex
-      "Project configuration is listed in full"
+      "Project configuration with URI imports is listed in full"
       "When using configuration from:\n \
         \ .*woops-0\\.project\n \
         \ .*woops-2\\.config\n \
