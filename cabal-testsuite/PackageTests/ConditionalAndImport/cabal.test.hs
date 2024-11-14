@@ -310,6 +310,7 @@ main = cabalTest . withRepo "repo" . recordMode RecordMarked $ do
       "Project configuration with URI imports is listed in full"
       "When using configuration from:(\n|\r\n) \
         \ .*woops-0\\.project(\n|\r\n) \
+        \ .*with-ghc\\.config(\n|\r\n) \
         \ .*woops-2\\.config(\n|\r\n) \
         \ .*woops-4\\.config(\n|\r\n) \
         \ .*woops-6\\.config(\n|\r\n) \

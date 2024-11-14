@@ -67,9 +67,9 @@ cyclical import of cyclical-2-out-out-self-b.config;
 # checking that cyclical check doesn't false-positive on same file names in different folders; hoping within a folder and then into a subfolder
 # cabal v2-build
 Configuration is affected by the following files:
+- noncyclical-same-filename-a.project
 - noncyclical-same-filename-a.config
     imported by: noncyclical-same-filename-a.project
-- noncyclical-same-filename-a.project
 - same-filename/noncyclical-same-filename-a.config
     imported by: noncyclical-same-filename-a.config
     imported by: noncyclical-same-filename-a.project
@@ -83,10 +83,10 @@ Building library for my-0.1...
 # checking that cyclical check doesn't false-positive on same file names in different folders; hoping into a subfolder and then back out again
 # cabal v2-build
 Configuration is affected by the following files:
+- noncyclical-same-filename-b.project
 - noncyclical-same-filename-b.config
     imported by: same-filename/noncyclical-same-filename-b.config
     imported by: noncyclical-same-filename-b.project
-- noncyclical-same-filename-b.project
 - same-filename/noncyclical-same-filename-b.config
     imported by: noncyclical-same-filename-b.project
 Up to date
@@ -383,6 +383,8 @@ Up to date
 # cabal v2-build
 Configuration is affected by the following files:
 - woops-0.project
+- with-ghc.config
+    imported by: woops-0.project
 - woops-2.config
     imported by: woops/woops-1.config
     imported by: woops-0.project
@@ -649,12 +651,7 @@ Configuration is affected by the following files:
     imported by: woops/woops-1.config
     imported by: woops-0.project
 Resolving dependencies...
-Build profile: -w ghc-9.4.8 -O1
-In order, the following will be built:
- - my-0.1 (lib:my) (first run)
-Configuring my-0.1...
-Preprocessing library for my-0.1...
-Building library for my-0.1...
+Up to date
 # checking "using config from message" without URI imports
 # cabal v2-build
 # checking "using config from message" with URI imports

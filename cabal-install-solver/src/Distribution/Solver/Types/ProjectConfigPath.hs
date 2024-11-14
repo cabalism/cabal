@@ -56,6 +56,15 @@ newtype ProjectConfigPath = ProjectConfigPath (NonEmpty FilePath)
 instance Ord ProjectConfigPath where
     compare pa@(ProjectConfigPath (NE.toList -> as)) pb@(ProjectConfigPath (NE.toList -> bs)) =
         case (as, bs) of
+            -- There should only ever be one root project path, only one path
+            -- with length 1. Comparing it to itself should be EQ. Don't assume
+            -- this though, do a comparison anyway when both sides have length
+            -- 1.  The root path, the project itself, should always be the first
+            -- path in a sorted listing.
+            ([a], [b]) -> compare a b
+            ([_], _) -> LT
+            (_, [_]) -> GT
+
             (a:_, b:_) -> case (parseAbsoluteURI a, parseAbsoluteURI b) of
                 (Just ua, Just ub) -> compare ua ub P.<> compare aImporters bImporters
                 (Just _, Nothing) -> GT
