@@ -287,8 +287,8 @@ main = cabalTest . withRepo "repo" . recordMode RecordMarked $ do
       yopping
 
     assertOutputContains
-      (normalizeWindowsOutput "The following errors occurred: \
-      \  - The package directory '.' does not contain any .cabal file.")
+      "The following errors occurred: \
+      \  - The package directory '.' does not contain any .cabal file."
       yopping
 
     return ()
@@ -320,8 +320,8 @@ main = cabalTest . withRepo "repo" . recordMode RecordMarked $ do
       woopping
 
     assertOutputContains
-      (normalizeWindowsOutput "The following errors occurred: \
-      \  - The package directory '.' does not contain any .cabal file.")
+      "The following errors occurred: \
+      \  - The package directory '.' does not contain any .cabal file."
       woopping
 
     return ()
