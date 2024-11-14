@@ -271,6 +271,9 @@ main = cabalTest . withRepo "repo" . recordMode RecordMarked $ do
     --   When using configuration from:
     --   - /tmp/cabal-testsuite-286573/yops-0.project
     --   - /tmp/cabal-testsuite-286573/yops-2.config etc
+    --
+    -- The addition of the /tmp/cabal-testsuite-*/ prefix, I observed on Ubuntu
+    -- but not on Windows.
     assertRegex
       "Project configuration without URI imports is listed in full"
       "When using configuration from:(\n|\r\n) \
