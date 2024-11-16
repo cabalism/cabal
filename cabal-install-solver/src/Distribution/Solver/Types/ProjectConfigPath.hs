@@ -12,7 +12,6 @@ module Distribution.Solver.Types.ProjectConfigPath
 
     -- * Messages
     , docProjectConfigPath
-    , docProjectConfigPaths
     , docProjectConfigFiles
     , cyclicalImportMsg
     , docProjectConfigPathFailReason
@@ -128,13 +127,9 @@ docProjectConfigPath (ProjectConfigPath (p :| ps)) = vcat $
 --              , ProjectConfigPath ("project-cabal/pkgs/integration-tests.config" :| ["project-cabal/pkgs.config","cabal.project"])
 --              , ProjectConfigPath ("project-cabal/pkgs/tests.config" :| ["project-cabal/pkgs.config","cabal.project"])
 --              ]
---     return . render $ docProjectConfigPaths ps
+--     return . render $ docProjectConfigFiles ps
 -- :}
 -- "- cabal.project\n- project-cabal/constraints.config\n- project-cabal/ghc-latest.config\n- project-cabal/ghc-options.config\n- project-cabal/pkgs.config\n- project-cabal/pkgs/benchmarks.config\n- project-cabal/pkgs/buildinfo.config\n- project-cabal/pkgs/cabal.config\n- project-cabal/pkgs/install.config\n- project-cabal/pkgs/integration-tests.config\n- project-cabal/pkgs/tests.config"
-docProjectConfigPaths :: [ProjectConfigPath] -> Doc
-docProjectConfigPaths ps = vcat
-    [ text "-" <+> text p | ProjectConfigPath (p :| _) <- ps ]
-
 docProjectConfigFiles :: [ProjectConfigPath] -> Doc
 docProjectConfigFiles ps = vcat
     [ text "-" <+> text p
