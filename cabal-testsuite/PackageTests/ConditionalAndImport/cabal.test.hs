@@ -263,7 +263,7 @@ main = cabalTest . withRepo "repo" . recordMode RecordMarked $ do
 
   log "checking \"using config from message\" without URI imports"
   withDirectory "yops" $ do
-    yopping <- fails $ cabal' "v2-build" [ "--project-file=../yops-0.project" ]
+    yopping <- fails $ cabal' "v2-build" [ "--dry-run", "--project-file=../yops-0.project" ]
 
     -- Use assertRegex when the output is tainted by the temp directory, like
     -- this:
@@ -298,7 +298,7 @@ main = cabalTest . withRepo "repo" . recordMode RecordMarked $ do
 
   log "checking \"using config from message\" with URI imports"
   withDirectory "woops" $ do
-    woopping <- fails $ cabal' "v2-build" [ "--project-file=../woops-0.project" ]
+    woopping <- fails $ cabal' "v2-build" [ "--dry-run", "--project-file=../woops-0.project" ]
 
     -- Use assertRegex when the output is tainted by the temp directory, like
     -- this:
