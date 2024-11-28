@@ -44,8 +44,10 @@ In some cases, you may have to add a bound manually to `requirements.in`, e.g. `
 
 To check for typos, run `make typos` and to fix them, run `make fix-typos`. Fixing might fail.
 
-> If there is any ambiguity (multiple possible corrections), `typos` will just report it to the user and move on.
-> `typos` [Getting Started](https://github.com/crate-ci/typos#getting-started)
+> If there is any ambiguity (multiple possible corrections),
+> `typos` will just report it to the user and move on.
+>
+> SOURCE: [typos/Getting Started](https://github.com/crate-ci/typos#getting-started)
 
 ```
 make typos
