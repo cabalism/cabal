@@ -263,6 +263,12 @@ users-guide:
 users-guide-requirements:
 	$(MAKE) -C doc users-guide-requirements
 
+typos:
+	typos **/*.rst
+
+typos-install:
+	cargo install typos-cli
+
 ifeq ($(shell uname), Darwin)
 PROCS := $(shell sysctl -n hw.logicalcpu)
 else
