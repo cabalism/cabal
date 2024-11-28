@@ -72,7 +72,7 @@ lint-json: ## Run HLint in JSON mode
 # local checks
 
 .PHONY: checks
-checks: whitespace style lint-json
+checks: whitespace typos style lint-json
 
 # source generation: SPDX
 
