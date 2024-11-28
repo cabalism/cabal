@@ -1,0 +1,30 @@
+name: Typos
+
+on:
+  pull_request:
+  push:
+    branches: ["master", "add/typo-checking-10601"]
+
+env:
+  TYPOS_VER: v1.28.1-x86_64-unknown-linux-musl
+
+jobs:
+  typos:
+    defaults:
+      run:
+        shell: bash
+    runs-on: ubuntu-latest
+
+    steps:
+
+    - uses: actions/checkout@v4
+
+    - run: |
+        wget -q https://github.com/crate-ci/typos/releases/download/v1.28.1/typos-${{ env.TYPOS_VER }}.tar.gz
+        tar -xf typos-${{ env.TYPOS_VER }}.tar.gz
+        mkdir -p "$HOME/.local/bin"
+        mv typos "$HOME/.local/bin/typos"
+        chmod +x "$HOME/.local/bin/typos"
+        echo "$HOME/.local/bin" >> $GITHUB_PATH
+
+    - run: make typos

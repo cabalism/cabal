@@ -49,6 +49,18 @@ whitespace: ## Run fix-whitespace in check mode
 fix-whitespace: ## Run fix-whitespace in fix mode
 	fix-whitespace --verbose
 
+.PHONY: typos
+typos:
+	typos **/*.rst
+
+.PHONY: fix-typos
+fix-typos:
+	typos --write-changes **/*.rst
+
+.PHONY: typos-install
+typos-install:
+	cargo install typos-cli
+
 .PHONY: lint
 lint: ## Run HLint
 	hlint -j .
@@ -262,12 +274,6 @@ users-guide:
 .PHONY: users-guide-requirements
 users-guide-requirements:
 	$(MAKE) -C doc users-guide-requirements
-
-typos:
-	typos **/*.rst
-
-typos-install:
-	cargo install typos-cli
 
 ifeq ($(shell uname), Darwin)
 PROCS := $(shell sysctl -n hw.logicalcpu)
