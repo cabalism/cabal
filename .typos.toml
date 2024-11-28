@@ -1,2 +1,35 @@
 [default]
 extend-ignore-re = ["(?s)(#|//)\\s*spellchecker:off.*?\\n\\s*(#|//)\\s*spellchecker:on"]
+
+[type.hs]
+extend-ignore-identifiers-re = [
+    "(P|p)(N|n)", # abbreviation for package name
+    "reord", # abbreviation for reorder
+    "(S|s)trat",
+    "sie",
+    "unexpect", # abbreviation for unexpected
+    "unvalidateBenchmark",
+    "unvalidateTestSuite",
+    "clos", # abbreviation for closure
+    "ket",
+
+    # TODO: Identifier typos to fix
+    "(B|b)enchs", # should be benches
+    "(E|e)xistant", # should be existent
+]
+extend-ignore-words-re = [
+    "iif",
+]
+extend-ignore-re = [
+    "NoLamdaCase",
+    "caf",
+    "Onot",
+    "ba|Ba",
+    "inh",
+    "thr", # abbreviation for thread
+    "Lits", # abbreviation for literals
+    "ND", # CC licenses have this
+    "(tou|TOU)", # terms of use
+    "Matix", # iMatix Standard Function Library Agreement
+    "nto-qnx",
+]
