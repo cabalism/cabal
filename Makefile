@@ -50,15 +50,15 @@ fix-whitespace: ## Run fix-whitespace in fix mode
 	fix-whitespace --verbose
 
 .PHONY: typos
-typos:
+typos: ## Find typos in users guide
 	typos **/*.rst
 
 .PHONY: fix-typos
-fix-typos:
+fix-typos: ## Fix typos in users guide
 	typos --write-changes **/*.rst
 
 .PHONY: typos-install
-typos-install:
+typos-install: ## Install typos-cli for typos target using cargo
 	cargo install typos-cli
 
 .PHONY: lint
