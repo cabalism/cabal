@@ -274,6 +274,7 @@ typos-install: ## Install typos-cli for typos target using cargo
 	cargo install typos-cli
 
 GREP_EXCLUDE := grep -v -E 'dist-|cabal-testsuite|python-'
+GREP_EXCLUDE_HS := grep -v -E 'dist-|cabal-testsuite|python-|Cabal-syntax.+Quirks'
 
 # Escape spaces in filenames for typos to avoid errors like:
 # $ find . -type f -name '*.hs' | grep -v -E 'dist-|cabal-testsuite|python-' | xargs typos
@@ -301,8 +302,8 @@ markdown-fix-typos: ## Fix typos in markdown files
 
 .PHONY: hs-typos
 hs-typos: ## Find typos in *.hs files
-	find . -type f -name '*.hs' | $(GREP_EXCLUDE) | $(ESCAPE_SPACES) | xargs typos
+	find . -type f -name '*.hs' | $(GREP_EXCLUDE_HS) | $(ESCAPE_SPACES) | xargs typos
 
 .PHONY: hs-fix-typos
 hs-fix-typos: ## Fix typos in *.hs files
-	find . -type f -name '*.hs' | $(GREP_EXCLUDE) | $(ESCAPE_SPACES) | xargs typos --write-changes
+	find . -type f -name '*.hs' | $(GREP_EXCLUDE_HS) | $(ESCAPE_SPACES) | xargs typos --write-changes
