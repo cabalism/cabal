@@ -22,10 +22,10 @@ jobs:
 
     - run: |
         wget -q https://github.com/crate-ci/typos/releases/download/${{ env.TYPOS_VER }}/typos-${{ env.TYPOS_VER }}-${{ env.TYPOS_PLATFORM }}.tar.gz
-        tar -xf typos-${{ env.TYPOS_VER }}-${{ env.TYPOS_PLATFORM }}.tar.gz
+        tar -xf typos-${{ env.TYPOS_VER }}-${{ env.TYPOS_PLATFORM }}.tar.gz --one-top-level=typos-${{ env.TYPOS_VER }}
         mkdir -p "$HOME/.local/bin"
-        mv typos "$HOME/.local/bin/typos"
-        chmod +x "$HOME/.local/bin/typos"
-        echo "$HOME/.local/bin" >> $GITHUB_PATH
+        mv typos-${{ env.TYPOS_VER }} "$HOME/.local/bin/typos-${{ env.TYPOS_VER }}"
+        chmod +x "$HOME/.local/bin/typos-${{ env.TYPOS_VER }}/typos"
+        echo "$HOME/.local/bin/typos-${{ env.TYPOS_VER }}" >> $GITHUB_PATH
 
     - run: make typos
