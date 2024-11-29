@@ -28,4 +28,5 @@ jobs:
         chmod +x "$HOME/.local/bin/typos-${{ env.TYPOS_VER }}/typos"
         echo "$HOME/.local/bin/typos-${{ env.TYPOS_VER }}" >> $GITHUB_PATH
 
-    - run: make typos
+    - run: make users-guide-typos
+    - run: make markdown-typos
