@@ -3,7 +3,7 @@ name: Typos
 on:
   pull_request:
   push:
-    branches: ["master", "add/typo-checking-10601-tweaks"]
+    branches: ["master", "add/typo-checking-10601-config-only"]
 
 env:
   TYPOS_VER: v1.28.1
