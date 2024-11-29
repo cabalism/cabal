@@ -288,5 +288,5 @@ markdown-typos: ## Find typos in markdown files
 	find . -type f -name '*.md' | $(GREP_EXCLUDE) | xargs typos
 
 .PHONY: markdown-fix-typos
-markdown-fix-typos: ## Fix typos in users guide
+markdown-fix-typos: ## Fix typos in markdown files
 	find . -type f -name '*.md' | $(GREP_EXCLUDE) | xargs typos --write-changes
