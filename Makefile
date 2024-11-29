@@ -49,20 +49,6 @@ whitespace: ## Run fix-whitespace in check mode
 fix-whitespace: ## Run fix-whitespace in fix mode
 	fix-whitespace --verbose
 
-.PHONY: typos
-typos: ## Find typos in users guide
-	typos **/*.rst
-	typos **/*.md
-
-.PHONY: fix-typos
-fix-typos: ## Fix typos in users guide
-	typos --write-changes **/*.rst
-	typos --write-changes **/*.md
-
-.PHONY: typos-install
-typos-install: ## Install typos-cli for typos target using cargo
-	cargo install typos-cli
-
 .PHONY: lint
 lint: ## Run HLint
 	hlint -j .
@@ -282,3 +268,25 @@ PROCS := $(shell sysctl -n hw.logicalcpu)
 else
 PROCS := $(shell nproc)
 endif
+
+.PHONY: typos-install
+typos-install: ## Install typos-cli for typos target using cargo
+	cargo install typos-cli
+
+GREP_EXCLUDE := grep -v -E 'dist-|cabal-testsuite|python-'
+
+.PHONY: users-guide-typos
+users-guide-typos: ## Find typos in users guide
+	find doc -type f -name '*.rst' | $(GREP_EXCLUDE) | xargs typos
+
+.PHONY: users-guide-fix-typos
+users-guide-fix-typos: ## Fix typos in users guide
+	find doc -type f -name '*.rst' | $(GREP_EXCLUDE) | xargs typos --write-changes
+
+.PHONY: markdown-typos
+markdown-typos: ## Find typos in markdown files
+	find . -type f -name '*.md' | $(GREP_EXCLUDE) | xargs typos
+
+.PHONY: markdown-fix-typos
+markdown-fix-typos: ## Fix typos in users guide
+	find . -type f -name '*.md' | $(GREP_EXCLUDE) | xargs typos --write-changes
