@@ -50,7 +50,8 @@ To check for typos, run `make typos` and to fix them, run `make fix-typos`. Fixi
 > SOURCE: [typos/Getting Started](https://github.com/crate-ci/typos#getting-started)
 
 ```
-make typos
+# spellchecker:off
+$ make typos
 typos **/*.rst
 error: `managable` should be `manageable`, `manageably`
   --> doc/getting-started.rst:75:6
@@ -59,6 +60,7 @@ error: `managable` should be `manageable`, `manageably`
    |      ^^^^^^^^^
    |
 make: *** [Makefile: typos] Error 2
+# spellchecker:on
 ```
 
 ### Gitpod workflow

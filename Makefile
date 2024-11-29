@@ -52,10 +52,12 @@ fix-whitespace: ## Run fix-whitespace in fix mode
 .PHONY: typos
 typos: ## Find typos in users guide
 	typos **/*.rst
+	typos **/*.md
 
 .PHONY: fix-typos
 fix-typos: ## Fix typos in users guide
 	typos --write-changes **/*.rst
+	typos --write-changes **/*.md
 
 .PHONY: typos-install
 typos-install: ## Install typos-cli for typos target using cargo
