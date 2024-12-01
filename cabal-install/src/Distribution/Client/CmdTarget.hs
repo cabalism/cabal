@@ -13,6 +13,11 @@ module Distribution.Client.CmdTarget
 import Distribution.Client.Compat.Prelude
 import Prelude ()
 
+import Distribution.Client.Config
+  ( SavedConfig(savedGlobalFlags)
+  )
+
+import Distribution.Client.IndexUtils as IndexUtils
 import qualified Data.Map as Map
 import Distribution.Client.CmdBuild (selectComponentTarget, selectPackageTargets)
 import Distribution.Client.CmdErrorMessages
@@ -47,6 +52,9 @@ import Distribution.Simple.Utils
 import Distribution.Verbosity
   ( normal
   )
+import Distribution.Client.CmdInstall (partitionToKnownTargetsAndHackagePackages)
+import Distribution.Client.GlobalFlags (withRepoContext)
+import Distribution.Client.Sandbox (loadConfigOrSandboxConfig)
 
 -------------------------------------------------------------------------------
 -- Command
@@ -106,8 +114,11 @@ targetCommand =
 
 targetAction :: NixStyleFlags () -> [String] -> GlobalFlags -> IO ()
 targetAction flags@NixStyleFlags{..} ts globalFlags = do
+  config <- loadConfigOrSandboxConfig verbosity globalFlags
+  let globalFlags' = savedGlobalFlags config `mappend` globalFlags
   let targetStrings = if null ts then ["all"] else ts
   withContextAndSelectors RejectNoTargets Nothing flags targetStrings globalFlags BuildCommand $ \targetCtx ctx targetSelectors -> do
+    print targetSelectors
     baseCtx <- case targetCtx of
       ProjectContext -> return ctx
       GlobalContext -> return ctx
@@ -128,19 +139,40 @@ targetAction flags@NixStyleFlags{..} ts globalFlags = do
 
         let elaboratedPlan' =
               pruneInstallPlanToTargets
-                TargetActionConfigure
+                TargetActionBuild
                 targets
                 elaboratedPlan
+
+        tm <- withRepoContext verbosity globalFlags' $ \repoContext -> do
+                sourcePkgDb <- IndexUtils.getSourcePackages verbosity repoContext
+
+                (targetsMap, _hackageNames) <-
+                  partitionToKnownTargetsAndHackagePackages
+                    verbosity
+                    sourcePkgDb
+                    elaboratedPlan
+                    targetSelectors
+
+                return targetsMap
+
+        -- elaboratedPlan'' <-
+        --   if buildSettingOnlyDeps (buildSettings baseCtx)
+        --     then
+        --       either (reportCannotPruneDependencies verbosity) return $
+        --         pruneInstallPlanToDependencies
+        --           (Map.keysSet targets)
+        --           elaboratedPlan'
+        --     else return elaboratedPlan'
+
         elaboratedPlan'' <-
-          if buildSettingOnlyDeps (buildSettings baseCtx)
-            then
               either (reportCannotPruneDependencies verbosity) return $
                 pruneInstallPlanToDependencies
-                  (Map.keysSet targets)
+                  (Map.keysSet tm)
                   elaboratedPlan'
-            else return elaboratedPlan'
 
-        return (elaboratedPlan'', targets)
+        print (Map.keys tm)
+        -- return (elaboratedPlan'', targets)
+        return (elaboratedPlan'', tm)
 
     printPlanTargetForms verbosity buildCtx
   where

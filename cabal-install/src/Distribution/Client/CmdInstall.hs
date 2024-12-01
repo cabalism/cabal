@@ -17,6 +17,8 @@ module Distribution.Client.CmdInstall
     -- * Internals exposed for CmdRepl + CmdRun
   , establishDummyDistDirLayout
   , establishDummyProjectBaseContext
+
+  , partitionToKnownTargetsAndHackagePackages
   ) where
 
 import Distribution.Client.Compat.Prelude
