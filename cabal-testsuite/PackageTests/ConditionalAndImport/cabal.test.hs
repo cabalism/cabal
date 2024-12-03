@@ -3,11 +3,7 @@ import Test.Cabal.Prelude
 normalizeWindowsOutput :: String -> String
 normalizeWindowsOutput = if isWindows then map (\x -> case x of '/' -> '\\'; _ -> x) else id
 
-main = skipIfWindows "" >> test
-
-test :: IO ()
-test = cabalTest . withRepo "repo" . recordMode RecordMarked $ do
-
+main = cabalTest . withRepo "repo" . recordMode RecordMarked $ do
   let log = recordHeader . pure
 
   cabal "v2-run" [ "some-exe" ]
