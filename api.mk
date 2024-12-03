@@ -38,10 +38,11 @@ check-api-cabal-install-solver: generate-api-cabal-install-solver
 # The dependency on ghcup should be removed once it has one; nix users, among
 # others, won't be very happy with it.
 
+# export PATH=$(abspath $(<D)):$$PATH; ghcup run --ghc $(API_GHC) -- $< --package-name Cabal-syntax | sed 's/\([( ]\)[Cc]abal-[-0-9.][-0-9]*:/\1/g' >Cabal-syntax-$(API_GHC).api
 .PHONY: generate-api-cabal-syntax
-generate-api-cabal-syntax: print-api-$(API_GHC)
+generate-api-cabal-syntax:
 	$(CABALBUILD) Cabal-syntax $(API_FLAGS)
-	ghcup run --ghc $(API_GHC) -- $< --package-name Cabal-syntax | sed 's/\([( ]\)[Cc]abal-[-0-9.][-0-9]*:/\1/g' >Cabal-syntax-$(API_GHC).api
+	ghcup run --ghc $(API_GHC) -- print-api --package-name Cabal-syntax | sed 's/\([( ]\)[Cc]abal-[-0-9.][-0-9]*:/\1/g' >Cabal-syntax-$(API_GHC).api
 
 .PHONY: generate-api-cabal
 generate-api-cabal: print-api-exe
@@ -62,8 +63,6 @@ generate-api-cabal-install-solver:
 	$(CABALBUILD) cabal-install-solver $(API_FLAGS)
 	ghcup run --ghc $(API_GHC) -- $(PRINT_API) --package-name cabal-install-solver | sed 's/\([( ]\)[Cc]abal-[-0-9.][-0-9]*:/\1/g' >cabal-install-solver-$(API_GHC).api
 
-.DEFAULT_GOAL := all
-
 PRINT_API_VERSION ?= eedf83e6f828217ba7946ca8bfaf4ab4062c2363
 PRINT_API_URL := https://github.com/Kleidukos/print-api/archive/${PRINT_API_VERSION}.tar.gz
 
@@ -72,7 +71,10 @@ print-api/print-api.cabal:
 	curl -sSL ${PRINT_API_URL} | tar -xz
 	mv print-api-* print-api
 
+print-api-install: print-api/print-api.cabal
+	cabal install print-api:exe:print-api --project-dir=print-api --overwrite-policy=always
+
 print-api-$(API_GHC): print-api/print-api.cabal
-	rm -f $@
+	rm -f ./$@
 	cabal build print-api:exe:print-api --project-dir=print-api
 	@cabal list-bin print-api:exe:print-api --project-dir=print-api | xargs -I % ln -s % ./$@
