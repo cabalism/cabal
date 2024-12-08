@@ -35,6 +35,13 @@ import Distribution.Pretty (prettyShow)
 import Distribution.Utils.String (trim)
 import Text.PrettyPrint
 
+data ProjectConfigFile = ProjectConfigFile FilePath | ProjectConfigURI String
+    deriving (Eq, Ord, Show, Generic)
+
+configFile :: ProjectConfigFile -> FilePath
+configFile (ProjectConfigFile f) = f
+configFile (ProjectConfigURI u) = u
+
 -- | Path to a configuration file, either a singleton project root, or a longer
 -- list representing a path to an import.  The path is a non-empty list that we
 -- build up by prepending relative imports with @consProjectConfigPath@.
@@ -46,7 +53,7 @@ import Text.PrettyPrint
 --
 -- List elements are relative to each other but once canonicalized, elements are
 -- relative to the directory of the project root.
-newtype ProjectConfigPath = ProjectConfigPath (NonEmpty FilePath)
+newtype ProjectConfigPath = ProjectConfigPath (NonEmpty ProjectConfigFile)
     deriving (Eq, Ord, Show, Generic)
 
 instance Binary ProjectConfigPath
@@ -62,9 +69,9 @@ instance Structured ProjectConfigPath
 -- >>> render . docProjectConfigPath $ ProjectConfigPath $ "D.config" :| ["C.config", "B.config", "A.project"]
 -- "D.config\n  imported by: C.config\n  imported by: B.config\n  imported by: A.project"
 docProjectConfigPath :: ProjectConfigPath -> Doc
-docProjectConfigPath (ProjectConfigPath (p :| [])) = quoteUntrimmed p
-docProjectConfigPath (ProjectConfigPath (p :| ps)) = vcat $ quoteUntrimmed p :
-    [ text " " <+> text "imported by:" <+> quoteUntrimmed l | l <- ps ]
+docProjectConfigPath (ProjectConfigPath (p :| [])) = quoteUntrimmed (configFile p)
+docProjectConfigPath (ProjectConfigPath (p :| ps)) = vcat $ quoteUntrimmed (configFile p) :
+    [ text " " <+> text "imported by:" <+> quoteUntrimmed (configFile l) | l <- ps ]
 
 -- | If the path has leading or trailing spaces then show it quoted.
 quoteUntrimmed :: FilePath -> Doc
@@ -113,7 +120,7 @@ docProjectConfigPaths ps = vcat
 cyclicalImportMsg :: ProjectConfigPath -> Doc
 cyclicalImportMsg path@(ProjectConfigPath (duplicate :| _)) =
     vcat
-    [ text "cyclical import of" <+> text duplicate <> semi
+    [ text "cyclical import of" <+> text (configFile duplicate) <> semi
     , nest 2 (docProjectConfigPath path)
     ]
 
@@ -130,12 +137,12 @@ docProjectConfigPathFailReason vr pcp
         constraint p = parens $ text "constraint from" <+> pathRequiresVersion p
 
 -- | The root of the path, the project itself.
-projectConfigPathRoot :: ProjectConfigPath -> FilePath
+projectConfigPathRoot :: ProjectConfigPath -> ProjectConfigFile
 projectConfigPathRoot (ProjectConfigPath xs) = last xs
 
 -- | Used by some tests as a dummy "unused" project root.
 nullProjectConfigPath :: ProjectConfigPath
-nullProjectConfigPath = ProjectConfigPath $ "unused" :| []
+nullProjectConfigPath = ProjectConfigPath $ ProjectConfigFile "unused" :| []
 
 -- | Check if the path has duplicates. A cycle of imports is not allowed. This
 -- check should only be done after the path has been canonicalized with
