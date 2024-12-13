@@ -65,7 +65,8 @@ module Distribution.Client.ProjectConfig
   ) where
 
 import Distribution.Client.Compat.Prelude
-import Text.PrettyPrint (nest, render, text, vcat)
+import Distribution.Simple.Utils (ordNub)
+import Text.PrettyPrint (cat, colon, comma, nest, render, text, vcat)
 import Prelude ()
 
 import Distribution.Client.Glob
@@ -134,7 +135,7 @@ import Distribution.Client.Utils
   ( determineNumJobs
   )
 import qualified Distribution.Deprecated.ParseUtils as OldParser
-  ( ParseResult (..)
+  ( ProjectParseResult (..)
   , locatedErrorMsg
   , showPWarning
   )
@@ -176,6 +177,7 @@ import Distribution.Simple.Utils
   , info
   , maybeExit
   , notice
+  , noticeDoc
   , rawSystemIOWithEnv
   , warn
   )
@@ -873,13 +875,21 @@ readGlobalConfig verbosity configFileFlag = do
   monitorFiles [monitorFileHashed configFile]
   return (convertLegacyGlobalConfig config)
 
-reportParseResult :: Verbosity -> String -> FilePath -> OldParser.ParseResult ProjectConfigSkeleton -> IO ProjectConfigSkeleton
-reportParseResult verbosity _filetype filename (OldParser.ParseOk warnings x) = do
+reportParseResult :: Verbosity -> String -> FilePath -> OldParser.ProjectParseResult ProjectConfigSkeleton -> IO ProjectConfigSkeleton
+reportParseResult verbosity _filetype projectFile (OldParser.ProjectParseOk warnings x) = do
   unless (null warnings) $
-    let msg = unlines (map (OldParser.showPWarning (intercalate ", " $ filename : (projectConfigPathRoot <$> projectSkeletonImports x))) warnings)
-     in warn verbosity msg
+    let msgs =
+          [ OldParser.showPWarning pFilename w
+          | (p, w) <- warnings
+          , let pFilename = fst $ unconsProjectConfigPath p
+          ]
+     in noticeDoc verbosity $
+          vcat
+            [ (text "Warnings found while parsing the project file" <> comma) <+> (text (takeFileName projectFile) <> colon)
+            , cat [nest 2 $ text "-" <+> text m | m <- ordNub msgs]
+            ]
   return x
-reportParseResult verbosity filetype filename (OldParser.ParseFailed err) =
+reportParseResult verbosity filetype filename (OldParser.ProjectParseFailed (_, err)) =
   let (line, msg) = OldParser.locatedErrorMsg err
       errLineNo = maybe "" (\n -> ':' : show n) line
    in dieWithException verbosity $ ReportParseResult filetype filename errLineNo msg
