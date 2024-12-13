@@ -31,6 +31,7 @@ module Distribution.Deprecated.ParseUtils
   , runE
   , ProjectParseResult (..)
   , ParseResult (..)
+  , projectParseFail
   , parseFail
   , showPWarning
   , Field (..)
@@ -114,7 +115,7 @@ showPWarning fpath (UTFWarning line fname) =
     ++ "' field."
 
 data ProjectParseResult a
-  = ProjectParseFailed (ProjectConfigPath, PError)
+  = ProjectParseFailed (Maybe ProjectConfigPath, PError)
   | ProjectParseOk [(ProjectConfigPath, PWarning)] a
   deriving (Show)
 
@@ -149,6 +150,9 @@ instance Fail.MonadFail ParseResult where
 
 parseResultFail :: String -> ParseResult a
 parseResultFail s = parseFail (FromString s Nothing)
+
+projectParseFail :: Maybe ProjectConfigPath -> PError -> ProjectParseResult a
+projectParseFail = curry ProjectParseFailed
 
 parseFail :: PError -> ParseResult a
 parseFail = ParseFailed

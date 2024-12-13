@@ -5,6 +5,8 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE ViewPatterns #-}
+{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE TupleSections #-}
 
 -- | Project configuration, implementation in terms of legacy types.
 module Distribution.Client.ProjectConfig.Legacy
@@ -156,7 +158,7 @@ import Distribution.Deprecated.ParseUtils
   , parseTokenQ
   , showToken
   , simpleFieldParsec
-  , syntaxError, ProjectParseResult
+  , syntaxError, ProjectParseResult (..), projectParseFail
   )
 import qualified Distribution.Deprecated.ParseUtils as ParseUtils
 import Distribution.Deprecated.ReadP
@@ -194,6 +196,7 @@ import Text.PrettyPrint
   , ($+$)
   )
 import qualified Text.PrettyPrint as Disp
+import Data.Functor ((<&>))
 
 ------------------------------------------------------------------
 -- Handle extended project config files with conditionals and imports.
@@ -259,9 +262,9 @@ parseProjectSkeleton
   -- ^ The contents of the file to parse
   -> IO (ProjectParseResult ProjectConfigSkeleton)
 parseProjectSkeleton cacheDir httpTransport verbosity projectDir source (ProjectConfigToParse bs) =
-  (sanityWalkPCS False =<<) <$> liftPR (go []) (ParseUtils.readFields bs)
+  (sanityWalkPCS False =<<) <$> liftPR source (go []) (ParseUtils.readFields bs)
   where
-    go :: [ParseUtils.Field] -> [ParseUtils.Field] -> IO (ParseResult ProjectConfigSkeleton)
+    go :: [ParseUtils.Field] -> [ParseUtils.Field] -> IO (ProjectParseResult ProjectConfigSkeleton)
     go acc (x : xs) = case x of
       (ParseUtils.F _ "import" importLoc) -> do
         let importLocPath = importLoc `consProjectConfigPath` source
@@ -272,7 +275,7 @@ parseProjectSkeleton cacheDir httpTransport verbosity projectDir source (Project
         debug verbosity $ "\nimport path, normalized\n=======================\n" ++ render (docProjectConfigPath normLocPath)
 
         if isCyclicConfigPath normLocPath
-          then pure . parseFail $ ParseUtils.FromString (render $ cyclicalImportMsg normLocPath) Nothing
+          then pure . projectParseFail (Just source) $ ParseUtils.FromString (render $ cyclicalImportMsg normLocPath) Nothing
           else do
             normSource <- canonicalizeConfigPath projectDir source
             let fs = (\z -> CondNode z [normLocPath] mempty) <$> fieldsToConfig normSource (reverse acc)
@@ -296,7 +299,7 @@ parseProjectSkeleton cacheDir httpTransport verbosity projectDir source (Project
       normSource <- canonicalizeConfigPath projectDir source
       pure . fmap singletonProjectConfigSkeleton . fieldsToConfig normSource $ reverse acc
 
-    parseElseClauses :: [ParseUtils.Field] -> IO (ParseResult (Maybe ProjectConfigSkeleton), ParseResult ProjectConfigSkeleton)
+    parseElseClauses :: [ParseUtils.Field] -> IO (ParseResult (Maybe ProjectConfigSkeleton), ProjectParseResult ProjectConfigSkeleton)
     parseElseClauses x = case x of
       (ParseUtils.Section _l "else" _p xs' : xs) -> do
         subpcs <- go [] xs'
@@ -329,12 +332,12 @@ parseProjectSkeleton cacheDir httpTransport verbosity projectDir source (Project
     adaptParseError _ (Right x) = pure x
     adaptParseError l (Left e) = parseFail $ ParseUtils.FromString (show e) (Just l)
 
-    liftPR :: (a -> IO (ParseResult b)) -> ParseResult a -> IO (ParseResult b)
-    liftPR f (ParseOk ws x) = addWarnings <$> f x
+    liftPR :: ProjectConfigPath -> (a -> IO (ProjectParseResult b)) -> ParseResult a -> IO (ProjectParseResult b)
+    liftPR p f (ParseOk ws x) = addWarnings <$> f x
       where
-        addWarnings (ParseOk ws' x') = ParseOk (ws' ++ ws) x'
+        addWarnings (ProjectParseOk ws' x') = ProjectParseOk (ws' ++ ((p,) <$> ws)) x'
         addWarnings x' = x'
-    liftPR _ (ParseFailed e) = pure $ ParseFailed e
+    liftPR p _ (ParseFailed e) = pure $ ProjectParseFailed (Just p, e)
 
     fetchImportConfig :: ProjectConfigPath -> IO BS.ByteString
     fetchImportConfig (ProjectConfigPath (pci :| _)) = do
@@ -357,12 +360,14 @@ parseProjectSkeleton cacheDir httpTransport verbosity projectDir source (Project
       where
         isSet f = f (projectConfigShared pc) /= NoFlag
 
-    sanityWalkPCS :: Bool -> ProjectConfigSkeleton -> ParseResult ProjectConfigSkeleton
-    sanityWalkPCS underConditional t@(CondNode d _c comps)
-      | underConditional && modifiesCompiler d = parseFail $ ParseUtils.FromString "Cannot set compiler in a conditional clause of a cabal project file" Nothing
-      | otherwise = mapM_ sanityWalkBranch comps >> pure t
+    sanityWalkPCS :: Bool -> ProjectConfigSkeleton -> ProjectParseResult ProjectConfigSkeleton
+    sanityWalkPCS underConditional t@(CondNode d (listToMaybe -> c) comps)
+      | underConditional && modifiesCompiler d =
+        projectParseFail c $ ParseUtils.FromString "Cannot set compiler in a conditional clause of a cabal project file" Nothing
+      | otherwise =
+        mapM_ sanityWalkBranch comps >> pure t
 
-    sanityWalkBranch :: CondBranch ConfVar [ProjectConfigPath] ProjectConfig -> ParseResult ()
+    sanityWalkBranch :: CondBranch ConfVar [ProjectConfigPath] ProjectConfig -> ProjectParseResult ()
     sanityWalkBranch (CondBranch _c t f) = traverse_ (sanityWalkPCS True) f >> sanityWalkPCS True t >> pure ()
 
 ------------------------------------------------------------------
