@@ -156,7 +156,7 @@ import Distribution.Deprecated.ParseUtils
   , parseTokenQ
   , showToken
   , simpleFieldParsec
-  , syntaxError
+  , syntaxError, ProjectParseResult
   )
 import qualified Distribution.Deprecated.ParseUtils as ParseUtils
 import Distribution.Deprecated.ReadP
@@ -240,7 +240,7 @@ parseProject
   -> Verbosity
   -> ProjectConfigToParse
   -- ^ The contents of the file to parse
-  -> IO (ParseResult ProjectConfigSkeleton)
+  -> IO (ProjectParseResult ProjectConfigSkeleton)
 parseProject rootPath cacheDir httpTransport verbosity configToParse = do
   let (dir, projectFileName) = splitFileName rootPath
   projectDir <- makeAbsolute dir
@@ -257,7 +257,7 @@ parseProjectSkeleton
   -- ^ The path of the file being parsed, either the root or an import
   -> ProjectConfigToParse
   -- ^ The contents of the file to parse
-  -> IO (ParseResult ProjectConfigSkeleton)
+  -> IO (ProjectParseResult ProjectConfigSkeleton)
 parseProjectSkeleton cacheDir httpTransport verbosity projectDir source (ProjectConfigToParse bs) =
   (sanityWalkPCS False =<<) <$> liftPR (go []) (ParseUtils.readFields bs)
   where

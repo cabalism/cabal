@@ -29,6 +29,7 @@ module Distribution.Deprecated.ParseUtils
   , warning
   , runP
   , runE
+  , ProjectParseResult (..)
   , ParseResult (..)
   , parseFail
   , showPWarning
@@ -80,6 +81,7 @@ import qualified Distribution.Fields as Fields
 import qualified Distribution.Fields.Field as Fields
 import qualified Distribution.Fields.LexerMonad as Fields
 import qualified Distribution.Parsec as Parsec
+import Distribution.Solver.Types.ProjectConfigPath (ProjectConfigPath)
 import qualified Text.Parsec.Error as PE
 import qualified Text.Parsec.Pos as PP
 
@@ -110,6 +112,11 @@ showPWarning fpath (UTFWarning line fname) =
     ++ ": Invalid UTF-8 text in the '"
     ++ fname
     ++ "' field."
+
+data ProjectParseResult a
+  = ProjectParseFailed (ProjectConfigPath, PError)
+  | ProjectParseOk [(ProjectConfigPath, PWarning)] a
+  deriving (Show)
 
 data ParseResult a = ParseFailed PError | ParseOk [PWarning] a
   deriving (Show)
