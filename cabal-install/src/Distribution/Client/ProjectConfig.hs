@@ -135,7 +135,7 @@ import Distribution.Client.Utils
   ( determineNumJobs
   )
 import qualified Distribution.Deprecated.ParseUtils as OldParser
-  ( ParseResult (..)
+  ( ProjectParseResult (..)
   , locatedErrorMsg
   , showPWarning
   )
@@ -874,13 +874,18 @@ readGlobalConfig verbosity configFileFlag = do
   monitorFiles [monitorFileHashed configFile]
   return (convertLegacyGlobalConfig config)
 
-reportParseResult :: Verbosity -> String -> FilePath -> OldParser.ParseResult ProjectConfigSkeleton -> IO ProjectConfigSkeleton
-reportParseResult verbosity _filetype filename (OldParser.ParseOk warnings x) = do
+reportParseResult :: Verbosity -> String -> FilePath -> OldParser.ProjectParseResult ProjectConfigSkeleton -> IO ProjectConfigSkeleton
+reportParseResult verbosity _filetype _filename (OldParser.ProjectParseOk warnings x) = do
   unless (null warnings) $
-    let msg = unlines (map (OldParser.showPWarning (intercalate ", " $ filename : (projectConfigPathRoot <$> projectSkeletonImports x))) warnings)
+    let msg =
+          unlines
+              [ OldParser.showPWarning pFilename w
+              | (p, w) <- warnings
+              , let pFilename = fst $ unconsProjectConfigPath p
+              ]
      in warn verbosity msg
   return x
-reportParseResult verbosity filetype filename (OldParser.ParseFailed err) =
+reportParseResult verbosity filetype filename (OldParser.ProjectParseFailed (_, err)) =
   let (line, msg) = OldParser.locatedErrorMsg err
       errLineNo = maybe "" (\n -> ':' : show n) line
    in dieWithException verbosity $ ReportParseResult filetype filename errLineNo msg

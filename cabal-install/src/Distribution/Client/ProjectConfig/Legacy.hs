@@ -158,7 +158,9 @@ import Distribution.Deprecated.ParseUtils
   , parseTokenQ
   , showToken
   , simpleFieldParsec
-  , syntaxError, ProjectParseResult (..), projectParseFail
+  , syntaxError, ProjectParseResult (..)
+  , projectParse
+  , projectParseFail
   )
 import qualified Distribution.Deprecated.ParseUtils as ParseUtils
 import Distribution.Deprecated.ReadP
@@ -196,7 +198,6 @@ import Text.PrettyPrint
   , ($+$)
   )
 import qualified Text.PrettyPrint as Disp
-import Data.Functor ((<&>))
 
 ------------------------------------------------------------------
 -- Handle extended project config files with conditionals and imports.
@@ -278,28 +279,28 @@ parseProjectSkeleton cacheDir httpTransport verbosity projectDir source (Project
           then pure . projectParseFail (Just source) $ ParseUtils.FromString (render $ cyclicalImportMsg normLocPath) Nothing
           else do
             normSource <- canonicalizeConfigPath projectDir source
-            let fs = (\z -> CondNode z [normLocPath] mempty) <$> fieldsToConfig normSource (reverse acc)
+            let fs :: ParseResult ProjectConfigSkeleton = (\z -> CondNode z [normLocPath] mempty) <$> fieldsToConfig normSource (reverse acc)
             res <- parseProjectSkeleton cacheDir httpTransport verbosity projectDir importLocPath . ProjectConfigToParse =<< fetchImportConfig normLocPath
             rest <- go [] xs
-            pure . fmap mconcat . sequence $ [fs, res, rest]
+            pure . fmap mconcat . sequence $ [projectParse normSource fs, res, rest]
       (ParseUtils.Section l "if" p xs') -> do
         subpcs <- go [] xs'
-        let fs = singletonProjectConfigSkeleton <$> fieldsToConfig source (reverse acc)
+        let fs :: ParseResult ProjectConfigSkeleton = singletonProjectConfigSkeleton <$> fieldsToConfig source (reverse acc)
         (elseClauses, rest) <- parseElseClauses xs
         let condNode =
               (\c pcs e -> CondNode mempty mempty [CondBranch c pcs e])
                 <$>
                 -- we rewrap as as a section so the readFields lexer of the conditional parser doesn't get confused
-                adaptParseError l (parseConditionConfVarFromClause . BS.pack $ "if(" <> p <> ")")
+                projectParse source (adaptParseError l (parseConditionConfVarFromClause . BS.pack $ "if(" <> p <> ")"))
                 <*> subpcs
                 <*> elseClauses
-        pure . fmap mconcat . sequence $ [fs, condNode, rest]
+        pure . fmap mconcat . sequence $ [projectParse source fs, condNode, rest]
       _ -> go (x : acc) xs
     go acc [] = do
       normSource <- canonicalizeConfigPath projectDir source
-      pure . fmap singletonProjectConfigSkeleton . fieldsToConfig normSource $ reverse acc
+      pure . fmap singletonProjectConfigSkeleton . projectParse source . fieldsToConfig normSource $ reverse acc
 
-    parseElseClauses :: [ParseUtils.Field] -> IO (ParseResult (Maybe ProjectConfigSkeleton), ProjectParseResult ProjectConfigSkeleton)
+    parseElseClauses :: [ParseUtils.Field] -> IO (ProjectParseResult (Maybe ProjectConfigSkeleton), ProjectParseResult ProjectConfigSkeleton)
     parseElseClauses x = case x of
       (ParseUtils.Section _l "else" _p xs' : xs) -> do
         subpcs <- go [] xs'
@@ -310,7 +311,7 @@ parseProjectSkeleton cacheDir httpTransport verbosity projectDir source (Project
         (elseClauses, rest) <- parseElseClauses xs
         let condNode =
               (\c pcs e -> CondNode mempty mempty [CondBranch c pcs e])
-                <$> adaptParseError l (parseConditionConfVarFromClause . BS.pack $ "else(" <> p <> ")")
+                <$> projectParse source (adaptParseError l (parseConditionConfVarFromClause . BS.pack $ "else(" <> p <> ")"))
                 <*> subpcs
                 <*> elseClauses
         pure (Just <$> condNode, rest)
@@ -329,6 +330,7 @@ parseProjectSkeleton cacheDir httpTransport verbosity projectDir source (Project
     addProvenance :: ProjectConfigPath -> ProjectConfig -> ProjectConfig
     addProvenance sourcePath x = x{projectConfigProvenance = Set.singleton $ Explicit sourcePath}
 
+    adaptParseError :: Show a => ParseUtils.LineNo -> Either a b -> ParseResult b
     adaptParseError _ (Right x) = pure x
     adaptParseError l (Left e) = parseFail $ ParseUtils.FromString (show e) (Just l)
 

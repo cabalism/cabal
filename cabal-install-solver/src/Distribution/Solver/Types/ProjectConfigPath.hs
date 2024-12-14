@@ -7,6 +7,7 @@ module Distribution.Solver.Types.ProjectConfigPath
     , projectConfigPathRoot
     , nullProjectConfigPath
     , consProjectConfigPath
+    , unconsProjectConfigPath
 
     -- * Messages
     , docProjectConfigPath
@@ -147,6 +148,10 @@ isTopLevelConfigPath (ProjectConfigPath p) = NE.length p == 1
 -- | Prepends the path of the importee to the importer path.
 consProjectConfigPath :: FilePath -> ProjectConfigPath -> ProjectConfigPath
 consProjectConfigPath p ps = ProjectConfigPath (p <| coerce ps)
+
+-- | Split the path into the importee and the importer path.
+unconsProjectConfigPath :: ProjectConfigPath -> (FilePath, Maybe ProjectConfigPath)
+unconsProjectConfigPath ps = fmap ProjectConfigPath <$> NE.uncons (coerce ps)
 
 -- | Make paths relative to the directory of the root of the project, not
 -- relative to the file they were imported from.
