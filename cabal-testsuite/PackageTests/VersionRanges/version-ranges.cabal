@@ -11,6 +11,6 @@ common warnings
 executable version-ranges
     import:           warnings
     main-is:          Main.hs
-    build-depends:    base ^>=4.20.0.0
+    build-depends:    base ^>=4.20.0.0, Cabal <0, pandoc <0
     hs-source-dirs:   app
     default-language: Haskell2010
