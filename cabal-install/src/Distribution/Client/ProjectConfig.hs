@@ -65,8 +65,9 @@ module Distribution.Client.ProjectConfig
   , maxNumFetchJobs
   ) where
 
+import Distribution.Simple.Utils (ordNub)
 import Distribution.Client.Compat.Prelude
-import Text.PrettyPrint (nest, render, text, vcat)
+import Text.PrettyPrint (nest, colon, comma, render, text, vcat, cat)
 import Prelude ()
 
 import Distribution.Client.Glob
@@ -177,6 +178,7 @@ import Distribution.Simple.Utils
   , info
   , maybeExit
   , notice
+  , noticeDoc
   , rawSystemIOWithEnv
   , warn
   )
@@ -875,15 +877,21 @@ readGlobalConfig verbosity configFileFlag = do
   return (convertLegacyGlobalConfig config)
 
 reportParseResult :: Verbosity -> String -> FilePath -> OldParser.ProjectParseResult ProjectConfigSkeleton -> IO ProjectConfigSkeleton
-reportParseResult verbosity _filetype _filename (OldParser.ProjectParseOk warnings x) = do
+reportParseResult verbosity _filetype projectFile (OldParser.ProjectParseOk warnings x) = do
   unless (null warnings) $
-    let msg =
-          unlines
+    let msgs =
               [ OldParser.showPWarning pFilename w
               | (p, w) <- warnings
               , let pFilename = fst $ unconsProjectConfigPath p
               ]
-     in warn verbosity msg
+    --  in case ordNub msgs of
+    --   [singleWarning] -> warn verbosity singleWarning
+    --   _ ->
+     in  noticeDoc verbosity
+           $ vcat
+           [ (text "Warnings found while parsing the project file" <> comma) <+> (text (takeFileName projectFile) <> colon)
+           , cat [nest 2 $ text "-" <+> text m | m <- ordNub msgs]
+           ]
   return x
 reportParseResult verbosity filetype filename (OldParser.ProjectParseFailed (_, err)) =
   let (line, msg) = OldParser.locatedErrorMsg err
