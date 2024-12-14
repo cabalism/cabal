@@ -263,7 +263,7 @@ showOption qpn@(Q _pp pn) (POption i linkedTo) =
 showOptions :: QPN -> [POption] -> String
 showOptions _ [] = "unexpected empty list of versions"
 showOptions q [x] = showOption q x
-showOptions q xs = showQPN q ++ "; " ++ (L.intercalate ", "
+showOptions q xs = showQPN q ++ "; ABBREVIATED -- " ++ (L.intercalate ", "
   [if isJust linkedTo
     then showOption q x
     else showI i -- Don't show the package, just the version
