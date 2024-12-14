@@ -26,6 +26,7 @@ import Distribution.Solver.Modular.Package
 import Distribution.Solver.Modular.Tree
          ( FailReason(..), POption(..), ConflictingDep(..) )
 import Distribution.Solver.Modular.Version
+import Distribution.Types.Version
 import Distribution.Solver.Types.ConstraintSource
 import Distribution.Solver.Types.PackagePath
 import Distribution.Solver.Types.Progress
@@ -269,6 +270,9 @@ showOptions q xs = showQPN q ++ "; ABBREVIATED -- " ++ (L.intercalate ", "
     else showI i -- Don't show the package, just the version
   | x@(POption i linkedTo) <- xs
   ])
+
+splitVersion :: POption -> Either POption [Int]
+splitVersion o@(POption i@(I v _) _) = if instI i then Left o else Right $ versionNumbers v
 
 showGR :: QGoalReason -> String
 showGR UserGoal            = " (user goal)"
