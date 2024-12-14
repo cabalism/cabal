@@ -6,6 +6,7 @@ module Distribution.Solver.Modular.Message (
     showMessages
   ) where
 
+import Data.Either
 import qualified Data.List as L
 import Data.Map (Map)
 import qualified Data.Map as M
@@ -264,15 +265,41 @@ showOption qpn@(Q _pp pn) (POption i linkedTo) =
 showOptions :: QPN -> [POption] -> String
 showOptions _ [] = "unexpected empty list of versions"
 showOptions q [x] = showOption q x
-showOptions q xs = showQPN q ++ "; ABBREVIATED -- " ++ (L.intercalate ", "
+showOptions q xs =
+  showQPN q
+  ++ ";\nABBREVIATED VERSIONS --\n"
+  ++  showVersionNumberRanges rs
+  ++ ";\nABBREVIATED INSTALLED --\n"
+  ++ (L.intercalate ", " $ showOption q <$> ls)
+  ++ ";\nUNABBREVIATED --\n"
+  ++ (L.intercalate ", "
   [if isJust linkedTo
     then showOption q x
     else showI i -- Don't show the package, just the version
   | x@(POption i linkedTo) <- xs
   ])
+  where
+    (ls, rs) = partitionEithers (splitVersion <$> xs)
 
 splitVersion :: POption -> Either POption [Int]
 splitVersion o@(POption i@(I v _) _) = if instI i then Left o else Right $ versionNumbers v
+
+-- SEE: https://rosettacode.org/wiki/Range_extraction#Haskell
+extractRange :: [Int] -> String
+extractRange = L.intercalate "," . f
+  where f :: [Int] -> [String]
+        f (x1 : x2 : x3 : xs) | x1 + 1 == x2 && x2 + 1 == x3
+             = (show x1 ++ '-' : show xn) : f xs'
+          where (xn, xs') = g (x3 + 1) xs
+                g a (n : ns) | a == n    = g (a + 1) ns
+                             | otherwise = (a - 1, n : ns)
+                g a []                   = (a - 1, [])
+        f (x : xs)            = show x : f xs
+        f []                  = []
+
+showVersionNumberRanges :: [[Int]] -> String
+showVersionNumberRanges xs = 
+  extractRange (concat $ take 1 <$> xs)
 
 showGR :: QGoalReason -> String
 showGR UserGoal            = " (user goal)"
