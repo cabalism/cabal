@@ -281,7 +281,6 @@ parseProjectSkeleton cacheDir httpTransport verbosity projectDir source (Project
 
         -- Once we canonicalize the import path, we can check for cyclical imports
         normLocPath <- canonicalizeConfigPath projectDir importLocPath
-
         debug verbosity $ "\nimport path, normalized\n=======================\n" ++ render (docProjectConfigPath normLocPath)
 
         if isCyclicConfigPath normLocPath
