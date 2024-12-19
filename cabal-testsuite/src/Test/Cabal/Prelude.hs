@@ -1,8 +1,9 @@
-{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE CPP #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE NondecreasingIndentation #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE CPP #-}
+{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE ViewPatterns #-}
 
 -- | Generally useful definitions that we expect most test scripts
@@ -10,6 +11,7 @@
 module Test.Cabal.Prelude (
     module Test.Cabal.Prelude,
     module Test.Cabal.Monad,
+    module Test.Cabal.NeedleHaystack,
     module Test.Cabal.Run,
     module System.FilePath,
     module Distribution.Utils.Path,
@@ -19,6 +21,7 @@ module Test.Cabal.Prelude (
     module Distribution.Simple.Program,
 ) where
 
+import Test.Cabal.NeedleHaystack
 import Test.Cabal.Script
 import Test.Cabal.Run
 import Test.Cabal.Monad
@@ -796,34 +799,30 @@ recordMode mode = withReaderT (\env -> env {
     testRecordUserMode = Just mode
     })
 
-assertOutputContainsOn :: MonadIO m => WithCallStack ((String -> String) -> (String -> String) -> (String -> String) -> (String -> String) -> String -> Result -> m ())
-assertOutputContainsOn unN n unO o (n -> needle) (o . resultOutput -> output) =
+assertOn :: MonadIO m => WithCallStack (NeedleHaystack -> String -> Result -> m ())
+assertOn NeedleHaystack{..} (txFwd txNeedle -> needle) (txFwd txHaystack. resultOutput -> output) =
     withFrozenCallStack $
-    unless (needle `isInfixOf` output) $
-    assertFailure $ "expected:\n" ++ unN needle ++
-                    "\nin output:\n" ++ unO output
-
-assertOutputDoesNotContainOn :: MonadIO m => WithCallStack ((String -> String) -> (String -> String) -> (String -> String) -> (String -> String) -> String -> Result -> m ())
-assertOutputDoesNotContainOn unN n unO o (n -> needle) (o . resultOutput -> output) =
-    withFrozenCallStack $
-    when (needle `isInfixOf` output) $
-    assertFailure $ "unexpected:\n" ++ unN needle ++
-                    "\nin output:\n" ++ unO output
-
-assertOutputContainsWrapped :: MonadIO m => WithCallStack (String -> Result -> m ())
-assertOutputContainsWrapped = assertOutputContainsOn id id id lineBreaksToSpaces
+    if expectNeedleInHaystack
+        then unless (needle `isInfixOf` output)
+            $ assertFailure $ "expected:\n" ++ (txBwd txNeedle needle) ++
+            if displayHaystack
+                then "\nin output:\n" ++ (txBwd txHaystack output)
+                else ""
+        else when (needle `isInfixOf` output)
+            $ assertFailure $ "unexpected:\n" ++ (txBwd txNeedle needle) ++
+            if displayHaystack
+                then "\nin output:\n" ++ (txBwd txHaystack output)
+                else ""
 
 assertOutputContains :: MonadIO m => WithCallStack (String -> Result -> m ())
-assertOutputContains = assertOutputContainsOn id id decodeLfMarkLines encodeLf
+assertOutputContains = assertOn needleHaystack{txHaystack = TxContains{txBwd = decodeLfMarkLines, txFwd = encodeLf}}
 
 assertOutputDoesNotContain :: MonadIO m => WithCallStack (String -> Result -> m ())
-assertOutputDoesNotContain = assertOutputDoesNotContainOn id id decodeLfMarkLines encodeLf
-
-assertOutputContainsMultiline :: MonadIO m => WithCallStack (String -> Result -> m ())
-assertOutputContainsMultiline = assertOutputContainsOn decodeLfMarkLines encodeLf decodeLfMarkLines encodeLf
-
-assertOutputDoesNotContainMultiline :: MonadIO m => WithCallStack (String -> Result -> m ())
-assertOutputDoesNotContainMultiline = assertOutputDoesNotContainOn decodeLfMarkLines encodeLf decodeLfMarkLines encodeLf
+assertOutputDoesNotContain = assertOn
+    needleHaystack
+        { expectNeedleInHaystack = False
+        , txHaystack = TxContains{txBwd = decodeLfMarkLines, txFwd = encodeLf}
+        }
 
 assertFindInFile :: MonadIO m => WithCallStack (String -> FilePath -> m ())
 assertFindInFile needle path =
@@ -876,34 +875,6 @@ assertNoFileContains paths needle =
       forM_ paths $
         \path ->
           assertFileDoesNotContain path needle
-
--- | Replace line breaks with spaces, correctly handling "\r\n".
-lineBreaksToSpaces :: String -> String
-lineBreaksToSpaces = unwords . lines . filter ((/=) '\r')
-
--- | Replace line breaks with <LF>, correctly handling "\r\n".
-encodeLf :: String -> String
-encodeLf =
-    (\s -> if "<LF>" `isPrefixOf` s then drop 4 s else s) .
-    concat . (fmap ("<LF>" ++)) . lines . filter ((/=) '\r')
-
--- | Replace <LF> markers with line breaks and wrap lines with ^ and $ markers
--- for the start and end.
-decodeLfMarkLines:: String -> String
-decodeLfMarkLines output =
-    (\xs -> case lines xs of [line0] -> line0 ++ "$"; _ -> xs)
-    . unlines
-    . (fmap ('^' :))
-    . lines
-    . (\s -> if "<LF>" `isPrefixOf` s then drop 4 s else s)
-    $ foldr
-            (\c acc -> c :
-                if ("<LF>" `isPrefixOf` acc)
-                    then "$\n" ++ drop 4 acc
-                    else acc
-            )
-            ""
-    output
 
 -- | The directory where script build artifacts are expected to be cached
 getScriptCacheDirectory :: FilePath -> TestM FilePath
