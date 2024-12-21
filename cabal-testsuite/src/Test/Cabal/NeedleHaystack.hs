@@ -1,7 +1,24 @@
 {-# LANGUAGE MultiWayIf #-}
+{-# LANGUAGE NoImplicitPrelude #-}
 
-module Test.Cabal.NeedleHaystack where
+-- | Functions for searching for a needle in a haystack, with transformations
+-- for the strings to search in and the search strings such as reencoding line
+-- breaks or delimiting lines. Both LF and CRLF line breaks are recognized.
+module Test.Cabal.NeedleHaystack
+    ( TxContains(..)
+    , txContainsId
+    , NeedleHaystack(..)
+    , symNeedleHaystack
+    , multilineNeedleHaystack
+    , needleHaystack
+    , lineBreaksToSpaces
+    , normalizePathSeparators
+    , encodeLf
+    , decodeLfMarkLines
+    ) where
 
+import Prelude hiding (unlines)
+import qualified Prelude (unlines)
 import Data.List (tails)
 import Data.Maybe (isJust)
 import Distribution.System
@@ -20,6 +37,8 @@ data TxContains =
             txFwd :: (String -> String)
         }
 
+-- | Identity transformation for the search strings and the text to search in,
+-- leaves them unchanged.
 txContainsId :: TxContains
 txContainsId = TxContains id id
 
@@ -39,16 +58,18 @@ data NeedleHaystack =
 symNeedleHaystack :: (String -> String) -> (String -> String) -> NeedleHaystack
 symNeedleHaystack bwd fwd = let tx = TxContains bwd fwd in NeedleHaystack True False tx tx
 
+-- | Multiline needle and haystack functions with symmetric conversions. Going
+-- forward converts line breaks to @"\<EOL\>"@.  Going backward replaces
+-- @"\<EOL\>"@ markers with line breaks and wrap lines with @^@ and @$@ markers.
 multilineNeedleHaystack :: NeedleHaystack
 multilineNeedleHaystack = symNeedleHaystack decodeLfMarkLines encodeLf
 
--- | Needle and haystack functions that do not change the strings. Set up for
--- finding the needle in the haystack and not displaying the line-delimited
--- haystack.
+-- | Minimal set up for finding the needle in the haystack. Doesn't change the
+-- strings and doesn't displaying the haystack in any assertion failure message.
 needleHaystack :: NeedleHaystack
 needleHaystack = NeedleHaystack True False txContainsId txContainsId
 
--- | Replace line breaks with spaces, correctly handling "\r\n".
+-- | Replace line breaks with spaces, correctly handling @"\\r\\n"@.
 --
 -- >>> lineBreaksToSpaces "foo\nbar\r\nbaz"
 -- "foo bar baz"
@@ -61,10 +82,14 @@ needleHaystack = NeedleHaystack True False txContainsId txContainsId
 lineBreaksToSpaces :: String -> String
 lineBreaksToSpaces = unwords . lines . filter ((/=) '\r')
 
--- | Expecting not more than one file path per line, replaces path separators
--- found with those of the current OS, URL-like paths excluded.
+-- | Replaces path separators found with those of the current OS, URL-like paths
+-- excluded.
+--
+-- > buildOS == Linux; normalizePathSeparators "foo\bar\baz" => "foo/bar/baz"
+-- > buildOS == Windows; normalizePathSeparators "foo/bar/baz" => "foo\bar\baz"
 normalizePathSeparators :: String -> String
-normalizePathSeparators = unlines . map normalizePathSeparator . lines
+normalizePathSeparators =
+    unlines . map normalizePathSeparator . lines
     where
         normalizePathSeparator p =
             if | any (isJust . parseURI) (tails p) -> p
@@ -73,7 +98,27 @@ normalizePathSeparators = unlines . map normalizePathSeparator . lines
                | otherwise ->
                     [if Windows.isPathSeparator c then Posix.pathSeparator else c| c <- p]
 
--- | Replace line breaks with <EOL>, correctly handling "\r\n".
+-- | @unlines@ from base will add a trailing newline if there isn't one already
+-- but this one doesn't
+--
+-- >>> lines "abc"
+-- ["abc"]
+--
+-- >>> Data.List.unlines $ lines "abc"
+-- "abc\n"
+--
+-- >>> unlines $ lines "abc"
+-- "abc"
+unlines :: [String] -> String
+unlines = maybe "" fst . unsnoc . Prelude.unlines
+
+-- | @unsnoc@ is only in base >= 4.19 so we copy its definition here rather than
+-- use CPP to conditionally import because we want to avoid CPP as that
+-- interferes with string gaps in doctests.
+unsnoc :: [a] -> Maybe ([a], a)
+unsnoc = foldr (\x -> Just . maybe ([], x) (\(~(a, b)) -> (x : a, b))) Nothing
+
+-- | Replace line breaks, be they @"\\r\\n"@ or @"\\n"@, with @"\<EOL\>"@.
 --
 -- >>> encodeLf "foo\nbar\r\nbaz"
 -- "foo<EOL>bar<EOL>baz"
@@ -91,14 +136,23 @@ encodeLf =
     . lines
     . filter ((/=) '\r')
 
--- | Replace <LF> markers with line breaks and wrap lines with ^ and $ markers
--- for the start and end.
+-- | Replace @"\<EOL\>"@ markers with @"\\n"@ line breaks and wrap lines with
+-- @^@ and @$@ markers for the start and end.
 --
 -- >>> decodeLfMarkLines "foo<EOL>bar<EOL>baz"
--- "^foo$\n^bar$\n^baz$\n"
+-- "^foo$\n^bar$\n^baz$"
 --
 -- >>> decodeLfMarkLines "<EOL>foo<EOL>bar<EOL>baz"
--- "^foo$\n^bar$\n^baz$\n"
+-- "^foo$\n^bar$\n^baz$"
+--
+-- >>> decodeLfMarkLines $ encodeLf "foo\nbar\r\nbaz"
+-- "^foo$\n^bar$\n^baz$"
+--
+-- >>> decodeLfMarkLines $ encodeLf "foo\nbar\r\nbaz\n"
+-- "^foo$\n^bar$\n^baz$"
+--
+-- >>> decodeLfMarkLines $ encodeLf "\nfoo\nbar\r\nbaz\n"
+-- "^foo$\n^bar$\n^baz$"
 decodeLfMarkLines:: String -> String
 decodeLfMarkLines output =
     (\xs -> case reverse $ lines xs of
