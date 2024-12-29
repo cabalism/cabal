@@ -298,7 +298,7 @@ replAction flags@NixStyleFlags{extraFlags = r@ReplFlags{..}, ..} targetStrings' 
   targetStrings <-
     if null targetStrings'
       then
-        withCtx (Just $ toFlag silent) targetStrings' $ \targetCtx ctx _ ->
+        withCtx silent targetStrings' $ \targetCtx ctx _ ->
         return . fromMaybe [] $ case targetCtx of
           ProjectContext ->
             let pkgs = projectPackages $ projectConfig ctx
@@ -308,7 +308,7 @@ replAction flags@NixStyleFlags{extraFlags = r@ReplFlags{..}, ..} targetStrings' 
           _ -> Nothing
       else return targetStrings'
 
-  withCtx Nothing targetStrings $ \targetCtx ctx targetSelectors -> do
+  withCtx verbosity targetStrings $ \targetCtx ctx targetSelectors -> do
     when (buildSettingOnlyDeps (buildSettings ctx)) $
       dieWithException verbosity ReplCommandDoesn'tSupport
     let projectRoot = distProjectRootDirectory $ distDirLayout ctx
@@ -548,6 +548,9 @@ replAction flags@NixStyleFlags{extraFlags = r@ReplFlags{..}, ..} targetStrings' 
       where
         go m ("PATH", Just s) = foldl' (\m' f -> Map.insertWith (+) f 1 m') m (splitSearchPath s)
         go m _ = m
+
+    withCtx ctxVerbosity strings =
+        withContextAndSelectors ctxVerbosity AcceptNoTargets (Just LibKind) flags strings globalFlags ReplCommand
 
     verbosity = cfgVerbosity normal flags
     tempFileOptions = commonSetupTempFileOptions $ configCommonFlags configFlags
