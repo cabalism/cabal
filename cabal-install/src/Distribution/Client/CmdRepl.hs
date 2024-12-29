@@ -104,8 +104,7 @@ import Distribution.Simple.Compiler
   , compilerCompatVersion
   )
 import Distribution.Simple.Setup
-  ( CommonSetupFlags (..)
-  , ReplOptions (..)
+  ( ReplOptions (..)
   , commonSetupTempFileOptions
   )
 import Distribution.Simple.Utils
@@ -297,12 +296,11 @@ replAction flags@NixStyleFlags{extraFlags = r@ReplFlags{..}, ..} targetStrings' 
   -- behaviour when the package is somewhere else we adjust the targets.
   targetStrings <-
     if null targetStrings'
-      then
-        withCtx silent targetStrings' $ \targetCtx ctx _ ->
+      then withCtx silent targetStrings' $ \targetCtx ctx _ ->
         return . fromMaybe [] $ case targetCtx of
           ProjectContext ->
             let pkgs = projectPackages $ projectConfig ctx
-            in if length pkgs == 1
+             in if length pkgs == 1
                   then pure <$> listToMaybe pkgs
                   else Nothing
           _ -> Nothing
@@ -550,7 +548,7 @@ replAction flags@NixStyleFlags{extraFlags = r@ReplFlags{..}, ..} targetStrings' 
         go m _ = m
 
     withCtx ctxVerbosity strings =
-        withContextAndSelectors ctxVerbosity AcceptNoTargets (Just LibKind) flags strings globalFlags ReplCommand
+      withContextAndSelectors ctxVerbosity AcceptNoTargets (Just LibKind) flags strings globalFlags ReplCommand
 
     verbosity = cfgVerbosity normal flags
     tempFileOptions = commonSetupTempFileOptions $ configCommonFlags configFlags

@@ -201,7 +201,7 @@ runCommand =
 -- For more details on how this works, see the module
 -- "Distribution.Client.ProjectOrchestration"
 runAction :: NixStyleFlags () -> [String] -> GlobalFlags -> IO ()
-runAction flags@NixStyleFlags{..} targetAndArgs globalFlags =
+runAction flags targetAndArgs globalFlags =
   withContextAndSelectors (cfgVerbosity normal flags) RejectNoTargets (Just ExeKind) flags targetStr globalFlags OtherCommand $ \targetCtx ctx targetSelectors -> do
     (baseCtx, defaultVerbosity) <- case targetCtx of
       ProjectContext -> return (ctx, normal)
