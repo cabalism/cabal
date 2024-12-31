@@ -29,6 +29,105 @@ import qualified System.FilePath.Posix as Posix
 import qualified System.FilePath.Windows as Windows
 import Network.URI (parseURI)
 
+{-
+Note [Multiline Needles]
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+How we search for multiline strings in output that varies by platform.
+
+Reading Expected Multiline Strings Verbatim
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+With @ghc-9.12.1@ adding @-XMultilineStrings@, writing multiline string
+expectations for @cabal-testsuite/PackageTests/**/*.test.hs@ test scripts might
+be have been easier but for a catch. We run these tests with older @GHC@
+versions so would need to use @-XCPP@ for those versions and the C preprocessor
+does not play nicely with string gaps. While it is possible to encode a
+multiline string as a single line with embedded LF characters or by breaking the
+line up arbitrarily and using @++@ concatenation or by calling unlines on a list
+of lines, string gaps are the multiline strings of Haskell prior to
+@-XMultilineStrings@.
+
+To avoid these problems and for the convenience of pasting the expected value
+verbatim into a file, @readFileVerbatim@ can read the expected multiline output
+for tests from a text file.  This has the same implementation as @readFile@ from
+the @strict-io@ package to avoid problems at cleanup.
+
+Warning: Windows file locking hack: hit the retry limit 3 while trying to remove
+C:\Users\<username>\AppData\Local\Temp\cabal-testsuite-8376
+cabal.test.hs:
+C:\Users\<username>\AppData\Local\Temp\cabal-testsuite-8376\errors.expect.txt: removePathForcibly:DeleteFile
+"\\\\?\\C:\\Users\\<username>\\AppData\\Local\\Temp\\cabal-testsuite-8376\\errors.expect.txt":
+permission denied (The process cannot access the file because it is being used by another process.)
+
+The other process accessing the file is @C:\WINDOWS\System32\svchost.exe@
+running a @QueryDirectory@ event and this problem only occurs when the test
+fails.
+
+Hidden Actual Value Modification
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The @assertOutputContains@ function was modifying the actual value (the test
+output) with @concatOutput@ before checking if it contained the expected value.
+This function, now renamed as @lineBreaksToSpaces@, would remove CR values and
+convert LF values to spaces.
+
+With this setup, false positives were possible. An expected value using string
+gaps and spaces would match a @concatOutput@ modified actual value of
+"foo_bar_baz", where '_' was any of space, LF or CRLF in the unmodified actual
+value. The latter two are false positive matches.
+
+> let expect = "foo \
+>              \bar \
+>              \baz"
+
+False negatives were also possible. An expected value set up using string gaps
+with LF characters or with @-XMultilineStrings@ wouldn't match an actual value
+of "foo_bar_baz", where '_' was either LF or CRLF because these characters had
+been replaced by spaces in the actual value, modified before the comparison.
+
+> let expect = "foo\n\
+>              \bar\n\
+>              \baz"
+
+> {-# LANGUAGE MultilineStrings #-}
+>
+> let expect = """
+>              foo
+>              bar
+>              baz
+>              """
+
+We had these problems:
+
+1. The actual value was changed before comparison and this change was not visible.
+2. The expected value was not changed in the same way as the actual value. This
+   made it possible for equal values to become unequal (false negatives) and for
+   unequal values to become equal (false positives).
+
+Explicit Changes and Visible Line Delimiters
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+To fix these problems, an added @assertOn@ function takes a @NeedleHaystack@
+configuration for how the search is made, what to expect (to find the expected
+value or not) and how to display the expected and actual values.
+
+A pilcrow ¶ is often used to visibly display line endings but our terminal
+output is restricted to ASCII so lines are delimited between @^@ and @$@
+markers. The needle (the expected output fragment) is shown annotated this way
+and the haystack (the actual output) can optionally be shown this way too.
+
+This is still a lenient match, allowing LF to match CRLF, but @encodeLf@ doesn't
+replace LF with spaces like @concatOutput@ (@lineBreaksToSpaces@) did:
+
+If you choose to display the actual value by setting
+@NeedleHaystack{displayHaystack = True}@ then its lines will be delimited.
+
+With @assertOn@, supplying string transformation to both the needle and haystack
+before comparison and before display can help find out why an expected value is
+or isn't found in the test output.
+-}
+
 -- | Transformations for the search strings and the text to search in.
 data TxContains =
     TxContains
