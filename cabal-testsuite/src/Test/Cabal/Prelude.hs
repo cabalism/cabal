@@ -799,6 +799,7 @@ recordMode mode = withReaderT (\env -> env {
     testRecordUserMode = Just mode
     })
 
+-- See Note [Multiline Needles]
 assertOutputContains :: MonadIO m => WithCallStack (String -> Result -> m ())
 assertOutputContains = assertOn
     needleHaystack
@@ -811,6 +812,7 @@ assertOutputDoesNotContain = assertOn
         , txHaystack = TxContains{txBwd = delimitLines, txFwd = encodeLf}
         }
 
+-- See Note [Multiline Needles]
 assertOn :: MonadIO m => WithCallStack (NeedleHaystack -> String -> Result -> m ())
 assertOn NeedleHaystack{..} (txFwd txNeedle -> needle) (txFwd txHaystack. resultOutput -> output) =
     withFrozenCallStack $
