@@ -55,7 +55,7 @@ targetCommand :: CommandUI (NixStyleFlags ())
 targetCommand =
   CommandUI
     { commandName = "v2-target"
-    , commandSynopsis = "Disclose selected targets."
+    , commandSynopsis = "Target a subset of all targets."
     , commandUsage = usageAlternatives "v2-target" ["[TARGETS]"]
     , commandDescription =
         Just . const . render $
