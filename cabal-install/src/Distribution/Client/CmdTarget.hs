@@ -38,9 +38,11 @@ import Distribution.Simple.Command
 import Distribution.Simple.Flag (fromFlagOrDefault)
 import Distribution.Simple.Utils
   ( noticeDoc
+  , ordNub
   , safeHead
   , wrapText
   )
+import Distribution.Types.ComponentRequestedSpec
 import Distribution.Verbosity
   ( normal
   )
@@ -190,6 +192,8 @@ printTargetForms verbosity targetStrings targets elaboratedPlan =
       [ text "Fully qualified target forms" Pretty.<> colon
       , nest 1 $ vcat [text "-" <+> text tf | tf <- targetForms]
       , found
+      , testsEnabled
+      , benchesEnabled
       ]
   where
     found =
@@ -200,6 +204,36 @@ printTargetForms verbosity targetStrings targets elaboratedPlan =
 
     localPkgs =
       [x | Configured x@ElaboratedConfiguredPackage{elabLocalToProject = True} <- InstallPlan.toList elaboratedPlan]
+
+    testsEnabled =
+      vcat
+        [ text "Tests are enabled for" Pretty.<> colon
+        , nest 1 $
+            vcat
+              [ text "-" <+> text (render $ pretty pkg)
+              | pkg <-
+                  ordNub
+                    [ n
+                    | p@ElaboratedConfiguredPackage{elabEnabledSpec = ComponentRequestedSpec{testsRequested = True}} <- localPkgs
+                    , let PackageIdentifier{pkgName = n} = elabPkgSourceId p
+                    ]
+              ]
+        ]
+
+    benchesEnabled =
+      vcat
+        [ text "Benchmarks are enabled for" Pretty.<> colon
+        , nest 1 $
+            vcat
+              [ text "-" <+> text (render $ pretty pkg)
+              | pkg <-
+                  ordNub
+                    [ n
+                    | p@ElaboratedConfiguredPackage{elabEnabledSpec = ComponentRequestedSpec{benchmarksRequested = True}} <- localPkgs
+                    , let PackageIdentifier{pkgName = n} = elabPkgSourceId p
+                    ]
+              ]
+        ]
 
     targetForm ct x =
       let pkgId@PackageIdentifier{pkgName = n} = elabPkgSourceId x
