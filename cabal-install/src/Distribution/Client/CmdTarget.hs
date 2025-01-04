@@ -170,7 +170,7 @@ targetAction flags@NixStyleFlags{..} ts globalFlags = do
         Nothing
         targetSelectors
 
-  printTargetForms verbosity targets elaboratedPlan
+  printTargetForms verbosity targetStrings targets elaboratedPlan
   where
     verbosity = fromFlagOrDefault normal (configVerbosity configFlags)
     targetStrings = if null ts then ["all"] else ts
@@ -183,14 +183,21 @@ targetAction flags@NixStyleFlags{..} ts globalFlags = do
 reportBuildTargetProblems :: Verbosity -> [TargetProblem'] -> IO a
 reportBuildTargetProblems verbosity = reportTargetProblems verbosity "target"
 
-printTargetForms :: Verbosity -> TargetsMap -> ElaboratedInstallPlan -> IO ()
-printTargetForms verbosity targets elaboratedPlan =
+printTargetForms :: Verbosity -> [String] -> TargetsMap -> ElaboratedInstallPlan -> IO ()
+printTargetForms verbosity targetStrings targets elaboratedPlan =
   noticeDoc verbosity $
     vcat
       [ text "Fully qualified target forms" Pretty.<> colon
       , nest 1 $ vcat [text "-" <+> text tf | tf <- targetForms]
+      , found
       ]
   where
+    found =
+      let n = length targets
+          t = if n == 1 then "target" else "targets"
+          query = intercalate ", " targetStrings
+       in text "Found" <+> int n <+> text t <+> text "matching" <+> text query Pretty.<> char '.'
+
     localPkgs =
       [x | Configured x@ElaboratedConfiguredPackage{elabLocalToProject = True} <- InstallPlan.toList elaboratedPlan]
 

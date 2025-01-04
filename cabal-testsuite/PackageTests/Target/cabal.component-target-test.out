@@ -4,13 +4,16 @@ Configuration is affected by the following files:
 Resolving dependencies...
 Fully qualified target forms:
  - a:test:a-test
+Found 1 target matching a:test:a-test.
 # cabal v2-target
 Configuration is affected by the following files:
 - cabal.project
 Fully qualified target forms:
  - a:test:a-test
+Found 1 target matching test:a-test.
 # cabal v2-target
 Configuration is affected by the following files:
 - cabal.project
 Fully qualified target forms:
  - a:test:a-test
+Found 1 target matching a:a-test.
