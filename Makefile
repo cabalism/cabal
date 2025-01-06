@@ -286,6 +286,7 @@ typos-install: ## Install typos-cli for typos target using cargo
 	cargo install typos-cli
 
 GREP_EXCLUDE := grep -v -E 'dist-|cabal-testsuite|python-'
+GREP_EXCLUDE_CPP := grep -v -E 'PathsModule/Z.hs'
 FIND_NAMED := find . -type f -name
 
 .PHONY: users-guide-typos
@@ -310,7 +311,7 @@ NOT_CPP := grep --files-without-match '^\#if'
 .PHONY: redundant-cpp
 redundant-cpp: ## Detect redundant CPP in Haskell files.
 	!($(FIND_NAMED) '*.hs' \
-	| $(GREP_EXCLUDE) \
+	| $(GREP_EXCLUDE) | $(GREP_EXCLUDE_CPP) \
 	| sort \
 	| xargs -d '\n' sh -c 'for arg do $(HAS_CPP) "$$arg"; done' - \
 	| xargs -d '\n' sh -c 'for arg do $(NOT_CPP) "$$arg"; done' -)
