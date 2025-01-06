@@ -310,13 +310,10 @@ NOT_CPP := grep -P --files-with-matches '^(?=.*LANGUAGE CPP)(?!=.*\#if)'
 
 .PHONY: has-cpp
 has-cpp: ## Find -XCPP in Haskell files.
-	$(FIND_NAMED) '*.hs' \
-	| $(GREP_EXCLUDE) | $(GREP_EXCLUDE_CPP) \
-	| sort \
+	$(FIND_NAMED) '*.hs' | $(GREP_EXCLUDE) | $(GREP_EXCLUDE_CPP) | sort \
 	| xargs -d '\n' $(HAS_CPP) - \
 
 .PHONY: redundant-cpp
 redundant-cpp: ## Detect redundant -XCPP in Haskell files.
-	!($(FIND_NAMED) '*.hs' \
-	| $(GREP_EXCLUDE) | $(GREP_EXCLUDE_CPP) \
+	$(FIND_NAMED) '*.hs' | $(GREP_EXCLUDE) | $(GREP_EXCLUDE_CPP) | sort \
 	| xargs -d '\n' $(NOT_CPP))
