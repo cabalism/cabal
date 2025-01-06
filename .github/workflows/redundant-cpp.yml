@@ -5,7 +5,7 @@ on:
   push:
 
 jobs:
-  whitespace:
+  redundant-cpp:
     defaults:
       run:
         shell: bash
