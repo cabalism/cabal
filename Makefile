@@ -311,5 +311,6 @@ NOT_CPP := grep --files-without-match '^\#if'
 redundant-cpp: ## Detect redundant CPP in Haskell files.
 	!($(FIND_NAMED) '*.hs' \
 	| $(GREP_EXCLUDE) \
+	| sort \
 	| xargs -d '\n' sh -c 'for arg do $(HAS_CPP) "$$arg"; done' - \
 	| xargs -d '\n' sh -c 'for arg do $(NOT_CPP) "$$arg"; done' -)
