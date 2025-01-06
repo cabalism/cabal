@@ -316,4 +316,4 @@ has-cpp: ## Find -XCPP in Haskell files.
 .PHONY: redundant-cpp
 redundant-cpp: ## Detect redundant -XCPP in Haskell files.
 	!($(FIND_NAMED) '*.hs' | $(GREP_EXCLUDE) | $(GREP_EXCLUDE_CPP) | sort \
-	| xargs -d '\n' $(NOT_CPP))
+	| xargs -d '\n' $(NOT_CPP) -)
