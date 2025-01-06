@@ -49,10 +49,6 @@ whitespace: ## Run fix-whitespace in check mode.
 fix-whitespace: ## Run fix-whitespace in fix mode.
 	fix-whitespace --verbose
 
-.PHONY: redundant-cpp
-redundant-cpp: ## Detect redundant CPP in Haskell files.
-	!(find . -type f -name '*.hs' | xargs -d '\n' grep --perl-regexp --files-with-matches '(LANGUAGE CPP)(?!^#if)' -)
-
 .PHONY: lint
 lint: ## Run HLint.
 	hlint -j .
@@ -307,3 +303,13 @@ markdown-typos: ## Find typos in markdown files
 .PHONY: markdown-fix-typos
 markdown-fix-typos: ## Fix typos in markdown files
 	$(FIND_NAMED) '*.md' | $(GREP_EXCLUDE) | xargs typos --write-changes
+
+HAS_CPP := grep --files-with-matches 'LANGUAGE.*CPP'
+NOT_CPP := grep --files-without-match '^\#if'
+
+.PHONY: redundant-cpp
+redundant-cpp: ## Detect redundant CPP in Haskell files.
+	!($(FIND_NAMED) '*.hs' \
+	| $(GREP_EXCLUDE) \
+	| xargs -d '\n' sh -c 'for arg do $(HAS_CPP) "$$arg"; done' - \
+	| xargs -d '\n' sh -c 'for arg do $(NOT_CPP) "$$arg"; done' -)
