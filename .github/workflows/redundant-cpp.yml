@@ -1,0 +1,16 @@
+name: Redundant -XCPP
+
+on:
+  pull_request:
+  push:
+
+jobs:
+  whitespace:
+    defaults:
+      run:
+        shell: bash
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+    - run: make redundant-cpp
