@@ -49,6 +49,10 @@ whitespace: ## Run fix-whitespace in check mode.
 fix-whitespace: ## Run fix-whitespace in fix mode.
 	fix-whitespace --verbose
 
+.PHONY: redundant-cpp
+redundant-cpp: ## Detect redundant CPP in Haskell files.
+	!(find . -type f -name '*.hs' | xargs -d '\n' grep --perl-regexp --files-with-matches '(LANGUAGE CPP)(?!^#if)' -)
+
 .PHONY: lint
 lint: ## Run HLint.
 	hlint -j .
