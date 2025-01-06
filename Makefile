@@ -306,12 +306,17 @@ markdown-fix-typos: ## Fix typos in markdown files
 	$(FIND_NAMED) '*.md' | $(GREP_EXCLUDE) | xargs typos --write-changes
 
 HAS_CPP := grep --files-with-matches 'LANGUAGE.*CPP'
-NOT_CPP := grep --files-without-match '^\#if'
+NOT_CPP := grep -P --files-with-matches '^(?=.*LANGUAGE CPP)(?!=.*\#if)'
 
-.PHONY: redundant-cpp
-redundant-cpp: ## Detect redundant CPP in Haskell files.
-	!($(FIND_NAMED) '*.hs' \
+.PHONY: has-cpp
+has-cpp: ## Find -XCPP in Haskell files.
+	$(FIND_NAMED) '*.hs' \
 	| $(GREP_EXCLUDE) | $(GREP_EXCLUDE_CPP) \
 	| sort \
-	| xargs -d '\n' sh -c 'for arg do $(HAS_CPP) "$$arg"; done' - \
-	| xargs -d '\n' sh -c 'for arg do $(NOT_CPP) "$$arg"; done' -)
+	| xargs -d '\n' $(HAS_CPP) - \
+
+.PHONY: redundant-cpp
+redundant-cpp: ## Detect redundant -XCPP in Haskell files.
+	$(FIND_NAMED) '*.hs' \
+	| $(GREP_EXCLUDE) | $(GREP_EXCLUDE_CPP) \
+	| xargs -d '\n' $(NOT_CPP)
