@@ -313,7 +313,11 @@ has-cpp: ## Find -XCPP in Haskell files.
 	$(FIND_NAMED) '*.hs' | $(GREP_EXCLUDE) | $(GREP_EXCLUDE_CPP) | sort \
 	| xargs -d '\n' $(HAS_CPP) - \
 
-.PHONY: redundant-cpp
-redundant-cpp: ## Detect redundant -XCPP in Haskell files.
+.PHONY: redundant-cpp1
+redundant-cpp1: ## Detect redundant -XCPP in Haskell files.
 	!($(FIND_NAMED) '*.hs' | $(GREP_EXCLUDE) | $(GREP_EXCLUDE_CPP) | sort \
 	| xargs -d '\n' $(NOT_CPP) -)
+
+.PHONY: redundant-cpp
+redundant-cpp: ## Detect redundant -XCPP in Haskell files.
+	!(find . -type f -name *.hs -exec grep '^\#if' --files-without-match {} \; -exec grep --files-with-matches 'LANGUAGE.*CPP' {} \; -print)
