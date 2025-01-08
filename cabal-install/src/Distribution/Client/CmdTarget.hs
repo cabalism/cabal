@@ -63,6 +63,7 @@ targetCommand =
             [ intro
             , vcat $ punctuate (text "\n") [targetForms, ctypes, Pretty.empty]
             , caution
+            , unique
             ]
     , commandNotes = Just $ \pname -> render $ examples pname
     , commandDefaultFlags = defaultNixStyleFlags ()
@@ -72,9 +73,10 @@ targetCommand =
     intro =
       text . wrapText $
         "Discover targets in a project for use with other commands taking [TARGETS].\n\n"
-          ++ "Discloses fully-qualified targets from a selection of target form"
-          ++ " [TARGETS] (or 'all' if none given).  Can also check if a target form is"
-          ++ " unique as some commands require a unique TARGET."
+          ++ "This command, like many others, takes [TARGETS]. Taken together, these will"
+          ++ " select for a set of targets in the project. When none are supplied, the"
+          ++ " commands acts as if 'all' was supplied."
+          ++ " Targets in the returned subset are shown sorted and fully-qualified."
 
     targetForms =
       vcat
@@ -105,10 +107,17 @@ targetCommand =
 
     caution =
       text . wrapText $
-        "For a package, all, module or filepath target, cabal target [TARGETS] \
+        "WARNING: For a package, all, module or filepath target, cabal target [TARGETS] \
         \ will *only* show 'libs' and 'exes' of the [TARGETS]. To also show \
         \ tests and benchmarks, enable them with '--enable-tests' and \
         \ '--enable-benchmarks'."
+
+    unique =
+      text . wrapText $
+        "NOTE: For commands expecting a unique TARGET, a fully-qualified target is the safe \
+        \ way to go but it may be convenient to type out a shorter TARGET. For example, if the \
+        \ set of 'cabal target all:exes' has one item then 'cabal list-bin all:exes' will \
+        \ work too."
 
     examples pname =
       vcat
