@@ -67,6 +67,9 @@ module Distribution.Utils.Path
 
     -- ** Module names
   , moduleNameSymbolicPath
+
+    -- * Windows
+  , asPosixPath
   ) where
 
 import Distribution.Compat.Prelude
@@ -86,6 +89,8 @@ import qualified Distribution.Compat.CharParsing as P
 
 import qualified System.Directory as Directory
 import qualified System.FilePath as FilePath
+import qualified System.FilePath.Posix as Posix
+import qualified System.FilePath.Windows as Windows
 
 import Data.Kind
   ( Type
@@ -531,3 +536,15 @@ data Response
 --
 -- See Note [Symbolic paths] in Distribution.Utils.Path.
 data PkgConf
+
+-------------------------------------------------------------------------------
+
+-- * Windows utils
+
+-------------------------------------------------------------------------------
+
+-- | Sometimes we need to represent a Windows path (that might have been
+-- normalized) as a POSIX path, for example in URIs.
+asPosixPath :: FilePath -> FilePath
+asPosixPath p =
+  [if x == Windows.pathSeparator then Posix.pathSeparator else x | x <- p]

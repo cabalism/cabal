@@ -175,7 +175,7 @@ import Distribution.Simple.Command
   , option
   , reqArg'
   )
-import Distribution.System (Arch, OS)
+import Distribution.System (Arch, OS (Windows), buildOS)
 import Distribution.Types.PackageVersionConstraint
   ( PackageVersionConstraint
   )
@@ -187,7 +187,7 @@ import Distribution.Utils.Path hiding
 import qualified Data.ByteString.Char8 as BS
 import qualified Data.Map as Map
 import qualified Data.Set as Set
-import Network.URI (URI (..), parseURI)
+import Network.URI (URI (..), URIAuth (..), parseURI)
 import System.Directory (createDirectoryIfMissing, makeAbsolute)
 import System.FilePath (isAbsolute, isPathSeparator, makeValid, splitFileName, (</>))
 import Text.PrettyPrint
@@ -2040,8 +2040,16 @@ remoteRepoSectionDescr =
     localToRemote :: LocalRepo -> RemoteRepo
     localToRemote (LocalRepo name path sharedCache) =
       (emptyRemoteRepo name)
-        { remoteRepoURI = URI "file+noindex:" Nothing path "" (if sharedCache then "#shared-cache" else "")
+        { remoteRepoURI =
+            URI
+              "file+noindex:"
+              (Just (URIAuth "" "" ""))
+              ((if isWindows then asPosixPath else id) path)
+              ""
+              (if sharedCache then "#shared-cache" else "")
         }
+
+    isWindows = buildOS == Windows
 
 -------------------------------
 -- Local field utils
