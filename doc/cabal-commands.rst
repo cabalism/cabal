@@ -36,7 +36,7 @@ Commands
       gen-bounds             Generate dependency bounds.
       outdated               Check for outdated dependencies.
       path                   Query for simple project information.
-      target                 Disclose selected targets.
+      target                 Target a subset of all targets.
 
      [project building and installing]
       build                  Compile targets within the project.
@@ -740,12 +740,16 @@ Scripting example:
 cabal target
 ^^^^^^^^^^^^
 
-``cabal target [TARGETS]`` discloses fully-qualified targets from a selection of
-targets and is useful for discovering targets in a project for use with other
-commands taking [TARGETS]. This command can also check if a :ref:`target
-form<target-forms>` is unique as some commands require a unique TARGET.
+This command is useful for discovering targets in a project for use with other
+commands taking ``[TARGETS]``.
 
-Any target forms except for a script target can be used with ``cabal target``.
+Any :ref:`target form<target-forms>` except for a script target can be used with
+``cabal target``.
+
+This command, like many others, takes ``[TARGETS]``. Taken together, these will
+select for a set of targets in the project. When none are supplied, the command
+acts as if ``all`` was supplied. Targets in the returned subset are shown sorted
+and fully-qualified.
 
 .. code-block:: console
 
@@ -767,9 +771,18 @@ Any target forms except for a script target can be used with ``cabal target``.
      - cabal-install:test:unit-tests
      - solver-benchmarks:test:unit-tests
 
-For a package, all, module or filepath target, cabal target [TARGETS] will
-**only** show ``libs`` and ``exes`` of the [TARGETS]. To also show tests and
-benchmarks, enable them with ``--enable-tests`` and ``--enable-benchmarks``.
+.. warning::
+
+    For a package, all, module or filepath target, ``cabal target [TARGETS]`` will
+    **only** show ``libs`` and ``exes`` of the ``[TARGETS]``. To also show tests and
+    benchmarks, enable them with ``--enable-tests`` and ``--enable-benchmarks``.
+
+.. note::
+
+    For commands expecting a unique ``TARGET``, a fully-qualified target is the safe
+    way to go but it may be convenient to type out a shorter ``TARGET``. For
+    example, if the set of ``cabal target all:exes`` has one item then ``cabal
+    list-bin all:exes`` will work too.
 
 .. _command-group-build:
 
