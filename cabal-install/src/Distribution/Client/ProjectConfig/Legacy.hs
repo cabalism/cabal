@@ -2041,15 +2041,24 @@ remoteRepoSectionDescr =
     localToRemote (LocalRepo name path sharedCache) =
       (emptyRemoteRepo name)
         { remoteRepoURI =
-            URI
-              "file+noindex:"
-              (Just (URIAuth "" "" ""))
-              ((if isWindows then asPosixPath else id) path)
-              ""
-              (if sharedCache then "#shared-cache" else "")
+            normaliseFileNoIndexURI buildOS $
+              URI
+                "file+noindex:"
+                (Just (URIAuth "" "" ""))
+                path
+                ""
+                (if sharedCache then "#shared-cache" else "")
         }
 
-    isWindows = buildOS == Windows
+-- | When on Windows, we need to convert the path to be POSIX-style.
+-- >>> normaliseFileNoIndexURI Windows (URI "file+noindex:" (Just (URIAuth "" "" "")) "C:\\dev\\foo" "" "")
+-- file+noindex://C:/dev/foo
+normaliseFileNoIndexURI :: OS -> URI -> URI
+normaliseFileNoIndexURI os uri@(URI scheme auth path query fragment)
+  | "file+noindex:" <- scheme
+  , Windows <- os =
+      URI scheme auth (asPosixPath path) query fragment
+  | otherwise = uri
 
 -------------------------------
 -- Local field utils
