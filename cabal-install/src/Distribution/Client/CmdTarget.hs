@@ -75,7 +75,7 @@ targetCommand =
         "Discover targets in a project for use with other commands taking [TARGETS].\n\n"
           ++ "This command, like many others, takes [TARGETS]. Taken together, these will"
           ++ " select for a set of targets in the project. When none are supplied, the"
-          ++ " commands acts as if 'all' was supplied."
+          ++ " command acts as if 'all' was supplied."
           ++ " Targets in the returned subset are shown sorted and fully-qualified."
 
     targetForms =
