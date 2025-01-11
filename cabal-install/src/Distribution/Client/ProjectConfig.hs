@@ -68,7 +68,16 @@ module Distribution.Client.ProjectConfig
   ) where
 
 import Distribution.Client.Compat.Prelude hiding (empty)
-import Distribution.Simple.Utils (ordNub)
+import Distribution.Simple.Utils
+  ( createDirectoryIfMissingVerbose
+  , dieWithException
+  , maybeExit
+  , notice
+  , noticeDoc
+  , ordNub
+  , rawSystemIOWithEnv
+  , warn
+  )
 import Text.PrettyPrint (cat, colon, comma, empty, hsep, nest, quotes, render, text, vcat)
 import Prelude ()
 
@@ -175,15 +184,6 @@ import Distribution.Simple.Setup
   , fromFlag
   , fromFlagOrDefault
   , toFlag
-  )
-import Distribution.Simple.Utils
-  ( createDirectoryIfMissingVerbose
-  , dieWithException
-  , maybeExit
-  , notice
-  , noticeDoc
-  , rawSystemIOWithEnv
-  , warn
   )
 import Distribution.System
   ( Platform
