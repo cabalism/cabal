@@ -774,7 +774,7 @@ and fully-qualified.
 .. warning::
 
     For a package, all, module or filepath target, ``cabal target [TARGETS]`` will
-    **only** show ``libs`` and ``exes`` of the ``[TARGETS]``. To also show tests and
+    only show ``libs`` and ``exes`` of the ``[TARGETS]`` by default. To also show tests and
     benchmarks, enable them with ``--enable-tests`` and ``--enable-benchmarks``.
 
 .. note::
