@@ -1,7 +1,6 @@
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE MultiWayIf #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -322,19 +321,18 @@ parseProjectSkeleton cacheDir httpTransport verbosity importsBy dupesMap project
         mapM_ (debug verbosity) seenImports
         debug verbosity "\n"
 
-        if
-            | isCyclicConfigPath normLocPath ->
-                pure . projectParseFail Nothing (Just normSource) $ ParseUtils.FromString (render $ cyclicalImportMsg normLocPath) Nothing
-            | otherwise -> do
-                when
-                  (isUntrimmedUriConfigPath importLocPath)
-                  (noticeDoc verbosity $ untrimmedUriImportMsg (Disp.text "Warning:") importLocPath)
-                let fs = (\z -> CondNode z [normLocPath] mempty) <$> fieldsToConfig normSource (reverse acc)
-                let uniqueFields = if uniqueImport `elem` seenImports then [] else xs
-                atomicModifyIORef' dupesMap $ \dm -> (Map.insertWith (++) uniqueImport [Dupes uniqueImport normLocPath seenImportsBy] dm, ())
-                res <- parseProjectSkeleton cacheDir httpTransport verbosity importsBy dupesMap projectDir importLocPath . ProjectConfigToParse =<< fetchImportConfig normLocPath
-                rest <- go [] uniqueFields
-                pure . fmap mconcat . sequence $ [projectParse Nothing normSource fs, res, rest]
+        if isCyclicConfigPath normLocPath
+          then pure . projectParseFail Nothing (Just normSource) $ ParseUtils.FromString (render $ cyclicalImportMsg normLocPath) Nothing
+          else do
+            when
+              (isUntrimmedUriConfigPath importLocPath)
+              (noticeDoc verbosity $ untrimmedUriImportMsg (Disp.text "Warning:") importLocPath)
+            let fs = (\z -> CondNode z [normLocPath] mempty) <$> fieldsToConfig normSource (reverse acc)
+            let uniqueFields = if uniqueImport `elem` seenImports then [] else xs
+            atomicModifyIORef' dupesMap $ \dm -> (Map.insertWith (++) uniqueImport [Dupes uniqueImport normLocPath seenImportsBy] dm, ())
+            res <- parseProjectSkeleton cacheDir httpTransport verbosity importsBy dupesMap projectDir importLocPath . ProjectConfigToParse =<< fetchImportConfig normLocPath
+            rest <- go [] uniqueFields
+            pure . fmap mconcat . sequence $ [projectParse Nothing normSource fs, res, rest]
       (ParseUtils.Section l "if" p xs') -> do
         normSource <- canonicalizeConfigPath projectDir source
         subpcs <- go [] xs'
