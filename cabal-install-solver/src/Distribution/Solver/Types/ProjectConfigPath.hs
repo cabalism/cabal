@@ -193,6 +193,7 @@ seenImportMsg intro duplicate path seenImportsBy =
         [ docProjectConfigPath dib
         | (_, dib) <- filter ((duplicate ==) . fst) seenImportsBy
         ]
+    ]
 
 -- | A message for an import that has leading or trailing spaces.
 untrimmedUriImportMsg :: Doc -> ProjectConfigPath -> Doc

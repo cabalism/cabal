@@ -133,7 +133,6 @@ import Distribution.Simple.Utils
   ( debug
   , lowercase
   , noticeDoc
-  , warn
   )
 import Distribution.Types.CondTree
   ( CondBranch (..)
@@ -198,7 +197,6 @@ import Distribution.Utils.Path hiding
   )
 
 import qualified Data.ByteString.Char8 as BS
-import Data.Functor ((<&>))
 import Data.List (sortOn)
 import qualified Data.Map as Map
 import qualified Data.Set as Set
@@ -328,8 +326,6 @@ parseProjectSkeleton cacheDir httpTransport verbosity importsBy dupesMap project
         if
             | isCyclicConfigPath normLocPath ->
                 pure . projectParseFail Nothing (Just normSource) $ ParseUtils.FromString (render $ cyclicalImportMsg normLocPath) Nothing
-            | uniqueImport `elem` seenImports -> do
-                pure . parseFail $ ParseUtils.FromString (render $ duplicateImportMsg uniqueImport normLocPath seenImportsBy) Nothing
             | otherwise -> do
                 when
                   (isUntrimmedUriConfigPath importLocPath)
