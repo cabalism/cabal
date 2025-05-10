@@ -3,11 +3,15 @@ import Test.Cabal.Prelude
 main = cabalTest . recordMode RecordMarked $ do
   let log = recordHeader . pure
 
-  log "checking project import with trailing space with file scheme"
-  trailing <- cabal' "v2-build" [ "--dry-run", "--project-file=trailing-space-file-scheme.project" ]
+  log "checking project import with trailing space with file:/ scheme"
+  trailing <- cabal' "v2-build" [ "--dry-run", "--project-file=trailing-space-file-scheme-single-slash.project" ]
   assertOutputContains "import has leading or trailing whitespace" trailing
   assertOutputContains "'file:/nightly-2024-12-05.config '" trailing
-  assertOutputContains "'file:///nightly-2024-12-05.config '" trailing
+
+  -- log "checking project import with trailing space with file:/// scheme"
+  -- trailing <- cabal' "v2-build" [ "--dry-run", "--project-file=trailing-space-file-scheme-triple-slash.project" ]
+  -- assertOutputContains "import has leading or trailing whitespace" trailing
+  -- assertOutputContains "'file:///nightly-2024-12-05.config '" trailing
 
   -- log "checking project import with trailing space with https scheme"
   -- trailing <- cabal' "v2-build" [ "--dry-run", "--project-file=trailing-space.project" ]

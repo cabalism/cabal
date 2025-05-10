@@ -218,10 +218,15 @@ setup'' prefix cmd args = do
     pdfile <- liftIO $ tryFindPackageDesc (testVerbosity env) (Just pkgDir)
     pdesc <- liftIO $ readGenericPackageDescription (testVerbosity env) (Just pkgDir) $ relativeSymbolicPath pdfile
     if testCabalInstallAsSetup env
-    then if buildType (packageDescription pdesc) == Simple
+    then do
+         liftIO $ putStrLn $ "XXXXXXXXXXXXXXXXXXXX - Running cabal act-as-setup for " ++ prefix
+
+         if buildType (packageDescription pdesc) == Simple
          then runProgramM' (Just (testTmpDir env)) cabalProgram ("act-as-setup" : "--" : full_args) Nothing
          else fail "Using act-as-setup for not 'build-type: Simple' package"
     else do
+        liftIO $ putStrLn $ "XXXXXXXXXXXXXXXXXXXX - NOT Running cabal act-as-setup for " ++ prefix
+
         if buildType (packageDescription pdesc) == Simple
             then runM' (Just $ testTmpDir env) (testSetupPath env) (full_args) Nothing
             -- Run the Custom script!
@@ -1261,6 +1266,7 @@ writeSourceFile fp s = do
 
 copySourceFileTo :: FilePath -> FilePath -> TestM ()
 copySourceFileTo src dest = do
+    liftIO $ hPutStrLn stderr $ "XXXXXXXXXXXXXXXXXXXXX - Copying " <> src <> " to " <> dest
     cwd <- fmap testCurrentDir getTestEnv
     liftIO $ copyFile (cwd </> src) (cwd </> dest)
 
