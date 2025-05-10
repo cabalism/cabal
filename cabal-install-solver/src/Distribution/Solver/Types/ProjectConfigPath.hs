@@ -329,6 +329,16 @@ makeRelativeConfigPath dir (ProjectConfigPath p) =
 -- >>> p <- canonicalizeConfigPath d (ProjectConfigPath $ ("https://www.stackage.org/nightly-2024-12-05/cabal.config ") :| [d </> "cabal.project"])
 -- >>> render $ docProjectConfigPath p
 -- "https://www.stackage.org/nightly-2024-12-05/cabal.config\n  imported by: cabal.project"
+--
+-- >>> let d = testDir
+-- >>> p <- canonicalizeConfigPath d (ProjectConfigPath $ ("file:/nightly-2024-12-05.config ") :| [d </> "cabal.project"])
+-- >>> render $ docProjectConfigPath p
+-- "file:/nightly-2024-12-05.config\n  imported by: cabal.project"
+--
+-- >>> let d = testDir
+-- >>> p <- canonicalizeConfigPath d (ProjectConfigPath $ ("file:///nightly-2024-12-05.config ") :| [d </> "cabal.project"])
+-- >>> render $ docProjectConfigPath p
+-- "file:///nightly-2024-12-05.config\n  imported by: cabal.project"
 canonicalizeConfigPath :: FilePath -> ProjectConfigPath -> IO ProjectConfigPath
 canonicalizeConfigPath d (ProjectConfigPath p) = do
     xs <- sequence $ NE.scanr (\importee@(trim -> trimImportee) -> (>>= \importer@(trim -> trimImporter) ->
@@ -338,6 +348,20 @@ canonicalizeConfigPath d (ProjectConfigPath p) = do
             (pure ".") p
     return . makeRelativeConfigPath d . ProjectConfigPath . NE.fromList $ NE.init xs
 
+-- |
+--
+-- >>> isURI "https://www.stackage.org/nightly-2024-12-05/cabal.config"
+-- True
+-- >>> isURI "https://www.stackage.org/nightly-2024-12-05/cabal.config "
+-- False
+-- >>> isURI "file:/nightly-2024-12-05.config"
+-- True
+-- >>> isURI "file:/nightly-2024-12-05.config "
+-- False
+-- >>> isURI "file:///nightly-2024-12-05.config"
+-- True
+-- >>> isURI "file:///nightly-2024-12-05.config "
+-- False
 isURI :: FilePath -> Bool
 isURI = isJust . parseURI
 
