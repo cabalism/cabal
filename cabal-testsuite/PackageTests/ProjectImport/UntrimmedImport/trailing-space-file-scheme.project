@@ -1,0 +1,4 @@
+packages: .
+import: file:/nightly-2024-12-05.config 
+import: file:///nightly-2024-12-05.config 
+import: with-ghc.config
