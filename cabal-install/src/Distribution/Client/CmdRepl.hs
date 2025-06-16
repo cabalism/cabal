@@ -179,7 +179,7 @@ import Distribution.Client.ReplFlags
   , topReplOptions
   )
 import Distribution.Compat.Binary (decode)
-import Distribution.Simple.Flag (fromFlagOrDefault, pattern Flag, toFlag)
+import Distribution.Simple.Flag (fromFlagOrDefault, pattern Flag)
 import Distribution.Simple.Program.Builtin (ghcProgram)
 import Distribution.Simple.Program.Db (requireProgram)
 import Distribution.Simple.Program.Run
@@ -289,8 +289,6 @@ multiReplDecision ctx compiler flags =
 -- "Distribution.Client.ProjectOrchestration"
 replAction :: NixStyleFlags ReplFlags -> [String] -> GlobalFlags -> IO ()
 replAction flags@NixStyleFlags{extraFlags = r@ReplFlags{..}, ..} targetStrings' globalFlags = do
-  let withCtx strings = withContextAndSelectors verbosity AcceptNoTargets (Just LibKind) flags strings globalFlags ReplCommand
-
   -- NOTE: The REPL will work with no targets in the context of a project if a
   -- sole package is in the same directory as the project file. To have the same
   -- behaviour when the package is somewhere else we adjust the targets.
