@@ -32,4 +32,9 @@ main = cabalTest . recordMode RecordMarked $ do
   missing <- fails $ cabal' "repl" [ "--project-file=missing.project" ]
   assertOutputContains "The given project file 'missing.project' does not exist." missing
 
+  log "checking repl command with a single package in 'one.project'"
+  one <- fails $ cabal' "repl" [ "--project-file=one.project" ]
+  assertOutputContains "In order, the following will be built" one
+  assertOutputContains "pkg-one-0.1 (interactive) (first run)" one
+
   return ()
