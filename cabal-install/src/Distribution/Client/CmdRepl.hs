@@ -285,7 +285,7 @@ multiReplDecision ctx compiler flags =
 -- For more details on how this works, see the module
 -- "Distribution.Client.ProjectOrchestration"
 replAction :: NixStyleFlags ReplFlags -> [String] -> GlobalFlags -> IO ()
-replAction flags@NixStyleFlags{extraFlags = r@ReplFlags{..}, ..} targetStrings' globalFlags = do
+replAction flags@NixStyleFlags{extraFlags = replFlags@ReplFlags{..}, configFlags} targetStrings' globalFlags = do
   -- NOTE: The REPL will work with no targets in the context of a project if a
   -- single package is in the same directory as the project file. To have the
   -- same behaviour when the package is somewhere else we adjust the targets.
@@ -392,7 +392,7 @@ replAction flags@NixStyleFlags{extraFlags = r@ReplFlags{..}, ..} targetStrings' 
         -- especially in the no-project case.
         withInstallPlan (lessVerbose verbosity) baseCtx' $ \elaboratedPlan sharedConfig -> do
           -- targets should be non-empty map, but there's no NonEmptyMap yet.
-          targets <- validatedTargets (projectConfigShared (projectConfig ctx)) (pkgConfigCompiler sharedConfig) elaboratedPlan targetSelectors
+          targets <- validatedTargets' (projectConfigShared (projectConfig ctx)) (pkgConfigCompiler sharedConfig) elaboratedPlan targetSelectors
 
           let
             (unitId, _) = fromMaybe (error "panic: targets should be non-empty") $ safeHead $ Map.toList targets
@@ -416,7 +416,7 @@ replAction flags@NixStyleFlags{extraFlags = r@ReplFlags{..}, ..} targetStrings' 
         let ProjectBaseContext{..} = baseCtx''
 
         -- Recalculate with updated project.
-        targets <- validatedTargets (projectConfigShared projectConfig) (pkgConfigCompiler elaboratedShared') elaboratedPlan targetSelectors
+        targets <- validatedTargets' (projectConfigShared projectConfig) (pkgConfigCompiler elaboratedShared') elaboratedPlan targetSelectors
 
         let
           elaboratedPlan' =
@@ -555,28 +555,7 @@ replAction flags@NixStyleFlags{extraFlags = r@ReplFlags{..}, ..} targetStrings' 
     verbosity = cfgVerbosity normal flags
     tempFileOptions = commonSetupTempFileOptions $ configCommonFlags configFlags
 
-    validatedTargets ctx compiler elaboratedPlan targetSelectors = do
-      let multi_repl_enabled = multiReplDecision ctx compiler r
-      -- Interpret the targets on the command line as repl targets
-      -- (as opposed to say build or haddock targets).
-      targets <-
-        either (reportTargetProblems verbosity) return $
-          resolveTargetsFromSolver
-            (selectPackageTargets multi_repl_enabled)
-            selectComponentTarget
-            elaboratedPlan
-            Nothing
-            targetSelectors
-
-      -- Reject multiple targets, or at least targets in different
-      -- components. It is ok to have two module/file targets in the
-      -- same component, but not two that live in different components.
-      when (Set.size (distinctTargetComponents targets) > 1 && not (useMultiRepl multi_repl_enabled)) $
-        reportTargetProblems
-          verbosity
-          [multipleTargetsProblem multi_repl_enabled targets]
-
-      return targets
+    validatedTargets' = validatedTargets verbosity replFlags
 
     -- This is the constraint setup.Cabal>=3.11. 3.11 is when Cabal options
     -- used for multi-repl were introduced.
@@ -589,6 +568,37 @@ replAction flags@NixStyleFlags{extraFlags = r@ReplFlags{..}, ..} targetStrings' 
           (PackagePropertyVersion $ orLaterVersion $ mkVersion [3, 11])
       , ConstraintSourceMultiRepl
       )
+
+validatedTargets
+  :: Verbosity
+  -> ReplFlags
+  -> ProjectConfigShared
+  -> Compiler
+  -> ElaboratedInstallPlan
+  -> [TargetSelector]
+  -> IO TargetsMap
+validatedTargets verbosity replFlags ctx compiler elaboratedPlan targetSelectors = do
+  let multi_repl_enabled = multiReplDecision ctx compiler replFlags
+  -- Interpret the targets on the command line as repl targets (as opposed to
+  -- say build or haddock targets).
+  targets <-
+    either (reportTargetProblems verbosity) return $
+      resolveTargetsFromSolver
+        (selectPackageTargets multi_repl_enabled)
+        selectComponentTarget
+        elaboratedPlan
+        Nothing
+        targetSelectors
+
+  -- Reject multiple targets, or at least targets in different components. It is
+  -- ok to have two module/file targets in the same component, but not two that
+  -- live in different components.
+  when (Set.size (distinctTargetComponents targets) > 1 && not (useMultiRepl multi_repl_enabled)) $
+    reportTargetProblems
+      verbosity
+      [multipleTargetsProblem multi_repl_enabled targets]
+
+  return targets
 
 -- | First version of GHC which supports multiple home packages
 minMultipleHomeUnitsVersion :: Version
