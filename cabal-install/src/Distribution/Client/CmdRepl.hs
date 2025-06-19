@@ -315,22 +315,26 @@ replAction flags@NixStyleFlags{extraFlags = r@ReplFlags{..}, ..} targetStrings' 
                 Flag "" -> Nothing
                 Flag n -> Just $ quotes (text n)
                 _ -> Nothing
+              pickComponent = text "pick a single [package:][ctype:]component as target for the REPL command."
               msg =
                 case (null pkgs, projectName) of
                   (True, Just project) ->
                     text "There are no packages in"
                       <+> (project <> char '.')
-                      <+> text "Please add a package to the project and pick a single [package:][ctype:]component as target for the REPL command."
+                      <+> text "Please add a package to the project and"
+                      <+> pickComponent
                   (True, Nothing) ->
-                    text "Please add a package to the project and pick a single [package:][ctype:]component as target for the REPL command."
+                    text "Please add a package to the project and" <+> pickComponent
                   (False, Just project) ->
-                    text "Please pick a single [package:][ctype:]component as target for the REPL command."
+                    text "Please"
+                      <+> pickComponent
                       <+> text "The packages in"
                       <+> project
                       <+> (text "from which to select a component target are" <> colon)
                       $+$ nest 1 (vcat [text "-" <+> text pkg | pkg <- sort pkgs])
                   (False, Nothing) ->
-                    text "Please pick a single [package:][ctype:]component as target for the REPL command."
+                    text "Please"
+                      <+> pickComponent
                       <+> (text "The packages from which to select a component in 'cabal.project'" <> comma)
                       <+> (text "the implicit default as if `--project-file=cabal.project` was added as a command option" <> comma)
                       <+> (text "are" <> colon)
