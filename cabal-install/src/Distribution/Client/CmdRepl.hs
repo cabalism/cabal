@@ -155,7 +155,6 @@ import Distribution.Utils.Generic
 import Distribution.Verbosity
   ( lessVerbose
   , normal
-  , silent
   )
 import Language.Haskell.Extension
   ( Language (..)
@@ -287,22 +286,7 @@ multiReplDecision ctx compiler flags =
 -- For more details on how this works, see the module
 -- "Distribution.Client.ProjectOrchestration"
 replAction :: NixStyleFlags ReplFlags -> [String] -> GlobalFlags -> IO ()
-replAction flags@NixStyleFlags{extraFlags = replFlags@ReplFlags{..}, configFlags} targetStrings' globalFlags = do
-  -- NOTE: The REPL will work with no targets in the context of a project if a
-  -- single package is in the same directory as the project file. To have the
-  -- same behaviour when the package is somewhere else we adjust the targets.
-  targetStrings <-
-    if null targetStrings'
-      then withCtx silent targetStrings' $ \targetCtx ctx _ ->
-        return . fromMaybe [] $ case targetCtx of
-          ProjectContext ->
-            let pkgs = projectPackages $ projectConfig ctx
-             in if length pkgs == 1
-                  then pure <$> listToMaybe pkgs
-                  else Nothing
-          _ -> Nothing
-      else return targetStrings'
-
+replAction flags@NixStyleFlags{extraFlags = replFlags@ReplFlags{..}, configFlags} targetStrings globalFlags = do
   withCtx verbosity targetStrings $ \targetCtx ctx targetSelectors -> do
     when (buildSettingOnlyDeps (buildSettings ctx)) $
       dieWithException verbosity ReplCommandDoesn'tSupport
@@ -312,7 +296,7 @@ replAction flags@NixStyleFlags{extraFlags = replFlags@ReplFlags{..}, configFlags
     baseCtx <- case targetCtx of
       ProjectContext -> do
         let pkgs = projectPackages $ projectConfig ctx
-        when (null targetStrings && length pkgs /= 1) $
+        when (null targetSelectors && not (null pkgs)) $
           let projectName = case projectConfigProjectFile . projectConfigShared $ projectConfig ctx of
                 Flag "" -> Nothing
                 Flag n -> Just $ quotes (text n)
