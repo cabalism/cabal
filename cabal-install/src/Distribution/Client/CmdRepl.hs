@@ -106,7 +106,8 @@ import Distribution.Simple.Compiler
   )
 import Distribution.Simple.Program.GHC
 import Distribution.Simple.Setup
-  ( ReplOptions (..)
+  ( Flag
+  , ReplOptions (..)
   , commonSetupTempFileOptions
   )
 import Distribution.Simple.Utils
@@ -294,36 +295,10 @@ replAction flags@NixStyleFlags{extraFlags = replFlags@ReplFlags{..}, configFlags
     baseCtx <- case targetCtx of
       ProjectContext -> do
         let pkgs = projectPackages $ projectConfig ctx
-        when (null targetSelectors && not (null pkgs)) $
-          let projectName = case projectConfigProjectFile . projectConfigShared $ projectConfig ctx of
-                Flag "" -> Nothing
-                Flag n -> Just $ quotes (text n)
-                _ -> Nothing
-              pickComponent = text "pick a single [package:][ctype:]component as target for the REPL command."
-              msg =
-                case (null pkgs, projectName) of
-                  (True, Just project) ->
-                    text "There are no packages in"
-                      <+> (project <> char '.')
-                      <+> text "Please add a package to the project and"
-                      <+> pickComponent
-                  (True, Nothing) ->
-                    text "Please add a package to the project and" <+> pickComponent
-                  (False, Just project) ->
-                    text "Please"
-                      <+> pickComponent
-                      <+> text "The packages in"
-                      <+> project
-                      <+> (text "from which to select a component target are" <> colon)
-                      $+$ nest 1 (vcat [text "-" <+> text pkg | pkg <- sort pkgs])
-                  (False, Nothing) ->
-                    text "Please"
-                      <+> pickComponent
-                      <+> (text "The packages from which to select a component in 'cabal.project'" <> comma)
-                      <+> (text "the implicit default as if `--project-file=cabal.project` was added as a command option" <> comma)
-                      <+> (text "are" <> colon)
-                      $+$ nest 1 (vcat [text "-" <+> text pkg | pkg <- sort pkgs])
-           in dieWithException verbosity $ RenderReplTargetProblem [render msg]
+        when (null targetSelectors && not (null pkgs)) $ do
+          let projectFile = projectConfigProjectFile . projectConfigShared $ projectConfig ctx
+          dieWithException verbosity $
+            RenderReplTargetProblem [render (reportProjectNoTarget projectFile pkgs)]
         return ctx
       GlobalContext -> do
         unless (null targetStrings) $
@@ -552,6 +527,37 @@ replAction flags@NixStyleFlags{extraFlags = replFlags@ReplFlags{..}, configFlags
           (PackagePropertyVersion $ orLaterVersion $ mkVersion [3, 11])
       , ConstraintSourceMultiRepl
       )
+
+reportProjectNoTarget :: Flag FilePath -> [String] -> Doc
+reportProjectNoTarget projectFile pkgs =
+  case (null pkgs, projectName) of
+    (True, Just project) ->
+      text "There are no packages in"
+        <+> (project <> char '.')
+        <+> text "Please add a package to the project and"
+        <+> pickComponent
+    (True, Nothing) ->
+      text "Please add a package to the project and" <+> pickComponent
+    (False, Just project) ->
+      text "Please"
+        <+> pickComponent
+        <+> text "The packages in"
+        <+> project
+        <+> (text "from which to select a component target are" <> colon)
+        $+$ nest 1 (vcat [text "-" <+> text pkg | pkg <- sort pkgs])
+    (False, Nothing) ->
+      text "Please"
+        <+> pickComponent
+        <+> (text "The packages from which to select a component in 'cabal.project'" <> comma)
+        <+> (text "the implicit default as if `--project-file=cabal.project` was added as a command option" <> comma)
+        <+> (text "are" <> colon)
+        $+$ nest 1 (vcat [text "-" <+> text pkg | pkg <- sort pkgs])
+  where
+    projectName = case projectFile of
+      Flag "" -> Nothing
+      Flag n -> Just $ quotes (text n)
+      _ -> Nothing
+    pickComponent = text "pick a single [package:][ctype:]component as target for the REPL command."
 
 validatedTargets
   :: Verbosity
