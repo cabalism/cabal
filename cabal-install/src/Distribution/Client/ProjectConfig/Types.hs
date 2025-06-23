@@ -1,5 +1,6 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE RecordWildCards #-}
 
 -- | Handling project configuration, types.
 module Distribution.Client.ProjectConfig.Types
@@ -23,6 +24,7 @@ module Distribution.Client.ProjectConfig.Types
   , MapMappend (..)
   ) where
 
+import Text.PrettyPrint hiding ((<>))
 import Distribution.Client.Compat.Prelude
 import Prelude ()
 
@@ -151,7 +153,23 @@ data ProjectConfig = ProjectConfig
   -- any packages which are explicitly named in `cabal.project`.
   , projectConfigSpecificPackage :: MapMappend PackageName PackageConfig
   }
-  deriving (Eq, Show, Generic)
+  deriving (Eq, Generic)
+
+instance Show ProjectConfig where
+  show ProjectConfig{..} = render $
+    (text "ProjectConfig {" <+> text (" projectPackages = " ++ show projectPackages))
+    $+$
+    vcat
+      [ text (", projectPackagesOptional = " ++ show projectPackagesOptional)
+      , text (", projectPackagesRepo = " ++ show projectPackagesRepo)
+      , text (", projectPackagesNamed = " ++ show projectPackagesNamed)
+      , text (", projectConfigBuildOnly = " ++ show projectConfigBuildOnly)
+      , text (", projectConfigShared = " ++ show projectConfigShared)
+      , text (", projectConfigProvenance = " ++ show projectConfigProvenance)
+      , text (", projectConfigAllPackages = " ++ show projectConfigAllPackages)
+      , text (", projectConfigLocalPackages = " ++ show projectConfigLocalPackages)
+      , text (", projectConfigSpecificPackage = " ++ show projectConfigSpecificPackage)
+      ]
 
 -- | That part of the project configuration that only affects /how/ we build
 -- and not the /value/ of the things we build. This means this information
@@ -178,7 +196,32 @@ data ProjectConfigBuildOnly = ProjectConfigBuildOnly
   , projectConfigLogsDir :: Flag FilePath
   , projectConfigClientInstallFlags :: ClientInstallFlags
   }
-  deriving (Eq, Show, Generic)
+  deriving (Eq, Generic)
+
+instance Show ProjectConfigBuildOnly where
+  show ProjectConfigBuildOnly{..} = render $
+    (text "ProjectConfigBuildOnly {" <+> text (" projectConfigVerbosity = " ++ show projectConfigVerbosity))
+    $+$
+    vcat
+      [ text (", projectConfigDryRun = " ++ show projectConfigDryRun)
+      , text (", projectConfigOnlyDeps = " ++ show projectConfigOnlyDeps)
+      , text (", projectConfigOnlyDownload = " ++ show projectConfigOnlyDownload)
+      , text (", projectConfigSummaryFile = " ++ show projectConfigSummaryFile)
+      , text (", projectConfigLogFile = " ++ show projectConfigLogFile)
+      , text (", projectConfigBuildReports = " ++ show projectConfigBuildReports)
+      , text (", projectConfigReportPlanningFailure = " ++ show projectConfigReportPlanningFailure)
+      , text (", projectConfigSymlinkBinDir = " ++ show projectConfigSymlinkBinDir)
+      , text (", projectConfigNumJobs = " ++ show projectConfigNumJobs)
+      , text (", projectConfigUseSemaphore = " ++ show projectConfigUseSemaphore)
+      , text (", projectConfigKeepGoing = " ++ show projectConfigKeepGoing)
+      , text (", projectConfigOfflineMode = " ++ show projectConfigOfflineMode)
+      , text (", projectConfigKeepTempFiles = " ++ show projectConfigKeepTempFiles)
+      , text (", projectConfigHttpTransport = " ++ show projectConfigHttpTransport)
+      , text (", projectConfigIgnoreExpiry = " ++ show projectConfigIgnoreExpiry)
+      , text (", projectConfigCacheDir = " ++ show projectConfigCacheDir)
+      , text (", projectConfigLogsDir = " ++ show projectConfigLogsDir)
+      , text (", projectConfigClientInstallFlags = " ++ show projectConfigClientInstallFlags)
+      ]
 
 -- | Project configuration that is shared between all packages in the project.
 -- In particular this includes configuration that affects the solver.
@@ -235,7 +278,49 @@ data ProjectConfigShared = ProjectConfigShared
   -- projectConfigOverrideReinstall :: Flag Bool,
   -- projectConfigUpgradeDeps       :: Flag Bool
   }
-  deriving (Eq, Show, Generic)
+  deriving (Eq, Generic)
+
+instance Show ProjectConfigShared where
+  show ProjectConfigShared{..} = render $
+    (text "ProjectConfigShared {" <+> text (" projectConfigDistDir = " ++ show projectConfigDistDir))
+    $+$
+    vcat
+      [ text (", projectConfigConfigFile = " ++ show projectConfigConfigFile)
+      , text (", projectConfigProjectDir = " ++ show projectConfigProjectDir)
+      , text (", projectConfigProjectFile = " ++ show projectConfigProjectFile)
+      , text (", projectConfigIgnoreProject = " ++ show projectConfigIgnoreProject)
+      , text (", projectConfigHcFlavor = " ++ show projectConfigHcFlavor)
+      , text (", projectConfigHcPath = " ++ show projectConfigHcPath)
+      , text (", projectConfigHcPkg = " ++ show projectConfigHcPkg)
+      , text (", projectConfigHaddockIndex = " ++ show projectConfigHaddockIndex)
+      , text (", projectConfigInstallDirs = " ++ show projectConfigInstallDirs)
+      , text (", projectConfigPackageDBs = " ++ show projectConfigPackageDBs)
+      , text (", projectConfigRemoteRepos = " ++ show projectConfigRemoteRepos)
+      , text (", projectConfigLocalNoIndexRepos = " ++ show projectConfigLocalNoIndexRepos)
+      , text (", projectConfigActiveRepos = " ++ show projectConfigActiveRepos)
+      , text (", projectConfigIndexState = " ++ show projectConfigIndexState)
+      , text (", projectConfigStoreDir = " ++ show projectConfigStoreDir)
+      , text (", projectConfigConstraints = " ++ show projectConfigConstraints)
+      , text (", projectConfigPreferences = " ++ show projectConfigPreferences)
+      , text (", projectConfigCabalVersion = " ++ show projectConfigCabalVersion)
+      , text (", projectConfigSolver = " ++ show projectConfigSolver)
+      , text (", projectConfigAllowOlder = " ++ show projectConfigAllowOlder)
+      , text (", projectConfigAllowNewer = " ++ show projectConfigAllowNewer)
+      , text (", projectConfigWriteGhcEnvironmentFilesPolicy = " ++ show projectConfigWriteGhcEnvironmentFilesPolicy)
+      , text (", projectConfigMaxBackjumps = " ++ show projectConfigMaxBackjumps)
+      , text (", projectConfigReorderGoals = " ++ show projectConfigReorderGoals)
+      , text (", projectConfigCountConflicts = " ++ show projectConfigCountConflicts)
+      , text (", projectConfigFineGrainedConflicts = " ++ show projectConfigFineGrainedConflicts)
+      , text (", projectConfigMinimizeConflictSet = " ++ show projectConfigMinimizeConflictSet)
+      , text (", projectConfigStrongFlags = " ++ show projectConfigStrongFlags)
+      , text (", projectConfigAllowBootLibInstalls = " ++ show projectConfigAllowBootLibInstalls)
+      , text (", projectConfigOnlyConstrained = " ++ show projectConfigOnlyConstrained)
+      , text (", projectConfigPerComponent = " ++ show projectConfigPerComponent)
+      , text (", projectConfigIndependentGoals = " ++ show projectConfigIndependentGoals)
+      , text (", projectConfigPreferOldest = " ++ show projectConfigPreferOldest)
+      , text (", projectConfigProgPathExtra = " ++ show projectConfigProgPathExtra)
+      , text (", projectConfigMultiRepl = " ++ show projectConfigMultiRepl)
+      ]
 
 -- | Specifies the provenance of project configuration, whether defaults were
 -- used or if the configuration was read from an explicit file path.
@@ -320,7 +405,76 @@ data PackageConfig = PackageConfig
   , -- Benchmark options
     packageConfigBenchmarkOptions :: [PathTemplate]
   }
-  deriving (Eq, Show, Generic)
+  deriving (Eq, Generic)
+
+instance Show PackageConfig where
+  show PackageConfig{..} = render $
+    (text "PackageConfig {" <+> text (" packageConfigProgramPaths = " ++ show packageConfigProgramPaths))
+    $+$
+    vcat
+      [ text (", packageConfigProgramArgs = " ++ show packageConfigProgramArgs)
+      , text (", packageConfigProgramPathExtra = " ++ show packageConfigProgramPathExtra)
+      , text (", packageConfigFlagAssignment = " ++ show packageConfigFlagAssignment)
+      , text (", packageConfigVanillaLib = " ++ show packageConfigVanillaLib)
+      , text (", packageConfigSharedLib = " ++ show packageConfigSharedLib)
+      , text (", packageConfigStaticLib = " ++ show packageConfigStaticLib)
+      , text (", packageConfigDynExe = " ++ show packageConfigDynExe)
+      , text (", packageConfigFullyStaticExe = " ++ show packageConfigFullyStaticExe)
+      , text (", packageConfigProf = " ++ show packageConfigProf)
+      , text (", packageConfigProfLib = " ++ show packageConfigProfLib)
+      , text (", packageConfigProfShared = " ++ show packageConfigProfShared)
+      , text (", packageConfigProfExe = " ++ show packageConfigProfExe)
+      , text (", packageConfigProfDetail = " ++ show packageConfigProfDetail)
+      , text (", packageConfigProfLibDetail = " ++ show packageConfigProfLibDetail)
+      , text (", packageConfigConfigureArgs = " ++ show packageConfigConfigureArgs)
+      , text (", packageConfigOptimization = " ++ show packageConfigOptimization)
+      , text (", packageConfigProgPrefix = " ++ show packageConfigProgPrefix)
+      , text (", packageConfigProgSuffix = " ++ show packageConfigProgSuffix)
+      , text (", packageConfigExtraLibDirs = " ++ show packageConfigExtraLibDirs)
+      , text (", packageConfigExtraLibDirsStatic = " ++ show packageConfigExtraLibDirsStatic)
+      , text (", packageConfigExtraFrameworkDirs = " ++ show packageConfigExtraFrameworkDirs)
+      , text (", packageConfigExtraIncludeDirs = " ++ show packageConfigExtraIncludeDirs)
+      , text (", packageConfigGHCiLib = " ++ show packageConfigGHCiLib)
+      , text (", packageConfigSplitSections = " ++ show packageConfigSplitSections)
+      , text (", packageConfigSplitObjs = " ++ show packageConfigSplitObjs)
+      , text (", packageConfigStripExes = " ++ show packageConfigStripExes)
+      , text (", packageConfigStripLibs = " ++ show packageConfigStripLibs)
+      , text (", packageConfigTests = " ++ show packageConfigTests)
+      , text (", packageConfigBenchmarks = " ++ show packageConfigBenchmarks)
+      , text (", packageConfigCoverage = " ++ show packageConfigCoverage)
+      , text (", packageConfigRelocatable = " ++ show packageConfigRelocatable)
+      , text (", packageConfigDebugInfo = " ++ show packageConfigDebugInfo)
+      , text (", packageConfigDumpBuildInfo = " ++ show packageConfigDumpBuildInfo)
+      , text (", packageConfigRunTests = " ++ show packageConfigRunTests)
+      , text (", packageConfigDocumentation = " ++ show packageConfigDocumentation)
+      , text (", packageConfigHaddockHoogle = " ++ show packageConfigHaddockHoogle)
+      , text (", packageConfigHaddockHtml = " ++ show packageConfigHaddockHtml)
+      , text (", packageConfigHaddockHtmlLocation = " ++ show packageConfigHaddockHtmlLocation)
+      , text (", packageConfigHaddockForeignLibs = " ++ show packageConfigHaddockForeignLibs)
+      , text (", packageConfigHaddockExecutables = " ++ show packageConfigHaddockExecutables)
+      , text (", packageConfigHaddockTestSuites = " ++ show packageConfigHaddockTestSuites)
+      , text (", packageConfigHaddockBenchmarks = " ++ show packageConfigHaddockBenchmarks)
+      , text (", packageConfigHaddockInternal = " ++ show packageConfigHaddockInternal)
+      , text (", packageConfigHaddockCss = " ++ show packageConfigHaddockCss)
+      , text (", packageConfigHaddockLinkedSource = " ++ show packageConfigHaddockLinkedSource)
+      , text (", packageConfigHaddockQuickJump = " ++ show packageConfigHaddockQuickJump)
+      , text (", packageConfigHaddockHscolourCss = " ++ show packageConfigHaddockHscolourCss)
+      , text (", packageConfigHaddockContents = " ++ show packageConfigHaddockContents)
+      , text (", packageConfigHaddockIndex = " ++ show packageConfigHaddockIndex)
+      , text (", packageConfigHaddockBaseUrl = " ++ show packageConfigHaddockBaseUrl)
+      , text (", packageConfigHaddockResourcesDir = " ++ show packageConfigHaddockResourcesDir)
+      , text (", packageConfigHaddockOutputDir = " ++ show packageConfigHaddockOutputDir)
+      , text (", packageConfigHaddockUseUnicode = " ++ show packageConfigHaddockUseUnicode)
+      , text (", packageConfigHaddockForHackage = " ++ show packageConfigHaddockForHackage)
+      , text (", packageConfigTestHumanLog = " ++ show packageConfigTestHumanLog)
+      , text (", packageConfigTestMachineLog = " ++ show packageConfigTestMachineLog)
+      , text (", packageConfigTestShowDetails = " ++ show packageConfigTestShowDetails)
+      , text (", packageConfigTestKeepTix = " ++ show packageConfigTestKeepTix)
+      , text (", packageConfigTestWrapper = " ++ show packageConfigTestWrapper)
+      , text (", packageConfigTestFailWhenNoTestSuites = " ++ show packageConfigTestFailWhenNoTestSuites)
+      , text (", packageConfigTestTestOptions = " ++ show packageConfigTestTestOptions)
+      , text (", packageConfigBenchmarkOptions = " ++ show packageConfigBenchmarkOptions)
+      ]
 
 instance Binary ProjectConfig
 instance Binary ProjectConfigBuildOnly
@@ -480,3 +634,24 @@ data BuildTimeSettings = BuildTimeSettings
   , buildSettingProgPathExtra :: [FilePath]
   , buildSettingHaddockOpen :: Bool
   }
+
+instance Show BuildTimeSettings where
+  show BuildTimeSettings{..} = render $
+    (text "BuildTimeSettings {" <+> text (" buildSettingDryRun = " ++ show buildSettingDryRun))
+    $+$
+    vcat
+      [ text (", buildSettingOnlyDeps = " ++ show buildSettingOnlyDeps)
+      , text (", buildSettingOnlyDownload = " ++ show buildSettingOnlyDownload)
+      , text (", buildSettingSummaryFile = " ++ show buildSettingSummaryFile)
+        -- ++ ", buildSettingLogFile = " ++ show buildSettingLogFile
+      , text (", buildSettingLogVerbosity = " ++ show buildSettingLogVerbosity)
+      , text (", buildSettingBuildReports = " ++ show buildSettingBuildReports)
+      , text (", buildSettingReportPlanningFailure = " ++ show buildSettingReportPlanningFailure)
+      , text (", buildSettingSymlinkBinDir = " ++ show buildSettingSymlinkBinDir)
+      , text (", buildSettingNumJobs = " ++ show buildSettingNumJobs)
+      , text (", buildSettingKeepGoing = " ++ show buildSettingKeepGoing)
+      , text (", buildSettingOfflineMode = " ++ show buildSettingOfflineMode)
+      , text (", buildSettingKeepTempFiles = " ++ show buildSettingKeepTempFiles)
+      , text (", buildSettingRemoteRepos = " ++ show buildSettingRemoteRepos)
+      , text (", buildSettingLocalNoIndexRepos = " ++ show buildSettingLocalNoIndexRepos)
+      ]

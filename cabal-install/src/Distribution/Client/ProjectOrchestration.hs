@@ -104,6 +104,8 @@ module Distribution.Client.ProjectOrchestration
   , establishDummyDistDirLayout
   ) where
 
+import Distribution.Client.Types.PackageSpecifier
+import Text.PrettyPrint hiding ((<>))
 import Distribution.Client.Compat.Prelude
 import Distribution.Compat.Directory
   ( makeAbsolute
@@ -249,6 +251,21 @@ data ProjectBaseContext = ProjectBaseContext
   , currentCommand :: CurrentCommand
   , installedPackages :: Maybe InstalledPackageIndex
   }
+
+instance Show ProjectBaseContext where
+  show ProjectBaseContext{distDirLayout, cabalDirLayout, projectConfig, localPackages, buildSettings, currentCommand, installedPackages} =
+    render $
+    (text "ProjectBaseContext {" <+> text (" projectConfig = " ++ show projectConfig))
+    $+$
+    vcat
+    [ text (", localPackages = " ++ case localPackages of
+        [] -> "[]"
+        ps -> "[" ++ intercalate ", " [show (pkgSpecifierTarget p) | p <- ps] ++ "]")
+      -- ++ ", buildSettings = " ++ show buildSettings
+    , text (", currentCommand = " ++ show currentCommand)
+    , text (", installedPackages = " ++ show installedPackages)
+    , text " }"
+    ]
 
 establishProjectBaseContext
   :: Verbosity

@@ -1,5 +1,6 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE PatternSynonyms #-}
+{-# LANGUAGE RecordWildCards #-}
 
 module Distribution.Client.CmdInstall.ClientInstallFlags
   ( InstallMethod (..)
@@ -8,6 +9,7 @@ module Distribution.Client.CmdInstall.ClientInstallFlags
   , clientInstallOptions
   ) where
 
+import Text.PrettyPrint hiding ((<>))
 import Distribution.Client.Compat.Prelude
 import Prelude ()
 
@@ -45,7 +47,18 @@ data ClientInstallFlags = ClientInstallFlags
   , cinstInstallMethod :: Flag InstallMethod
   , cinstInstalldir :: Flag FilePath
   }
-  deriving (Eq, Show, Generic)
+  deriving (Eq, Generic)
+
+instance Show ClientInstallFlags where
+  show ClientInstallFlags{..} = render $
+    text "ClientInstallFlags {" <+> text ("cinstInstallLibs = " ++ show cinstInstallLibs)
+    $+$ vcat
+      [ text (", cinstInstallLibs = " ++ show cinstInstallLibs)
+      , text (", cinstEnvironmentPath = " ++ show cinstEnvironmentPath)
+      , text (", cinstOverwritePolicy = " ++ show cinstOverwritePolicy)
+      , text (", cinstInstallMethod = " ++ show cinstInstallMethod)
+      , text (", cinstInstalldir = " ++ show cinstInstalldir)
+      ]
 
 instance Monoid ClientInstallFlags where
   mempty = gmempty

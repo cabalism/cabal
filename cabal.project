@@ -9,6 +9,7 @@ tests: True
 -- to disable this
 package cabal-install
   flags: +git-rev
+  ghc-options: -fignore-asserts
 
 package Cabal
   flags: +git-rev

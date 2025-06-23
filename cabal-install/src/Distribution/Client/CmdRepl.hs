@@ -3,6 +3,8 @@
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE ViewPatterns #-}
 
 -- | cabal-install CLI command: repl
 module Distribution.Client.CmdRepl
@@ -18,6 +20,8 @@ module Distribution.Client.CmdRepl
   , MultiReplDecision (..)
   ) where
 
+import Control.Exception
+import GHC.Stack (HasCallStack)
 import Distribution.Client.Compat.Prelude
 import Prelude ()
 
@@ -291,28 +295,35 @@ replAction flags@NixStyleFlags{extraFlags = replFlags@ReplFlags{..}, configFlags
   -- NOTE: The REPL will work with no targets in the context of a project if a
   -- single package is in the same directory as the project file. To have the
   -- same behaviour when the package is somewhere else we adjust the targets.
-  targetStrings <-
-    if null targetStrings'
-      then withCtx silent targetStrings' $ \targetCtx ctx _ ->
-        return . fromMaybe [] $ case targetCtx of
-          ProjectContext ->
-            let pkgs = projectPackages $ projectConfig ctx
-             in if length pkgs == 1
-                  then pure <$> listToMaybe pkgs
-                  else Nothing
-          _ -> Nothing
-      else return targetStrings'
+  -- targetStrings <-
+  --   if null targetStrings'
+  --     then withCtx silent targetStrings' $ \targetCtx ctx _ ->
+  --       return . fromMaybe [] $ case targetCtx of
+  --         ProjectContext ->
+  --           let pkgs = projectPackages $ projectConfig ctx
+  --            in if length pkgs == 1
+  --                 then (trace $ "XXXXXXXXXXXXXXXXXXX: " ++ show pkgs) $ pure <$> listToMaybe pkgs
+  --                 else trace "YYYYYYYYYYYYYYYYY" Nothing
+  --         _ -> Nothing
+  --     else return targetStrings'
+  let targetStrings = targetStrings'
 
-  withCtx verbosity targetStrings $ \targetCtx ctx targetSelectors -> do
+  withCtx verbosity targetStrings $ \targetCtx ctx (targetSelectors :: [TargetSelector]) -> do
     when (buildSettingOnlyDeps (buildSettings ctx)) $
       dieWithException verbosity ReplCommandDoesn'tSupport
     let projectRoot = distProjectRootDirectory $ distDirLayout ctx
         distDir = distDirectory $ distDirLayout ctx
 
-    baseCtx <- case targetCtx of
+    baseCtx :: ProjectBaseContext <- case targetCtx of
       ProjectContext -> do
         let pkgs = projectPackages $ projectConfig ctx
-        when (null targetStrings && length pkgs /= 1) $
+        when (null targetSelectors) $ do
+          putStrLn $
+            "XXXXX - target strings: " ++ show targetStrings
+          putStrLn $
+            "XXXXX - No target specified, using the default component in the project."
+          
+        when (null targetSelectors && not (null pkgs)) $
           let projectName = case projectConfigProjectFile . projectConfigShared $ projectConfig ctx of
                 Flag "" -> Nothing
                 Flag n -> Just $ quotes (text n)
@@ -376,7 +387,8 @@ replAction flags@NixStyleFlags{extraFlags = replFlags@ReplFlags{..}, configFlags
     -- We need to do this before solving, but the compiler version is only known
     -- after solving (phaseConfigureCompiler), so instead of using
     -- multiReplDecision we just check the flag.
-    let baseCtx' =
+    let baseCtx' :: ProjectBaseContext
+        baseCtx' =
           if fromFlagOrDefault False $
             projectConfigMultiRepl (projectConfigShared $ projectConfig baseCtx)
               <> replUseMulti
@@ -386,15 +398,21 @@ replAction flags@NixStyleFlags{extraFlags = replFlags@ReplFlags{..}, configFlags
                   %~ (multiReplCabalConstraint :)
             else baseCtx
 
+    -- putStrLn $ "XXXXXXXXXXXXX-BASE-CONTEXT: " ++ show baseCtx'
+
     (originalComponent, baseCtx'') <-
       if null (envPackages replEnvFlags)
-        then return (Nothing, baseCtx')
+        then do
+          putStrLn "XXXXXXXXXXXXX-NO-PACKAGES"
+          return (Nothing, baseCtx')
         else -- Unfortunately, the best way to do this is to let the normal solver
         -- help us resolve the targets, but that isn't ideal for performance,
         -- especially in the no-project case.
         withInstallPlan (lessVerbose verbosity) baseCtx' $ \elaboratedPlan sharedConfig -> do
           -- targets should be non-empty map, but there's no NonEmptyMap yet.
           targets <- validatedTargets' (projectConfigShared (projectConfig ctx)) (pkgConfigCompiler sharedConfig) elaboratedPlan targetSelectors
+
+          putStrLn $ "XXXXXXXXXXXXX-TARGETS: " ++ show targets 
 
           let
             (unitId, _) = fromMaybe (error "panic: targets should be non-empty") $ safeHead $ Map.toList targets
@@ -419,6 +437,9 @@ replAction flags@NixStyleFlags{extraFlags = replFlags@ReplFlags{..}, configFlags
 
         -- Recalculate with updated project.
         targets <- validatedTargets' (projectConfigShared projectConfig) (pkgConfigCompiler elaboratedShared') elaboratedPlan targetSelectors
+
+        when (null targets) $
+          dieWithException verbosity $ RenderReplTargetProblem ["XXXX-NO-TARGETS"]
 
         let
           elaboratedPlan' =
@@ -586,6 +607,7 @@ validatedTargets
   -> IO TargetsMap
 validatedTargets verbosity replFlags ctx compiler elaboratedPlan targetSelectors = do
   let multi_repl_enabled = multiReplDecision ctx compiler replFlags
+  putStrLn $ "XXXXXXXXXXXXX-MULTI-REPL-ENABLED: " ++ show multi_repl_enabled
   -- Interpret the targets on the command line as repl targets (as opposed to
   -- say build or haddock targets).
   targets <-
@@ -596,6 +618,17 @@ validatedTargets verbosity replFlags ctx compiler elaboratedPlan targetSelectors
         elaboratedPlan
         Nothing
         targetSelectors
+
+  putStrLn $ "XXXXXXXXXXXXX-SELECTED-TS: " ++ show targets
+
+  when (Set.null $ distinctTargetComponents targets) $
+      if null targetSelectors
+        then
+          dieWithException verbosity (CmdErrorMessages ["XXXXXXXXXXXXX-TODO-MESSAGE-HERE"])
+        else
+          reportTargetProblems
+            verbosity
+                (TargetProblemNoTargets <$> targetSelectors)
 
   -- Reject multiple targets, or at least targets in different components. It is
   -- ok to have two module/file targets in the same component, but not two that
@@ -706,6 +739,7 @@ selectPackageTargets
   -> [AvailableTarget k]
   -> Either ReplTargetProblem [k]
 selectPackageTargets multiple_targets_allowed =
+  trace "XXXXXX-SELECT-PACKAGE-TARGETS-A" $
   -- If explicitly enabled, then select the targets like we would for multi-repl but
   -- might still fail later because of compiler version.
   if enabledByFlag multiple_targets_allowed
@@ -717,10 +751,16 @@ selectPackageTargetsMulti
   -> [AvailableTarget k]
   -> Either ReplTargetProblem [k]
 selectPackageTargetsMulti targetSelector targets
+  -- If there is exactly one buildable library then we select that
+  | [target] <- targetsBuildable =
+      trace "XXXXXX-SELECT-PACKAGE-TARGETS-B" $
+      Right [target]
   | not (null targetsBuildable) =
+      trace "XXXXXX-SELECT-PACKAGE-TARGETS-B" $
       Right targetsBuildable
   -- If there are no targets at all then we report that
   | otherwise =
+      trace "XXXXXX-SELECT-PACKAGE-TARGETS-B" $
       Left (TargetProblemNoTargets targetSelector)
   where
     ( targetsBuildable
@@ -748,27 +788,35 @@ selectPackageTargetsSingle
 selectPackageTargetsSingle decision targetSelector targets
   -- If there is exactly one buildable library then we select that
   | [target] <- targetsLibsBuildable =
+      trace "XXXXXX-SELECT-PACKAGE-TARGETS-C" $
       Right [target]
   -- but fail if there are multiple buildable libraries.
   | not (null targetsLibsBuildable) =
+      trace "XXXXXX-SELECT-PACKAGE-TARGETS-C" $
       Left (matchesMultipleProblem decision targetSelector targetsLibsBuildable')
   -- If there is exactly one buildable executable then we select that
   | [target] <- targetsExesBuildable =
+      trace "XXXXXX-SELECT-PACKAGE-TARGETS-C" $
       Right [target]
   -- but fail if there are multiple buildable executables.
   | not (null targetsExesBuildable) =
+      trace "XXXXXX-SELECT-PACKAGE-TARGETS-C" $
       Left (matchesMultipleProblem decision targetSelector targetsExesBuildable')
   -- If there is exactly one other target then we select that
   | [target] <- targetsBuildable =
+      trace "XXXXXX-SELECT-PACKAGE-TARGETS-C" $
       Right [target]
   -- but fail if there are multiple such targets
   | not (null targetsBuildable) =
+      trace "XXXXXX-SELECT-PACKAGE-TARGETS-C" $
       Left (matchesMultipleProblem decision targetSelector targetsBuildable')
   -- If there are targets but none are buildable then we report those
   | not (null targets) =
+      trace "XXXXXX-SELECT-PACKAGE-TARGETS-C" $
       Left (TargetProblemNoneEnabled targetSelector targets')
   -- If there are no targets at all then we report that
   | otherwise =
+      trace "XXXXXX-SELECT-PACKAGE-TARGETS-C" $
       Left (TargetProblemNoTargets targetSelector)
   where
     targets' = forgetTargetsDetail targets

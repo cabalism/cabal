@@ -5,6 +5,7 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# OPTIONS_GHC -fno-ignore-asserts #-}
 
 -- |
 -- /Elaborated: worked out with great care and nicety of detail; executed with great minuteness: elaborate preparations; elaborate care./
@@ -220,7 +221,8 @@ import qualified Distribution.Solver.Types.ComponentDeps as CD
 
 import qualified Distribution.Compat.Graph as Graph
 
-import Control.Exception (assert)
+import GHC.IO.Exception (assertError)
+--import Control.Exception (assertError)
 import Control.Monad (sequence)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.State as State (State, execState, runState, state)
@@ -257,21 +259,21 @@ sanityCheckElaboratedConfiguredPackage
       -- 'installedPackageId' we assigned is consistent with
       -- the 'hashedInstalledPackageId' we would compute from
       -- the elaborated configured package
-      . assert
+      . assertError
         ( isInplaceBuildStyle elabBuildStyle
             || elabComponentId
               == hashedInstalledPackageId
                 (packageHashInputs sharedConfig elab)
         )
       -- the stanzas explicitly disabled should not be available
-      . assert
+      . assertError
         ( optStanzaSetNull $
             optStanzaKeysFilteredByValue (maybe False not) elabStanzasRequested `optStanzaSetIntersection` elabStanzasAvailable
         )
       -- either a package is built inplace, or we are not attempting to
       -- build any test suites or benchmarks (we never build these
       -- for remote packages!)
-      . assert
+      . assertError
         ( isInplaceBuildStyle elabBuildStyle
             || optStanzaSetNull elabStanzasAvailable
         )
@@ -285,7 +287,7 @@ sanityCheckElaboratedComponent
   ElaboratedConfiguredPackage{..}
   ElaboratedComponent{..} =
     -- Should not be building bench or test if not inplace.
-    assert
+    assertError
       ( isInplaceBuildStyle elabBuildStyle
           || case compComponentName of
             Nothing -> True
@@ -309,10 +311,10 @@ sanityCheckElaboratedPackage
   ElaboratedPackage{..} =
     -- we should only have enabled stanzas that actually can be built
     -- (according to the solver)
-    assert (pkgStanzasEnabled `optStanzaSetIsSubset` elabStanzasAvailable)
+    assertError (pkgStanzasEnabled `optStanzaSetIsSubset` elabStanzasAvailable)
       -- the stanzas that the user explicitly requested should be
       -- enabled (by the previous test, they are also available)
-      . assert
+      . assertError
         ( optStanzaKeysFilteredByValue (fromMaybe False) elabStanzasRequested
             `optStanzaSetIsSubset` pkgStanzasEnabled
         )
@@ -2104,7 +2106,7 @@ elaborateInstallPlan
               | shouldBuildInplaceOnly pkg =
                   mkComponentId (prettyShow pkgid ++ "-inplace")
               | otherwise =
-                  assert (isJust elabPkgSourceHash) $
+                  assertError (isJust elabPkgSourceHash) $
                     hashedInstalledPackageId
                       ( packageHashInputs
                           elaboratedSharedConfig
@@ -3348,8 +3350,8 @@ setRootTargets
   -> [ElaboratedPlanPackage]
   -> [ElaboratedPlanPackage]
 setRootTargets targetAction perPkgTargetsMap =
-  assert (not (Map.null perPkgTargetsMap)) $
-    assert (all (not . null) (Map.elems perPkgTargetsMap)) $
+  assertError (not (Map.null perPkgTargetsMap)) $
+    assertError (all (not . null) (Map.elems perPkgTargetsMap)) $
       map (mapConfiguredPackage setElabBuildTargets)
   where
     -- Set the targets we'll build for this package/component. This is just
@@ -3764,7 +3766,7 @@ pruneInstallPlanToDependencies
       CannotPruneDependencies
       ElaboratedInstallPlan
 pruneInstallPlanToDependencies pkgTargets installPlan =
-  assert
+  assertError
     ( all
         (isJust . InstallPlan.lookup installPlan)
         (Set.toList pkgTargets)
