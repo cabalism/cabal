@@ -294,9 +294,18 @@ replAction flags@NixStyleFlags{extraFlags = replFlags@ReplFlags{..}, configFlags
       ProjectContext -> do
         let pkgs = projectPackages $ projectConfig ctx
         when (null targetSelectors && not (null pkgs)) $ do
-          let projectFile = projectConfigProjectFile . projectConfigShared $ projectConfig ctx
-          dieWithException verbosity $
-            RenderReplTargetProblem [render (reportProjectNoTarget projectFile pkgs)]
+          case pkgs of
+            [pkg] ->
+              -- The REPL will work with no targets in the context of a project
+              -- if a single package is in the same directory as the project
+              -- file. To have the same implicit package behaviour when the
+              -- package is somewhere else we try again with an explicit package
+              -- target.
+              replAction flags [pkg] globalFlags
+            _ -> do
+              let projectFile = projectConfigProjectFile . projectConfigShared $ projectConfig ctx
+              dieWithException verbosity $
+                RenderReplTargetProblem [render (reportProjectNoTarget projectFile pkgs)]
         return ctx
       GlobalContext -> do
         unless (null targetStrings) $
