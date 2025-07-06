@@ -318,9 +318,12 @@ main args = do
 
 -- | Check whether assertions are enabled and print a warning in that case.
 warnIfAssertionsAreEnabled :: IO ()
-warnIfAssertionsAreEnabled =
+warnIfAssertionsAreEnabled = do
   assert False (return ())
     `catch` (\(_e :: AssertionFailed) -> hPutStrLn stderr assertionsEnabledMsg)
+  assert False (return ())
+    `catch` (\(e :: AssertionFailed) -> hPutStrLn stderr (show e))
+  assert False (return ())
   where
     -- Andreas, 2022-12-30, issue #8654:
     -- The verbosity machinery is not in place at this point (option -v not parsed),
