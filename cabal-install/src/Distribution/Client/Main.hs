@@ -273,6 +273,7 @@ import System.FilePath
   )
 import System.IO
   ( BufferMode (LineBuffering)
+  , hPrint
   , hPutStrLn
   , hSetBuffering
   , stderr
@@ -322,7 +323,7 @@ warnIfAssertionsAreEnabled = do
   assert False (return ())
     `catch` (\(_e :: AssertionFailed) -> hPutStrLn stderr assertionsEnabledMsg)
   assert False (return ())
-    `catch` (\(e :: AssertionFailed) -> hPutStrLn stderr (show e))
+    `catch` (\(e :: AssertionFailed) -> hPrint stderr e)
   assert False (return ())
   where
     -- Andreas, 2022-12-30, issue #8654:
