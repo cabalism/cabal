@@ -1052,7 +1052,7 @@ syntaxForm1Filter ps =
 syntaxForm1Package :: [KnownPackage] -> Syntax
 syntaxForm1Package pinfo =
   syntaxForm1 render $ \str1 fstatus1 -> do
-    guardPackage str1 fstatus1
+    guardPackage pinfo str1 fstatus1
     p <- matchPackage pinfo str1 fstatus1
     case p of
       KnownPackage{pinfoId} ->
@@ -1151,10 +1151,12 @@ syntaxForm2AllFilter =
 --
 -- > cabal build foo:tests
 syntaxForm2PackageFilter :: [KnownPackage] -> Syntax
-syntaxForm2PackageFilter ps =
+syntaxForm2PackageFilter ps = trace "XXXX-SYNTAX: syntaxForm2PackageFilter" $
   syntaxForm2 render $ \str1 fstatus1 str2 -> do
-    guardPackage str1 fstatus1
-    p <- matchPackage ps str1 fstatus1
+    guardPackage ps str1 fstatus1
+    p <-
+      trace ("XXXX-SYNTAX: " ++ show (str1, fstatus1, str2)) $
+      matchPackage ps str1 fstatus1
     kfilter <- matchComponentKindFilter str2
     case p of
       KnownPackage{pinfoId} ->
@@ -1197,7 +1199,7 @@ syntaxForm2NamespacePackage pinfo =
 syntaxForm2PackageComponent :: [KnownPackage] -> Syntax
 syntaxForm2PackageComponent ps =
   syntaxForm2 render $ \str1 fstatus1 str2 -> do
-    guardPackage str1 fstatus1
+    guardPackage ps str1 fstatus1
     guardComponentName str2
     p <- matchPackage ps str1 fstatus1
     case p of
@@ -1240,7 +1242,7 @@ syntaxForm2KindComponent cs =
 syntaxForm2PackageModule :: [KnownPackage] -> Syntax
 syntaxForm2PackageModule ps =
   syntaxForm2 render $ \str1 fstatus1 str2 -> do
-    guardPackage str1 fstatus1
+    guardPackage ps str1 fstatus1
     guardModuleName str2
     p <- matchPackage ps str1 fstatus1
     case p of
@@ -1289,7 +1291,7 @@ syntaxForm2ComponentModule cs =
 syntaxForm2PackageFile :: [KnownPackage] -> Syntax
 syntaxForm2PackageFile ps =
   syntaxForm2 render $ \str1 fstatus1 str2 -> do
-    guardPackage str1 fstatus1
+    guardPackage ps str1 fstatus1
     p <- matchPackage ps str1 fstatus1
     case p of
       KnownPackage{pinfoId, pinfoComponents} ->
@@ -1386,7 +1388,7 @@ syntaxForm3MetaNamespacePackage pinfo =
 syntaxForm3PackageKindComponent :: [KnownPackage] -> Syntax
 syntaxForm3PackageKindComponent ps =
   syntaxForm3 render $ \str1 fstatus1 str2 str3 -> do
-    guardPackage str1 fstatus1
+    guardPackage ps str1 fstatus1
     ckind <- matchComponentKind str2
     guardComponentName str3
     p <- matchPackage ps str1 fstatus1
@@ -1413,7 +1415,7 @@ syntaxForm3PackageKindComponent ps =
 syntaxForm3PackageComponentModule :: [KnownPackage] -> Syntax
 syntaxForm3PackageComponentModule ps =
   syntaxForm3 render $ \str1 fstatus1 str2 str3 -> do
-    guardPackage str1 fstatus1
+    guardPackage ps str1 fstatus1
     guardComponentName str2
     guardModuleName str3
     p <- matchPackage ps str1 fstatus1
@@ -1468,7 +1470,7 @@ syntaxForm3KindComponentModule cs =
 syntaxForm3PackageComponentFile :: [KnownPackage] -> Syntax
 syntaxForm3PackageComponentFile ps =
   syntaxForm3 render $ \str1 fstatus1 str2 str3 -> do
-    guardPackage str1 fstatus1
+    guardPackage ps str1 fstatus1
     guardComponentName str2
     p <- matchPackage ps str1 fstatus1
     case p of
@@ -2059,16 +2061,22 @@ showComponentKindFilterShort BenchKind = "benchmarks"
 -- Matching package targets
 --
 
-guardPackage :: String -> FileStatus -> Match ()
-guardPackage str fstatus =
+guardPackage :: [KnownPackage] -> String -> FileStatus -> Match ()
+guardPackage ps str fstatus =
+  trace ("XXXX-GUARD-PACKAGE: " ++ show str) $
+  trace ("XXXX-GUARD-KNOWNPACKAGEs: " ++ show ps) $
   guardPackageName str
     <|> guardPackageDir str fstatus
     <|> guardPackageFile str fstatus
 
 guardPackageName :: String -> Match ()
 guardPackageName s
-  | validPackageName s = increaseConfidence
-  | otherwise = matchErrorExpected "package name" s
+  | validPackageName s =
+    trace ("XXXX-PKG-MATCH-OK: " ++ show s) $
+    increaseConfidence
+  | otherwise =
+    trace ("XXXX-PKG-MATCH-ERROR: " ++ show s) $
+    matchErrorExpected "package name" s
 
 validPackageName :: String -> Bool
 validPackageName s =
@@ -2078,14 +2086,21 @@ validPackageName s =
     validPackageNameChar c = isAlphaNum c || c == '-'
 
 guardPackageDir :: String -> FileStatus -> Match ()
-guardPackageDir _ (FileStatusExistsDir _) = increaseConfidence
-guardPackageDir str _ = matchErrorExpected "package directory" str
+guardPackageDir str (FileStatusExistsDir d) =
+  trace ("XXXX-DIR-MATCH-OK: " ++ show (str, d)) $
+  increaseConfidence
+guardPackageDir str _ =
+  trace ("XXXX-DIR-MATCH-ERROR: " ++ show str) $
+  matchErrorExpected "package directory" str
 
 guardPackageFile :: String -> FileStatus -> Match ()
-guardPackageFile _ (FileStatusExistsFile file)
+guardPackageFile str (FileStatusExistsFile file)
   | FilePath.takeExtension file == ".cabal" =
+      trace ("XXXX-FILE-MATCH-OK: " ++ show (str, file)) $
       increaseConfidence
-guardPackageFile str _ = matchErrorExpected "package .cabal file" str
+guardPackageFile str status =
+  trace ("XXXX-FILE-MATCH-ERROR: " ++ show (str, status)) $
+  matchErrorExpected "package .cabal file" str
 
 matchPackage :: [KnownPackage] -> String -> FileStatus -> Match KnownPackage
 matchPackage pinfo = \str fstatus ->
@@ -2109,7 +2124,8 @@ matchPackageName ps = \str -> do
 matchPackageNameUnknown :: String -> Match KnownPackage
 matchPackageNameUnknown str = do
   pn <- matchParse str
-  unknownMatch (KnownPackageName pn)
+  trace ("XXXX-PKG-MATCH-UNKNOWN: " ++ show (str, pn)) $
+    unknownMatch (KnownPackageName pn)
 
 matchPackageDir
   :: [KnownPackage]
@@ -2119,7 +2135,8 @@ matchPackageDir
 matchPackageDir ps = \str fstatus ->
   case fstatus of
     FileStatusExistsDir canondir ->
-      orNoSuchThing "package directory" str (map (snd . fst) dirs) $
+      trace ("XXXXX-STATUS: " ++ show (canondir, str, fstatus)) $
+      orNoSuchThing "package directoryy" str (map (snd . fst) dirs) $
         increaseConfidenceFor $
           fmap snd $
             matchExactly (fst . fst) dirs canondir
@@ -2158,8 +2175,11 @@ guardComponentName :: String -> Match ()
 guardComponentName s
   | all validComponentChar s
       && not (null s) =
+      trace ("XXXX-COMPONENT-GUARD-OK: " ++ show s) $
       increaseConfidence
-  | otherwise = matchErrorExpected "component name" s
+  | otherwise =
+    trace ("XXXX-COMPONENT-GUARD-NOT-OK: " ++ show s) $
+    matchErrorExpected "component name" s
   where
     validComponentChar c =
       isAlphaNum c
