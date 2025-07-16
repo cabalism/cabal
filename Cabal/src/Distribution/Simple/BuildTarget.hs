@@ -696,11 +696,14 @@ matchModule3 cs str1 str2 str3 = do
 -- utils:
 
 guardModuleName :: String -> Match ()
-guardModuleName s
-  | all validModuleChar s
-      && not (null s) =
-      increaseConfidence
-  | otherwise = matchErrorExpected "module name" s
+guardModuleName s =
+  case simpleParsec s :: Maybe ModuleName of
+    Just _ -> increaseConfidence
+    _
+      | all validModuleChar s
+          && not (null s) ->
+          return ()
+      | otherwise -> matchErrorExpected "module name" s
   where
     validModuleChar c = isAlphaNum c || c == '.' || c == '_' || c == '\''
 

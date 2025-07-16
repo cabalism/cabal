@@ -2197,18 +2197,6 @@ matchComponentKindAndName cs ckind str =
 -- Matching module targets
 --
 
-guardModuleName :: String -> Match ()
-guardModuleName s =
-  case simpleParsec s :: Maybe ModuleName of
-    Just _ -> increaseConfidence
-    _
-      | all validModuleChar s
-          && not (null s) ->
-          return ()
-      | otherwise -> matchErrorExpected "module name" s
-  where
-    validModuleChar c = isAlphaNum c || c == '.' || c == '_' || c == '\''
-
 matchModuleName :: [ModuleName] -> String -> Match ModuleName
 matchModuleName ms str =
   orNoSuchThing "module" str (map prettyShow ms) $
