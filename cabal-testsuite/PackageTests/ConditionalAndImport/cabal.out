@@ -12,10 +12,10 @@ Installing executable some-exe in <PATH>
 Warning: The directory <ROOT>/cabal.dist/home/.cabal/store/ghc-<GHCVER>/incoming/new-<RAND><ROOT>/cabal.dist/home/.cabal/store/ghc-<GHCVER>/<PACKAGE>-<HASH>/bin is not in the system search path.
 # checking cyclical loopback of a project importing itself
 # cabal v2-build
-Error: [Cabal-7167]
+-----BEGIN CABAL OUTPUT-----
 Error parsing project file cyclical-0-self.project:
 
-cyclical-0-self.project:3:1: error:
+cyclical-0-self.project:3:1: error: [Cabal-7167]
   cyclical import of cyclical-0-self.project;
     cyclical-0-self.project
       imported by: cyclical-0-self.project
@@ -27,11 +27,11 @@ cyclical-0-self.project:3:1: error:
 
 # checking cyclical with hops; out and back
 # cabal v2-build
-Error: [Cabal-7167]
+-----BEGIN CABAL OUTPUT-----
 Error parsing project file cyclical-1-out-back.config:
   imported by: cyclical-1-out-back.project
 
-cyclical-1-out-back.config:1:1: error:
+cyclical-1-out-back.config:1:1: error: [Cabal-7167]
   cyclical import of cyclical-1-out-back.project;
     cyclical-1-out-back.project
       imported by: cyclical-1-out-back.config
@@ -42,11 +42,11 @@ cyclical-1-out-back.config:1:1: error:
 
 # checking cyclical with hops; out to a config that imports itself
 # cabal v2-build
-Error: [Cabal-7167]
+-----BEGIN CABAL OUTPUT-----
 Error parsing project file cyclical-1-out-self.config:
   imported by: cyclical-1-out-self.project
 
-cyclical-1-out-self.config:1:1: error:
+cyclical-1-out-self.config:1:1: error: [Cabal-7167]
   cyclical import of cyclical-1-out-self.config;
     cyclical-1-out-self.config
       imported by: cyclical-1-out-self.config
@@ -57,12 +57,12 @@ cyclical-1-out-self.config:1:1: error:
 
 # checking cyclical with hops; out, out, twice back
 # cabal v2-build
-Error: [Cabal-7167]
+-----BEGIN CABAL OUTPUT-----
 Error parsing project file cyclical-2-out-out-backback-b.config:
   imported by: cyclical-2-out-out-backback-a.config
   imported by: cyclical-2-out-out-backback.project
 
-cyclical-2-out-out-backback-b.config:1:1: error:
+cyclical-2-out-out-backback-b.config:1:1: error: [Cabal-7167]
   cyclical import of cyclical-2-out-out-backback.project;
     cyclical-2-out-out-backback.project
       imported by: cyclical-2-out-out-backback-b.config
@@ -74,12 +74,12 @@ cyclical-2-out-out-backback-b.config:1:1: error:
 
 # checking cyclical with hops; out, out, once back
 # cabal v2-build
-Error: [Cabal-7167]
+-----BEGIN CABAL OUTPUT-----
 Error parsing project file cyclical-2-out-out-back-b.config:
   imported by: cyclical-2-out-out-back-a.config
   imported by: cyclical-2-out-out-back.project
 
-cyclical-2-out-out-back-b.config:1:1: error:
+cyclical-2-out-out-back-b.config:1:1: error: [Cabal-7167]
   cyclical import of cyclical-2-out-out-back-a.config;
     cyclical-2-out-out-back-a.config
       imported by: cyclical-2-out-out-back-b.config
@@ -91,12 +91,12 @@ cyclical-2-out-out-back-b.config:1:1: error:
 
 # checking cyclical with hops; out, out to a config that imports itself
 # cabal v2-build
-Error: [Cabal-7167]
+-----BEGIN CABAL OUTPUT-----
 Error parsing project file cyclical-2-out-out-self-b.config:
   imported by: cyclical-2-out-out-self-a.config
   imported by: cyclical-2-out-out-self.project
 
-cyclical-2-out-out-self-b.config:1:1: error:
+cyclical-2-out-out-self-b.config:1:1: error: [Cabal-7167]
   cyclical import of cyclical-2-out-out-self-b.config;
     cyclical-2-out-out-self-b.config
       imported by: cyclical-2-out-out-self-b.config
@@ -120,12 +120,12 @@ Building library for my-0.1...
 Up to date
 # checking that cyclical check catches a same file name that imports itself
 # cabal v2-build
-Error: [Cabal-7167]
+-----BEGIN CABAL OUTPUT-----
 Error parsing project file same-filename/cyclical-same-filename-out-out-self.config:
   imported by: cyclical-same-filename-out-out-self.config
   imported by: cyclical-same-filename-out-out-self.project
 
-same-filename/cyclical-same-filename-out-out-self.config:1:1: error:
+same-filename/cyclical-same-filename-out-out-self.config:1:1: error: [Cabal-7167]
   cyclical import of same-filename/cyclical-same-filename-out-out-self.config;
     same-filename/cyclical-same-filename-out-out-self.config
       imported by: same-filename/cyclical-same-filename-out-out-self.config
@@ -137,12 +137,12 @@ same-filename/cyclical-same-filename-out-out-self.config:1:1: error:
 
 # checking that cyclical check catches importing its importer (with the same file name)
 # cabal v2-build
-Error: [Cabal-7167]
+-----BEGIN CABAL OUTPUT-----
 Error parsing project file same-filename/cyclical-same-filename-out-out-backback.config:
   imported by: cyclical-same-filename-out-out-backback.config
   imported by: cyclical-same-filename-out-out-backback.project
 
-same-filename/cyclical-same-filename-out-out-backback.config:1:1: error:
+same-filename/cyclical-same-filename-out-out-backback.config:1:1: error: [Cabal-7167]
   cyclical import of cyclical-same-filename-out-out-backback.project;
     cyclical-same-filename-out-out-backback.project
       imported by: same-filename/cyclical-same-filename-out-out-backback.config
@@ -154,12 +154,12 @@ same-filename/cyclical-same-filename-out-out-backback.config:1:1: error:
 
 # checking that cyclical check catches importing its importer's importer (hopping over same file names)
 # cabal v2-build
-Error: [Cabal-7167]
+-----BEGIN CABAL OUTPUT-----
 Error parsing project file same-filename/cyclical-same-filename-out-out-back.config:
   imported by: cyclical-same-filename-out-out-back.config
   imported by: cyclical-same-filename-out-out-back.project
 
-same-filename/cyclical-same-filename-out-out-back.config:1:1: error:
+same-filename/cyclical-same-filename-out-out-back.config:1:1: error: [Cabal-7167]
   cyclical import of cyclical-same-filename-out-out-back.config;
     cyclical-same-filename-out-out-back.config
       imported by: same-filename/cyclical-same-filename-out-out-back.config
@@ -176,6 +176,7 @@ Up to date
 # cabal v2-build
 Resolving dependencies...
 Error: [Cabal-7107]
+-----BEGIN CABAL OUTPUT-----
 Could not resolve dependencies:
 [__0] trying: oops-0.1 (user goal)
 [__1] next goal: hashable (dependency of oops)
@@ -199,10 +200,10 @@ After searching the rest of the dependency tree exhaustively, these were the goa
 Up to date
 # checking bad conditional
 # cabal v2-build
-Error: [Cabal-7167]
+-----BEGIN CABAL OUTPUT-----
 Error parsing project file bad-conditional.project:
 
-bad-conditional.project: error:
+bad-conditional.project: error: [Cabal-7167]
   Cannot set compiler in a conditional clause of a cabal project file
 
 
