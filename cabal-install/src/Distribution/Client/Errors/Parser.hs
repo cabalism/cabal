@@ -112,7 +112,7 @@ renderParseError
   -> [PWarningWithSource src]
   -> String
 renderParseError display errors warnings =
-  unlines [renderParseErrorsWarnings (fmap display source) ws | (source, ws) <- joinedErrorsWarningsList]
+  unlines ([renderParseErrorsWarnings (fmap display source) ws | (source, ws) <- joinedErrorsWarningsList])
   where
     mkErrorGroup :: NonEmpty (PErrorWithSource src) -> (PSource src, [PError])
     mkErrorGroup (x :| xs) = (perrorSource x, perror x : map perror xs)
@@ -272,7 +272,7 @@ renderParseErrorGeneral header err_header provenance extra_info errors warnings 
         (Just herald, False) -> herald ++ showPos pos ++ ": "
 
     renderError :: PError -> String
-    renderError (PError pos msg) = renderErrorOrWarning "error" pos msg
+    renderError (PError pos msg) = renderErrorOrWarning "errorXXX" pos msg
 
     renderWarning :: PWarning -> String
     renderWarning (PWarning _ pos msg) = renderErrorOrWarning "warning" pos msg

@@ -23,6 +23,7 @@ import Data.ByteString (ByteString)
 import qualified Data.ByteString.Base16 as Base16
 import qualified Data.ByteString.Char8 as BS8
 import Data.List (groupBy)
+import qualified Data.Text as T
 import Distribution.Client.IndexUtils.Timestamp
 import qualified Distribution.Client.Types.Repo as Repo
 import qualified Distribution.Client.Types.RepoName as RepoName
@@ -887,14 +888,19 @@ exceptionMessageCabalInstall e = case e of
     renderProjectConfigParseError pcfError
 
 instance Exception (VerboseException CabalInstallException) where
-  displayException :: VerboseException CabalInstallException -> [Char]
-  displayException (VerboseException stack timestamp verb cabalInstallException) =
-    withOutputMarker
-      verb
-      ( concat
-          [ "Error: [Cabal-"
+  displayException :: VerboseException CabalInstallException -> String
+  displayException (VerboseException stack timestamp verb cabalInstallException)
+    | ProjectConfigParseFailure _ <- cabalInstallException =
+        withOutputMarker verb reportProject
+    | otherwise =
+        withOutputMarker verb report
+    where
+      errorCode =
+        concat
+          [ "[Cabal-"
           , show (exceptionCodeCabalInstall cabalInstallException)
-          , "]\n"
+          , "]"
           ]
-      )
-      ++ exceptionWithMetadata stack timestamp verb (exceptionMessageCabalInstall cabalInstallException)
+      withMeta = exceptionWithMetadata stack timestamp verb (exceptionMessageCabalInstall cabalInstallException)
+      report = "Error: " ++ errorCode ++ "\n" ++ withMeta
+      reportProject = T.unpack $ T.replace (T.pack "errorXXX:") (T.pack $ "error: " ++ errorCode) (T.pack withMeta)
