@@ -44,8 +44,11 @@
 module Distribution.Client.ProjectOrchestration
   ( -- * Discovery phase: what is in the project?
     CurrentCommand (..)
+  , warnProjectConfig
   , establishProjectBaseContext
+  , establishProjectBaseContextWarning
   , establishProjectBaseContextWithRoot
+  , establishProjectBaseContextWithRootWarning
   , ProjectBaseContext (..)
   , BuildTimeSettings (..)
   , commandLineFlagsToProjectConfig
@@ -250,27 +253,50 @@ data ProjectBaseContext = ProjectBaseContext
   , installedPackages :: Maybe InstalledPackageIndex
   }
 
+warnProjectConfig :: Verbosity -> ProjectConfig -> IO ()
+warnProjectConfig verbosity projectConfig =
+  -- https://github.com/haskell/cabal/issues/6013
+  when (null (projectPackages projectConfig) && null (projectPackagesOptional projectConfig)) $
+    warn verbosity "There are no packages or optional-packages in the project"
+
 establishProjectBaseContext
   :: Verbosity
   -> ProjectConfig
   -> CurrentCommand
   -> IO ProjectBaseContext
-establishProjectBaseContext verbosity cliConfig currentCommand = do
+establishProjectBaseContext = establishProjectBaseContextWarning warnProjectConfig
+
+establishProjectBaseContextWarning
+  :: (Verbosity -> ProjectConfig -> IO ()) 
+  -> Verbosity
+  -> ProjectConfig
+  -> CurrentCommand
+  -> IO ProjectBaseContext
+establishProjectBaseContextWarning warnProject verbosity cliConfig currentCommand = do
   projectRoot <- either throwIO return =<< findProjectRoot verbosity mprojectDir mprojectFile
-  establishProjectBaseContextWithRoot verbosity cliConfig projectRoot currentCommand
+  establishProjectBaseContextWithRootWarning warnProject verbosity cliConfig projectRoot currentCommand
   where
     mprojectDir = Setup.flagToMaybe projectConfigProjectDir
     mprojectFile = Setup.flagToMaybe projectConfigProjectFile
     ProjectConfigShared{projectConfigProjectDir, projectConfigProjectFile} = projectConfigShared cliConfig
 
--- | Like 'establishProjectBaseContext' but doesn't search for project root.
 establishProjectBaseContextWithRoot
   :: Verbosity
   -> ProjectConfig
   -> ProjectRoot
   -> CurrentCommand
   -> IO ProjectBaseContext
-establishProjectBaseContextWithRoot verbosity cliConfig projectRoot currentCommand = do
+establishProjectBaseContextWithRoot = establishProjectBaseContextWithRootWarning warnProjectConfig
+
+-- | Like 'establishProjectBaseContext' but doesn't search for project root.
+establishProjectBaseContextWithRootWarning
+  :: (Verbosity -> ProjectConfig -> IO ()) 
+  -> Verbosity
+  -> ProjectConfig
+  -> ProjectRoot
+  -> CurrentCommand
+  -> IO ProjectBaseContext
+establishProjectBaseContextWithRootWarning warnProject verbosity cliConfig projectRoot currentCommand = do
   let haddockOutputDir = flagToMaybe (packageConfigHaddockOutputDir (projectConfigLocalPackages cliConfig))
   let distDirLayout = defaultDistDirLayout projectRoot mdistDirectory haddockOutputDir
 
@@ -309,9 +335,7 @@ establishProjectBaseContextWithRoot verbosity cliConfig projectRoot currentComma
           cabalDirLayout
           projectConfig
 
-  -- https://github.com/haskell/cabal/issues/6013
-  when (null (projectPackages projectConfig) && null (projectPackagesOptional projectConfig)) $
-    warn verbosity "There are no packages or optional-packages in the project"
+  warnProject verbosity projectConfig
 
   return
     ProjectBaseContext
