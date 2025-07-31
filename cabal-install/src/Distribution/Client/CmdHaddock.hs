@@ -153,7 +153,7 @@ haddockAction relFlags targetStrings globalFlags = do
     installDoc = fromFlagOrDefault True (installDocumentation installFlags)
     flags' = flags{installFlags = installFlags{installDocumentation = Flag installDoc}}
     cliConfig = commandLineFlagsToProjectConfig globalFlags flags' mempty -- ClientInstallFlags, not needed here
-  projCtx <- establishProjectBaseContext verbosity cliConfig HaddockCommand
+  projCtx <- establishProjectBaseContextWarning warnProjectConfig verbosity cliConfig HaddockCommand
 
   let relBaseCtx@ProjectBaseContext{projectConfig = relProjectConfig}
         | fromFlagOrDefault False (openInBrowser extraFlags) =

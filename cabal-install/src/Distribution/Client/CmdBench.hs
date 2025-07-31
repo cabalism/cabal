@@ -106,7 +106,7 @@ benchCommand =
 -- "Distribution.Client.ProjectOrchestration"
 benchAction :: NixStyleFlags () -> [String] -> GlobalFlags -> IO ()
 benchAction flags targetStrings globalFlags = do
-  baseCtx <- establishProjectBaseContext verbosity cliConfig OtherCommand
+  baseCtx <- establishProjectBaseContextWarning warnProjectConfig verbosity cliConfig OtherCommand
 
   targetSelectors <-
     either (reportTargetSelectorProblems verbosity) return

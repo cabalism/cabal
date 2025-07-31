@@ -129,7 +129,7 @@ configureAction' :: NixStyleFlags () -> [String] -> GlobalFlags -> IO (ProjectBa
 configureAction' flags@NixStyleFlags{..} _extraArgs globalFlags = do
   -- TODO: deal with _extraArgs, since flags with wrong syntax end up there
 
-  baseCtx <- establishProjectBaseContext v cliConfig OtherCommand
+  baseCtx <- establishProjectBaseContextWarning warnProjectConfig v cliConfig OtherCommand
 
   let localFile = distProjectFile (distDirLayout baseCtx) "local"
   -- If cabal.project.local already exists, and the flags allow, back up to cabal.project.local~

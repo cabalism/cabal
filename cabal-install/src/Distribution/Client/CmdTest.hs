@@ -124,7 +124,7 @@ testCommand =
 -- "Distribution.Client.ProjectOrchestration"
 testAction :: NixStyleFlags () -> [String] -> GlobalFlags -> IO ()
 testAction flags@NixStyleFlags{..} targetStrings globalFlags = do
-  baseCtx <- establishProjectBaseContext verbosity cliConfig OtherCommand
+  baseCtx <- establishProjectBaseContextWarning warnProjectConfig verbosity cliConfig OtherCommand
 
   targetSelectors <-
     either (reportTargetSelectorProblems verbosity) return

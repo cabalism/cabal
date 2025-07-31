@@ -339,7 +339,7 @@ withContextAndSelectors verbosity noTargets kind flags@NixStyleFlags{..} targetS
     defaultTarget = [TargetPackage TargetExplicitNamed [fakePackageId] Nothing]
 
     withProject = do
-      ctx <- establishProjectBaseContext verbosity cliConfig cmd
+      ctx <- establishProjectBaseContextWarning warnProjectConfig verbosity cliConfig cmd
       return (ProjectContext, ctx)
     withoutProject mkTmpDir globalConfig = do
       distDirLayout <- establishDummyDistDirLayout verbosity (globalConfig <> cliConfig) =<< mkTmpDir

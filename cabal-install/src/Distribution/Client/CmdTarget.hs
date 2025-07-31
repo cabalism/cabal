@@ -155,7 +155,7 @@ targetAction flags@NixStyleFlags{..} ts globalFlags = do
     , projectConfig
     , localPackages
     } <-
-    establishProjectBaseContext verbosity cliConfig OtherCommand
+    establishProjectBaseContextWarning warnProjectConfig verbosity cliConfig OtherCommand
 
   (_, elaboratedPlan, _, _, _) <-
     rebuildInstallPlan

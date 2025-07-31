@@ -136,7 +136,7 @@ freezeAction flags extraArgs globalFlags = do
     , localPackages
     , buildSettings
     } <-
-    establishProjectBaseContext verbosity cliConfig OtherCommand
+    establishProjectBaseContextWarning warnProjectConfig verbosity cliConfig OtherCommand
 
   (_, elaboratedPlan, _, totalIndexState, activeRepos) <-
     rebuildInstallPlan

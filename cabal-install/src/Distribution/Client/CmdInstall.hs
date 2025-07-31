@@ -571,7 +571,7 @@ withProject
   -> IO ([PackageSpecifier UnresolvedSourcePackage], [TargetSelector], ProjectConfig)
 withProject verbosity cliConfig targetStrings installLibs = do
   -- First, we need to learn about what's available to be installed.
-  baseCtx <- establishProjectBaseContext reducedVerbosity cliConfig InstallCommand
+  baseCtx <- establishProjectBaseContextWarning warnProjectConfig reducedVerbosity cliConfig InstallCommand
 
   (pkgSpecs, targetSelectors) <-
     -- If every target is already resolved to a package id, we can return without any further parsing.

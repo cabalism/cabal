@@ -41,7 +41,8 @@ import Distribution.Client.ProjectOrchestration
   , ProjectBuildContext (..)
   , commandLineFlagsToProjectConfig
   , distDirLayout
-  , establishProjectBaseContext
+  , warnProjectConfig
+  , establishProjectBaseContextWarning
   , runProjectPreBuildPhase
   )
 import Distribution.Client.ProjectPlanOutput
@@ -141,7 +142,7 @@ execCommand =
 
 execAction :: NixStyleFlags () -> [String] -> GlobalFlags -> IO ()
 execAction flags extraArgs globalFlags = do
-  baseCtx <- establishProjectBaseContext verbosity cliConfig OtherCommand
+  baseCtx <- establishProjectBaseContextWarning warnProjectConfig verbosity cliConfig OtherCommand
 
   -- To set up the environment, we'd like to select the libraries in our
   -- dependency tree that we've already built. So first we set up an install

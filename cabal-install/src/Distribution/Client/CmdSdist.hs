@@ -43,8 +43,9 @@ import Distribution.Client.ProjectFlags
 import Distribution.Client.ProjectOrchestration
   ( CurrentCommand (..)
   , ProjectBaseContext (..)
-  , establishProjectBaseContext
-  , establishProjectBaseContextWithRoot
+  , warnProjectConfig
+  , establishProjectBaseContextWarning
+  , establishProjectBaseContextWithRootWarning
   )
 import Distribution.Client.Setup
   ( CommonSetupFlags (..)
@@ -305,13 +306,13 @@ sdistAction (pf@ProjectFlags{..}, SdistFlags{..}) targetStrings globalFlags = do
 
     withProject :: IO (ProjectBaseContext, DistDirLayout)
     withProject = do
-      baseCtx <- establishProjectBaseContext verbosity prjConfig OtherCommand
+      baseCtx <- establishProjectBaseContextWarning warnProjectConfig verbosity prjConfig OtherCommand
       return (baseCtx, distDirLayout baseCtx)
 
     withoutProject :: ProjectConfig -> IO (ProjectBaseContext, DistDirLayout)
     withoutProject config = do
       cwd <- getCurrentDirectory
-      baseCtx <- establishProjectBaseContextWithRoot verbosity (config <> prjConfig) (ProjectRootImplicit cwd) OtherCommand
+      baseCtx <- establishProjectBaseContextWithRootWarning warnProjectConfig verbosity (config <> prjConfig) (ProjectRootImplicit cwd) OtherCommand
       return (baseCtx, distDirLayout baseCtx)
 
 data OutputFormat
