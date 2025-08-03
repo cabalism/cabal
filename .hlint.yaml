@@ -61,7 +61,6 @@
 - ignore: {name: "Use null"} # 2 hints
 - ignore: {name: "Use record patterns"} # 16 hints
 - ignore: {name: "Use replicateM_"} # 2 hints
-- ignore: {name: "Use rights"} # 2 hints
 - ignore: {name: "Use second"} # 7 hints
 - ignore: {name: "Use section"} # 18 hints
 - ignore: {name: "Use tuple-section"} # 28 hints

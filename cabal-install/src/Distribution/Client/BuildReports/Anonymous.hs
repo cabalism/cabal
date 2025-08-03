@@ -34,6 +34,7 @@ module Distribution.Client.BuildReports.Anonymous
 import Distribution.Client.Compat.Prelude
 import Prelude ()
 
+import Data.Either (rights)
 import Distribution.CabalSpecVersion
 import Distribution.Client.BuildReports.Types
 import Distribution.Client.Version (cabalInstallVersion)
@@ -152,7 +153,7 @@ parseFields input = do
 
 parseBuildReportList :: BS.ByteString -> [BuildReport]
 parseBuildReportList str =
-  [report | Right report <- map parseBuildReport (split str)]
+  rights (map parseBuildReport (split str))
   where
     split :: BS.ByteString -> [BS.ByteString]
     split = filter (not . BS.null) . unfoldr chunk . BS8.lines

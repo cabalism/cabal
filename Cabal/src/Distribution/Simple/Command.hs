@@ -91,6 +91,7 @@ import Distribution.Compat.Prelude hiding (get)
 import Prelude ()
 
 import qualified Data.Array as Array
+import qualified Data.Either as Either
 import qualified Data.List as List
 import Distribution.Compat.Lens (ALens', (#~), (^#))
 import qualified Distribution.GetOpt as GetOpt
@@ -589,7 +590,7 @@ commandParseArgs command global args =
     -- Note: It is crucial to use reverse function composition here or to
     -- reverse the flags here as we want to process the flags left to right
     -- but data flow in function composition is right to left.
-    accum flags = foldr (flip (.)) id [f | Right f <- flags]
+    accum flags = foldr (flip (.)) id (Either.rights flags)
     unrecognised opts =
       [ "unrecognized "
         ++ "'"
