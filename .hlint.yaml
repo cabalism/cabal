@@ -59,7 +59,6 @@
 - ignore: {name: "Use second"} # 7 hints
 - ignore: {name: "Use section"} # 18 hints
 - ignore: {name: "Use tuple-section"} # 28 hints
-- ignore: {name: "Use typeRep"} # 2 hints
 - ignore: {name: "Use unless"} # 23 hints
 - ignore: {name: "Use unwords"} # 8 hints
 - ignore: {name: "Use void"} # 23 hints
