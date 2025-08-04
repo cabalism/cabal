@@ -103,7 +103,7 @@ instance Arbitrary VersionArb where
   shrink (VersionArb xs) =
     [ VersionArb xs'
     | xs' <- shrink xs
-    , length xs' > 0
+    , not (null xs')
     , all (>=0) xs'
     ]
 

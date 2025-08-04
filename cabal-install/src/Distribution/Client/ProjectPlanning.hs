@@ -1779,7 +1779,7 @@ elaborateInstallPlan
               -- 0 component graph nodes and effectively vanishes. We want to
               -- keep it around at least for error reporting purposes.
               cuz_length
-                | length g > 0 = []
+                | not (null g) = []
                 | otherwise = [CuzNoBuildableComponents]
               -- For ease of testing, we let per-component builds be toggled
               -- at the top level
