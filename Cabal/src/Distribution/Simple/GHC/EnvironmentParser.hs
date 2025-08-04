@@ -25,7 +25,7 @@ parseEnvironmentFileLine =
   GhcEnvFileComment <$> comment
     <|> GhcEnvFilePackageId <$> unitId
     <|> GhcEnvFilePackageDb <$> packageDb
-    <|> pure GhcEnvFileClearPackageDbStack <* clearDb
+    <|> (GhcEnvFileClearPackageDbStack <$ clearDb)
   where
     comment = P.string "--" *> P.many (P.noneOf "\r\n")
     unitId =
