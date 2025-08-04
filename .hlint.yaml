@@ -54,7 +54,6 @@
 - ignore: {name: "Use map once"} # 7 hints
 - ignore: {name: "Use map with tuple-section"} # 3 hints
 - ignore: {name: "Use mapMaybe"} # 13 hints
-- ignore: {name: "Use max"} # 2 hints
 - ignore: {name: "Use maybe"} # 8 hints
 - ignore: {name: "Use newtype instead of data"} # 31 hints
 - ignore: {name: "Use notElem"} # 9 hints
@@ -74,6 +73,7 @@
     - --ignore-glob=Cabal-tests/tests/custom-setup/CabalDoctestSetup.hs
     - --ignore-glob=Cabal-tests/tests/custom-setup/IdrisSetup.hs
     - --ignore-glob=cabal-testsuite/PackageTests/BuildWays/q/app/Main.hs
+    - --ignore-glob=cabal-testsuite/PackageTests/CMain/10168/src/Lib.hs
     - --ignore-glob=cabal-testsuite/PackageTests/CmmSources/src/Demo.hs
     - --ignore-glob=cabal-testsuite/PackageTests/CmmSourcesDyn/src/Demo.hs
     - --ignore-glob=cabal-testsuite/PackageTests/CmmSourcesExe/src/Demo.hs
@@ -88,7 +88,7 @@
     - --ignore-glob=cabal-testsuite/PackageTests/TemplateHaskell/dynamic/TH.hs
     - --ignore-glob=cabal-testsuite/PackageTests/TemplateHaskell/profiling/TH.hs
     - --ignore-glob=cabal-testsuite/PackageTests/TemplateHaskell/vanilla/TH.hs
+    - --ignore-glob=dist-*
     - --ignore-glob=templates/Paths_pkg.template.hs
     - --ignore-glob=templates/SPDX.LicenseExceptionId.template.hs
     - --ignore-glob=templates/SPDX.LicenseId.template.hs
-    - --ignore-glob=dist-*
