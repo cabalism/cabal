@@ -834,7 +834,7 @@ availableTargetIndexes installPlan = AvailableTargetIndexes{..}
     availableTargetsByPackageId =
       Map.mapKeysWith
         (++)
-        (\(pkgid, _cname) -> pkgid)
+        fst -- of (pkgid, _cname)
         availableTargetsByPackageIdAndComponentName
         `Map.union` availableTargetsEmptyPackages
 
@@ -927,7 +927,7 @@ availableTargetIndexesFromSourcePackages pkgSpecifiers = AvailableTargetIndexes{
     availableTargetsByPackageId =
       Map.mapKeysWith
         (++)
-        (\(pkgid, _cname) -> pkgid)
+        fst -- of (pkgid, _cname)
         availableTargetsByPackageIdAndComponentName
         `Map.union` availableTargetsEmptyPackages
 
