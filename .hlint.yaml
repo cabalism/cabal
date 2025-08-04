@@ -38,7 +38,6 @@
 - ignore: {name: "Use bimap"} # 7 hints
 - ignore: {name: "Use camelCase"} # 96 hints
 - ignore: {name: "Use catMaybes"} # 4 hints
-- ignore: {name: "Use concatMap"} # 2 hints
 - ignore: {name: "Use const"} # 37 hints
 - ignore: {name: "Use elem"} # 2 hints
 - ignore: {name: "Use first"} # 5 hints
