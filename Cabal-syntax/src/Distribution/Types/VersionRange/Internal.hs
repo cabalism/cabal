@@ -526,7 +526,7 @@ versionRangeParser digitParser csv = expr
     verLoop :: CabalParsing m => DList.DList Int -> m (Bool, Version)
     verLoop acc =
       verLoop' acc
-        <|> (tags *> pure (False, mkVersion (DList.toList acc)))
+        <|> (tags $> (False, mkVersion (DList.toList acc)))
 
     verLoop' :: CabalParsing m => DList.DList Int -> m (Bool, Version)
     verLoop' acc = do

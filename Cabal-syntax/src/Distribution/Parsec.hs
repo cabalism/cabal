@@ -254,8 +254,8 @@ instance Parsec Bool where
       postprocess str
         | str == "True" = pure True
         | str == "False" = pure False
-        | lstr == "true" = parsecWarning PWTBoolCase caseWarning *> pure True
-        | lstr == "false" = parsecWarning PWTBoolCase caseWarning *> pure False
+        | lstr == "true" = parsecWarning PWTBoolCase caseWarning $> True
+        | lstr == "false" = parsecWarning PWTBoolCase caseWarning $> False
         | otherwise = fail $ "Not a boolean: " ++ str
         where
           lstr = map toLower str
