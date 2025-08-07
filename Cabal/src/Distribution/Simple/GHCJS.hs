@@ -1243,11 +1243,11 @@ gbuildSources verbosity mbWorkDir pkgId specVer tmpDir bm =
         }
 
     isCxx :: FilePath -> Bool
-    isCxx fp = elem (takeExtension fp) [".cpp", ".cxx", ".c++"]
+    isCxx fp = takeExtension fp `elem` [".cpp", ".cxx", ".c++"]
 
 -- | FilePath has a Haskell extension: .hs or .lhs
 isHaskell :: FilePath -> Bool
-isHaskell fp = elem (takeExtension fp) [".hs", ".lhs"]
+isHaskell fp = takeExtension fp `elem` [".hs", ".lhs"]
 
 -- | Generic build function. See comment for 'GBuildMode'.
 gbuild
@@ -1787,7 +1787,7 @@ popThreadedFlag bi =
       PerCompilerFlavor (filter p ghc) ghcjs
 
     hasThreaded :: PerCompilerFlavor [String] -> Bool
-    hasThreaded (PerCompilerFlavor ghc _) = elem "-threaded" ghc
+    hasThreaded (PerCompilerFlavor ghc _) = "-threaded" `elem` ghc
 
 -- | Extracts a String representing a hash of the ABI of a built
 -- library.  It can fail if the library has not yet been built.

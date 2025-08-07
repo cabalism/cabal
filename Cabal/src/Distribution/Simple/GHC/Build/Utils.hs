@@ -76,15 +76,15 @@ withDynFLib flib =
 
 -- | Is this file a C++ source file, i.e. ends with .cpp, .cxx, or .c++?
 isCxx :: FilePath -> Bool
-isCxx fp = elem (takeExtension fp) [".cpp", ".cxx", ".c++"]
+isCxx fp = takeExtension fp `elem` [".cpp", ".cxx", ".c++"]
 
 -- | Is this a C source file, i.e. ends with .c?
 isC :: FilePath -> Bool
-isC fp = elem (takeExtension fp) [".c"]
+isC fp = takeExtension fp `elem` [".c"]
 
 -- | FilePath has a Haskell extension: .hs or .lhs
 isHaskell :: FilePath -> Bool
-isHaskell fp = elem (takeExtension fp) [".hs", ".lhs"]
+isHaskell fp = takeExtension fp `elem` [".hs", ".lhs"]
 
 -- | Returns True if the modification date of the given source file is newer than
 -- the object file we last compiled for it, or if no object file exists yet.
