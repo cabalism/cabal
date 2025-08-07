@@ -85,6 +85,7 @@ import Distribution.Utils.NubList
 import Distribution.Utils.Path
 import Distribution.Verbosity (Verbosity)
 import Distribution.Version
+import Distribution.Simple.GHC.Build.Link (hasThreaded)
 
 import Control.Arrow ((***))
 import Control.Monad (msum)
@@ -1770,7 +1771,7 @@ getRPaths _ _ = return mempty
 popThreadedFlag :: BuildInfo -> (BuildInfo, Bool)
 popThreadedFlag bi =
   ( bi{options = filterHcOptions (/= "-threaded") (options bi)}
-  , hasThreaded (options bi)
+  , hasThreaded bi
   )
   where
     filterHcOptions
@@ -1779,9 +1780,6 @@ popThreadedFlag bi =
       -> PerCompilerFlavor [String]
     filterHcOptions p (PerCompilerFlavor ghc ghcjs) =
       PerCompilerFlavor (filter p ghc) ghcjs
-
-    hasThreaded :: PerCompilerFlavor [String] -> Bool
-    hasThreaded (PerCompilerFlavor ghc _) = "-threaded" `elem` ghc
 
 -- | Extracts a String representing a hash of the ABI of a built
 -- library.  It can fail if the library has not yet been built.
