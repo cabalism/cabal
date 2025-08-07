@@ -62,6 +62,7 @@ import Distribution.Simple.BuildPaths
 import Distribution.Simple.Compiler
 import Distribution.Simple.Errors
 import Distribution.Simple.Flag
+import Distribution.Simple.GHC.Build.Utils (isCxx, isHaskell)
 import Distribution.Simple.GHC.EnvironmentParser
 import Distribution.Simple.GHC.ImplInfo
 import qualified Distribution.Simple.GHC.Internal as Internal
@@ -1241,13 +1242,6 @@ gbuildSources verbosity mbWorkDir pkgId specVer tmpDir bm =
         , inputSourceFiles = []
         , inputSourceModules = foreignLibModules flib
         }
-
-    isCxx :: FilePath -> Bool
-    isCxx fp = takeExtension fp `elem` [".cpp", ".cxx", ".c++"]
-
--- | FilePath has a Haskell extension: .hs or .lhs
-isHaskell :: FilePath -> Bool
-isHaskell fp = takeExtension fp `elem` [".hs", ".lhs"]
 
 -- | Generic build function. See comment for 'GBuildMode'.
 gbuild

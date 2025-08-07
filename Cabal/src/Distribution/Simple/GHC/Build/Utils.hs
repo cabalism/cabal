@@ -74,17 +74,21 @@ withDynFLib flib =
     ForeignLibTypeUnknown ->
       cabalBug "unknown foreign lib type"
 
+-- | Is the extension of the file in the list of extensions?
+extensionIn :: [String] -> FilePath -> Bool
+extensionIn exts fp = takeExtension fp `elem` exts
+
 -- | Is this file a C++ source file, i.e. ends with .cpp, .cxx, or .c++?
 isCxx :: FilePath -> Bool
-isCxx fp = takeExtension fp `elem` [".cpp", ".cxx", ".c++"]
+isCxx = extensionIn [".cpp", ".cxx", ".c++"]
 
 -- | Is this a C source file, i.e. ends with .c?
 isC :: FilePath -> Bool
-isC fp = takeExtension fp `elem` [".c"]
+isC = extensionIn [".c"]
 
 -- | FilePath has a Haskell extension: .hs or .lhs
 isHaskell :: FilePath -> Bool
-isHaskell fp = takeExtension fp `elem` [".hs", ".lhs"]
+isHaskell = extensionIn [".hs", ".lhs"]
 
 -- | Returns True if the modification date of the given source file is newer than
 -- the object file we last compiled for it, or if no object file exists yet.
