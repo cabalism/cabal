@@ -40,7 +40,6 @@
 - ignore: {name: "Use catMaybes"} # 4 hints
 - ignore: {name: "Use concatMap"} # 2 hints
 - ignore: {name: "Use const"} # 37 hints
-- ignore: {name: "Use first"} # 5 hints
 - ignore: {name: "Use fmap"} # 24 hints
 - ignore: {name: "Use fold"} # 1 hint
 - ignore: {name: "Use fromMaybe"} # 5 hints

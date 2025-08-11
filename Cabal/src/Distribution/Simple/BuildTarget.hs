@@ -407,7 +407,7 @@ reportBuildTargetProblems verbosity problems = do
     targets ->
       dieWithException verbosity $
         UnknownBuildTarget $
-          map (\(target, nosuch) -> (showUserBuildTarget target, nosuch)) targets
+          map (first showUserBuildTarget) targets
 
   case [(t, ts) | BuildTargetAmbiguous t ts <- problems] of
     [] -> return ()

@@ -827,7 +827,7 @@ reportTargetSelectorProblems verbosity problems = do
     targets ->
       dieWithException verbosity $
         NoSuchTargetSelectorErr $
-          map (\(target, nosuch) -> (showTargetString target, nosuch)) targets
+          map (first showTargetString) targets
 
   case [(t, ts) | TargetSelectorAmbiguous t ts <- problems] of
     [] -> return ()
