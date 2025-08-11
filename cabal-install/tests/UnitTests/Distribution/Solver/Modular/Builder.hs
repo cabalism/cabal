@@ -15,7 +15,7 @@ tests =
 -- | Simpler splits implementation
 splits' :: [a] -> [(a, [a])]
 splits' [] = []
-splits' (x : xs) = (x, xs) : map (\(y, ys) -> (y, x : ys)) (splits' xs)
+splits' (x : xs) = (x, xs) : map (second (x :)) (splits' xs)
 
 splitsTest :: [Int] -> Property
 splitsTest xs = splits' xs === splits xs
