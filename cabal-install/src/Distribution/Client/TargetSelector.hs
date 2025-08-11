@@ -100,6 +100,7 @@ import Control.Arrow ((&&&))
 import Control.Monad hiding
   ( mfilter
   )
+import Data.Bifunctor (second)
 #if MIN_VERSION_base(4,20,0)
 import Data.Functor as UZ (unzip)
 #else
@@ -2186,7 +2187,7 @@ matchComponentKindAndName cs ckind str =
     (map render cs)
     $ increaseConfidenceFor
     $ matchInexactly
-      (\(ck, cn) -> (ck, caseFold cn))
+      (second caseFold)
       (\c -> (cinfoKind c, cinfoStrName c))
       cs
       (ckind, str)

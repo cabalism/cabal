@@ -40,6 +40,7 @@ module Distribution.Simple.BuildTarget
   , reportBuildTargetProblems
   ) where
 
+import Data.Bifunctor (second)
 import Distribution.Compat.Prelude
 import Prelude ()
 
@@ -652,7 +653,7 @@ matchComponentKindAndName cs ckind str =
   orNoSuchThing (showComponentKind ckind ++ " component") str $
     increaseConfidenceFor $
       matchInexactly
-        (\(ck, cn) -> (ck, caseFold cn))
+        (second caseFold)
         [((cinfoKind c, cinfoStrName c), c) | c <- cs]
         (ckind, str)
 
