@@ -1,0 +1,12 @@
+# checking that we detect when the same config is imported via many different paths
+# cabal v2-build
+Resolving dependencies...
+Build profile: -w ghc-<GHCVER> -O1
+In order, the following would be built:
+ - foo-0.1 (lib:foo) (first run)
+# checking that we detect when the same config is imported via many different paths
+# cabal v2-build
+Resolving dependencies...
+Build profile: -w ghc-<GHCVER> -O1
+In order, the following would be built:
+ - foo-0.1 (lib:foo) (first run)
