@@ -1,6 +1,7 @@
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE RecordWildCards #-}
@@ -32,10 +33,11 @@ module Distribution.Client.ProjectConfig.Legacy
     -- * Internals, just for tests
   , parsePackageLocationTokenQ
   , renderPackageLocationToken
+  , DupesMap
+  , dupesMsg
   ) where
 
 import Data.Coerce (coerce)
-import Data.IORef
 import Distribution.Client.Compat.Prelude
 
 import Distribution.Types.Flag (FlagName, parsecFlagAssignment)
@@ -145,8 +147,7 @@ import Distribution.Types.CondTree
   )
 import Distribution.Types.SourceRepo (RepoType)
 import Distribution.Utils.NubList
-  ( NubList
-  , fromNubList
+  ( fromNubList
   , overNubList
   , toNubList
   )
@@ -256,16 +257,12 @@ parseProject
   -> ProjectConfigToParse
   -- ^ The contents of the file to parse
   -> IO (ProjectParseResult ProjectConfigSkeleton)
-parseProject rootPath cacheDir httpTransport verbosity configToParse = do
-  let (dir, projectFileName) = splitFileName rootPath
-  projectDir <- makeAbsolute dir
-  projectPath@(ProjectConfigPath (canonicalRoot :| _)) <- canonicalizeConfigPath projectDir (ProjectConfigPath $ projectFileName :| [])
-  importsBy <- newIORef $ toNubList [ProjectImport canonicalRoot projectPath]
-  dupesMap <- newIORef mempty
-  result <- parseProjectSkeleton cacheDir httpTransport verbosity importsBy dupesMap projectDir projectPath configToParse
-  dupes <- Map.filter ((> 1) . length) <$> readIORef dupesMap
-  unless (Map.null dupes) (noticeDoc verbosity $ vcat (dupesMsg <$> Map.toList dupes))
-  return result
+parseProject rootPath cacheDir httpTransport verbosity configToParse =
+  do
+    let (dir, projectFileName) = splitFileName rootPath
+    projectDir <- makeAbsolute dir
+    projectPath <- canonicalizeConfigPath projectDir (ProjectConfigPath $ projectFileName :| [])
+    parseProjectSkeleton cacheDir httpTransport verbosity projectDir projectPath configToParse
 
 data Dupes = Dupes
   { dupesImport :: ProjectImport
@@ -290,10 +287,6 @@ parseProjectSkeleton
   :: FilePath
   -> HttpTransport
   -> Verbosity
-  -> IORef (NubList ProjectImport)
-  -- ^ The imports seen so far, used to report on cycles and duplicates and to detect duplicates that are not cycles
-  -> IORef DupesMap
-  -- ^ The duplicates seen so far, used to defer reporting on duplicates
   -> FilePath
   -- ^ The directory of the project configuration, typically the directory of cabal.project
   -> ProjectConfigPath
@@ -301,7 +294,7 @@ parseProjectSkeleton
   -> ProjectConfigToParse
   -- ^ The contents of the file to parse
   -> IO (ProjectParseResult ProjectConfigSkeleton)
-parseProjectSkeleton cacheDir httpTransport verbosity importsBy dupesMap projectDir source (ProjectConfigToParse bs) =
+parseProjectSkeleton cacheDir httpTransport verbosity projectDir source (ProjectConfigToParse bs) =
   (sanityWalkPCS False =<<) <$> liftPR source (go []) (ParseUtils.readFields bs)
   where
     go :: [ParseUtils.Field] -> [ParseUtils.Field] -> IO (ProjectParseResult ProjectConfigSkeleton)
@@ -309,14 +302,10 @@ parseProjectSkeleton cacheDir httpTransport verbosity importsBy dupesMap project
       (ParseUtils.F _ "import" importLoc) -> do
         let importLocPath = importLoc `consProjectConfigPath` source
 
-        -- Once we canonicalize the import path, we can check for cyclical and duplicate imports
+        -- Once we canonicalize the import path, we can check for cyclical imports
         normSource <- canonicalizeConfigPath projectDir source
-        normLocPath@(ProjectConfigPath (uniqueImport :| _)) <- canonicalizeConfigPath projectDir importLocPath
-        seenImportsBy@(fmap importOf -> seenImports) <- fromNubList <$> atomicModifyIORef' importsBy (\ibs -> (toNubList [ProjectImport uniqueImport normLocPath] <> ibs, ibs))
+        normLocPath <- canonicalizeConfigPath projectDir importLocPath
         debug verbosity $ "\nimport path, normalized\n=======================\n" ++ render (docProjectConfigPath normLocPath)
-        debug verbosity "\nseen unique paths\n================="
-        mapM_ (debug verbosity) seenImports
-        debug verbosity "\n"
 
         if isCyclicConfigPath normLocPath
           then pure . projectParseFail Nothing (Just normSource) $ ParseUtils.FromString (render $ cyclicalImportMsg normLocPath) Nothing
@@ -325,10 +314,8 @@ parseProjectSkeleton cacheDir httpTransport verbosity importsBy dupesMap project
               (isUntrimmedUriConfigPath importLocPath)
               (noticeDoc verbosity $ untrimmedUriImportMsg (text "Warning:") importLocPath)
             let fs = (\z -> CondNode z [normLocPath] mempty) <$> fieldsToConfig normSource (reverse acc)
-            let uniqueFields = if uniqueImport `elem` seenImports then [] else xs
-            atomicModifyIORef' dupesMap $ \dm -> (Map.insertWith (++) uniqueImport [Dupes (ProjectImport uniqueImport normLocPath) seenImportsBy] dm, ())
-            res <- parseProjectSkeleton cacheDir httpTransport verbosity importsBy dupesMap projectDir importLocPath . ProjectConfigToParse =<< fetchImportConfig normLocPath
-            rest <- go [] uniqueFields
+            res <- parseProjectSkeleton cacheDir httpTransport verbosity projectDir importLocPath . ProjectConfigToParse =<< fetchImportConfig normLocPath
+            rest <- go [] xs
             pure . fmap mconcat . sequence $ [projectParse Nothing normSource fs, res, rest]
       (ParseUtils.Section l "if" p xs') -> do
         normSource <- canonicalizeConfigPath projectDir source
