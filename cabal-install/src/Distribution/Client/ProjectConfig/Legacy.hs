@@ -1,7 +1,6 @@
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE RecordWildCards #-}
@@ -33,8 +32,6 @@ module Distribution.Client.ProjectConfig.Legacy
     -- * Internals, just for tests
   , parsePackageLocationTokenQ
   , renderPackageLocationToken
-  , DupesMap
-  , dupesMsg
   ) where
 
 import Data.Coerce (coerce)
@@ -199,13 +196,12 @@ import Distribution.Utils.Path hiding
   )
 
 import qualified Data.ByteString.Char8 as BS
-import Data.List (sortOn)
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 import Network.URI (URI (..), nullURIAuth, parseURI)
 import System.Directory (createDirectoryIfMissing, makeAbsolute)
 import System.FilePath (isAbsolute, isPathSeparator, makeValid, splitFileName, (</>))
-import Text.PrettyPrint (Doc, int, render, semi, text, vcat, ($+$))
+import Text.PrettyPrint (Doc, render, text, ($+$))
 import qualified Text.PrettyPrint as Disp (empty)
 
 ------------------------------------------------------------------
@@ -263,25 +259,6 @@ parseProject rootPath cacheDir httpTransport verbosity configToParse =
     projectDir <- makeAbsolute dir
     projectPath <- canonicalizeConfigPath projectDir (ProjectConfigPath $ projectFileName :| [])
     parseProjectSkeleton cacheDir httpTransport verbosity projectDir projectPath configToParse
-
-data Dupes = Dupes
-  { dupesImport :: ProjectImport
-  -- ^ The import that we're checking for duplicates.
-  , dupesImports :: [ProjectImport]
-  -- ^ All the imports of this file.
-  }
-  deriving (Eq)
-
-instance Ord Dupes where
-  compare = compare `on` length . dupesImports
-
-type DupesMap = Map FilePath [Dupes]
-
-dupesMsg :: (FilePath, [Dupes]) -> Doc
-dupesMsg (duplicate, ds@(take 1 . sortOn (importBy . dupesImport) -> dupes)) =
-  vcat $
-    ((text "Warning:" <+> int (length ds) <+> text "imports of" <+> text duplicate) <> semi)
-      : ((\Dupes{..} -> duplicateImportMsg Disp.empty dupesImport dupesImports) <$> dupes)
 
 parseProjectSkeleton
   :: FilePath
