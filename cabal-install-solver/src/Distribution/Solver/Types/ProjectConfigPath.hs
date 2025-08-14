@@ -1,5 +1,7 @@
 {-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE ViewPatterns #-}
 
 module Distribution.Solver.Types.ProjectConfigPath
@@ -22,6 +24,8 @@ module Distribution.Solver.Types.ProjectConfigPath
     , untrimmedUriImportMsg
     , docProjectConfigPathFailReason
     , quoteUntrimmed
+    , DupesMap
+    , dupesMsg
 
     -- * Checks and Normalization
     , isCyclicConfigPath
@@ -38,6 +42,7 @@ import Data.Coerce (coerce)
 import Data.List.NonEmpty ((<|))
 import Network.URI (parseURI, parseAbsoluteURI)
 import System.Directory
+import Data.List (sortOn)
 import System.FilePath hiding (splitPath)
 import qualified System.FilePath as FP (splitPath)
 import qualified System.FilePath.Posix as Posix
@@ -49,6 +54,26 @@ import Distribution.Utils.String (trim)
 import Text.PrettyPrint
 import Distribution.Simple.Utils (ordNub)
 import Distribution.System (OS(Windows), buildOS)
+import qualified Text.PrettyPrint as Disp (empty)
+
+data Dupes = Dupes
+  { dupesImport :: ProjectImport
+  -- ^ The import that we're checking for duplicates.
+  , dupesImports :: [ProjectImport]
+  -- ^ All the imports of this file.
+  }
+  deriving (Eq)
+
+instance Ord Dupes where
+  compare = compare `on` length . dupesImports
+
+type DupesMap = Map FilePath [Dupes]
+
+dupesMsg :: (FilePath, [Dupes]) -> Doc
+dupesMsg (duplicate, ds@(take 1 . sortOn (importBy . dupesImport) -> dupes)) =
+  vcat $
+    ((text "Warning:" <+> int (length ds) <+> text "imports of" <+> text duplicate) <> semi)
+      : ((\Dupes{..} -> duplicateImportMsg Disp.empty dupesImport dupesImports) <$> dupes)
 
 data ProjectImport =
     ProjectImport
