@@ -215,6 +215,7 @@ import Distribution.Utils.NubList
   )
 import Distribution.Verbosity
   ( modifyVerbosity
+  , normal
   , verbose
   )
 import Distribution.Version
@@ -862,6 +863,20 @@ readProjectFileSkeletonGen
     where
       extensionFile = (distProjectFile dir) extensionName
 
+reportDupes :: IO ProjectConfigSkeleton -> IO ProjectConfigSkeleton
+reportDupes action = do
+  pcs <- action
+  let dupesMap :: DupesMap
+      dupesMap = __f (projectConfigPathRoot <$> projectSkeletonImports pcs)
+  let dupes = Map.filter ((> 1) . length) <$> dupesMap
+  -- unless (Map.null dupes) $ do
+  --   noticeDoc
+  --     "The following imports are duplicated in the project:"
+  --     (vcat $ map (\(k, v) -> hsep [text k, colon, text (show v)]) (Map.toList dupes))
+  -- importsBy <- newIORef $ toNubList [ProjectImport canonicalRoot projectPath]
+  unless (Map.null dupes) (noticeDoc normal $ vcat (dupesMsg <$> Map.toList dupes))
+  return pcs
+
 -- There are 3 different variants of the project parsing function.
 -- 1. readProjectFileSkeletonLegacy: always uses the legacy parser
 -- 2. readProjectFileSkeletonParsec: always uses the parsec parser
@@ -894,7 +909,7 @@ readProjectFileSkeletonLegacy verbosity httpTransport distDirLayout extensionNam
   readProjectFileSkeletonGen verbosity httpTransport distDirLayout extensionName extensionDescription $ \fp -> do
     debug verbosity $ "Reading project file using the legacy parser"
     parseProjectFileSkeletonLegacy verbosity httpTransport distDirLayout extensionName extensionDescription fp
-      >>= liftIO . reportParseResult verbosity extensionDescription fp
+      >>= liftIO . reportDupes . reportParseResult verbosity extensionDescription fp
 
 -- | Read a project file using the parsec parser, but if that fails, it falls back to the legacy parser.
 readProjectFileSkeletonFallback :: Verbosity -> HttpTransport -> DistDirLayout -> String -> String -> Rebuild ProjectConfigSkeleton
