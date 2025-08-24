@@ -866,16 +866,13 @@ readProjectFileSkeletonGen
 reportDupes :: IO ProjectConfigSkeleton -> IO ProjectConfigSkeleton
 reportDupes action = do
   pcs <- action
-  let dupesMap :: DupesMap
-      dupesMap = __f (projectConfigPathRoot <$> projectSkeletonImports pcs)
-  let dupes = Map.filter ((> 1) . length) <$> dupesMap
-  -- unless (Map.null dupes) $ do
-  --   noticeDoc
-  --     "The following imports are duplicated in the project:"
-  --     (vcat $ map (\(k, v) -> hsep [text k, colon, text (show v)]) (Map.toList dupes))
-  -- importsBy <- newIORef $ toNubList [ProjectImport canonicalRoot projectPath]
+  let dupesMap = findDupes (projectConfigPathRoot <$> projectSkeletonImports pcs)
+  let dupes = Map.filter ((> 1) . length) dupesMap
   unless (Map.null dupes) (noticeDoc normal $ vcat (dupesMsg <$> Map.toList dupes))
   return pcs
+ where
+  findDupes :: [FilePath] -> DupesMap
+  findDupes = foldr (\fp acc -> Map.insertWith (++) fp [] acc) Map.empty
 
 -- There are 3 different variants of the project parsing function.
 -- 1. readProjectFileSkeletonLegacy: always uses the legacy parser
