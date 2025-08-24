@@ -225,6 +225,7 @@ import qualified Codec.Archive.Tar.Entry as Tar
 import qualified Distribution.Client.GZipUtils as GZipUtils
 import qualified Distribution.Client.Tar as Tar
 
+import Data.Bifunctor (second)
 import Control.Exception (handle)
 import Control.Monad.Trans (liftIO)
 import qualified Data.ByteString as BS
@@ -866,13 +867,18 @@ readProjectFileSkeletonGen
 reportDupes :: IO ProjectConfigSkeleton -> IO ProjectConfigSkeleton
 reportDupes action = do
   pcs <- action
-  let dupesMap = findDupes (projectConfigPathRoot <$> projectSkeletonImports pcs)
-  let dupes = Map.filter ((> 1) . length) dupesMap
-  unless (Map.null dupes) (noticeDoc normal $ vcat (dupesMsg <$> Map.toList dupes))
+  let imports = projectSkeletonImports pcs
+  putStrLn $ "DUPE-Currents: " ++ show (currentProjectConfigPath <$> imports)
+  let dupesMap :: Map FilePath [FilePath]
+      dupesMap = Map.fromListWith (++) (second f . unconsProjectConfigPath <$> imports)
+  let dupes :: Map FilePath [FilePath]
+      dupes = Map.filter ((> 1) . length) dupesMap
+  for_ (Map.toList dupes) (\s -> putStrLn $ ("DUPES: " :: String) ++ show s)
+  --unless (Map.null dupes) (noticeDoc verbose $ vcat (dupesMsg <$> Map.toList dupes))
   return pcs
  where
-  findDupes :: [FilePath] -> DupesMap
-  findDupes = foldr (\fp acc -> Map.insertWith (++) fp [] acc) Map.empty
+  --findDupes = foldr (\fp acc -> Map.insertWith (++) fp [] acc) Map.empty
+  f = maybe [] (\(ProjectConfigPath x) -> toList x)
 
 -- There are 3 different variants of the project parsing function.
 -- 1. readProjectFileSkeletonLegacy: always uses the legacy parser
