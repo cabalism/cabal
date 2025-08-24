@@ -41,6 +41,7 @@ import Distribution.Client.Compat.Prelude
 import Distribution.Verbosity (normal)
 import Prelude ()
 
+import Control.Monad ((>=>))
 import System.FilePath
 
 needElaboratedConfiguredPackage :: ElaboratedConfiguredPackage -> Rebuild ()
@@ -183,9 +184,11 @@ needBuildInfo pkg_descr bi modules = do
       , map getSymbolicPath $ asmSources bi
       , map getSymbolicPath $ expandedExtraSrcFiles
       ]
-  for_ (fmap getSymbolicPath $ installIncludes bi) $ \f ->
-    findFileMonitored ("." : fmap getSymbolicPath (includeDirs bi)) f
-      >>= maybe (return ()) need
+  for_
+    (fmap getSymbolicPath $ installIncludes bi)
+    ( findFileMonitored ("." : fmap getSymbolicPath (includeDirs bi))
+        >=> maybe (return ()) need
+    )
   where
     findNeededModules :: [Suffix] -> Rebuild ()
     findNeededModules exts =
