@@ -6,6 +6,7 @@ import Data.Aeson       (FromJSON (..), eitherDecode, withObject, (.!=), (.:), (
 import Data.List        (sortOn)
 import Data.Text        (Text)
 import Data.Traversable (for)
+import Control.Monad    ((<=<))
 
 import qualified Data.ByteString.Lazy as LBS
 import qualified Data.Set             as Set
@@ -55,7 +56,7 @@ main = generate =<< O.execParser opts where
 
 generate :: Opts -> IO ()
 generate (Opts tmplFile fns out) = do
-    lss <- for fns $ \fn -> either fail pure . eitherDecode =<< LBS.readFile fn
+    lss <- for fns ((either fail pure . eitherDecode) <=< LBS.readFile)
     template <- Z.parseAndCompileTemplateIO tmplFile
     output <- generate' lss template
     writeFile out (header <> "\n" <> output)

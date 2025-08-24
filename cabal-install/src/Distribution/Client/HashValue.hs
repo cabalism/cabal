@@ -15,6 +15,7 @@ import Prelude ()
 
 import qualified Hackage.Security.Client as Sec
 
+import Control.Monad ((<=<))
 import qualified Crypto.Hash.SHA256 as SHA256
 import qualified Data.ByteString.Base16 as Base16
 import qualified Data.ByteString.Char8 as BS
@@ -57,8 +58,7 @@ showHashValue (HashValue digest) = BS.unpack (Base16.encode digest)
 -- | Hash the content of a file. Uses SHA256.
 readFileHashValue :: FilePath -> IO HashValue
 readFileHashValue tarball =
-  withBinaryFile tarball ReadMode $ \hnd ->
-    evaluate . hashValue =<< LBS.hGetContents hnd
+  withBinaryFile tarball ReadMode (evaluate . hashValue <=< LBS.hGetContents)
 
 -- | Convert a hash from TUF metadata into a 'PackageSourceHash'.
 --
