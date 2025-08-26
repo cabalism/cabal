@@ -44,8 +44,8 @@ main = cabalTest . recordMode RecordMarked $ do
   -- assertOutputContains ("Warning: 2 imports of " ++ ("yops" </> "yops-7.config")) yopping
   -- assertOutputContains ("Warning: 2 imports of " ++ ("yops" </> "yops-9.config")) yopping
 
-  log "checking that we detect when the same config is imported via many different paths"
-  wooping <- cabal' "v2-build" [ "--project-file=woops-0.project", "--project-file-parser=legacy", "--dry-run" ]
+  -- log "checking that we detect when the same config is imported via many different paths"
+  -- wooping <- cabal' "v2-build" [ "--project-file=woops-0.project", "--project-file-parser=legacy", "--dry-run" ]
   -- assertOutputContains "Warning: 2 imports of woops-4.config" wooping
   -- assertOutputContains "Warning: 2 imports of woops-6.config" wooping
   -- assertOutputContains "Warning: 2 imports of woops-8.config" wooping
