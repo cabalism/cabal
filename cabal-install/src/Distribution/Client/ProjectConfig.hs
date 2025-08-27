@@ -76,6 +76,7 @@ module Distribution.Client.ProjectConfig
   , maxNumFetchJobs
   ) where
 
+import Data.List (sortOn, groupBy)
 import Distribution.Client.Compat.Prelude hiding (empty)
 import Distribution.Parsec.Source
 import Distribution.Simple.Utils
@@ -867,13 +868,26 @@ readProjectFileSkeletonGen
 reportDupes :: IO ProjectConfigSkeleton -> IO ProjectConfigSkeleton
 reportDupes action = do
   pcs <- action
-  let imports = projectSkeletonImports pcs
-  putStrLn $ "DUPE-Currents: " ++ show (currentProjectConfigPath <$> imports)
-  let dupesMap :: Map FilePath [FilePath]
-      dupesMap = Map.fromListWith (++) (second f . unconsProjectConfigPath <$> imports)
-  let dupes :: Map FilePath [FilePath]
-      dupes = Map.filter ((> 1) . length) dupesMap
-  for_ (Map.toList dupes) (\s -> putStrLn $ ("DUPES: " :: String) ++ show s)
+  -- newtype ProjectConfigPath = ProjectConfigPath (NonEmpty FilePath)
+  -- unconsProjectConfigPath :: ProjectConfigPath -> (FilePath, Maybe ProjectConfigPath)
+  let imports :: [ProjectConfigPath]
+      imports = projectSkeletonImports pcs
+
+  putStrLn $ "DUPE-HEADS:\n" ++ unlines (show <$> sort (currentProjectConfigPath <$> imports))
+
+  let sortedImports :: [(FilePath, [FilePath])]
+      sortedImports = sortOn fst (fmap f . unconsProjectConfigPath <$> imports)
+
+  putStrLn $ "DUPE-HEAD-FROM:\n" ++ unlines (show <$> sortedImports)
+
+  let groupedImports :: [[(FilePath, [FilePath])]]
+      groupedImports = groupBy ((==) `on` fst) sortedImports
+  putStrLn $ "DUPE-GROUPED:\n" ++ unlines (show <$> groupedImports)
+
+  let dupes :: [[(FilePath, [FilePath])]]
+      dupes = filter ((> 1) . length) groupedImports
+
+  for_ dupes (\s -> putStrLn $ ("DUPES: " :: String) ++ show s)
   --unless (Map.null dupes) (noticeDoc verbose $ vcat (dupesMsg <$> Map.toList dupes))
   return pcs
  where
