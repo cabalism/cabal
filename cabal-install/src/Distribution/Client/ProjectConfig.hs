@@ -875,24 +875,26 @@ reportDupes action = do
 
   putStrLn $ "DUPE-HEADS:\n" ++ unlines (show <$> sort (currentProjectConfigPath <$> imports))
 
-  let sortedImports :: [(FilePath, [FilePath])]
-      sortedImports = sortOn fst (fmap f . unconsProjectConfigPath <$> imports)
+  let sortedImports :: [(FilePath, Maybe ProjectConfigPath)]
+      sortedImports = sortOn fst (unconsProjectConfigPath <$> imports)
 
-  putStrLn $ "DUPE-HEAD-FROM:\n" ++ unlines (show <$> sortedImports)
+  let importees :: [ProjectImport]
+      importees = [ProjectImport fp pcp | (fp, Just pcp) <- sortedImports]
 
-  let groupedImports :: [[(FilePath, [FilePath])]]
-      groupedImports = groupBy ((==) `on` fst) sortedImports
+  putStrLn $ "DUPE-HEAD-FROM:\n" ++ unlines (show <$> importees)
+
+  let groupedImports :: [[ProjectImport]]
+      groupedImports = groupBy ((==) `on` importOf) importees
   putStrLn $ "DUPE-GROUPED:\n" ++ unlines (show <$> groupedImports)
 
-  let dupes :: [[(FilePath, [FilePath])]]
+  let dupes :: [[ProjectImport]]
       dupes = filter ((> 1) . length) groupedImports
 
   for_ dupes (\s -> putStrLn $ ("DUPES: " :: String) ++ show s)
-  --unless (Map.null dupes) (noticeDoc verbose $ vcat (dupesMsg <$> Map.toList dupes))
+
+  unless (null dupes) (noticeDoc verbose $ dupesMsg dupes)
+
   return pcs
- where
-  --findDupes = foldr (\fp acc -> Map.insertWith (++) fp [] acc) Map.empty
-  f = maybe [] (\(ProjectConfigPath x) -> toList x)
 
 -- There are 3 different variants of the project parsing function.
 -- 1. readProjectFileSkeletonLegacy: always uses the legacy parser

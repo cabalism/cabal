@@ -69,11 +69,27 @@ instance Ord Dupes where
 
 type DupesMap = Map FilePath [Dupes]
 
-dupesMsg :: (FilePath, [Dupes]) -> Doc
-dupesMsg (duplicate, ds@(take 1 . sortOn (importBy . dupesImport) -> dupes)) =
-  vcat $
-    ((text "Warning:" <+> int (length ds) <+> text "imports of" <+> text duplicate) <> semi)
-      : ((\Dupes{..} -> duplicateImportMsg Disp.empty dupesImport dupesImports) <$> dupes)
+dupesMsg :: [[ProjectImport]] -> Doc
+dupesMsg groupedImports = dupesMsg' (mapMaybe mkDupes dupes)
+  where
+    dupes :: [[ProjectImport]]
+    dupes = filter ((> 1) . length) groupedImports
+
+    mkDupes :: [ProjectImport] -> Maybe Dupes
+    mkDupes [] = Nothing
+    mkDupes is@(imp : _) = Just $ Dupes
+        { dupesImport = imp
+        , dupesImports = is
+        }
+
+dupesMsg' :: [Dupes] -> Doc
+dupesMsg' (ds@(take 1 . sortOn (importBy . dupesImport) -> dupes))
+  | Dupes{dupesImport = ProjectImport{importOf = duplicate}} : _ <- dupes
+    =
+        vcat $
+            ((text "Warning:" <+> int (length ds) <+> text "imports of" <+> text duplicate) <> semi)
+            : ((\Dupes{..} -> duplicateImportMsg Disp.empty dupesImport dupesImports) <$> dupes)
+  | otherwise = Disp.empty
 
 data ProjectImport =
     ProjectImport
@@ -81,6 +97,9 @@ data ProjectImport =
         , importBy :: ProjectConfigPath
         }
     deriving (Eq, Ord)
+
+instance Show ProjectImport where
+    show ProjectImport{..} = importOf ++ " imported by " ++ show importBy
 
 -- | Path to a configuration file, either a singleton project root, or a longer
 -- list representing a path to an import.  The path is a non-empty list that we
