@@ -24,7 +24,6 @@ module Distribution.Solver.Types.ProjectConfigPath
     , untrimmedUriImportMsg
     , docProjectConfigPathFailReason
     , quoteUntrimmed
-    , DupesMap
     , dupesMsg
 
     -- * Checks and Normalization
@@ -42,7 +41,6 @@ import Data.Coerce (coerce)
 import Data.List.NonEmpty ((<|))
 import Network.URI (parseURI, parseAbsoluteURI)
 import System.Directory
-import Data.List (sortOn)
 import System.FilePath hiding (splitPath)
 import qualified System.FilePath as FP (splitPath)
 import qualified System.FilePath.Posix as Posix
@@ -56,39 +54,16 @@ import Distribution.Simple.Utils (ordNub)
 import Distribution.System (OS(Windows), buildOS)
 import qualified Text.PrettyPrint as Disp (empty)
 
-data Dupes = Dupes
-  { dupesImport :: ProjectImport
-  -- ^ The import that we're checking for duplicates.
-  , dupesImports :: [ProjectImport]
-  -- ^ All the imports of this file.
-  }
-  deriving (Eq)
-
-instance Ord Dupes where
-  compare = compare `on` length . dupesImports
-
-type DupesMap = Map FilePath [Dupes]
-
 dupesMsg :: [[ProjectImport]] -> Doc
-dupesMsg groupedImports = dupesMsg' (mapMaybe mkDupes dupes)
-  where
-    dupes :: [[ProjectImport]]
-    dupes = filter ((> 1) . length) groupedImports
+dupesMsg dupes = vcat (map mkDupesMsg dupes)
 
-    mkDupes :: [ProjectImport] -> Maybe Dupes
-    mkDupes [] = Nothing
-    mkDupes is@(imp : _) = Just $ Dupes
-        { dupesImport = imp
-        , dupesImports = is
-        }
-
-dupesMsg' :: [Dupes] -> Doc
-dupesMsg' (ds@(take 1 . sortOn (importBy . dupesImport) -> dupes))
-  | Dupes{dupesImport = ProjectImport{importOf = duplicate}} : _ <- dupes
-    =
-        vcat $
-            ((text "Warning:" <+> int (length ds) <+> text "imports of" <+> text duplicate) <> semi)
-            : ((\Dupes{..} -> duplicateImportMsg Disp.empty dupesImport dupesImports) <$> dupes)
+mkDupesMsg :: [ProjectImport] -> Doc
+mkDupesMsg dupes
+  | pis@(pi@ProjectImport{importOf = duplicate} : _) <- dupes
+  = vcat $
+    [(text "Warning:" <+> int (length dupes) <+> text "imports of" <+> text duplicate) <> semi
+    , duplicateImportMsg Disp.empty pi pis
+    ]
   | otherwise = Disp.empty
 
 data ProjectImport =

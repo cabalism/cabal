@@ -216,7 +216,6 @@ import Distribution.Utils.NubList
   )
 import Distribution.Verbosity
   ( modifyVerbosity
-  , normal
   , verbose
   )
 import Distribution.Version
@@ -226,7 +225,6 @@ import qualified Codec.Archive.Tar.Entry as Tar
 import qualified Distribution.Client.GZipUtils as GZipUtils
 import qualified Distribution.Client.Tar as Tar
 
-import Data.Bifunctor (second)
 import Control.Exception (handle)
 import Control.Monad.Trans (liftIO)
 import qualified Data.ByteString as BS
