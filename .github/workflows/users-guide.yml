@@ -44,7 +44,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ['3.10']
+        python-version: ['3.13']
 
     steps:
     - uses: actions/checkout@v6
@@ -56,18 +56,12 @@ jobs:
       with:
         python-version: ${{ matrix.python-version }}
 
-    - name: Install pip-compile
-      run: |
-        pip install pip-tools
+    - name: Install the latest version of uv
+      uses: astral-sh/setup-uv@v7
 
     - name: Create requirements.txt from requirements.in
       run: |
         make users-guide-requirements
-
-    # Subsumed by make users-guide
-    # - name: Install dependencies
-    #   run: |
-    #     pip install -r doc/requirements.txt
 
     - name: Build User's Guide in HTML
       run: |
