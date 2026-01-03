@@ -2,7 +2,42 @@
 name = "doc"
 dynamic = ["version"]
 requires-python = ">=3.13"
-dependencies = []
+dependencies = [
+    "alabaster==1.0.0",
+    "babel==2.17.0",
+    "certifi==2025.11.12",
+    "charset-normalizer==3.4.4",
+    "docutils==0.21.2",
+    "idna==3.11",
+    "imagesize==1.4.1",
+    "jinja2==3.1.6",
+    "jsonpointer==3.0.0",
+    "markupsafe==3.0.3",
+    "packaging==25.0",
+    "pygments==2.19.2",
+    "pyyaml==6.0.3",
+    "requests==2.32.5",
+    "roman-numerals==4.1.0",
+    "roman-numerals-py==4.1.0",
+    "snowballstemmer==3.0.1",
+    "sphinx==8.2.3",
+    "sphinx-jsonschema==1.19.2",
+    "sphinx-rtd-theme==3.0.2",
+    "sphinxcontrib-applehelp==2.0.0",
+    "sphinxcontrib-devhelp==2.0.0",
+    "sphinxcontrib-htmlhelp==2.1.0",
+    "sphinxcontrib-jquery==4.1",
+    "sphinxcontrib-jsmath==1.0.1",
+    "sphinxcontrib-qthelp==2.0.0",
+    "sphinxcontrib-serializinghtml==2.0.0",
+    "sphinxnotes-strike==1.5",
+    "urllib3==2.6.2",
+]
+
+# Avoids the error: Multiple top-level packages discovered in a flat-layout: ['vcs', 'hcar', 'images', 'internal'].
+# SEE: https://stackoverflow.com/questions/72294299/multiple-top-level-packages-discovered-in-a-flat-layout
+[tool.setuptools]
+py-modules = []
 
 # https://pythonawesome.com/security-audit-python-project-dependencies-against-security-advisory-databases/
 [tool.skjold]
