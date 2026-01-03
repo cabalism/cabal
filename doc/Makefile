@@ -20,14 +20,15 @@ SPHINXCMD:=sphinx-build
 SPHINX_FLAGS:=-n -W --keep-going -E
 SPHINX_HTML_OUTDIR:=../dist-newstyle/doc/users-guide
 USERGUIDE_STAMP:=$(SPHINX_HTML_OUTDIR)/index.html
-PYTHON_VIRTUALENV_ACTIVATE:=../.python-sphinx-virtualenv/bin/activate
+PYTHON_VIRTUALENV ?= .python-sphinx-virtualenv
+PYTHON_VIRTUALENV_ACTIVATE:=../$(PYTHON_VIRTUALENV)/bin/activate
 
 # Python virtual environment
 ##############################################################################
 
 # Create a python virtual environment in the root of the cabal repository.
 $(PYTHON_VIRTUALENV_ACTIVATE):
-	uv venv --clear ../.python-sphinx-virtualenv
+	uv venv --clear ../$(PYTHON_VIRTUALENV)
 	(. $(PYTHON_VIRTUALENV_ACTIVATE))
 
 # Users guide

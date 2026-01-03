@@ -14,10 +14,8 @@ build:
       - asdf global uv latest
     create_environment:
       - uv venv "${READTHEDOCS_VIRTUALENV_PATH}"
-    install:
-      - UV_PROJECT_ENVIRONMENT="${READTHEDOCS_VIRTUALENV_PATH}" uv sync --frozen --no-config --group docs
     post_create_environment:
-      - make users-guide-requirements
+      - UV_PROJECT_ENVIRONMENT="${READTHEDOCS_VIRTUALENV_PATH}" PYTHON_VIRTUALENV="${READTHEDOCS_VIRTUALENV_PATH}" make users-guide-requirements
 
 python:
   install:
