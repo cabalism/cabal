@@ -16,3 +16,5 @@ build:
       - uv venv "${READTHEDOCS_VIRTUALENV_PATH}"
     post_create_environment:
       - UV_PROJECT_ENVIRONMENT="${READTHEDOCS_VIRTUALENV_PATH}" PYTHON_VIRTUALENV="${READTHEDOCS_VIRTUALENV_PATH}" make users-guide-requirements
+    install:
+      - "true"
