@@ -26,14 +26,14 @@ main = setupAndCabalTest $ do
                 [fromString "PackageInfo_AutogenModules", fromString "Paths_AutogenModules", fromString "MyLibHelperModule"]
                 (libModulesAutogen gotLibrary)
         assertEqual "executable 'autogen-modules' field does not match expected"
-                [fromString "PackageInfo_AutogenModules", fromString "Paths_AutogenModules", fromString "MyExeHelperModule"]
-                [exeModulesAutogen e | Just e <- listToMaybe $ executables (localPkgDescr lbi)]
+                (Just [fromString "PackageInfo_AutogenModules", fromString "Paths_AutogenModules", fromString "MyExeHelperModule"])
+                (listToMaybe (exeModulesAutogen <$> executables (localPkgDescr lbi)))
         assertEqual "test-suite 'autogen-modules' field does not match expected"
-                [fromString "PackageInfo_AutogenModules", fromString "Paths_AutogenModules", fromString "MyTestHelperModule"]
-                [testModulesAutogen t | Just t <- listToMaybe $ testSuites  (localPkgDescr lbi)]
+                (Just [fromString "PackageInfo_AutogenModules", fromString "Paths_AutogenModules", fromString "MyTestHelperModule"])
+                (listToMaybe (testModulesAutogen <$> testSuites (localPkgDescr lbi)))
         assertEqual "benchmark 'autogen-modules' field does not match expected"
-                [fromString "PackageInfo_AutogenModules", fromString "Paths_AutogenModules", fromString "MyBenchHelperModule"]
-                [benchmarkModulesAutogen b | Just b <- listToMaybe $ benchmarks  (localPkgDescr lbi)]
+                (Just [fromString "PackageInfo_AutogenModules", fromString "Paths_AutogenModules", fromString "MyBenchHelperModule"])
+                (listToMaybe (benchmarkModulesAutogen <$> benchmarks (localPkgDescr lbi)))
 
         -- Package check messages.
         let libAutogenMsg =
