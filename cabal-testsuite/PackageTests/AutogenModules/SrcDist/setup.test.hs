@@ -1,6 +1,7 @@
 {-# LANGUAGE CPP #-}
 import Test.Cabal.Prelude
 
+import Data.Maybe (listToMaybe)
 import Control.Monad.IO.Class
 import Distribution.ModuleName hiding (main)
 import Distribution.Simple.LocalBuildInfo
@@ -21,21 +22,18 @@ main = setupAndCabalTest $ do
         -- Now check that all the correct modules were parsed.
         lbi <- getLocalBuildInfoM
         let Just gotLibrary = library (localPkgDescr lbi)
-        let gotExecutable = head $ executables (localPkgDescr lbi)
-        let gotTestSuite  = head $ testSuites  (localPkgDescr lbi)
-        let gotBenchmark  = head $ benchmarks  (localPkgDescr lbi)
         assertEqual "library 'autogen-modules' field does not match expected"
                 [fromString "PackageInfo_AutogenModules", fromString "Paths_AutogenModules", fromString "MyLibHelperModule"]
                 (libModulesAutogen gotLibrary)
         assertEqual "executable 'autogen-modules' field does not match expected"
                 [fromString "PackageInfo_AutogenModules", fromString "Paths_AutogenModules", fromString "MyExeHelperModule"]
-                (exeModulesAutogen gotExecutable)
+                [exeModulesAutogen e | Just e <- listToMaybe $ executables (localPkgDescr lbi)]
         assertEqual "test-suite 'autogen-modules' field does not match expected"
                 [fromString "PackageInfo_AutogenModules", fromString "Paths_AutogenModules", fromString "MyTestHelperModule"]
-                (testModulesAutogen gotTestSuite)
+                [testModulesAutogen t | Just t <- listToMaybe $ testSuites  (localPkgDescr lbi)]
         assertEqual "benchmark 'autogen-modules' field does not match expected"
                 [fromString "PackageInfo_AutogenModules", fromString "Paths_AutogenModules", fromString "MyBenchHelperModule"]
-                (benchmarkModulesAutogen gotBenchmark)
+                [benchmarkModulesAutogen b | Just b <- listToMaybe $ benchmarks  (localPkgDescr lbi)]
 
         -- Package check messages.
         let libAutogenMsg =
