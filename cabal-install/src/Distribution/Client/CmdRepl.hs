@@ -275,6 +275,8 @@ multiReplDecision ctx compiler flags =
     -- a repl specific option.
     (fromFlagOrDefault False (projectConfigMultiRepl ctx <> replUseMulti flags))
 
+type TargetPick = Either (String, String) ((ProjectBaseContext, Bool), [TargetSelector])
+
 -- | The @repl@ command is very much like @build@. It brings the install plan
 -- up to date, selects that part of the plan needed by the given or implicit
 -- repl target and then executes the plan.
@@ -295,63 +297,62 @@ replAction flags@NixStyleFlags{extraFlags = replFlags@ReplFlags{..}, configFlags
 
     -- After ther user selectors have been resolved, and it's decided what context
     -- we're in, implement repl-specific behaviour.
-    pickOrDecided :: Either (String, String) ((ProjectBaseContext, Bool), [TargetSelector]) <-
-      case targetCtx of
-        -- If in the project context, and no selectors are provided then produce
-        -- an error unless there is exactly one package in the project in which
-        -- case we pick that package as the target for the user.
-        ProjectContext -> do
-          case userTargetSelectors of
-            [] -> do
-              let projectFile = projectConfigProjectFile . projectConfigShared $ projectConfig ctx
-              let pkgs = projectPackages $ projectConfig ctx
-              case pkgs of
-                [pkg] -> return $ Left (pkg, retarget "package '" ++ pkg ++ "'")
-                _ ->
-                  if isMultiReplEnabled ctx
-                    then return $ Left ("all", retarget "'all'")
-                    else
-                      dieWithException verbosity $
-                        RenderReplTargetProblem [render (reportProjectNoTarget projectFile pkgs)]
-            _ -> return $ Right ((ctx, isMultiReplEnabled ctx), userTargetSelectors)
-        -- In the global context, construct a fake package which can be used to start
-        -- a repl with extra arguments if `-b` is given.
-        GlobalContext -> do
-          unless (null userTargetSelectors) $
-            dieWithException verbosity $
-              ReplTakesNoArguments targetStrings
-          let
-            sourcePackage =
-              fakeProjectSourcePackage projectRoot
-                & ( (lSrcpkgDescription . L.condLibrary)
-                      ?~ (CondNode library [baseDep] [])
-                  )
-            library = emptyLibrary{libBuildInfo = lBuildInfo}
-            lBuildInfo =
-              emptyBuildInfo
-                { targetBuildDepends = [baseDep] ++ envPackages replEnvFlags
-                , defaultLanguage = Just Haskell2010
-                }
-            baseDep = Dependency "base" anyVersion mainLibSet
+    pickOrDecided :: TargetPick <- case targetCtx of
+      -- If in the project context, and no selectors are provided then produce
+      -- an error unless there is exactly one package in the project in which
+      -- case we pick that package as the target for the user.
+      ProjectContext -> do
+        case userTargetSelectors of
+          [] -> do
+            let projectFile = projectConfigProjectFile . projectConfigShared $ projectConfig ctx
+            let pkgs = projectPackages $ projectConfig ctx
+            case pkgs of
+              [pkg] -> return $ Left (pkg, retarget "package '" ++ pkg ++ "'")
+              _ ->
+                if isMultiReplEnabled ctx
+                  then return $ Left ("all", retarget "'all'")
+                  else
+                    dieWithException verbosity $
+                      RenderReplTargetProblem [render (reportProjectNoTarget projectFile pkgs)]
+          _ -> return $ Right ((ctx, isMultiReplEnabled ctx), userTargetSelectors)
+      -- In the global context, construct a fake package which can be used to start
+      -- a repl with extra arguments if `-b` is given.
+      GlobalContext -> do
+        unless (null userTargetSelectors) $
+          dieWithException verbosity $
+            ReplTakesNoArguments targetStrings
+        let
+          sourcePackage =
+            fakeProjectSourcePackage projectRoot
+              & ( (lSrcpkgDescription . L.condLibrary)
+                    ?~ (CondNode library [baseDep] [])
+                )
+          library = emptyLibrary{libBuildInfo = lBuildInfo}
+          lBuildInfo =
+            emptyBuildInfo
+              { targetBuildDepends = [baseDep] ++ envPackages replEnvFlags
+              , defaultLanguage = Just Haskell2010
+              }
+          baseDep = Dependency "base" anyVersion mainLibSet
 
-          -- Write the fake package
-          updatedCtx <- updateContextAndWriteProjectFile' ctx sourcePackage
-          -- Specify the selector for this package
-          let fakeSelector = TargetPackage TargetExplicitNamed [fakePackageId] Nothing
-          return $ Right ((updatedCtx, isMultiReplEnabled updatedCtx), [fakeSelector])
+        -- Write the fake package
+        updatedCtx <- updateContextAndWriteProjectFile' ctx sourcePackage
+        -- Specify the selector for this package
+        let fakeSelector = TargetPackage TargetExplicitNamed [fakePackageId] Nothing
+        return $ Right ((updatedCtx, isMultiReplEnabled updatedCtx), [fakeSelector])
 
-        -- For the script context, no special behaviour.
-        ScriptContext scriptPath scriptExecutable -> do
-          unless (length targetStrings == 1) $
-            dieWithException verbosity $
-              ReplTakesSingleArgument targetStrings
-          existsScriptPath <- doesFileExist scriptPath
-          unless existsScriptPath $
-            dieWithException verbosity $
-              ReplTakesSingleArgument targetStrings
+      -- For the script context, no special behaviour.
+      ScriptContext scriptPath scriptExecutable -> do
+        unless (length targetStrings == 1) $
+          dieWithException verbosity $
+            ReplTakesSingleArgument targetStrings
+        existsScriptPath <- doesFileExist scriptPath
+        unless existsScriptPath $
+          dieWithException verbosity $
+            ReplTakesSingleArgument targetStrings
 
-          updatedCtx <- updateContextAndWriteProjectFile ctx scriptPath scriptExecutable
-          return $ Right ((updatedCtx, isMultiReplEnabled updatedCtx), userTargetSelectors)
+        updatedCtx <- updateContextAndWriteProjectFile ctx scriptPath scriptExecutable
+        return $ Right ((updatedCtx, isMultiReplEnabled updatedCtx), userTargetSelectors)
 
     pickOrDecided
       & either
