@@ -307,7 +307,7 @@ replAction flags@NixStyleFlags{extraFlags = ReplFlags{..}} targetStrings globalF
             let projectFile = projectConfigProjectFile . projectConfigShared $ projectConfig ctx
             let pkgs = projectPackages $ projectConfig ctx
             case pkgs of
-              [pkg] -> return $ Left (pkg, retarget "package '" ++ pkg ++ "'")
+              [pkg] -> return $ Left (pkg, retarget ("package '" ++ pkg ++ "'"))
               _ ->
                 if isMultiReplEnabled ctx
                   then return $ Left ("all", retarget "'all'")
