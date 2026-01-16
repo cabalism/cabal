@@ -4,6 +4,7 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE ViewPatterns #-}
 
 -- | cabal-install CLI command: repl
 module Distribution.Client.CmdRepl
@@ -25,6 +26,7 @@ import Prelude ()
 import Distribution.Compat.Lens
 import qualified Distribution.Types.Lens as L
 
+import qualified Data.List.NonEmpty as NE
 import Distribution.Client.CmdErrorMessages
   ( Plural (..)
   , componentKind
@@ -275,7 +277,7 @@ multiReplDecision ctx compiler flags =
     -- a repl specific option.
     (fromFlagOrDefault False (projectConfigMultiRepl ctx <> replUseMulti flags))
 
-type TargetResolved = ((ProjectBaseContext, Bool), [TargetSelector])
+type TargetResolved = ((ProjectBaseContext, Bool), NonEmpty TargetSelector)
 type TargetUnresolved = (String, String)
 type TargetPick = Either TargetUnresolved TargetResolved
 
@@ -316,7 +318,7 @@ replAction flags@NixStyleFlags{extraFlags = ReplFlags{..}} targetStrings globalF
                   else
                     dieWithException verbosity $
                       RenderReplTargetProblem [render (reportProjectNoTarget projectFile pkgs)]
-          _ -> return $ Right ((ctx, isMultiReplEnabled ctx), userTargetSelectors)
+          _ -> return $ Right ((ctx, isMultiReplEnabled ctx), NE.fromList userTargetSelectors)
       -- In the global context, construct a fake package which can be used to start
       -- a repl with extra arguments if `-b` is given.
       GlobalContext -> do
@@ -340,8 +342,8 @@ replAction flags@NixStyleFlags{extraFlags = ReplFlags{..}} targetStrings globalF
         -- Write the fake package
         updatedCtx <- updateContextAndWriteProjectFile' ctx sourcePackage
         -- Specify the selector for this package
-        let fakeSelector = TargetPackage TargetExplicitNamed [fakePackageId] Nothing
-        return $ Right ((updatedCtx, isMultiReplEnabled updatedCtx), [fakeSelector])
+        let fakeSelector = TargetPackage TargetExplicitNamed [fakePackageId] Nothing :| []
+        return $ Right ((updatedCtx, isMultiReplEnabled updatedCtx), fakeSelector)
 
       -- For the script context, no special behaviour.
       ScriptContext scriptPath scriptExecutable -> do
@@ -354,7 +356,7 @@ replAction flags@NixStyleFlags{extraFlags = ReplFlags{..}} targetStrings globalF
             ReplTakesSingleArgument targetStrings
 
         updatedCtx <- updateContextAndWriteProjectFile ctx scriptPath scriptExecutable
-        return $ Right ((updatedCtx, isMultiReplEnabled updatedCtx), userTargetSelectors)
+        return $ Right ((updatedCtx, isMultiReplEnabled updatedCtx), NE.fromList userTargetSelectors)
 
     either retargetRepl (targetRepl flags projectRoot distDir ctx targetCtx) pickOrDecided
   where
@@ -535,7 +537,7 @@ targetRepl
         let active_unit_fp :: Maybe FilePath
             active_unit_fp = do
               -- Get the first target selectors from the cli
-              activeTarget <- safeHead targetSelectors
+              let activeTarget = NE.head targetSelectors
               -- Lookup the targets :: Map UnitId [(ComponentTarget, NonEmpty TargetSelector)]
               unitId <-
                 Map.toList targets
@@ -636,9 +638,9 @@ validatedTargets
   -> ProjectConfigShared
   -> Compiler
   -> ElaboratedInstallPlan
-  -> [TargetSelector]
+  -> NonEmpty TargetSelector
   -> IO TargetsMap
-validatedTargets verbosity replFlags ctx compiler elaboratedPlan targetSelectors = do
+validatedTargets verbosity replFlags ctx compiler elaboratedPlan (NE.toList -> targetSelectors) = do
   let multi_repl_enabled = multiReplDecision ctx compiler replFlags
   -- Interpret the targets on the command line as repl targets (as opposed to
   -- say build or haddock targets).
