@@ -275,7 +275,9 @@ multiReplDecision ctx compiler flags =
     -- a repl specific option.
     (fromFlagOrDefault False (projectConfigMultiRepl ctx <> replUseMulti flags))
 
-type TargetPick = Either (String, String) ((ProjectBaseContext, Bool), [TargetSelector])
+type TargetResolved = ((ProjectBaseContext, Bool), [TargetSelector])
+type TargetUnresolved = (String, String)
+type TargetPick = Either TargetUnresolved TargetResolved
 
 -- | The @repl@ command is very much like @build@. It brings the install plan
 -- up to date, selects that part of the plan needed by the given or implicit
@@ -354,8 +356,9 @@ replAction flags@NixStyleFlags{extraFlags = ReplFlags{..}} targetStrings globalF
         updatedCtx <- updateContextAndWriteProjectFile ctx scriptPath scriptExecutable
         return $ Right ((updatedCtx, isMultiReplEnabled updatedCtx), userTargetSelectors)
 
-    either retargetRepl (goRepl flags projectRoot distDir ctx targetCtx) pickOrDecided
+    either retargetRepl (targetRepl flags projectRoot distDir ctx targetCtx) pickOrDecided
   where
+    retargetRepl :: TargetUnresolved -> IO ()
     retargetRepl (newTarget, retargetMsg) = do
       notice verbosity retargetMsg
       replAction flags [newTarget] globalFlags
@@ -377,8 +380,9 @@ replAction flags@NixStyleFlags{extraFlags = ReplFlags{..}} targetStrings globalF
     retarget :: String -> String
     retarget newTarget = "No target specified, using " ++ newTarget ++ " as the target for the REPL."
 
-goRepl :: NixStyleFlags ReplFlags -> FilePath -> FilePath -> ProjectBaseContext -> TargetContext -> ((ProjectBaseContext, Bool), [TargetSelector]) -> IO ()
-goRepl
+-- | Bring up a REPL with the targets.
+targetRepl :: NixStyleFlags ReplFlags -> FilePath -> FilePath -> ProjectBaseContext -> TargetContext -> TargetResolved -> IO ()
+targetRepl
   flags@NixStyleFlags{extraFlags = replFlags@ReplFlags{..}, configFlags}
   projectRoot
   distDir
