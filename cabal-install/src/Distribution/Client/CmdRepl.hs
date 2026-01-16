@@ -297,7 +297,6 @@ replAction flags@NixStyleFlags{extraFlags = ReplFlags{..}} targetStrings globalF
     when (buildSettingOnlyDeps (buildSettings ctx)) $
       dieWithException verbosity ReplCommandDoesn'tSupport
     let projectRoot = distProjectRootDirectory $ distDirLayout ctx
-        distDir = distDirectory $ distDirLayout ctx
 
     -- After ther user selectors have been resolved, and it's decided what context
     -- we're in, implement repl-specific behaviour.
@@ -358,7 +357,7 @@ replAction flags@NixStyleFlags{extraFlags = ReplFlags{..}} targetStrings globalF
         updatedCtx <- updateContextAndWriteProjectFile ctx scriptPath scriptExecutable
         return $ Right ((updatedCtx, isMultiReplEnabled updatedCtx), NE.fromList userTargetSelectors)
 
-    either retargetRepl (targetRepl flags projectRoot distDir ctx targetCtx) pickOrDecided
+    either retargetRepl (targetRepl flags ctx targetCtx) pickOrDecided
   where
     retargetRepl :: TargetUnresolved -> IO ()
     retargetRepl (newTarget, retargetMsg) = do
@@ -383,11 +382,9 @@ replAction flags@NixStyleFlags{extraFlags = ReplFlags{..}} targetStrings globalF
     retarget newTarget = "No target specified, using " ++ newTarget ++ " as the target for the REPL."
 
 -- | Bring up a REPL with the targets.
-targetRepl :: NixStyleFlags ReplFlags -> FilePath -> FilePath -> ProjectBaseContext -> TargetContext -> TargetResolved -> IO ()
+targetRepl :: NixStyleFlags ReplFlags -> ProjectBaseContext -> TargetContext -> TargetResolved -> IO ()
 targetRepl
   flags@NixStyleFlags{extraFlags = replFlags@ReplFlags{..}, configFlags}
-  projectRoot
-  distDir
   ctx
   targetCtx
   ((baseCtx, multiReplEnabled), targetSelectors) = do
@@ -579,6 +576,9 @@ targetRepl
         buildOutcomes <- runProjectBuildPhase verbosity baseCtx'' buildCtx'
         runProjectPostBuildPhase verbosity baseCtx'' buildCtx' buildOutcomes
     where
+      projectRoot = distProjectRootDirectory $ distDirLayout ctx
+      distDir = distDirectory $ distDirLayout ctx
+
       combine_search_paths paths =
         foldl' go Map.empty paths
         where
