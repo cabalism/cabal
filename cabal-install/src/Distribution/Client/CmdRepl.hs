@@ -365,7 +365,15 @@ replAction flags@NixStyleFlags{extraFlags = ReplFlags{..}} targetStrings globalF
       replAction flags [newTarget] globalFlags
 
     withCtx ctxVerbosity strings =
-      withContextAndSelectors ctxVerbosity AcceptNoTargets (Just LibKind) flags strings globalFlags ReplCommand
+      withContextAndSelectors
+        ctxVerbosity
+        (if null strings then AcceptNoTargets else RejectNoTargets)
+        (Just LibKind)
+        flags
+        strings
+        globalFlags
+        ReplCommand
+
     verbosity = cfgVerbosity normal flags
 
     -- If multi-repl is used, we need a Cabal recent enough to handle it.  We
