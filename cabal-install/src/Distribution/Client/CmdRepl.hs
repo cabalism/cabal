@@ -283,6 +283,7 @@ multiReplDecision ctx compiler flags =
 --
 -- For more details on how this works, see the module
 -- "Distribution.Client.ProjectOrchestration"
+{-@ replAction :: _ -> {xs:[String] | 0 < length xs} -> _ -> IO () @-}
 replAction :: NixStyleFlags ReplFlags -> [String] -> GlobalFlags -> IO ()
 replAction flags@NixStyleFlags{extraFlags = replFlags@ReplFlags{..}, configFlags} targetStrings globalFlags = do
   withCtx verbosity targetStrings $ \targetCtx ctx userTargetSelectors -> do
