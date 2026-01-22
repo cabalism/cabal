@@ -83,7 +83,7 @@ genBoundsCommand =
 -- | The action for the @gen-bounds@ command when used in a project context.
 genBoundsAction :: NixStyleFlags GenBoundsFlags -> [String] -> GlobalFlags -> IO ()
 genBoundsAction flags targetStrings globalFlags =
-  withContextAndSelectors verbosity RejectNoTargets Nothing flags targetStrings globalFlags OtherCommand $ \targetCtx ctx targetSelectors -> do
+  withContextAndSelectors verbosity RejectNoTargets Nothing flags targetStrings globalFlags OtherCommand $ \ctx targetCtx targetSelectors -> do
     baseCtx <- case targetCtx of
       ProjectContext -> return ctx
       GlobalContext -> return ctx

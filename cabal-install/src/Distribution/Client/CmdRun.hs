@@ -202,7 +202,7 @@ runCommand =
 -- "Distribution.Client.ProjectOrchestration"
 runAction :: NixStyleFlags () -> [String] -> GlobalFlags -> IO ()
 runAction flags targetAndArgs globalFlags =
-  withContextAndSelectors (cfgVerbosity normal flags) RejectNoTargets (Just ExeKind) flags targetStr globalFlags OtherCommand $ \targetCtx ctx targetSelectors -> do
+  withContextAndSelectors (cfgVerbosity normal flags) RejectNoTargets (Just ExeKind) flags targetStr globalFlags OtherCommand $ \ctx targetCtx targetSelectors -> do
     (baseCtx, defaultVerbosity) <- case targetCtx of
       ProjectContext -> return (ctx, normal)
       GlobalContext -> return (ctx, normal)

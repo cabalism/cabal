@@ -285,7 +285,7 @@ multiReplDecision ctx compiler flags =
 -- "Distribution.Client.ProjectOrchestration"
 replAction :: NixStyleFlags ReplFlags -> [String] -> GlobalFlags -> IO ()
 replAction flags@NixStyleFlags{extraFlags = replFlags@ReplFlags{..}, configFlags} targetStrings globalFlags = do
-  withCtx verbosity targetStrings $ \targetCtx ctx userTargetSelectors -> do
+  withCtx verbosity targetStrings $ \ctx targetCtx userTargetSelectors -> do
     when (buildSettingOnlyDeps (buildSettings ctx)) $
       dieWithException verbosity ReplCommandDoesn'tSupport
     let projectRoot = distProjectRootDirectory $ distDirLayout ctx

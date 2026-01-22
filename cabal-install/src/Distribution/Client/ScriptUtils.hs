@@ -289,7 +289,7 @@ withContextAndSelectors
   -- ^ Global flags.
   -> CurrentCommand
   -- ^ Current Command (usually for error reporting).
-  -> (TargetContext -> ProjectBaseContext -> [TargetSelector] -> IO b)
+  -> (ProjectBaseContext -> TargetContext -> [TargetSelector] -> IO b)
   -- ^ The body of your command action.
   -> IO b
 withContextAndSelectors verbosity noTargets kind flags@NixStyleFlags{..} targetStrings globalFlags cmd act =
@@ -331,7 +331,7 @@ withContextAndSelectors verbosity noTargets kind flags@NixStyleFlags{..} targetS
           Left err -> reportTargetSelectorProblems verbosity err
           Right sels -> return (tc, ctx, sels)
 
-    act tc' ctx' sels
+    act ctx' tc' sels
   where
     ignoreProject = flagIgnoreProject projectFlags
     cliConfig = commandLineFlagsToProjectConfig globalFlags flags mempty

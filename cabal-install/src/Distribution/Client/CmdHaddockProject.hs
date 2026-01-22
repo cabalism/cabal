@@ -134,7 +134,7 @@ haddockProjectAction flags _extraArgs globalFlags = do
     ["all"]
     globalFlags
     HaddockCommand
-    $ \targetCtx ctx targetSelectors -> do
+    $ \ctx targetCtx targetSelectors -> do
       baseCtx <- case targetCtx of
         ProjectContext -> return ctx
         GlobalContext -> return ctx

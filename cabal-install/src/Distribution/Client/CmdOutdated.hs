@@ -247,7 +247,7 @@ outdatedAction flags targetStrings globalFlags =
     targetStrings
     globalFlags
     OtherCommand
-    $ \_targetCtx ctx targetSelectors -> do
+    $ \ctx _targetCtx targetSelectors -> do
       deps <-
         if
             | freezeFile -> depsFromFreezeFile verbosity
