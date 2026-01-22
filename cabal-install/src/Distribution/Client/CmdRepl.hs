@@ -64,6 +64,7 @@ import Distribution.Client.ProjectPlanning.Types
 import Distribution.Client.ScriptUtils
   ( AcceptNoTargets (..)
   , TargetContext (..)
+  , TargetsAction
   , fakeProjectSourcePackage
   , lSrcpkgDescription
   , updateContextAndWriteProjectFile
@@ -281,9 +282,6 @@ type TargetResolver = ProjectBaseContext -> [TargetSelector] -> IO ResolvedTarge
 -- | Targets resolved from target strings with context and multi-repl flag.
 type ResolvedTargets = ((ProjectBaseContext, Bool), [TargetSelector])
 
--- | A function dealing with REPL targets.
-type Repl targets a = TargetContext -> ProjectBaseContext -> targets -> IO a
-
 -- | The @repl@ command is very much like @build@. It brings the install plan
 -- up to date, selects that part of the plan needed by the given or implicit
 -- repl target and then executes the plan.
@@ -395,7 +393,7 @@ isMultiReplEnabled replUseMulti ctx =
 
 -- | Bring up a REPL with the targets.  With resolved user selectors and
 -- context, adjust the REPL behaviour for the target.
-targetedRepl :: NixStyleFlags ReplFlags -> Repl ResolvedTargets ()
+targetedRepl :: NixStyleFlags ReplFlags -> TargetsAction ResolvedTargets ()
 targetedRepl
   flags@NixStyleFlags{extraFlags = replFlags@ReplFlags{..}, configFlags}
   targetCtx
@@ -602,7 +600,7 @@ targetedRepl
       tempFileOptions = commonSetupTempFileOptions $ configCommonFlags configFlags
       validatedTargets' = validatedTargets verbosity replFlags
 
-withCtx :: NixStyleFlags a -> [String] -> GlobalFlags -> Repl [TargetSelector] b -> IO b
+withCtx :: NixStyleFlags a -> [String] -> GlobalFlags -> TargetsAction [TargetSelector] b -> IO b
 withCtx flags targetStrings globalFlags =
   withContextAndSelectors
     (cfgVerbosity normal flags)
