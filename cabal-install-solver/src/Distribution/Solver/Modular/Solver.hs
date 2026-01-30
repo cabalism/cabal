@@ -23,6 +23,8 @@ import Distribution.Solver.Types.PackagePath
 import Distribution.Solver.Types.PackagePreferences
 import Distribution.Solver.Types.PkgConfigDb (PkgConfigDb)
 import Distribution.Solver.Types.LabeledPackageConstraint
+import Distribution.Solver.Types.PackageConstraint (PackageConstraint(..), PackageProperty(..))
+import Distribution.Types.VersionRange (normaliseVersionRange, projectVersionRange, VersionRangeF(ThisVersionF))
 import Distribution.Solver.Types.Settings
 import Distribution.Solver.Types.Variable
 
@@ -140,16 +142,28 @@ solve sc cinfo idx pkgConfigDB userPrefs userConstraints userGoals =
                        validateTree cinfo idx pkgConfigDB
     prunePhase       = (if asBool (avoidReinstalls sc) then P.avoidReinstalls (const True) else id) .
                        (case onlyConstrained sc of
-                          OnlyConstrainedAll ->
-                            P.onlyConstrained pkgIsExplicit
-                          OnlyConstrainedNone ->
-                            id)
+                          OnlyConstrainedEq -> P.onlyConstrained (`S.member` allExplicitEq)
+                          OnlyConstrainedAll -> P.onlyConstrained (`S.member` allExplicit)
+                          OnlyConstrainedNone -> id)
     buildPhase       = buildTree idx (independentGoals sc) (S.toList userGoals)
 
+    allExplicitEq = M.keysSet (filterThisVersion userConstraints) `S.union` userGoals
     allExplicit = M.keysSet userConstraints `S.union` userGoals
 
-    pkgIsExplicit :: PN -> Bool
-    pkgIsExplicit pn = S.member pn allExplicit
+    -- | Keep only explicit equality version constraints (== v).
+    filterThisVersion :: M.Map PN [LabeledPackageConstraint] -> M.Map PN [LabeledPackageConstraint]
+    filterThisVersion = M.mapMaybe keepNonEmpty . M.map (filter isThisVersion)
+      where
+        isThisVersion :: LabeledPackageConstraint -> Bool
+        isThisVersion (LabeledPackageConstraint (PackageConstraint _ (PackagePropertyVersion vr)) _) =
+          case projectVersionRange $ normaliseVersionRange vr of
+            ThisVersionF _ -> True
+            _              -> False
+        isThisVersion _ = False
+
+        keepNonEmpty :: [LabeledPackageConstraint] -> Maybe [LabeledPackageConstraint]
+        keepNonEmpty [] = Nothing
+        keepNonEmpty xs = Just xs
 
     -- When --reorder-goals is set, we use preferReallyEasyGoalChoices, which
     -- prefers (keeps) goals only if the have 0 or 1 enabled choice.
