@@ -61,15 +61,18 @@ targetCommand =
         Just . const . render $
           vcat
             [ intro
-            , vcat $ punctuate (text "\n") [targetForms, ctypes, Pretty.empty]
+            , vblock [targetForms, ctypes]
             , caution
             , unique
             ]
-    , commandNotes = Just $ \pname -> render (examples pname) ++ "\n"
+    , commandNotes = Just $ \pname -> render $ vblock [examples pname]
     , commandDefaultFlags = defaultNixStyleFlags ()
     , commandOptions = nixStyleOptions (const [])
     }
   where
+    -- Separate blocks by a hard newline, the pretty package doesn't offer this.
+    vblock xs = vcat $ punctuate (char '\n') (xs ++ [Pretty.empty])
+
     intro =
       text . wrapText $
         "Discover targets in a project for use with other commands taking [TARGETS].\n\n"
