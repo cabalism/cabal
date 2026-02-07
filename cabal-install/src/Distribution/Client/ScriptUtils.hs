@@ -12,6 +12,7 @@ module Distribution.Client.ScriptUtils
   , withContextAndSelectors
   , AcceptNoTargets (..)
   , TargetContext (..)
+  , TargetsAction
   , updateContextAndWriteProjectFile
   , updateContextAndWriteProjectFile'
   , fakeProjectSourcePackage
@@ -268,6 +269,9 @@ data TargetContext
     -- the executable metadata parsed from the script
     ScriptContext FilePath Executable
   deriving (Eq, Show)
+  
+-- | An action working with selected targets within a context.
+type TargetsAction targets a = TargetContext -> ProjectBaseContext -> targets -> IO a
 
 -- | Determine whether the targets represent regular targets or a script
 -- and return the proper context and target selectors.
@@ -289,7 +293,7 @@ withContextAndSelectors
   -- ^ Global flags.
   -> CurrentCommand
   -- ^ Current Command (usually for error reporting).
-  -> (TargetContext -> ProjectBaseContext -> [TargetSelector] -> IO b)
+  -> TargetsAction [TargetSelector] b
   -- ^ The body of your command action.
   -> IO b
 withContextAndSelectors verbosity noTargets kind flags@NixStyleFlags{..} targetStrings globalFlags cmd act =
