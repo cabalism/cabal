@@ -2816,7 +2816,7 @@ checkRelocatable verbosity pkg lbi =
 
     -- Check if the Compiler support relocatable builds
     checkCompiler =
-      unless (compilerFlavor comp `elem` [GHC]) $
+      unless (compilerFlavor comp == GHC) $
         dieWithException verbosity $
           NoCompilerSupport (show comp)
       where
