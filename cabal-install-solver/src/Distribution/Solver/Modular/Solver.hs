@@ -1,3 +1,4 @@
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE LambdaCase #-}
 #ifdef DEBUG_TRACETREE
@@ -10,6 +11,7 @@ module Distribution.Solver.Modular.Solver
     , PruneAfterFirstSuccess(..)
     ) where
 
+import Debug.Trace (traceWith)
 import Distribution.Solver.Compat.Prelude
 import Prelude ()
 import Data.Function ((&))
@@ -149,8 +151,17 @@ solve sc cinfo idx pkgConfigDB userPrefs userConstraints userGoals =
                           OnlyConstrainedNone -> id)
     buildPhase       = buildTree idx (independentGoals sc) (S.toList userGoals)
 
-    allExplicitEq = M.keysSet (filterThisVersion userConstraints) `S.union` userGoals
-    allExplicit = M.keysSet userConstraints `S.union` userGoals
+    showPN :: (PN, [LabeledPackageConstraint]) -> String
+    showPN (pn, lpcs) = show pn ++ " -> " ++ intercalate "\n" (map show lpcs)
+
+    showPNs :: [(PN, [LabeledPackageConstraint])] -> String
+    showPNs = intercalate "\n" . map showPN
+
+    uc :: M.Map PN [LabeledPackageConstraint] = traceWith (showPNs . M.toList) userConstraints
+    uc':: M.Map PN [LabeledPackageConstraint] = traceWith (showPNs . M.toList) $ filterThisVersion userConstraints
+
+    allExplicitEq = M.keysSet uc' `S.union` userGoals
+    allExplicit = M.keysSet uc `S.union` userGoals
 
     -- When --reorder-goals is set, we use preferReallyEasyGoalChoices, which
     -- prefers (keeps) goals only if the have 0 or 1 enabled choice.

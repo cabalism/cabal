@@ -13,5 +13,5 @@ main = do
   cabalTest . withRepo "repo" $ do
     let opts = [ "all", "--dry-run" ]
     cabal "build" $ opts
-    cabal "build" $ "--reject-unconstrained-dependencies=all" : opts
-    cabal "build" $ "--reject-unconstrained-dependencies=eq" : opts
+    fails $ cabal "build" $ "--reject-unconstrained-dependencies=all" : opts
+    fails $ cabal "build" $ "--reject-unconstrained-dependencies=eq" : opts

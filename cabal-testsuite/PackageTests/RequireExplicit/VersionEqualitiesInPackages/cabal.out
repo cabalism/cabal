@@ -11,19 +11,33 @@ In order, the following would be built:
  - a-0 (lib) (first run)
 # cabal build
 Resolving dependencies...
-Build profile: -w ghc-<GHCVER> -O1
-In order, the following would be built:
- - other-lib-1.0 (lib) (requires build)
- - some-exe-1.0 (exe:some-exe) (requires build)
- - some-lib-1.0 (lib) (requires build)
- - b-0 (lib) (first run)
- - a-0 (lib) (first run)
+Error: [Cabal-7107]
+Could not resolve dependencies:
+PackageName "Cabal" -> LabeledPackageConstraint (PackageConstraint (ScopeAnySetupQualifier (PackageName "Cabal")) (PackagePropertyVersion (EarlierVersion (mkVersion [3,19])))) ConstraintSetupCabalMaxVersion
+LabeledPackageConstraint (PackageConstraint (ScopeAnySetupQualifier (PackageName "Cabal")) (PackagePropertyVersion (OrLaterVersion (mkVersion [3,12])))) ConstraintSetupCabalMinVersion
+PackageName "a" -> LabeledPackageConstraint (PackageConstraint (ScopeTarget (PackageName "a")) (PackagePropertyVersion (ThisVersion (mkVersion [0])))) ConstraintSourceUserTarget
+PackageName "b" -> LabeledPackageConstraint (PackageConstraint (ScopeTarget (PackageName "b")) (PackagePropertyVersion (ThisVersion (mkVersion [0])))) ConstraintSourceUserTarget
+PackageName "base" -> LabeledPackageConstraint (PackageConstraint (ScopeAnyQualifier (PackageName "base")) PackagePropertyInstalled) ConstraintSourceNonReinstallablePackage
+PackageName "ghc" -> LabeledPackageConstraint (PackageConstraint (ScopeAnyQualifier (PackageName "ghc")) PackagePropertyInstalled) ConstraintSourceNonReinstallablePackage
+PackageName "ghc-bignum" -> LabeledPackageConstraint (PackageConstraint (ScopeAnyQualifier (PackageName "ghc-bignum")) PackagePropertyInstalled) ConstraintSourceNonReinstallablePackage
+PackageName "ghc-internal" -> LabeledPackageConstraint (PackageConstraint (ScopeAnyQualifier (PackageName "ghc-internal")) PackagePropertyInstalled) ConstraintSourceNonReinstallablePackage
+PackageName "ghc-prim" -> LabeledPackageConstraint (PackageConstraint (ScopeAnyQualifier (PackageName "ghc-prim")) PackagePropertyInstalled) ConstraintSourceNonReinstallablePackage
+PackageName "integer-gmp" -> LabeledPackageConstraint (PackageConstraint (ScopeAnyQualifier (PackageName "integer-gmp")) PackagePropertyInstalled) ConstraintSourceNonReinstallablePackage
+PackageName "integer-simple" -> LabeledPackageConstraint (PackageConstraint (ScopeAnyQualifier (PackageName "integer-simple")) PackagePropertyInstalled) ConstraintSourceNonReinstallablePackage
+PackageName "template-haskell" -> LabeledPackageConstraint (PackageConstraint (ScopeAnyQualifier (PackageName "template-haskell")) PackagePropertyInstalled) ConstraintSourceNonReinstallablePackage
+[__0] trying: a-0 (user goal)
+[__1] next goal: some-lib (dependency of a)
+[__1] fail (not a user-provided goal nor mentioned as a constraint, but reject-unconstrained-dependencies=all was set)
+[__1] fail (backjumping, conflict set: a, some-lib)
+After searching the rest of the dependency tree exhaustively, these were the goals I've had most trouble fulfilling: a (2), some-lib (1)
 # cabal build
 Resolving dependencies...
-Build profile: -w ghc-<GHCVER> -O1
-In order, the following would be built:
- - other-lib-1.0 (lib) (requires build)
- - some-exe-1.0 (exe:some-exe) (requires build)
- - some-lib-1.0 (lib) (requires build)
- - b-0 (lib) (first run)
- - a-0 (lib) (first run)
+Error: [Cabal-7107]
+Could not resolve dependencies:
+PackageName "a" -> LabeledPackageConstraint (PackageConstraint (ScopeTarget (PackageName "a")) (PackagePropertyVersion (ThisVersion (mkVersion [0])))) ConstraintSourceUserTarget
+PackageName "b" -> LabeledPackageConstraint (PackageConstraint (ScopeTarget (PackageName "b")) (PackagePropertyVersion (ThisVersion (mkVersion [0])))) ConstraintSourceUserTarget
+[__0] trying: a-0 (user goal)
+[__1] next goal: some-lib (dependency of a)
+[__1] fail (not a user-provided goal nor mentioned as a constraint, but reject-unconstrained-dependencies=eq was set)
+[__1] fail (backjumping, conflict set: a, some-lib)
+After searching the rest of the dependency tree exhaustively, these were the goals I've had most trouble fulfilling: a (2), some-lib (1)

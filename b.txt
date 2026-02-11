@@ -1,0 +1,2 @@
+PackageName "a" -> LabeledPackageConstraint (PackageConstraint (ScopeTarget (PackageName "a")) (PackagePropertyVersion (ThisVersion (mkVersion [0])))) ConstraintSourceUserTarget
+PackageName "b" -> LabeledPackageConstraint (PackageConstraint (ScopeTarget (PackageName "b")) (PackagePropertyVersion (ThisVersion (mkVersion [0])))) ConstraintSourceUserTarget

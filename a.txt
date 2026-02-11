@@ -1,0 +1,5 @@
+PackageName "a" -> LabeledPackageConstraint (PackageConstraint (ScopeTarget (PackageName "a")) (PackagePropertyVersion (ThisVersion (mkVersion [0])))) ConstraintSourceUserTarget
+PackageName "b" -> LabeledPackageConstraint (PackageConstraint (ScopeTarget (PackageName "b")) (PackagePropertyVersion (ThisVersion (mkVersion [0])))) ConstraintSourceUserTarget
+PackageName "other-lib" -> LabeledPackageConstraint (PackageConstraint (ScopeQualified QualToplevel (PackageName "other-lib")) (PackagePropertyVersion (ThisVersion (mkVersion [1,0])))) (ConstraintSourceProjectConfig (ProjectConfigPath ("cabal.project" :| [])))
+PackageName "some-exe" -> LabeledPackageConstraint (PackageConstraint (ScopeQualified QualToplevel (PackageName "some-exe")) (PackagePropertyVersion (ThisVersion (mkVersion [1,0])))) (ConstraintSourceProjectConfig (ProjectConfigPath ("cabal.project" :| [])))
+PackageName "some-lib" -> LabeledPackageConstraint (PackageConstraint (ScopeQualified QualToplevel (PackageName "some-lib")) (PackagePropertyVersion (ThisVersion (mkVersion [1,0])))) (ConstraintSourceProjectConfig (ProjectConfigPath ("cabal.project" :| [])))

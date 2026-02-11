@@ -9,6 +9,7 @@ import Distribution.Solver.Types.PackageConstraint
 -- | 'PackageConstraint' labeled with its source.
 data LabeledPackageConstraint
    = LabeledPackageConstraint PackageConstraint ConstraintSource
+   deriving Show
 
 unlabelPackageConstraint :: LabeledPackageConstraint -> PackageConstraint
 unlabelPackageConstraint (LabeledPackageConstraint pc _) = pc
