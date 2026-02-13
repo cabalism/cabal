@@ -111,10 +111,11 @@ isNoVersion vr = case asVersionIntervals vr of
   [] -> True
   _ -> False
 
--- | Is this version range in fact just a specific version?
+-- | Is this version range in fact just a specific version? For example, the
+-- version range @\">= 3 && <= 3\"@ contains only the version @3@.
 --
--- For example the version range @\">= 3 && <= 3\"@ contains only the version
--- @3@.
+-- >>> let v = mkVersion [3] in Just v == isSpecificVersion (orLaterVersion v `intersectVersionRanges` orEarlierVersion v)
+-- True
 isSpecificVersion :: VersionRange -> Maybe Version
 isSpecificVersion vr = case asVersionIntervals vr of
   [VersionInterval (LowerBound v InclusiveBound) (UpperBound v' InclusiveBound)]
