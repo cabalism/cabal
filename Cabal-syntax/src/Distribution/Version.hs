@@ -116,6 +116,10 @@ isNoVersion vr = case asVersionIntervals vr of
 --
 -- >>> let v = mkVersion [3] in Just v == isSpecificVersion (orLaterVersion v `intersectVersionRanges` orEarlierVersion v)
 -- True
+-- >>> let Just (v :: VersionRange) = simpleParsec ">= 3 && <= 3" in pretty v
+-- >=3 && <=3
+-- >>> let Just (v :: VersionRange) = simpleParsec "<=3 && >= 3" in pretty v
+-- <=3 && >=3
 isSpecificVersion :: VersionRange -> Maybe Version
 isSpecificVersion vr = case asVersionIntervals vr of
   [VersionInterval (LowerBound v InclusiveBound) (UpperBound v' InclusiveBound)]
@@ -188,3 +192,9 @@ transformCaretLower = hyloVersionRange embed projectVersionRange
   where
     embed (MajorBoundVersionF v) = earlierVersion (majorUpperBound v)
     embed vr = embedVersionRange vr
+
+-- $setup
+-- >>> :set -XScopedTypeVariables
+-- >>> import Data.Traversable
+-- >>> import Distribution.Parsec
+-- >>> import Distribution.Pretty
