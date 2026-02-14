@@ -186,6 +186,8 @@ transformCaretUpper = hyloVersionRange embed projectVersionRange
 
 -- | Rewrite @^>= x.y.z@ into @<x.(y+1)@
 --
+--- >>> [versionQQ|1.2.3.4|]
+--
 -- @since 3.6.0.0
 transformCaretLower :: VersionRange -> VersionRange
 transformCaretLower = hyloVersionRange embed projectVersionRange
@@ -198,3 +200,22 @@ transformCaretLower = hyloVersionRange embed projectVersionRange
 -- >>> import Data.Traversable
 -- >>> import Distribution.Parsec
 -- >>> import Distribution.Pretty
+-- >>> import Language.Haskell.TH.Quote
+-- >>> import Language.Haskell.TH
+-- >>> import Data.Char (isDigit)
+-- >>> {:
+--     versionQQ :: QuasiQuoter
+--     versionQQ = QuasiQuoter
+--         { quoteExp  = parseVersion
+--         , quotePat  = error "Not allowed in pattern"
+--         , quoteType = error "Not allowed in type"
+--         , quoteDec  = error "Not allowed in declaration"
+--         }
+--       where
+--         parseVersion s = do
+--             -- Basic parsing logic (e.g., check for dots, digit validation)
+--             if all (\c -> isDigit c || c == '.') s
+--             then stringE s -- Return the version as a String literal Exp
+--             else fail "Invalid PVP version format"
+-- >>> :}
+
