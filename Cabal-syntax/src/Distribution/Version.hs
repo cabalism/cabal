@@ -177,10 +177,10 @@ transformCaret = hyloVersionRange embed projectVersionRange
 
 -- | Rewrite @^>= x.y.z@ into @>= x.y.z@
 --
--- @since 3.6.0.0
---
 -- >>> let Just v = simpleParsec "^>=1.2.3.4" in pretty $ transformCaretUpper v
 -- >=1.2.3.4
+--
+-- @since 3.6.0.0
 transformCaretUpper :: VersionRange -> VersionRange
 transformCaretUpper = hyloVersionRange embed projectVersionRange
   where
@@ -189,10 +189,10 @@ transformCaretUpper = hyloVersionRange embed projectVersionRange
 
 -- | Rewrite @^>= x.y.z@ into @<x.(y+1)@
 --
--- @since 3.6.0.0
---
 -- >>> let Just v = simpleParsec "^>=1.2.3.4" in pretty $ transformCaretLower v
 -- <1.3
+--
+-- @since 3.6.0.0
 transformCaretLower :: VersionRange -> VersionRange
 transformCaretLower = hyloVersionRange embed projectVersionRange
   where
