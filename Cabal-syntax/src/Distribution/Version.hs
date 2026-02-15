@@ -168,6 +168,10 @@ removeLowerBound = fromVersionIntervals . relaxHeadInterval . toVersionIntervals
 
 -- | Rewrite @^>= x.y.z@ into @>= x.y.z && < x.(y+1)@
 --
+-- >>> let f g xs = [pretty $ g v |Just v <- simpleParsec <$> xs]
+-- >>> f transformCaret ["^>=1.2.3.4", "^>=1.2.3", "^>=1.2", "^>=1"]
+-- [>=1.2.3.4 && <1.3,>=1.2.3 && <1.3,>=1.2 && <1.3,>=1 && <1.1]
+--
 -- @since 3.6.0.0
 transformCaret :: VersionRange -> VersionRange
 transformCaret = hyloVersionRange embed projectVersionRange
@@ -177,8 +181,9 @@ transformCaret = hyloVersionRange embed projectVersionRange
 
 -- | Rewrite @^>= x.y.z@ into @>= x.y.z@
 --
--- >>> let Just v = simpleParsec "^>=1.2.3.4" in pretty $ transformCaretUpper v
--- >=1.2.3.4
+-- >>> let f g xs = [pretty $ g v |Just v <- simpleParsec <$> xs]
+-- >>> f transformCaretUpper ["^>=1.2.3.4", "^>=1.2.3", "^>=1.2", "^>=1"]
+-- [>=1.2.3.4,>=1.2.3,>=1.2,>=1]
 --
 -- @since 3.6.0.0
 transformCaretUpper :: VersionRange -> VersionRange
@@ -189,8 +194,9 @@ transformCaretUpper = hyloVersionRange embed projectVersionRange
 
 -- | Rewrite @^>= x.y.z@ into @<x.(y+1)@
 --
--- >>> let Just v = simpleParsec "^>=1.2.3.4" in pretty $ transformCaretLower v
--- <1.3
+-- >>> let f g xs = [pretty $ g v |Just v <- simpleParsec <$> xs]
+-- >>> f transformCaretLower ["^>=1.2.3.4", "^>=1.2.3", "^>=1.2", "^>=1"]
+-- [<1.3,<1.3,<1.3,<1.1]
 --
 -- @since 3.6.0.0
 transformCaretLower :: VersionRange -> VersionRange
