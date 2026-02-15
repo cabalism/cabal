@@ -67,11 +67,15 @@ module Distribution.Version
   , majorUpperBound
 
     -- ** Modification
-  , removeUpperBound
-  , removeLowerBound
+    -- $modification
+
+    -- *** Range-Preserving Modification
   , transformCaret
+    -- *** Range-Relaxing Modification
   , transformCaretUpper
   , transformCaretLower
+  , removeUpperBound
+  , removeLowerBound
 
     -- * Version intervals view
   , asVersionIntervals
@@ -130,6 +134,13 @@ isSpecificVersion vr = case asVersionIntervals vr of
 -- Transformations
 -------------------------------------------------------------------------------
 
+-- $modification
+--
+-- Examples use the following @mapVR@ function:
+--
+-- > mapVR :: (VersionRange -> VersionRange) -> [String] -> [String]
+-- > mapVR f xs = [pretty $ f v| Just v <- simpleParsec <$> xs]
+
 -- | Simplify a 'VersionRange' expression. For non-empty version ranges
 -- this produces a canonical form. Empty or inconsistent version ranges
 -- are left as-is because that provides more information.
@@ -168,8 +179,7 @@ removeLowerBound = fromVersionIntervals . relaxHeadInterval . toVersionIntervals
 
 -- | Rewrite @^>= x.y.z@ into @>= x.y.z && < x.(y+1)@
 --
--- >>> let f g xs = [pretty $ g v |Just v <- simpleParsec <$> xs]
--- >>> f transformCaret ["^>=1.2.3.4", "^>=1.2.3", "^>=1.2", "^>=1"]
+-- >>> mapVR transformCaret ["^>=1.2.3.4", "^>=1.2.3", "^>=1.2", "^>=1"]
 -- [>=1.2.3.4 && <1.3,>=1.2.3 && <1.3,>=1.2 && <1.3,>=1 && <1.1]
 --
 -- @since 3.6.0.0
@@ -181,8 +191,7 @@ transformCaret = hyloVersionRange embed projectVersionRange
 
 -- | Rewrite @^>= x.y.z@ into @>= x.y.z@
 --
--- >>> let f g xs = [pretty $ g v |Just v <- simpleParsec <$> xs]
--- >>> f transformCaretUpper ["^>=1.2.3.4", "^>=1.2.3", "^>=1.2", "^>=1"]
+-- >>> mapVR transformCaretUpper ["^>=1.2.3.4", "^>=1.2.3", "^>=1.2", "^>=1"]
 -- [>=1.2.3.4,>=1.2.3,>=1.2,>=1]
 --
 -- @since 3.6.0.0
@@ -194,8 +203,7 @@ transformCaretUpper = hyloVersionRange embed projectVersionRange
 
 -- | Rewrite @^>= x.y.z@ into @<x.(y+1)@
 --
--- >>> let f g xs = [pretty $ g v |Just v <- simpleParsec <$> xs]
--- >>> f transformCaretLower ["^>=1.2.3.4", "^>=1.2.3", "^>=1.2", "^>=1"]
+-- >>> mapVR transformCaretLower ["^>=1.2.3.4", "^>=1.2.3", "^>=1.2", "^>=1"]
 -- [<1.3,<1.3,<1.3,<1.1]
 --
 -- @since 3.6.0.0
@@ -213,6 +221,9 @@ transformCaretLower = hyloVersionRange embed projectVersionRange
 -- >>> import Language.Haskell.TH.Quote
 -- >>> import Language.Haskell.TH
 -- >>> import Data.Char (isDigit)
+-- >>>
+-- >>> mapVR f xs = [pretty $ f v| Just v <- simpleParsec <$> xs]
+--
 -- >>> :{
 --     versionQQ :: QuasiQuoter
 --     versionQQ = QuasiQuoter
