@@ -178,6 +178,9 @@ transformCaret = hyloVersionRange embed projectVersionRange
 -- | Rewrite @^>= x.y.z@ into @>= x.y.z@
 --
 -- @since 3.6.0.0
+--
+-- >>> let Just v = simpleParsec "^>=1.2.3.4" in pretty $ transformCaretUpper v
+-- >=1.2.3.4
 transformCaretUpper :: VersionRange -> VersionRange
 transformCaretUpper = hyloVersionRange embed projectVersionRange
   where
@@ -186,9 +189,10 @@ transformCaretUpper = hyloVersionRange embed projectVersionRange
 
 -- | Rewrite @^>= x.y.z@ into @<x.(y+1)@
 --
---- >>> [versionQQ|1.2.3.4|]
---
 -- @since 3.6.0.0
+--
+-- >>> let Just v = simpleParsec "^>=1.2.3.4" in pretty $ transformCaretLower v
+-- <1.3
 transformCaretLower :: VersionRange -> VersionRange
 transformCaretLower = hyloVersionRange embed projectVersionRange
   where
@@ -203,7 +207,7 @@ transformCaretLower = hyloVersionRange embed projectVersionRange
 -- >>> import Language.Haskell.TH.Quote
 -- >>> import Language.Haskell.TH
 -- >>> import Data.Char (isDigit)
--- >>> {:
+-- >>> :{
 --     versionQQ :: QuasiQuoter
 --     versionQQ = QuasiQuoter
 --         { quoteExp  = parseVersion
@@ -217,5 +221,5 @@ transformCaretLower = hyloVersionRange embed projectVersionRange
 --             if all (\c -> isDigit c || c == '.') s
 --             then stringE s -- Return the version as a String literal Exp
 --             else fail "Invalid PVP version format"
--- >>> :}
+-- :}
 
