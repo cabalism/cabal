@@ -46,7 +46,7 @@ versionTests =
 
     , tp "simplifyVersionRange involutive"                     prop_simplify_inv
     , tp "simplifyVersionRange equivalent"                     prop_simplify_equiv
-    -- , tp "simplifyVersionRange caretequiv"                     prop_simplify_caret_equiv
+    , tp "simplifyVersionRange caretequiv"                     prop_simplify_caret_equiv
 
     , tp "simpleParsec . prettyShow = Just" prop_parse_disp
     ]
@@ -181,10 +181,17 @@ prop_simplify_equiv vr v =
     vr' = simplifyVersionRange vr
 
 -- TODO: Doesn't hold yet
--- prop_simplify_caret_equiv :: VersionRange -> Version -> Property
--- prop_simplify_caret_equiv vr = prop_equivalentVersionRange
---     (transformCaretUpper vr)
---     (transformCaretUpper (simplifyVersionRange vr))
+prop_simplify_caret_equiv :: VersionRange -> Version -> Property
+prop_simplify_caret_equiv vr v =
+  hasLowerBound vr && hasLowerBound vr' &&
+  hasUpperBound vr && hasUpperBound vr' &&
+  not (isAnyVersion vr) && not (isAnyVersion vr') ==>
+  prop_equivalentVersionRange
+    (transformCaretLower vr)
+    (transformCaretLower vr')
+    v
+  where
+    vr' = simplifyVersionRange vr
 
 prop_nonNull :: Version -> Bool
 prop_nonNull = (/= nullVersion)
