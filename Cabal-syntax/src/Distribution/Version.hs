@@ -183,6 +183,18 @@ removeLowerBound = fromVersionIntervals . relaxHeadInterval . toVersionIntervals
 -- >>> mapVR transformCaret ["^>=1.2.3.4", "^>=1.2.3", "^>=1.2", "^>=1"]
 -- [>=1.2.3.4 && <1.3,>=1.2.3 && <1.3,>=1.2 && <1.3,>=1 && <1.1]
 --
+-- >>> mapVR (removeUpperBound . transformCaret) ["^>=0.0.0.0", "^>=0.0.0", "^>=0.0", "^>=0"]
+-- [>=0.0.0.0,>=0.0.0,>=0.0,>=0]
+--
+-- >>> mapVR (removeUpperBound . transformCaret) ["^>=1.1.1.1", "^>=1.1.1", "^>=1.1", "^>=1"]
+-- [>=1.1.1.1,>=1.1.1,>=1.1,>=1]
+--
+-- >>> mapVR (removeLowerBound . transformCaret) ["^>=0.0.0.0", "^>=0.0.0", "^>=0.0", "^>=0"]
+-- [<0.1,<0.1,<0.1,<0.1]
+--
+-- >>> mapVR (removeLowerBound . transformCaret) ["^>=1.1.1.1", "^>=1.1.1", "^>=1.1", "^>=1"]
+-- [<1.2,<1.2,<1.2,<1.1]
+--
 -- @since 3.6.0.0
 transformCaret :: VersionRange -> VersionRange
 transformCaret = hyloVersionRange embed projectVersionRange
