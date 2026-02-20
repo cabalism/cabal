@@ -1,3 +1,4 @@
+{-# LANGUAGE ViewPatterns #-}
 -----------------------------------------------------------------------------
 
 -- |
@@ -199,8 +200,10 @@ transformCaret = hyloVersionRange embed projectVersionRange
 transformCaretLower :: VersionRange -> VersionRange
 transformCaretLower = hyloVersionRange embed projectVersionRange
   where
+    embed :: VersionRangeF VersionRange -> VersionRange
     embed (MajorBoundVersionF v) = orLaterVersion v
-    embed (IntersectVersionRangesF vL@(OrLaterVersionF _) (EarlierVersionF _)) = vL
+    embed (IntersectVersionRangesF (projectVersionRange -> OrLaterVersionF v) (projectVersionRange -> EarlierVersionF _)) = orLaterVersion v
+    embed (IntersectVersionRangesF (projectVersionRange -> EarlierVersionF _) (projectVersionRange -> OrLaterVersionF v)) = orLaterVersion v
     embed vr = embedVersionRange vr
 
 -- | Rewrite @^>= x.y.z@ into explicit upper bound @<x.(y+1)@, removing the
@@ -216,8 +219,10 @@ transformCaretLower = hyloVersionRange embed projectVersionRange
 transformCaretUpper :: VersionRange -> VersionRange
 transformCaretUpper = hyloVersionRange embed projectVersionRange
   where
+    embed :: VersionRangeF VersionRange -> VersionRange
     embed (MajorBoundVersionF v) = earlierVersion (majorUpperBound v)
-    embed (IntersectVersionRangesF (OrLaterVersionF _) vU@(EarlierVersionF _)) = vU
+    embed (IntersectVersionRangesF (projectVersionRange -> OrLaterVersionF _) (projectVersionRange -> EarlierVersionF v)) = earlierVersion v
+    embed (IntersectVersionRangesF (projectVersionRange -> EarlierVersionF v) (projectVersionRange -> OrLaterVersionF _)) = earlierVersion v
     embed vr = embedVersionRange vr
 
 -- $setup

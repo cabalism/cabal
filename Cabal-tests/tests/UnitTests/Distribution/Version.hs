@@ -183,9 +183,8 @@ prop_simplify_equiv vr v =
 -- TODO: Doesn't hold yet
 prop_simplify_caret_equiv :: VersionRange -> Version -> Property
 prop_simplify_caret_equiv vr v =
-  hasLowerBound vr && hasLowerBound vr' &&
-  hasUpperBound vr && hasUpperBound vr' &&
-  not (isAnyVersion vr) && not (isAnyVersion vr') ==>
+  -- hasLowerBound vr && hasLowerBound vr' ==>
+  hasLowerBound vr ==>
   prop_equivalentVersionRange
     (transformCaretLower vr)
     (transformCaretLower vr')
