@@ -71,10 +71,10 @@ module Distribution.Version
     -- ** Modification
     -- $modification
 
-    -- *** Range-Preserving Modification
+    -- *** Preserving modification
   , transformCaret
 
-    -- *** Range-Relaxing Modification
+    -- *** Relaxing modification
   , transformCaretUpper
   , transformCaretLower
   , removeUpperBound
