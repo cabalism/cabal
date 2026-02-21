@@ -153,6 +153,20 @@ prop_normalise_equiv :: VersionRange -> Version -> Property
 prop_normalise_equiv vr =
     prop_equivalentVersionRange vr (normaliseVersionRange vr)
 
+-- normaliseVersionRange caretequiv: FAIL
+--   *** Failed! Falsified (after 8 tests and 4 shrinks):
+--   IntersectVersionRanges (UnionVersionRanges (LaterVersion (mkVersion [65534,0])) (ThisVersion (mkVersion [65534,0]))) (EarlierVersion (mkVersion [1]))
+--   mkVersion [0]
+--   False /= True
+--   Use --quickcheck-replay="(SMGen 17044596403207196257 12581667004697950409,7)" to reproduce.
+--   Use -p '/caretequiv/&&/normaliseVersionRange caretequiv/' to rerun this test only.
+-- normaliseVersionRange caretequiv: FAIL
+--   *** Failed! Falsified (after 913 tests and 4 shrinks):
+--   IntersectVersionRanges (UnionVersionRanges (LaterVersion (mkVersion [65534,0,65534])) (ThisVersion (mkVersion [65534,0,65534]))) (EarlierVersion (mkVersion [1]))
+--   mkVersion [0]
+--   False /= True
+--   Use --quickcheck-replay="(SMGen 6372325001839979358 8722503366600447489,12)" to reproduce.
+--   Use -p '/caretequiv/&&/normaliseVersionRange caretequiv/' to rerun this test only.
 prop_normalise_caret_equiv :: VersionRange -> Version -> Property
 prop_normalise_caret_equiv vr = prop_equivalentVersionRange
     (transformCaretUpper vr)
@@ -181,10 +195,16 @@ prop_simplify_equiv vr v =
     vr' = simplifyVersionRange vr
 
 -- TODO: Doesn't hold yet
+-- simplifyVersionRange caretequiv:  FAIL
+--   *** Failed! Falsified (after 331 tests and 21 shrinks):
+--   IntersectVersionRanges (MajorBoundVersion (mkVersion [1])) (EarlierVersion (mkVersion [2]))
+--   mkVersion [2]
+--   False /= True
+--   Use --quickcheck-replay="(SMGen 11472223043752322347 3737680026977469293,30)" to reproduce.
+--   Use -p '/caretequiv/&&/simplifyVersionRange caretequiv/' to rerun this test only.
 prop_simplify_caret_equiv :: VersionRange -> Version -> Property
 prop_simplify_caret_equiv vr v =
-  -- hasLowerBound vr && hasLowerBound vr' ==>
-  hasLowerBound vr ==>
+  hasLowerBound vr && hasLowerBound vr' ==>
   prop_equivalentVersionRange
     (transformCaretLower vr)
     (transformCaretLower vr')

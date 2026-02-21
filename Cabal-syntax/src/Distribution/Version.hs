@@ -228,15 +228,17 @@ transformCaretLower = hyloVersionRange embed projectVersionRange
     embed :: VersionRangeF VersionRange -> VersionRange
     embed (MajorBoundVersionF v) = orLaterVersion v
     embed
-      ( IntersectVersionRangesF
-          vL@(projectVersionRange -> OrLaterVersionF _)
+      x@( IntersectVersionRangesF
+          vL@(projectVersionRange -> OrLaterVersionF v)
           (projectVersionRange -> EarlierVersionF _)
-        ) = vL
+        ) | transformCaret (majorBoundVersion v) == embedVersionRange x
+        = vL
     embed
-      ( IntersectVersionRangesF
+      x@( IntersectVersionRangesF
           (projectVersionRange -> EarlierVersionF _)
-          vL@(projectVersionRange -> OrLaterVersionF _)
-        ) = vL
+          vL@(projectVersionRange -> OrLaterVersionF v)
+        ) | transformCaret (majorBoundVersion v) == embedVersionRange x
+        = vL
     embed vr = embedVersionRange vr
 
 -- | Rewrite @^>= x.y.z@ into explicit upper bound @<x.(y+1)@, removing the
