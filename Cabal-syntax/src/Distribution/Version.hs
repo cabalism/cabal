@@ -221,6 +221,15 @@ transformCaret = hyloVersionRange embed projectVersionRange
 -- >>> mapVR (transformCaretLower . transformCaret) ["^>=1.1.1.1", "^>=1.1.1", "^>=1.1", "^>=1"]
 -- [>=1.1.1.1,>=1.1.1,>=1.1,>=1]
 --
+-- >>> mapVR transformCaretLower ["^>=1 && <2", "<1 && (>0.65535 || ==0.65535)", "<1 && (>999999998 || ==999999998)"]
+-- [>=1 && <2,<1 && (>0.65535 || ==0.65535),<1 && (>999999998 || ==999999998)]
+--
+-- >>> mapVR normaliseVersionRange ["^>=1 && <2", "<1 && (>0.65535 || ==0.65535)", "<1 && (>999999998 || ==999999998)"]
+-- [^>=1 && <2,<1 && >=0.65535,<1 && >=999999998]
+--
+-- >>> mapVR simplifyVersionRange ["^>=1 && <2", "<1 && (>0.65535 || ==0.65535)", "<1 && (>999999998 || ==999999998)"]
+-- [>=1 && <1.1,>=0.65535 && <1,<1 && (>999999998 || ==999999998)]
+--
 -- @since 3.6.0.0
 transformCaretLower :: VersionRange -> VersionRange
 transformCaretLower = hyloVersionRange embed projectVersionRange
