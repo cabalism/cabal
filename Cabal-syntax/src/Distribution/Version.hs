@@ -183,6 +183,18 @@ removeLowerBound = fromVersionIntervals . relaxHeadInterval . toVersionIntervals
 -- >>> mapVR transformCaret ["^>=1.2.3.4", "^>=1.2.3", "^>=1.2", "^>=1"]
 -- [>=1.2.3.4 && <1.3,>=1.2.3 && <1.3,>=1.2 && <1.3,>=1 && <1.1]
 --
+-- >>> mapVR simplifyVersionRange ["^>=1.2.3.4", "^>=1.2.3", "^>=1.2", "^>=1"]
+-- [>=1.2.3.4 && <1.3,>=1.2.3 && <1.3,>=1.2 && <1.3,>=1 && <1.1]
+--
+-- >>> mapVR normaliseVersionRange ["^>=1.2.3.4", "^>=1.2.3", "^>=1.2", "^>=1"]
+-- [^>=1.2.3.4,^>=1.2.3,^>=1.2,^>=1]
+--
+-- >>> mapVR simplifyVersionRange [">=1.2.3.4 && <1.3", ">=1.2.3 && <1.3", ">=1.2 && <1.3", ">=1 && <1.1"]
+-- [>=1.2.3.4 && <1.3,>=1.2.3 && <1.3,>=1.2 && <1.3,>=1 && <1.1]
+--
+-- >>> mapVR normaliseVersionRange [">=1.2.3.4 && <1.3", ">=1.2.3 && <1.3", ">=1.2 && <1.3", ">=1 && <1.1"]
+-- [>=1.2.3.4 && <1.3,>=1.2.3 && <1.3,>=1.2 && <1.3,>=1 && <1.1]
+--
 -- >>> mapVR (removeUpperBound . transformCaret) ["^>=0.0.0.0", "^>=0.0.0", "^>=0.0", "^>=0"]
 -- [>=0.0.0.0,>=0.0.0,>=0.0,>=0]
 --
@@ -234,20 +246,22 @@ transformCaret = hyloVersionRange embed projectVersionRange
 transformCaretLower :: VersionRange -> VersionRange
 transformCaretLower = hyloVersionRange embed projectVersionRange
   where
+    simplify = projectVersionRange . simplifyVersionRange . embedVersionRange
     embed :: VersionRangeF VersionRange -> VersionRange
     embed (MajorBoundVersionF v) = orLaterVersion v
+    -- embed (simplify -> MajorBoundVersionF v) = orLaterVersion v
     embed
       x@( IntersectVersionRangesF
           vL@(projectVersionRange -> OrLaterVersionF v)
           (projectVersionRange -> EarlierVersionF _)
         ) | transformCaret (majorBoundVersion v) == embedVersionRange x
         = vL
-    embed
-      x@( IntersectVersionRangesF
-          (projectVersionRange -> EarlierVersionF _)
-          vL@(projectVersionRange -> OrLaterVersionF v)
-        ) | transformCaret (majorBoundVersion v) == embedVersionRange x
-        = vL
+    -- embed
+    --   x@( simplify -> IntersectVersionRangesF
+    --       (projectVersionRange -> EarlierVersionF _)
+    --       vL@(projectVersionRange -> OrLaterVersionF v)
+    --     ) | transformCaret (majorBoundVersion v) == embedVersionRange x
+    --     = vL
     embed vr = embedVersionRange vr
 
 -- | Rewrite @^>= x.y.z@ into explicit upper bound @<x.(y+1)@, removing the
