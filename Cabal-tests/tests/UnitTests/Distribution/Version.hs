@@ -174,6 +174,20 @@ prop_normalise_equiv vr =
 --   False /= True
 --   Use --quickcheck-replay="(SMGen 678089210534537140 16638118626652089627,6)" to reproduce.
 --   Use -p '/caretequiv/&&/normaliseVersionRange caretequiv/' to rerun this test only.
+-- normaliseVersionRange caretequiv: FAIL
+--   *** Failed! Falsified (after 226 tests and 6 shrinks):
+--   IntersectVersionRanges (EarlierVersion (mkVersion [1])) (UnionVersionRanges (LaterVersion (mkVersion [65533])) (ThisVersion (mkVersion [65533])))
+--   mkVersion [0]
+--   False /= True
+--   Use --quickcheck-replay="(SMGen 12003326574130041950 5751772977593466623,25)" to reproduce.
+--   Use -p '/caretequiv/&&/normaliseVersionRange caretequiv/' to rerun this test only.
+-- normaliseVersionRange caretequiv: FAIL
+--   *** Failed! Falsified (after 928 tests and 19 shrinks):
+--   IntersectVersionRanges (EarlierVersion (mkVersion [1])) (UnionVersionRanges (LaterVersion (mkVersion [999999999])) (ThisVersion (mkVersion [999999999])))
+--   mkVersion [0]
+--   False /= True
+--   Use --quickcheck-replay="(SMGen 10077197896610499398 12633626724489753693,27)" to reproduce.
+--   Use -p '/caretequiv/&&/normaliseVersionRange caretequiv/' to rerun this test only.
 prop_normalise_caret_equiv :: VersionRange -> Version -> Property
 prop_normalise_caret_equiv vr = prop_equivalentVersionRange
     (transformCaretUpper vr)
@@ -215,6 +229,20 @@ prop_simplify_equiv vr v =
 --   mkVersion [1]
 --   False /= True
 --   Use --quickcheck-replay="(SMGen 3422677578528496605 6314785855750672253,34)" to reproduce.
+--   Use -p '/caretequiv/&&/simplifyVersionRange caretequiv/' to rerun this test only.
+-- simplifyVersionRange caretequiv:  FAIL
+--   *** Failed! Falsified (after 27 tests and 4 shrinks):
+--   IntersectVersionRanges (LaterVersion (mkVersion [0,1])) (MajorBoundVersion (mkVersion [0,1]))
+--   mkVersion [1]
+--   True /= False
+--   Use --quickcheck-replay="(SMGen 2369897310194750701 5358284641854648323,26)" to reproduce.
+--   Use -p '/caretequiv/&&/simplifyVersionRange caretequiv/' to rerun this test only.
+-- simplifyVersionRange caretequiv:  FAIL
+--   *** Failed! Falsified (after 217 tests and 20 shrinks):
+--   IntersectVersionRanges (EarlierVersion (mkVersion [2])) (MajorBoundVersion (mkVersion [1]))
+--   mkVersion [2]
+--   False /= True
+--   Use --quickcheck-replay="(SMGen 10012917869092879596 562669100764973537,16)" to reproduce.
 --   Use -p '/caretequiv/&&/simplifyVersionRange caretequiv/' to rerun this test only.
 prop_simplify_caret_equiv :: VersionRange -> Version -> Property
 prop_simplify_caret_equiv vr v =
