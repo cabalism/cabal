@@ -907,10 +907,10 @@ instance Monad Match where
   NoMatch d ms >>= _ = NoMatch d ms
   ExactMatch d xs >>= f =
     addDepth d $
-      foldr matchPlus matchZero (map f xs)
+      foldr (matchPlus . f) matchZero xs
   InexactMatch d xs >>= f =
     addDepth d . forceInexact $
-      foldr matchPlus matchZero (map f xs)
+      foldr (matchPlus . f) matchZero xs
 
 addDepth :: Confidence -> Match a -> Match a
 addDepth d' (NoMatch d msgs) = NoMatch (d' + d) msgs
