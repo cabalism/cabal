@@ -19,7 +19,7 @@ main = cabalTest $ do
     traverse_ testAllAffixes ["symlink", "copy"]
   where
     mkAffixOption option = maybe [] (\a -> ["--program-" ++ option, a])
-    mkProgramName p s = maybe [] id p ++ "p" ++ maybe [] id s
+    mkProgramName p s = fromMaybe [] p ++ "p" ++ fromMaybe [] s
     testAffixes commonOpts prefix suffix = do
       cabal "install" (  commonOpts
                       ++ mkAffixOption "prefix" prefix

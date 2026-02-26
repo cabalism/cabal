@@ -38,7 +38,6 @@
 - ignore: {name: "Use const"} # 36 hints
 - ignore: {name: "Use fmap"} # 23 hints
 - ignore: {name: "Use fold"} # 1 hint
-- ignore: {name: "Use fromMaybe"} # 5 hints
 - ignore: {name: "Use fst"} # 2 hints
 - ignore: {name: "Use lambda-case"} # 58 hints
 - ignore: {name: "Use list comprehension"} # 19 hints
