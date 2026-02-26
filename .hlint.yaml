@@ -21,7 +21,6 @@
 - ignore: {name: "Redundant lambda"} # 19 hints
 - ignore: {name: "Redundant multi-way if"} # 1 hint
 - ignore: {name: "Redundant return"} # 9 hints
-- ignore: {name: "Replace case with fromMaybe"} # 4 hints
 - ignore: {name: "Use $>"} # 5 hints
 - ignore: {name: "Use ++"} # 4 hints
 - ignore: {name: "Use :"} # 29 hints

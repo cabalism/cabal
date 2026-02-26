@@ -459,9 +459,7 @@ lookupSourcePackageId index pkgid =
   -- Do not lookup internal libraries
   case Map.lookup (packageName pkgid, LMainLibName) (packageIdIndex index) of
     Nothing -> []
-    Just pvers -> case Map.lookup (packageVersion pkgid) pvers of
-      Nothing -> []
-      Just pkgs -> pkgs -- in preference order
+    Just pvers -> fromMaybe [] (Map.lookup (packageVersion pkgid) pvers) -- in preference order
 
 -- | Convenient alias of 'lookupSourcePackageId', but assuming only
 -- one package per package ID.
