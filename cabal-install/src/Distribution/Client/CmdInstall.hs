@@ -1060,7 +1060,7 @@ warnIfNoExes verbosity buildCtx =
     targets = concat $ Map.elems $ targetsMap buildCtx
     components = fst <$> targets
     selectors = concatMap (NE.toList . snd) targets
-    noExes = null $ catMaybes $ exeMaybe <$> components
+    noExes = null $ mapMaybe exeMaybe components
 
     exeMaybe (ComponentTarget (CExeName exe) _) = Just exe
     exeMaybe _ = Nothing
@@ -1153,7 +1153,7 @@ installCheckUnitExes
           then traverse_ installAndWarn exes
           else traverse_ warnAbout (zip symlinkables exes)
     where
-      exes = catMaybes $ (exeMaybe . fst) <$> components
+      exes = mapMaybe (exeMaybe . fst) components
       exeMaybe (ComponentTarget (CExeName exe) _) = Just exe
       exeMaybe _ = Nothing
 

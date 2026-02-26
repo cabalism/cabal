@@ -400,16 +400,15 @@ matchingPackagesByUnitId
   -> ElaboratedInstallPlan
   -> [ElaboratedConfiguredPackage]
 matchingPackagesByUnitId uid =
-  catMaybes
-    . fmap
-      ( foldPlanPackage
-          (const Nothing)
-          ( \x ->
-              if elabUnitId x == uid
-                then Just x
-                else Nothing
-          )
-      )
+  mapMaybe
+    ( foldPlanPackage
+        (const Nothing)
+        ( \x ->
+            if elabUnitId x == uid
+              then Just x
+              else Nothing
+        )
+    )
     . toList
 
 -- | This defines what a 'TargetSelector' means for the @run@ command.
@@ -564,7 +563,7 @@ renderRunProblem (TargetProblemMatchesMultiple targetSelector targets) =
             )
       )
   where
-    removeDuplicates = catMaybes . map safeHead . group . sort
+    removeDuplicates = mapMaybe safeHead . group . sort
 renderRunProblem (TargetProblemMultipleTargets selectorMap) =
   "The run command is for running a single executable at once. The targets "
     ++ renderListCommaAnd

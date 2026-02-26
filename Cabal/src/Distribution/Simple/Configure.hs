@@ -1166,10 +1166,7 @@ finalCheckPackage
       -- TODO: Move this into a helper function.
       let langlist =
             nub $
-              catMaybes $
-                map
-                  defaultLanguage
-                  (enabledBuildInfos pkg_descr enabled)
+              mapMaybe defaultLanguage (enabledBuildInfos pkg_descr enabled)
       let langs = unsupportedLanguages comp langlist
       when (not (null langs)) $
         dieWithException verbosity $

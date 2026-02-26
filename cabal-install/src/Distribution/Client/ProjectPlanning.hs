@@ -2489,7 +2489,7 @@ elaborateInstallPlan
 
       pkgsLocalToProject :: Set PackageId
       pkgsLocalToProject =
-        Set.fromList (catMaybes (map shouldBeLocal localPackages))
+        Set.fromList (mapMaybe shouldBeLocal localPackages)
       -- TODO: localPackages is a misnomer, it's all project packages
       -- here is where we decide which ones will be local!
 
