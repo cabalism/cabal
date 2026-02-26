@@ -1018,9 +1018,7 @@ matchInexactly
 matchInexactly cannonicalise xs =
   \x -> case Map.lookup x m of
     Just ys -> exactMatches ys
-    Nothing -> case Map.lookup (cannonicalise x) m' of
-      Just ys -> inexactMatches ys
-      Nothing -> matchZero
+    Nothing -> maybe matchZero inexactMatches (Map.lookup (cannonicalise x) m')
   where
     m = Map.fromListWith (++) [(k, [x]) | (k, x) <- xs]
 

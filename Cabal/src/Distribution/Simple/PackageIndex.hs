@@ -489,9 +489,7 @@ lookupInternalPackageName
   -> LibraryName
   -> [(Version, [a])]
 lookupInternalPackageName index name library =
-  case Map.lookup (name, library) (packageIdIndex index) of
-    Nothing -> []
-    Just pvers -> Map.toList pvers
+  maybe [] Map.toList (Map.lookup (name, library) (packageIdIndex index))
 
 -- | Does a lookup by source package name and a range of versions.
 --

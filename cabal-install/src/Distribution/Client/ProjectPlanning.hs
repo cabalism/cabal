@@ -2047,9 +2047,7 @@ elaborateInstallPlan
                   distDirLayout
                   elaboratedSharedConfig
                   elab
-                  $ case Cabal.componentNameString cname of
-                    Just n -> prettyShow n
-                    Nothing -> ""
+                  $ maybe "" prettyShow (Cabal.componentNameString cname)
 
       -- \| Given a 'SolverId' referencing a dependency on a library, return
       -- the 'ElaboratedPlanPackage' corresponding to the library.  This
@@ -2137,9 +2135,11 @@ elaborateInstallPlan
                       elab1
                 }
 
-            modShape = case find (matchElabPkg (== (CLibName LMainLibName))) comps of
-              Nothing -> emptyModuleShape
-              Just e -> Ty.elabModuleShape e
+            modShape =
+              maybe
+                emptyModuleShape
+                Ty.elabModuleShape
+                (find (matchElabPkg (== (CLibName LMainLibName))) comps)
 
             pkgInstalledId
               | shouldBuildInplaceOnly pkg =
