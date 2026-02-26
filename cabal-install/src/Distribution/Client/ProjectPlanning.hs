@@ -2612,8 +2612,7 @@ elaborateInstallPlan
 
       packagesWithLibDepsDownwardClosedProperty property =
         Set.fromList
-          . map packageId
-          . fromMaybe []
+          . maybe [] (map packageId)
           $ Graph.closure
             libDepGraph
             [ Graph.nodeKey pkg
@@ -3470,7 +3469,7 @@ pruneInstallPlanPass1 pkgs
 
     -- Make a closed graph by calculating the closure from the roots
     pruned_packages :: [ElaboratedPlanPackage]
-    pruned_packages = map (mapConfiguredPackage fromPrunedPackage) (fromMaybe [] $ Graph.closure graph roots)
+    pruned_packages = maybe [] (map (mapConfiguredPackage fromPrunedPackage)) (Graph.closure graph roots)
 
     closed_graph :: Graph.Graph ElaboratedPlanPackage
     closed_graph = Graph.fromDistinctList pruned_packages
