@@ -19,7 +19,6 @@ module Distribution.Client.CmdRun
 import Distribution.Client.Compat.Prelude hiding (toList)
 import Prelude ()
 
-import Data.List (group)
 import qualified Data.Set as Set
 import Distribution.Client.CmdErrorMessages
   ( plural
@@ -103,7 +102,7 @@ import Distribution.Simple.Utils
   ( dieWithException
   , info
   , notice
-  , safeHead
+  , sortNub
   , warn
   , wrapText
   )
@@ -556,14 +555,12 @@ renderRunProblem (TargetProblemMatchesMultiple targetSelector targets) =
       ( (\(label, xs) -> "- " ++ label ++ ": " ++ renderListPretty xs)
           <$> zip
             ["executables", "test-suites", "benchmarks"]
-            ( filter (not . null) . map removeDuplicates $
+            ( filter (not . null) . map sortNub $
                 map (componentNameRaw . availableTargetComponentName)
-                  <$> (flip filterTargetsKind $ targets)
+                  <$> (flip filterTargetsKind targets)
                   <$> [ExeKind, TestKind, BenchKind]
             )
       )
-  where
-    removeDuplicates = mapMaybe safeHead . group . sort
 renderRunProblem (TargetProblemMultipleTargets selectorMap) =
   "The run command is for running a single executable at once. The targets "
     ++ renderListCommaAnd
