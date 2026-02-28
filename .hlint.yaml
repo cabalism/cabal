@@ -62,6 +62,10 @@
         lhs: fromMaybe x (Data.Map.lookup k m)
         rhs: Map.findWithDefault x k m
         name: Use findWithDefault
+    - hint:
+        lhs: fromMaybe [] y
+        rhs: fromMaybe "" y 
+        name: Use empty string literal
 
 - arguments:
     - --ignore-glob=Cabal-syntax/src/Distribution/Fields/Lexer.hs
