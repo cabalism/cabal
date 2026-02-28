@@ -1060,10 +1060,7 @@ warnIfNoExes verbosity buildCtx =
     targets = concat $ Map.elems $ targetsMap buildCtx
     components = fst <$> targets
     selectors = concatMap (NE.toList . snd) targets
-    noExes = null $ mapMaybe exeMaybe components
-
-    exeMaybe (ComponentTarget (CExeName exe) _) = Just exe
-    exeMaybe _ = Nothing
+    noExes = not $ any (isJust . exeMaybe) components
 
 -- | Return the package specifiers and non-global environment file entries.
 getEnvSpecsAndNonGlobalEntries
@@ -1132,6 +1129,10 @@ symlink
       (mkFinalExeName exe)
       (mkExeName exe)
 
+exeMaybe :: ComponentTarget -> Maybe UnqualComponentName
+exeMaybe (ComponentTarget (CExeName exe) _) = Just exe
+exeMaybe _ = Nothing
+
 -- |
 -- -- * When 'InstallCheckOnly', warn if install would fail overwrite policy
 --      checks but don't install anything.
@@ -1154,8 +1155,6 @@ installCheckUnitExes
           else traverse_ warnAbout (zip symlinkables exes)
     where
       exes = mapMaybe (exeMaybe . fst) components
-      exeMaybe (ComponentTarget (CExeName exe) _) = Just exe
-      exeMaybe _ = Nothing
 
       warnAbout (True, _) = return ()
       warnAbout (False, exe) = dieWithException verbosity $ InstallUnitExes (errorMessage installDir exe)
