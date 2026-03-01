@@ -557,7 +557,7 @@ renderRunProblem (TargetProblemMatchesMultiple targetSelector targets) =
             ["executables", "test-suites", "benchmarks"]
             ( filter (not . null) . map sortNub $
                 map (componentNameRaw . availableTargetComponentName)
-                  <$> (flip filterTargetsKind targets)
+                  <$> (`filterTargetsKind` targets)
                   <$> [ExeKind, TestKind, BenchKind]
             )
       )
