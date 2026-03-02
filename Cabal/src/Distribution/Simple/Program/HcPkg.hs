@@ -291,6 +291,11 @@ dump hpi verbosity mbWorkDir packagedb = do
     Left ok -> return ok
     _ -> dieWithException verbosity $ FailedToParseOutputDump (programId (hcPkgProgram hpi))
 
+-- |
+-- >>> [getPkgName pkg | pkg <- parsePkgs "."]
+-- [""]
+-- >>> [pkg | pkg <- parsePkgs "a b"]
+-- ["a","b"]
 parsePackages :: LBS.ByteString -> Either [InstalledPackageInfo] [String]
 parsePackages lbs0 =
   case traverse parseInstalledPackageInfo $ splitPkgs lbs0 of
@@ -582,3 +587,17 @@ verbosityOpts hpi v
   | v >= Deafening = ["-v2"]
   | v == Silent = ["-v0"]
   | otherwise = []
+
+-- $setup
+-- >>> :set -XNamedFieldPuns
+-- >>> import Distribution.Types.PackageName
+--
+-- >>> :{
+-- getPkgName :: InstalledPackageInfo -> String
+-- getPkgName InstalledPackageInfo{sourcePackageId = PackageIdentifier{pkgName}} = unPackageName pkgName
+-- :}
+--
+-- >>> :{
+-- parsePkgs :: String -> [InstalledPackageInfo]
+-- parsePkgs s = [pkg | let Left pkgs = parsePackages $ toUTF8LBS s, pkg <- pkgs]
+-- :}
