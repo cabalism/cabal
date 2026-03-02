@@ -311,19 +311,22 @@ parsePackages lbs0 =
         isSpace8 32 = True -- ' '
         isSpace8 _ = False
 
-        doSplit :: LBS.ByteString -> [BS.ByteString]
-        doSplit lbs = go (LBS.findIndices (\w -> w == 10 || w == 13) lbs)
-          where
-            go :: [Int64] -> [BS.ByteString]
-            go [] = [LBS.toStrict lbs]
-            go (idx : idxs) =
-              let (pfx, sfx) = LBS.splitAt idx lbs
-               in case foldr ((<|>) . (`LBS.stripPrefix` sfx)) Nothing separators of
-                    Just sfx' -> LBS.toStrict pfx : doSplit sfx'
-                    Nothing -> go idxs
+-- |
+-- >>> map fromUTF8BS . doSplit $ toUTF8LBS "foo\n---\nbar\r\n---\rbaz\rquux"
+-- ["foo","bar","baz","quux"]
+doSplit :: LBS.ByteString -> [BS.ByteString]
+doSplit lbs = go (LBS.findIndices (\w -> w == 10 || w == 13) lbs)
+  where
+    go :: [Int64] -> [BS.ByteString]
+    go [] = [LBS.toStrict lbs]
+    go (idx : idxs) =
+      let (pfx, sfx) = LBS.splitAt idx lbs
+        in case foldr ((<|>) . (`LBS.stripPrefix` sfx)) Nothing separators of
+            Just sfx' -> LBS.toStrict pfx : doSplit sfx'
+            Nothing -> go idxs
 
-            separators :: [LBS.ByteString]
-            separators = ["\n---\n", "\r\n---\r\n", "\r---\r"]
+    separators :: [LBS.ByteString]
+    separators = ["\n---\n", "\r\n---\r\n", "\r---\r"]
 
 mungePackagePaths :: FilePath -> InstalledPackageInfo -> InstalledPackageInfo
 -- Perform path/URL variable substitution as per the Cabal ${pkgroot} spec
