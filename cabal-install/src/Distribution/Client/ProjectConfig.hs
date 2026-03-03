@@ -830,14 +830,21 @@ readProjectFileSkeletonGen
       exists <- liftIO $ doesFileExist extensionFile
       if exists
         then do
-          monitorFiles [monitorFileHashed extensionFile]
           pcs <- liftIO $ parseConfig extensionFile
-          monitorFiles $ map monitorFileHashed (projectConfigPathRoot <$> projectSkeletonImports pcs)
+
+          -- we need to monitor the main project file as well as all (possibly recursive) imports
+          let allProjectFiles = map makeAbsolute . nub . concatMap projectConfigPathAll $ projectSkeletonImports pcs
+          monitorFiles $ map monitorFileHashed allProjectFiles
+
           return pcs
         else do
           monitorFiles [monitorNonExistentFile extensionFile]
           return mempty
     where
+      -- do we prefer absolute paths for cache monitoring?
+      makeAbsolute f
+        | isAbsolute f = f
+        | otherwise = distProjectRootDirectory dir </> f
       extensionFile = (distProjectFile dir) extensionName
 
 -- There are 3 different variants of the project parsing function.

@@ -6,6 +6,7 @@ module Distribution.Solver.Types.ProjectConfigPath
     -- * Project Config Path Manipulation
       ProjectConfigPath(..)
     , projectConfigPathRoot
+    , projectConfigPathAll
     , nullProjectConfigPath
     , consProjectConfigPath
     , unconsProjectConfigPath
@@ -216,6 +217,10 @@ docProjectConfigPathFailReason vr pcp
 -- | The root of the path, the project itself.
 projectConfigPathRoot :: ProjectConfigPath -> FilePath
 projectConfigPathRoot (ProjectConfigPath xs) = last xs
+
+-- | Get all paths.
+projectConfigPathAll :: ProjectConfigPath -> [FilePath]
+projectConfigPathAll (ProjectConfigPath xs) = NE.toList xs
 
 -- | Used by some tests as a dummy "unused" project root.
 nullProjectConfigPath :: ProjectConfigPath
