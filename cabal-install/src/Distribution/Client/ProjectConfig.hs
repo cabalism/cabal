@@ -56,7 +56,6 @@ module Distribution.Client.ProjectConfig
   , fetchAndReadSourcePackages
 
     -- * Resolving configuration
-  , lookupLocalPackageConfig
   , projectConfigWithBuilderRepoContext
   , projectConfigWithSolverRepoContext
   , SolverSettings (..)
@@ -858,7 +857,7 @@ readProjectFileSkeletonGen
           monitorFiles [monitorFileHashed extensionFile]
           pcs <- liftIO $ parseConfig extensionFile
           let paths =
-                [ projectConfigPathRoot path
+                [ currentProjectConfigPath path
                 | (Nothing, path) <- projectSkeletonImports pcs
                 ]
           for_ paths $ \p -> do
