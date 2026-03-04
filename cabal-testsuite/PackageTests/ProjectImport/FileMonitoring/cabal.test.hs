@@ -9,7 +9,8 @@ main = cabalTest (withProjectFile "cabal.project" $ do
 
   -- change the imported project file
   test_dir <- fmap testTmpDir getTestEnv
-  liftIO $ writeFile (test_dir </> "nested" </> "cabal.project.common") "package *\n  Tests: False"
+  liftIO $ writeFile (test_dir </> "test" </> "tests-toggle.config") "package *\n  Tests: False"
   result' <- recordMode DoNotRecord $ cabal' "build" []
+  assertOutputDoesNotContain "Test suite not yet implement" result'
   assertOutputDoesNotContain "Failed to build cabal-project-repro-0.1.0.0-inplace-cabal-project-repro-test." result'
   )
