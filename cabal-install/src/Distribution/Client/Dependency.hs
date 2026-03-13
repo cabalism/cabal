@@ -637,8 +637,17 @@ addDefaultSetupDependencies defaultSetupDeps params =
               { PD.packageDescription =
                   pkgdesc
                     { PD.setupBuildInfo =
+                        -- See 'addCabalDepForHooks' for an explanation of
+                        -- what is going on here.
                         case PD.setupBuildInfo pkgdesc of
-                          Just sbi -> Just sbi
+                          Just sbi ->
+                            let
+                              sbi' =
+                                case PD.buildType pkgdesc of
+                                  PD.Hooks -> addCabalDepForHooks sbi
+                                  _ -> sbi
+                             in
+                              Just sbi'
                           Nothing -> case defaultSetupDeps srcpkg of
                             Nothing -> Nothing
                             Just deps
@@ -656,6 +665,26 @@ addDefaultSetupDependencies defaultSetupDeps params =
         isCustom = PD.buildType pkgdesc == PD.Custom || PD.buildType pkgdesc == PD.Hooks
         gpkgdesc = srcpkgDescription srcpkg
         pkgdesc = PD.packageDescription gpkgdesc
+
+-- | Add an implicit dependency on @Cabal@ for a @build-type: Hooks@ package
+-- that doesn't explicitly depend on @Cabal@. Rationale: we need the @Cabal@
+-- library in order to compile @main = defaultMainWithSetupHooks setupHooks@.
+--
+-- This ensures the solver picks a consistent version of @Cabal@ when other
+-- packages in the @setup-depends@ stanza depend on @Cabal@.
+-- See https://github.com/haskell/cabal/issues/11331.
+--
+-- NB: don't do this for @build-type: Custom@, as it is possible for such
+-- packages to not depend on @Cabal@ at all (although basically unheard of
+-- in practice).
+addCabalDepForHooks :: PD.SetupBuildInfo -> PD.SetupBuildInfo
+addCabalDepForHooks sbi@(PD.SetupBuildInfo{PD.setupDepends = deps})
+  | any ((== cabalPkgName) . depPkgName) deps =
+      sbi
+  | otherwise =
+      sbi{PD.setupDepends = Dependency cabalPkgName anyVersion mainLibSet : deps}
+  where
+    cabalPkgName = mkPackageName "Cabal"
 
 -- | If a package has a custom setup then we need to add a setup-depends
 -- on Cabal.
