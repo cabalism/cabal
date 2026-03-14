@@ -135,6 +135,7 @@ import Distribution.Simple.Utils
   , lowercase
   , noticeDoc
   )
+
 import Distribution.Types.CondTree
   ( CondBranch (..)
   , CondTree (..)
@@ -198,7 +199,7 @@ import Distribution.Utils.Path hiding
   )
 
 import qualified Data.ByteString.Char8 as BS
-import Data.List (sortOn)
+import Data.List ((\\), sortOn)
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 import Network.URI (URI (..), nullURIAuth, parseURI)
@@ -263,9 +264,25 @@ parseProject rootPath cacheDir httpTransport verbosity configToParse = do
   importsBy <- newIORef $ toNubList [ProjectImport canonicalRoot projectPath]
   dupesMap <- newIORef mempty
   result <- parseProjectSkeleton cacheDir httpTransport verbosity importsBy dupesMap projectDir projectPath configToParse
-  dupes <- Map.filter ((> 1) . length) <$> readIORef dupesMap
+  _dupes <- Map.filter ((> 1) . length) <$> readIORef dupesMap
+  let dupes = case result of
+        ProjectParseOk _ skel -> detectDupes $ projectSkeletonImports skel
+        ProjectParseFailed _ -> Map.empty
   unless (Map.null dupes) (noticeDoc verbosity $ vcat (dupesMsg <$> Map.toList dupes))
   return result
+
+detectDupes :: [ProjectConfigPath] -> DupesMap
+detectDupes xs =
+  Map.map (\zs -> [Dupes v zs | v <- zs]) $
+    Map.filter ((> 1) . length) ys
+  where
+    ys :: Map FilePath [ProjectImport]
+    ys =
+      Map.fromListWith
+        (<>)
+        [ (h, [ProjectImport h (consProjectConfigPath h t)])
+        | (h, Just t) <- unconsProjectConfigPath <$> sort xs
+        ]
 
 data Dupes = Dupes
   { dupesImport :: ProjectImport
@@ -284,7 +301,7 @@ dupesMsg :: (FilePath, [Dupes]) -> Doc
 dupesMsg (duplicate, ds@(take 1 . sortOn (importBy . dupesImport) -> dupes)) =
   vcat $
     ((text "Warning:" <+> int (length ds) <+> text "imports of" <+> text duplicate) <> semi)
-      : ((\Dupes{..} -> duplicateImportMsg Disp.empty dupesImport dupesImports) <$> dupes)
+      : ((\Dupes{..} -> duplicateImportMsg Disp.empty dupesImport (sort $ dupesImports \\ [dupesImport])) <$> dupes)
 
 parseProjectSkeleton
   :: FilePath
