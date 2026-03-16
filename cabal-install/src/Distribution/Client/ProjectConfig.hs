@@ -978,9 +978,7 @@ parseProjectFileSkeletonLegacy verbosity httpTransport distDirLayout extensionNa
   bs <- BS.readFile extensionFile
   res <- parseProject extensionFile (distDownloadSrcDirectory distDirLayout) httpTransport verbosity $ ProjectConfigToParse bs
   case res of
-    x@(OldParser.ProjectParseOk _ skeleton) -> do
-      reportDuplicateImports verbosity skeleton
-      pure x
+    x@(OldParser.ProjectParseOk _ skeleton) -> reportDuplicateImports verbosity skeleton >> pure x
     x@OldParser.ProjectParseFailed{} -> pure x
 
 parseProjectFileSkeletonParsec :: Verbosity -> HttpTransport -> DistDirLayout -> String -> String -> FilePath -> IO (Parsec.ParseResult ProjectFileSource ProjectConfigSkeleton, BS.ByteString)
@@ -989,9 +987,7 @@ parseProjectFileSkeletonParsec verbosity httpTransport distDirLayout extensionNa
   res <- Parsec.parseProject extensionFile (distDownloadSrcDirectory distDirLayout) httpTransport verbosity $ ProjectConfigToParse bs
   let (_, ppres) = runParseResult res
   case ppres of
-    x@(Right skeleton) -> do
-      reportDuplicateImports verbosity skeleton
-      pure (res, bs)
+    x@(Right skeleton) -> reportDuplicateImports verbosity skeleton >> pure (res, bs)
     x@Left{} -> pure (res, bs)
 
 -- | Render the 'ProjectConfig' format.
