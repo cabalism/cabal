@@ -11,26 +11,33 @@
 
 -- | Project configuration, implementation in terms of legacy types.
 module Distribution.Client.ProjectConfig.Legacy
-  ( -- Project config skeletons
+  ( -- * Skeletons
     ProjectConfigSkeleton
-  , parseProject
   , instantiateProjectConfigSkeletonFetchingCompiler
   , instantiateProjectConfigSkeletonWithCompiler
   , singletonProjectConfigSkeleton
   , projectSkeletonImports
 
-    -- * Project config in terms of legacy types
-  , LegacyProjectConfig
+    -- * Parsing
+  , parseProject
   , parseLegacyProjectConfig
+
+    -- ** Duplicate Imports
+  , reportDuplicateImports
+
+    -- * Legacy Configuration
+  , LegacyProjectConfig
   , showLegacyProjectConfig
 
-    -- * Conversion to and from legacy config types
+    -- * Conversions
   , commandLineFlagsToProjectConfig
   , convertLegacyProjectConfig
   , convertLegacyGlobalConfig
   , convertToLegacyProjectConfig
 
-    -- * Internals, just for tests
+    -- * Internals
+
+    -- | These functions are exposed just for tests.
   , parsePackageLocationTokenQ
   , renderPackageLocationToken
   ) where
@@ -198,6 +205,7 @@ import Distribution.Utils.Path hiding
   )
 
 import qualified Data.ByteString.Char8 as BS
+import Data.Functor ((<&>))
 import Data.List (sortOn, (\\))
 import qualified Data.Map as Map
 import qualified Data.Set as Set
@@ -206,6 +214,43 @@ import System.Directory (createDirectoryIfMissing, makeAbsolute)
 import System.FilePath (isAbsolute, isPathSeparator, makeValid, splitFileName, (</>))
 import Text.PrettyPrint (Doc, int, render, semi, text, vcat, ($+$))
 import qualified Text.PrettyPrint as Disp (empty, render, text)
+
+reportDuplicateImports :: Verbosity -> ProjectConfigSkeleton -> IO ()
+reportDuplicateImports verbosity skeleton = do
+  let dupes = detectDupes $ projectSkeletonImports skeleton
+  unless (Map.null dupes) (noticeDoc verbosity $ vcat (dupesMsg <$> Map.toList dupes))
+
+detectDupes :: [ProjectConfigPath] -> DupesMap
+detectDupes xs =
+  Map.map (\zs -> [Dupes v zs | v <- zs]) $
+    Map.filter ((> 1) . length) ys
+  where
+    ys :: Map FilePath [ProjectImport]
+    ys =
+      Map.fromListWith
+        (<>)
+        [ (h, [ProjectImport h (consProjectConfigPath h t)])
+        | (h, Just t) <- unconsProjectConfigPath <$> sort xs
+        ]
+
+data Dupes = Dupes
+  { dupesImport :: ProjectImport
+  -- ^ The import that we're checking for duplicates.
+  , dupesImports :: [ProjectImport]
+  -- ^ All the imports of this file.
+  }
+  deriving (Eq)
+
+instance Ord Dupes where
+  compare = compare `on` length . dupesImports
+
+type DupesMap = Map FilePath [Dupes]
+
+dupesMsg :: (FilePath, [Dupes]) -> Doc
+dupesMsg (duplicate, ds@(take 1 . sortOn (importBy . dupesImport) -> dupes)) =
+  vcat $
+    ((text "Warning:" <+> int (length ds) <+> text "imports of" <+> text duplicate) <> semi)
+      : ((\Dupes{..} -> duplicateImportMsg Disp.empty dupesImport (sort $ dupesImports \\ [dupesImport])) <$> dupes)
 
 ------------------------------------------------------------------
 -- Handle extended project config files with conditionals and imports.
@@ -262,45 +307,10 @@ parseProject rootPath cacheDir httpTransport verbosity configToParse =
     projectDir <- makeAbsolute dir
     projectPath <- canonicalizeConfigPath projectDir (ProjectConfigPath $ projectFileName :| [])
     parseProjectSkeleton cacheDir httpTransport verbosity projectDir projectPath configToParse
-    >>= \case
-      ProjectParseOk ws skeleton -> do
-        let dupes = detectDupes $ projectSkeletonImports skeleton
-        unless (Map.null dupes) (noticeDoc verbosity $ vcat (dupesMsg <$> Map.toList dupes))
-        -- NOTE: Reverse the warnings so they are in line number order.
-        pure $ ProjectParseOk (reverse ws) skeleton
-      x@ProjectParseFailed{} -> pure x
-
-detectDupes :: [ProjectConfigPath] -> DupesMap
-detectDupes xs =
-  Map.map (\zs -> [Dupes v zs | v <- zs]) $
-    Map.filter ((> 1) . length) ys
-  where
-    ys :: Map FilePath [ProjectImport]
-    ys =
-      Map.fromListWith
-        (<>)
-        [ (h, [ProjectImport h (consProjectConfigPath h t)])
-        | (h, Just t) <- unconsProjectConfigPath <$> sort xs
-        ]
-
-data Dupes = Dupes
-  { dupesImport :: ProjectImport
-  -- ^ The import that we're checking for duplicates.
-  , dupesImports :: [ProjectImport]
-  -- ^ All the imports of this file.
-  }
-  deriving (Eq)
-
-instance Ord Dupes where
-  compare = compare `on` length . dupesImports
-
-type DupesMap = Map FilePath [Dupes]
-
-dupesMsg :: (FilePath, [Dupes]) -> Doc
-dupesMsg (duplicate, ds@(take 1 . sortOn (importBy . dupesImport) -> dupes)) =
-  vcat $
-    ((text "Warning:" <+> int (length ds) <+> text "imports of" <+> text duplicate) <> semi)
-      : ((\Dupes{..} -> duplicateImportMsg Disp.empty dupesImport (sort $ dupesImports \\ [dupesImport])) <$> dupes)
+    <&> \case
+      -- NOTE: Reverse the warnings so they are in line number order.
+      ProjectParseOk ws skeleton -> ProjectParseOk (reverse ws) skeleton
+      x@ProjectParseFailed{} -> x
 
 parseProjectSkeleton
   :: FilePath
