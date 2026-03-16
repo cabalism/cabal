@@ -205,6 +205,7 @@ import Distribution.Utils.Path hiding
   )
 
 import qualified Data.ByteString.Char8 as BS
+import Data.Function ((&))
 import Data.Functor ((<&>))
 import Data.List (sortOn, (\\))
 import qualified Data.Map as Map
@@ -227,16 +228,12 @@ reportDuplicateImports verbosity skeleton = do
 
 detectDupes :: [ProjectConfigPath] -> DupesMap
 detectDupes xs =
-  Map.map (\zs -> [Dupes v zs | v <- zs]) $
-    Map.filter ((> 1) . length) ys
-  where
-    ys :: Map FilePath [ProjectImport]
-    ys =
-      Map.fromListWith
-        (<>)
-        [ (h, [ProjectImport h (consProjectConfigPath h t)])
-        | (h, Just t) <- unconsProjectConfigPath <$> sort xs
-        ]
+  [ (h, [ProjectImport h (consProjectConfigPath h t)])
+  | (h, Just t) <- unconsProjectConfigPath <$> sort xs
+  ]
+    & Map.fromListWith (<>)
+    & Map.filter ((> 1) . length)
+    <&> \zs -> [Dupes v zs | v <- zs]
 
 data Dupes = Dupes
   { dupesImport :: ProjectImport
