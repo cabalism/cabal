@@ -34,7 +34,7 @@ import Data.List (isInfixOf)
 main = do
   -- NOTE: Options are --project-file-parser=<legacy|default|parsec|fallback|compare>
   cabalTest' "parser-legacy" . recordMode RecordMarked $ runTest (yProjectOpts "legacy") (wProjectOpts "legacy")
-  cabalTest' "parser-default" . recordMode RecordMarked $ runTest (yProjectOpts "default") (wProjectOpts "default") 
+  cabalTest' "parser-default" . recordMode RecordMarked $ runTest (yProjectOpts "default") (wProjectOpts "default")
   cabalTest' "parser-parsec" . recordMode RecordMarked $ runTest (yProjectOpts "parsec") (wProjectOpts "parsec")
   cabalTest' "parser-fallback" . recordMode RecordMarked $ runTest (yProjectOpts "fallback") (wProjectOpts "fallback")
 
