@@ -215,6 +215,11 @@ import System.FilePath (isAbsolute, isPathSeparator, makeValid, splitFileName, (
 import Text.PrettyPrint (Doc, int, render, semi, text, vcat, ($+$))
 import qualified Text.PrettyPrint as Disp (empty, render, text)
 
+-- | Detect and report any duplicate imports, including those missed when parsing.
+--
+-- Parsing catches cyclical imports and some but not all duplicate imports. In
+-- particular, it doesn't catch when the same project configuration is imported
+-- via different import paths.
 reportDuplicateImports :: Verbosity -> ProjectConfigSkeleton -> IO ()
 reportDuplicateImports verbosity skeleton = do
   let dupes = detectDupes $ projectSkeletonImports skeleton
