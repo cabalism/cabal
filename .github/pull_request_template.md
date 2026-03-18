@@ -2,7 +2,7 @@ Please read [Github PR Conventions](https://github.com/haskell/cabal/blob/master
 
 ---
 
-**Template Α: This PR modifies [behaviour or interface](https://github.com/cabalism/cabal/blob/master/CONTRIBUTING.md#changelog)**
+**Template Α: This PR modifies [behaviour or interface](https://github.com/haskell/cabal/blob/master/CONTRIBUTING.md#changelog)**
 
 Include the following checklist in your PR:
 
