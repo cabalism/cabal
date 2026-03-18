@@ -244,7 +244,14 @@ data Dupes = Dupes
   deriving (Eq)
 
 instance Ord Dupes where
-  compare = compare `on` length . dupesImports
+  compare x y =
+    (compare `on` length . dupesImports) x y
+      `thenCmp` (compare `on` sort . dupesImports) x y
+      `thenCmp` (compare `on` dupesImport) x y
+    where
+      thenCmp :: Ordering -> Ordering -> Ordering
+      thenCmp EQ o2 = o2
+      thenCmp o1 _ = o1
 
 type DupesMap = Map FilePath [Dupes]
 
