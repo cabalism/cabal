@@ -207,7 +207,7 @@ import Distribution.Utils.Path hiding
 import qualified Data.ByteString.Char8 as BS
 import Data.Function ((&))
 import Data.Functor ((<&>))
-import Data.List (sortOn, (\\))
+import Data.List ((\\))
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 import Network.URI (URI (..), nullURIAuth, parseURI)
@@ -256,7 +256,7 @@ instance Ord Dupes where
 type DupesMap = Map FilePath [Dupes]
 
 dupesMsg :: (FilePath, [Dupes]) -> Doc
-dupesMsg (duplicate, ds@(take 1 . sortOn (importBy . dupesImport) -> dupes)) =
+dupesMsg (duplicate, ds@(take 1 . sort -> dupes)) =
   vcat $
     ((text "Warning:" <+> int (length ds) <+> text "imports of" <+> text duplicate) <> semi)
       : ((\Dupes{..} -> duplicateImportMsg Disp.empty dupesImport (sort $ dupesImports \\ [dupesImport])) <$> dupes)
