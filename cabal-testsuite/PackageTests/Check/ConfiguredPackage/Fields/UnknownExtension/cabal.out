@@ -1,4 +1,8 @@
-# cabal check
-The following errors are likely to affect your build negatively:
-Error: [unknown-extension] Unknown extensions: ObliqueTypes
-Error: Hackage would reject this package.
+# cabal build
+Resolving dependencies...
+Error: [Cabal-7107]
+Could not resolve dependencies:
+[__0] next goal: pkg (user goal)
+[__0] rejecting: pkg-0 (conflict: requires unknown extension VeryObliqueAngles)
+[__0] fail (backjumping, conflict set: pkg)
+After searching the rest of the dependency tree exhaustively, these were the goals I've had most trouble fulfilling: pkg (2)
