@@ -1,5 +1,6 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE ViewPatterns #-}
 
 module Distribution.Solver.Types.ProjectConfigPath
@@ -55,7 +56,10 @@ data ProjectImport =
         { importOf :: FilePath
         , importBy :: ProjectConfigPath
         }
-    deriving (Eq, Ord)
+    deriving (Eq)
+
+instance Ord ProjectImport where
+    compare = compare `on` (\ProjectImport{..} -> consProjectConfigPath importOf importBy)
 
 -- | Path to a configuration file, either a singleton project root, or a longer
 -- list representing a path to an import.  The path is a non-empty list that we
