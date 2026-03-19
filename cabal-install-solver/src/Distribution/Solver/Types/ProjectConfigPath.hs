@@ -58,8 +58,19 @@ data ProjectImport =
         { importOf :: FilePath
         , importBy :: ProjectConfigPath
         }
-    deriving (Eq)
+    deriving Eq
 
+instance Pretty ProjectImport where
+    pretty ProjectImport{..} = pretty $ consProjectConfigPath importOf importBy
+
+instance Show ProjectImport where show = prettyShow
+
+-- | Sorts the same as 'ProjectConfigPath' does.
+--
+-- >>> let abcd = ProjectImport "D.config" (ProjectConfigPath $ "C.config" :| ["B.config", "A.project"])
+-- >>> let bcde = ProjectImport "E.config" (ProjectConfigPath $ "D.config" :| ["C.config", "B.project"])
+-- >>> (compare abcd bcde, let xs = [abcd, bcde] in xs == sort (reverse xs))
+-- (LT,True)
 instance Ord ProjectImport where
     compare = compare `on` (\ProjectImport{..} -> consProjectConfigPath importOf importBy)
 
@@ -75,10 +86,10 @@ instance Ord ProjectImport where
 -- List elements are relative to each other but once canonicalized, elements are
 -- relative to the directory of the project root.
 newtype ProjectConfigPath = ProjectConfigPath (NonEmpty FilePath)
-    deriving (Eq, Show, Generic)
+    deriving (Eq, Generic)
 
-instance Pretty ProjectConfigPath where
-  pretty = docProjectConfigPath
+instance Pretty ProjectConfigPath where pretty = docProjectConfigPath
+instance Show ProjectConfigPath where show = prettyShow
 
 -- | Sorts URIs after local file paths and longer file paths after shorter ones
 -- as measured by the number of path segments. If still equal, then sorting is
