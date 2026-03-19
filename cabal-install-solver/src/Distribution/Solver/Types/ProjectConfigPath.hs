@@ -51,6 +51,8 @@ import Text.PrettyPrint
 import Distribution.Simple.Utils (ordNub)
 import Distribution.System (OS(Windows), buildOS)
 
+-- | Isomorphic with 'ProjectConfigPath' but with the imported file separate.
+-- Cannot represent the root project, an unimported file.
 data ProjectImport =
     ProjectImport
         { importOf :: FilePath
