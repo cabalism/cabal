@@ -117,7 +117,47 @@ instance Show ProjectConfigPath where show = prettyShow
 -- >>> (compare abc yz, let xs = [abc, yz] in xs == sort xs)
 -- (GT,False)
 instance Ord ProjectConfigPath where
-    compare pa@(ProjectConfigPath (NE.toList -> as)) pb@(ProjectConfigPath (NE.toList -> bs)) =
+    compare = compareAfter
+
+compareBefore :: ProjectConfigPath -> ProjectConfigPath -> Ordering
+compareBefore pa@(ProjectConfigPath (NE.toList -> as)) pb@(ProjectConfigPath (NE.toList -> bs)) =
+        case (as, bs) of
+            -- There should only ever be one root project path, only one path
+            -- with length 1. Comparing it to itself should be EQ. Don't assume
+            -- this though, do a comparison anyway when both sides have length
+            -- 1.  The root path, the project itself, should always be the first
+            -- path in a sorted listing.
+            ([a], [b]) -> compare (splitPath a) (splitPath b)
+            ([_], _) -> LT
+            (_, [_]) -> GT
+
+            (a:_, b:_) -> case (parseAbsoluteURI a, parseAbsoluteURI b) of
+                (Just ua, Just ub) -> compare ua ub P.<> compare aImporters bImporters
+                (Just _, Nothing) -> GT
+                (Nothing, Just _) -> LT
+                (Nothing, Nothing) -> compare (splitPath a) (splitPath b) P.<> compare aImporters bImporters
+            _ ->
+                compare (length as) (length bs)
+                P.<> compare (length aPaths) (length bPaths)
+                P.<> compare aPaths bPaths
+        where
+            splitPath = FP.splitPath . normSep where
+                normSep p =
+                    if buildOS == Windows
+                        then
+                            Windows.joinPath $ Windows.splitDirectories
+                            [if Posix.isPathSeparator c then Windows.pathSeparator else c| c <- p]
+                        else
+                            Posix.joinPath $ Posix.splitDirectories
+                            [if Windows.isPathSeparator c then Posix.pathSeparator else c| c <- p]
+
+            aPaths = splitPath <$> as
+            bPaths = splitPath <$> bs
+            aImporters = snd $ unconsProjectConfigPath pa
+            bImporters = snd $ unconsProjectConfigPath pb
+
+compareAfter :: ProjectConfigPath -> ProjectConfigPath -> Ordering
+compareAfter pa@(ProjectConfigPath (NE.toList -> as)) pb@(ProjectConfigPath (NE.toList -> bs)) =
         case (as, bs) of
             -- There should only ever be one root project path, only one path
             -- with length 1. Comparing it to itself should be EQ. Don't assume
@@ -231,7 +271,7 @@ quoteUntrimmed s = if trim s /= s then quotes (text s) else text s
 -- :}
 -- "- cabal.project\n- project-cabal/constraints.config\n- project-cabal/ghc-latest.config\n- project-cabal/ghc-options.config\n- project-cabal/pkgs.config\n- project-cabal/pkgs/benchmarks.config\n- project-cabal/pkgs/buildinfo.config\n- project-cabal/pkgs/cabal.config\n- project-cabal/pkgs/install.config\n- project-cabal/pkgs/integration-tests.config\n- project-cabal/pkgs/tests.config"
 docProjectConfigFiles :: [ProjectConfigPath] -> Doc
-docProjectConfigFiles ps = vcat
+docProjectConfigFiles (sortBy compareBefore -> ps) = vcat
     [ text "-" <+> text p
     | p <- ordNub [ p | ProjectConfigPath (p :| _) <- ps ]
     ]
