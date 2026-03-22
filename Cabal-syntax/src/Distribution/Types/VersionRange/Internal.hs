@@ -88,6 +88,9 @@ thisVersion = ThisVersion
 
 -- | The version range @/= v@.
 --
+-- >>> pretty . notThisVersion . fromJust $ simpleParsec "1.2"
+-- <1.2 || >1.2
+--
 -- > withinRange v' (notThisVersion v) = v' /= v
 notThisVersion :: Version -> VersionRange
 notThisVersion v = UnionVersionRanges (EarlierVersion v) (LaterVersion v)
@@ -577,3 +580,6 @@ wildcardUpperBound = alterVersion $
   \lowerBound -> case unsnoc lowerBound of
     Nothing -> []
     Just (xs, x) -> xs ++ [x + 1]
+
+-- $setup
+-- >>> import Data.Maybe (fromJust)
