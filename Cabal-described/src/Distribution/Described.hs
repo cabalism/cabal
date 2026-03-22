@@ -294,7 +294,7 @@ testDescribed _ = testGroup name
     , testProperty "roundtrip" propRoundtrip
     ]
   where
-    name = show (typeOf (undefined :: a))
+    name = show (typeRep (Proxy :: Proxy a))
 
     propParsec :: Ex a -> Property
     propParsec (Example str) = counterexample (show res) $ case res of
