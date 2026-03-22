@@ -88,7 +88,7 @@ thisVersion = ThisVersion
 
 -- | The version range @/= v@.
 --
--- >>> pretty . notThisVersion . fromJust $ simpleParsec "1.2"
+-- >>> docVersionToVersionRange notThisVersion "1.2"
 -- <1.2 || >1.2
 --
 -- > withinRange v' (notThisVersion v) = v' /= v
@@ -583,3 +583,8 @@ wildcardUpperBound = alterVersion $
 
 -- $setup
 -- >>> import Data.Maybe (fromJust)
+--
+-- >>> :{
+-- docVersionToVersionRange :: (Version -> VersionRange) -> String -> Disp.Doc
+-- docVersionToVersionRange f v = pretty . f. fromJust $ simpleParsec v
+-- :}
