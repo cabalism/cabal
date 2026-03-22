@@ -117,11 +117,14 @@ reVar1 = REVar (Just Nothing)
 -- >>> regexDoc $ REString "True"
 -- \mathop{\mathord{``}\mathtt{True}\mathord{"}}
 --
+-- This renders as \(\mathop{\mathord{``}\mathtt{True}\mathord{"}}\).
+--
 -- Note: we don't simplify regexps yet:
 --
 -- >>> regexDoc $ REString "foo" <> REString "bar"
 -- \mathop{\mathord{``}\mathtt{foo}\mathord{"}}\mathop{\mathord{``}\mathtt{bar}\mathord{"}}
 --
+-- This renders as \(\mathop{\mathord{``}\mathtt{foo}\mathord{"}}\mathop{\mathord{``}\mathtt{bar}\mathord{"}}\).
 regexDoc :: GrammarRegex Void -> PP.Doc
 regexDoc = go 0 . vacuous where
     go :: Int -> GrammarRegex PP.Doc -> PP.Doc
