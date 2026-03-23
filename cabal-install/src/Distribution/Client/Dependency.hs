@@ -642,23 +642,21 @@ addDefaultSetupDependencies defaultSetupDeps params =
                         case (PD.setupBuildInfo pkgdesc, PD.buildType pkgdesc) of
                           (x@Just{}, PD.Hooks) -> addCabalDepForHooks <$> x
                           (x@Just{}, _) -> x
-                          (Nothing, _) -> case defaultSetupDeps srcpkg of
-                            Nothing -> Nothing
-                            Just deps
-                              | isCustom ->
-                                  Just
-                                    PD.SetupBuildInfo
-                                      { PD.defaultSetupDepends = True
-                                      , PD.setupDepends = deps
-                                      }
-                              | otherwise -> Nothing
+                          (Nothing, _) -> setupBuildInfoForCustomDeps pkgdesc =<< defaultSetupDeps srcpkg
                     }
               }
         }
       where
-        isCustom = PD.buildType pkgdesc == PD.Custom || PD.buildType pkgdesc == PD.Hooks
         gpkgdesc = srcpkgDescription srcpkg
         pkgdesc = PD.packageDescription gpkgdesc
+
+setupBuildInfoForCustomDeps :: PD.PackageDescription -> [Dependency] -> Maybe PD.SetupBuildInfo
+setupBuildInfoForCustomDeps pkgdesc deps =
+  if isCustom
+    then Just PD.SetupBuildInfo{PD.defaultSetupDepends = True, PD.setupDepends = deps}
+    else Nothing
+  where
+    isCustom = PD.buildType pkgdesc == PD.Custom || PD.buildType pkgdesc == PD.Hooks
 
 -- | Add an implicit dependency on @Cabal@ for a @build-type: Hooks@ package
 -- that doesn't explicitly depend on @Cabal@. Rationale: we need the @Cabal@
