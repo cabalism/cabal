@@ -34,6 +34,10 @@ import qualified Text.Read as Read
 -- equality and lexicographic ordering of the version number
 -- components (i.e. 2.1 > 2.0, 1.2.3 > 1.2.2, etc.).
 --
+-- >>> let vs = ["2.1", "2.0", "1.2.3", "1.2.2"]
+-- >>> prettyShow <$> sort [v :: Version| Just v <- simpleParsec <$> vs]
+-- ["1.2.2","1.2.3","2.0","2.1"]
+--
 -- This type is opaque and distinct from the 'Base.Version' type in
 -- "Data.Version" since @Cabal-2.0@. The difference extends to the
 -- 'Binary' instance using a different (and more compact) encoding.
@@ -133,8 +137,14 @@ versionDigitParser = (some d >>= toNumber) P.<?> "version digit (integral withou
 -- For instance, @mkVersion [3,2,1]@ constructs a 'Version'
 -- representing the version @3.2.1@.
 --
+-- >>> pretty $ mkVersion [3,2,1]
+-- 3.2.1
+--
 -- All version components must be non-negative. @mkVersion []@
 -- currently represents the special /null/ version; see also 'nullVersion'.
+--
+-- >>> pretty $ mkVersion [-3,-2,-1]
+-- -3.-2.-1
 --
 -- @since 2.0.0.2
 mkVersion :: [Int] -> Version
@@ -193,6 +203,9 @@ mkVersion (v1 : vs) = PV1 v1 vs
 
 -- | Version 0. A lower bound of 'Version'.
 --
+-- >>> pretty version0
+-- 0
+--
 -- @since 2.2
 version0 :: Version
 version0 = mkVersion [0]
@@ -222,6 +235,9 @@ mkVersion' = mkVersion . Base.versionBranch
 --
 -- > (versionNumbers . mkVersion) vs == vs
 --
+-- >>> versionNumbers $ mkVersion [3,2,1]
+-- [3,2,1]
+--
 -- @since 2.0.0.2
 versionNumbers :: Version -> [Int]
 versionNumbers (PV1 n ns) = n : ns
@@ -241,6 +257,9 @@ versionNumbers (PV0 w)
 --
 -- The 'nullVersion' compares (via 'Ord') as less than every proper
 -- 'Version' value.
+--
+-- >>> prettyShow nullVersion
+-- ""
 --
 -- @since 2.0.0.2
 nullVersion :: Version
