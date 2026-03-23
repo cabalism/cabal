@@ -275,6 +275,14 @@ nullVersion = PV0 0
 alterVersion :: ([Int] -> [Int]) -> Version -> Version
 alterVersion f = mkVersion . f . versionNumbers
 
--- internal helper
+-- | When converted to version numbers, is this list non-empty with only
+-- non-negative elements.
+--
+-- >>> validVersion nullVersion
+-- False
+-- >>> validVersion $ mkVersion [-3,-2,-1]
+-- False
+-- >>> validVersion $ mkVersion [3,2,1]
+-- True
 validVersion :: Version -> Bool
 validVersion v = v /= nullVersion && all (>= 0) (versionNumbers v)
