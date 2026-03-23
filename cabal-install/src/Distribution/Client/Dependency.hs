@@ -639,16 +639,10 @@ addDefaultSetupDependencies defaultSetupDeps params =
                     { PD.setupBuildInfo =
                         -- See 'addCabalDepForHooks' for an explanation of
                         -- what is going on here.
-                        case PD.setupBuildInfo pkgdesc of
-                          Just sbi ->
-                            let
-                              sbi' =
-                                case PD.buildType pkgdesc of
-                                  PD.Hooks -> addCabalDepForHooks sbi
-                                  _ -> sbi
-                             in
-                              Just sbi'
-                          Nothing -> case defaultSetupDeps srcpkg of
+                        case (PD.setupBuildInfo pkgdesc, PD.buildType pkgdesc) of
+                          (x@Just{}, PD.Hooks) -> addCabalDepForHooks <$> x
+                          (x@Just{}, _) -> x
+                          (Nothing, _) -> case defaultSetupDeps srcpkg of
                             Nothing -> Nothing
                             Just deps
                               | isCustom ->
