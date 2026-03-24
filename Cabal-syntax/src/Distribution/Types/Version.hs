@@ -1,6 +1,8 @@
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE DeriveGeneric #-}
 
+{-# OPTIONS_GHC -fplugin liquidhaskell #-}
+
 module Distribution.Types.Version
   ( -- * Package versions
     Version
