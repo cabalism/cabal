@@ -22,7 +22,9 @@ package liquidhaskell-boot
 source-repository-package
   type: git
   location: https://github.com/up-do/liquidhaskell
-  tag: b9e32667f2b2977b1f9400093ad46d27709f4569
+  tag: 438ab1e1c6392ef6e4c7645b21db57874740938b
   subdirs:
-      liquidhaskell-boot
-    , liquidhaskell
+      .
+    , liquidhaskell-boot
+
+allow-newer: *
