@@ -1,6 +1,10 @@
 {-# LANGUAGE FlexibleInstances   #-}
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE RequiredTypeArguments #-}
+{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE ExplicitNamespaces #-}
+
 module Distribution.Described (
     Described (..),
     describeDoc,
@@ -39,7 +43,7 @@ module Distribution.Described (
 
 import Prelude
        ( Bool (..), Char, Either (..), Enum (..), Eq (..), Ord (..), Show (..), String
-       , elem, fmap, foldr, id, map, maybe, otherwise, return, reverse, undefined
+       , elem, fmap, foldr, id, map, maybe, otherwise, return, reverse
        , ($), (.), (<$>)
        )
 
@@ -47,7 +51,6 @@ import Data.Functor.Identity (Identity (..))
 import Data.Maybe            (fromMaybe)
 import Data.Proxy            (Proxy (..))
 import Data.String           (IsString (..))
-import Data.Typeable         (Typeable, typeOf)
 import Data.Void             (Void, vacuous)
 import Test.QuickCheck       (Arbitrary (..), Property, counterexample)
 import Test.Tasty            (TestTree, testGroup)
@@ -102,6 +105,11 @@ import Distribution.Utils.Path                     (SymbolicPath, RelativePath)
 import Distribution.Verbosity                      (VerbosityFlags)
 import Distribution.Version                        (Version, VersionRange)
 import Language.Haskell.Extension                  (Extension, Language, knownLanguages)
+
+import Type.Reflection (Typeable, typeRep)
+
+showType :: forall a -> Typeable a => String
+showType a = show (typeRep @a)
 
 -- | Class describing the pretty/parsec format of a.
 class (Pretty a, Parsec a) => Described a where
@@ -284,18 +292,13 @@ convertCS = RE.fromIntervalList . CS.toIntervalList
 -- tasty
 -------------------------------------------------------------------------------
 
-testDescribed
-    :: forall a. (Arbitrary a, Described a, Typeable a, Eq a, Show a)
-    => Proxy a
-    -> TestTree
-testDescribed _ = testGroup name
+testDescribed :: forall a -> (Arbitrary a, Described a, Typeable a, Eq a, Show a) => TestTree
+testDescribed a = testGroup (showType a)
     [ testProperty "parsec" propParsec
     , testProperty "pretty" propPretty
     , testProperty "roundtrip" propRoundtrip
     ]
   where
-    name = show (typeRep (Proxy :: Proxy a))
-
     propParsec :: Ex a -> Property
     propParsec (Example str) = counterexample (show res) $ case res of
         Right _ -> True
