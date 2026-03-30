@@ -117,10 +117,10 @@ instance Show ProjectConfigPath where show = prettyShow
 -- >>> (compare abc yz, let xs = [abc, yz] in xs == sort xs)
 -- (GT,False)
 instance Ord ProjectConfigPath where
-    compare = compareAfter
+    compare = compareProjectConfigPaths
 
-compareBefore :: ProjectConfigPath -> ProjectConfigPath -> Ordering
-compareBefore pa@(ProjectConfigPath (NE.toList -> as)) pb@(ProjectConfigPath (NE.toList -> bs)) =
+compareForDisplay :: ProjectConfigPath -> ProjectConfigPath -> Ordering
+compareForDisplay pa@(ProjectConfigPath (NE.toList -> as)) pb@(ProjectConfigPath (NE.toList -> bs)) =
         case (as, bs) of
             -- There should only ever be one root project path, only one path
             -- with length 1. Comparing it to itself should be EQ. Don't assume
@@ -137,27 +137,13 @@ compareBefore pa@(ProjectConfigPath (NE.toList -> as)) pb@(ProjectConfigPath (NE
                 (Nothing, Just _) -> LT
                 (Nothing, Nothing) -> compare (splitPath a) (splitPath b) P.<> compare aImporters bImporters
             _ ->
-                compare (length as) (length bs)
-                P.<> compare (length aPaths) (length bPaths)
-                P.<> compare aPaths bPaths
+                compareProjectConfigPaths pa pb
         where
-            splitPath = FP.splitPath . normSep where
-                normSep p =
-                    if buildOS == Windows
-                        then
-                            Windows.joinPath $ Windows.splitDirectories
-                            [if Posix.isPathSeparator c then Windows.pathSeparator else c| c <- p]
-                        else
-                            Posix.joinPath $ Posix.splitDirectories
-                            [if Windows.isPathSeparator c then Posix.pathSeparator else c| c <- p]
-
-            aPaths = splitPath <$> as
-            bPaths = splitPath <$> bs
             aImporters = snd $ unconsProjectConfigPath pa
             bImporters = snd $ unconsProjectConfigPath pb
 
-compareAfter :: ProjectConfigPath -> ProjectConfigPath -> Ordering
-compareAfter pa@(ProjectConfigPath (NE.toList -> as)) pb@(ProjectConfigPath (NE.toList -> bs)) =
+compareProjectConfigPaths:: ProjectConfigPath -> ProjectConfigPath -> Ordering
+compareProjectConfigPaths pa@(ProjectConfigPath (NE.toList -> as)) pb@(ProjectConfigPath (NE.toList -> bs)) =
         case (as, bs) of
             -- There should only ever be one root project path, only one path
             -- with length 1. Comparing it to itself should be EQ. Don't assume
@@ -192,20 +178,22 @@ compareAfter pa@(ProjectConfigPath (NE.toList -> as)) pb@(ProjectConfigPath (NE.
                         P.<> compare aPaths bPaths
                         P.<> compare aImporters bImporters
         where
-            splitPath = FP.splitPath . normSep where
-                normSep p =
-                    if buildOS == Windows
-                        then
-                            Windows.joinPath $ Windows.splitDirectories
-                            [if Posix.isPathSeparator c then Windows.pathSeparator else c| c <- p]
-                        else
-                            Posix.joinPath $ Posix.splitDirectories
-                            [if Windows.isPathSeparator c then Posix.pathSeparator else c| c <- p]
-
             asPaths = splitPath <$> as
             bsPaths = splitPath <$> bs
             aImporters = snd $ unconsProjectConfigPath pa
             bImporters = snd $ unconsProjectConfigPath pb
+
+splitPath :: FilePath -> [FilePath]
+splitPath = FP.splitPath . normSep where
+    normSep p =
+        if buildOS == Windows
+            then
+                Windows.joinPath $ Windows.splitDirectories
+                [if Posix.isPathSeparator c then Windows.pathSeparator else c| c <- p]
+            else
+                Posix.joinPath $ Posix.splitDirectories
+                [if Windows.isPathSeparator c then Posix.pathSeparator else c| c <- p]
+
 
 instance Binary ProjectConfigPath
 instance NFData ProjectConfigPath
@@ -271,7 +259,7 @@ quoteUntrimmed s = if trim s /= s then quotes (text s) else text s
 -- :}
 -- "- cabal.project\n- project-cabal/constraints.config\n- project-cabal/ghc-latest.config\n- project-cabal/ghc-options.config\n- project-cabal/pkgs.config\n- project-cabal/pkgs/benchmarks.config\n- project-cabal/pkgs/buildinfo.config\n- project-cabal/pkgs/cabal.config\n- project-cabal/pkgs/install.config\n- project-cabal/pkgs/integration-tests.config\n- project-cabal/pkgs/tests.config"
 docProjectConfigFiles :: [ProjectConfigPath] -> Doc
-docProjectConfigFiles (sortBy compareBefore -> ps) = vcat
+docProjectConfigFiles (sortBy compareForDisplay -> ps) = vcat
     [ text "-" <+> text p
     | p <- ordNub [ p | ProjectConfigPath (p :| _) <- ps ]
     ]
