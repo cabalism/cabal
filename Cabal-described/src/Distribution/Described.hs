@@ -1,9 +1,13 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE FlexibleInstances   #-}
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE RequiredTypeArguments #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE ExplicitNamespaces #-}
+
+#if MIN_VERSION_base(4,20,0)
+{-# LANGUAGE RequiredTypeArguments #-}
+#endif
 
 module Distribution.Described (
     Described (..),
@@ -49,7 +53,6 @@ import Prelude
 
 import Data.Functor.Identity (Identity (..))
 import Data.Maybe            (fromMaybe)
-import Data.Proxy            (Proxy (..))
 import Data.String           (IsString (..))
 import Data.Void             (Void, vacuous)
 import Test.QuickCheck       (Arbitrary (..), Property, counterexample)
@@ -106,10 +109,18 @@ import Distribution.Verbosity                      (VerbosityFlags)
 import Distribution.Version                        (Version, VersionRange)
 import Language.Haskell.Extension                  (Extension, Language, knownLanguages)
 
+#if MIN_VERSION_base(4,20,0)
+import Data.Typeable (Proxy(..))
 import Type.Reflection (Typeable, typeRep)
 
 showType :: forall a -> Typeable a => String
 showType a = show (typeRep @a)
+#else
+import Data.Typeable (Proxy(..), Typeable, typeRep)
+
+showType :: forall a. (Typeable a) => Proxy a -> String
+showType _ = show (typeRep (Proxy :: Proxy a))
+#endif
 
 -- | Class describing the pretty/parsec format of a.
 class (Pretty a, Parsec a) => Described a where
@@ -292,8 +303,13 @@ convertCS = RE.fromIntervalList . CS.toIntervalList
 -- tasty
 -------------------------------------------------------------------------------
 
+#if MIN_VERSION_base(4,20,0)
 testDescribed :: forall a -> (Arbitrary a, Described a, Typeable a, Eq a, Show a) => TestTree
 testDescribed a = testGroup (showType a)
+#else
+testDescribed :: forall a. (Arbitrary a, Described a, Typeable a, Eq a, Show a) => Proxy a -> TestTree
+testDescribed _ = testGroup (showType (Proxy :: Proxy a))
+#endif
     [ testProperty "parsec" propParsec
     , testProperty "pretty" propPretty
     , testProperty "roundtrip" propRoundtrip

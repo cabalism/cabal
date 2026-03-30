@@ -1,5 +1,12 @@
+{-# LANGUAGE CPP #-}
+{-# LANGUAGE ExplicitNamespaces #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeApplications #-}
+
+#if MIN_VERSION_base(4,20,0)
+{-# LANGUAGE RequiredTypeArguments #-}
+#endif
 
 module UnitTests.Distribution.Client.Get (tests) where
 
@@ -14,7 +21,6 @@ import Distribution.Version
 
 import Control.Exception
 import Control.Monad
-import Data.Typeable
 import System.Directory
 import System.Exit
 import System.FilePath
@@ -24,6 +30,19 @@ import Test.Tasty
 import Test.Tasty.HUnit
 import Test.Utils.TempTestDir (withTestDir)
 import UnitTests.Options (RunNetworkTests (..))
+
+#if MIN_VERSION_base(4,20,0)
+import Data.Typeable (Proxy (..))
+import Type.Reflection (Typeable, typeRep)
+
+showType :: forall a -> Typeable a => String
+showType a = show (typeRep @a)
+#else
+import Data.Typeable (Proxy (..), Typeable, typeRep)
+
+showType :: forall a. (Typeable a) => Proxy a -> String
+showType _ = show (typeRep (Proxy :: Proxy a))
+#endif
 
 tests :: [TestTree]
 tests =
@@ -262,7 +281,11 @@ assertException action = do
     Right _ ->
       assertFailure $
         "expected exception of type "
-          ++ show (typeRep (Proxy :: Proxy e))
+#if MIN_VERSION_base(4,20,0)
+          ++ showType e
+#else
+          ++ showType (Proxy :: Proxy e)
+#endif
 
 -- | Expect that one line in a file matches exactly the given words (i.e. at
 -- least insensitive to whitespace)

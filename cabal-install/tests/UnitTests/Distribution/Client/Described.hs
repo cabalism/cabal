@@ -1,9 +1,12 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
 module UnitTests.Distribution.Client.Described where
 
+#if !MIN_VERSION_base(4,20,0)
 import Distribution.Client.Compat.Prelude
+#endif
 import Test.QuickCheck.Instances.Cabal ()
 import UnitTests.Distribution.Client.ArbitraryInstances ()
 import UnitTests.Distribution.Client.DescribedInstances ()
@@ -21,9 +24,21 @@ import Distribution.Client.Types (RepoName)
 import Distribution.Client.Types.AllowNewer (RelaxDepSubject, RelaxDeps, RelaxedDep)
 
 tests :: TestTree
-tests =
-  testGroup
-    "Described"
+tests = testGroup "Described"
+#if MIN_VERSION_base(4,20,0)
+    [ testDescribed Timestamp
+    , testDescribed RepoIndexState
+    , testDescribed TotalIndexState
+    , testDescribed RepoName
+    , testDescribed ActiveRepos
+    , testDescribed RelaxDepSubject
+    , testDescribed RelaxedDep
+    , testDescribed RelaxDeps
+    , testDescribed UserConstraint
+    , testDescribed InstallOutcome
+    , testDescribed Outcome
+    ]
+#else
     [ testDescribed (Proxy :: Proxy Timestamp)
     , testDescribed (Proxy :: Proxy RepoIndexState)
     , testDescribed (Proxy :: Proxy TotalIndexState)
@@ -36,3 +51,4 @@ tests =
     , testDescribed (Proxy :: Proxy InstallOutcome)
     , testDescribed (Proxy :: Proxy Outcome)
     ]
+#endif

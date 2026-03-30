@@ -1,11 +1,14 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# OPTIONS_GHC -Wno-deprecations #-}
 module UnitTests.Distribution.Described where
 
-import Distribution.Compat.Prelude.Internal
 import Prelude ()
 
+#if !MIN_VERSION_base(4,20,0)
+import Distribution.Compat.Prelude.Internal
+#endif
 import Distribution.Described (testDescribed)
 import Test.Tasty             (TestTree, testGroup)
 
@@ -29,6 +32,26 @@ import Test.QuickCheck.Instances.Cabal ()
 
 tests :: TestTree
 tests = testGroup "Described"
+#if MIN_VERSION_base(4,20,0)
+    [ testDescribed Dependency
+    , testDescribed PackageName
+    , testDescribed PackageIdentifier
+    , testDescribed PackageVersionConstraint
+    , testDescribed Version
+    , testDescribed VersionRange
+    , testDescribed FlagName
+    , testDescribed FlagAssignment
+    , testDescribed ModuleName
+    , testDescribed OS
+    , testDescribed Arch
+    , testDescribed CompilerFlavor
+    , testDescribed CompilerId
+    , testDescribed ModuleRenaming
+    , testDescribed IncludeRenaming
+    , testDescribed Mixin
+    , testDescribed VerbosityFlags
+    ]
+#else
     [ testDescribed (Proxy :: Proxy Dependency)
     , testDescribed (Proxy :: Proxy PackageName)
     , testDescribed (Proxy :: Proxy PackageIdentifier)
@@ -47,3 +70,4 @@ tests = testGroup "Described"
     , testDescribed (Proxy :: Proxy Mixin)
     , testDescribed (Proxy :: Proxy VerbosityFlags)
     ]
+#endif
