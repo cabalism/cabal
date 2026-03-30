@@ -119,6 +119,8 @@ instance Show ProjectConfigPath where show = prettyShow
 instance Ord ProjectConfigPath where
     compare = compareProjectConfigPaths
 
+-- | A comparison that puts projects first, URLs last and sorts the other paths
+-- lexically.
 compareForDisplay :: ProjectConfigPath -> ProjectConfigPath -> Ordering
 compareForDisplay pa@(ProjectConfigPath (NE.toList -> as)) pb@(ProjectConfigPath (NE.toList -> bs)) =
         case (as, bs) of
@@ -219,7 +221,6 @@ docProjectImportedBy (ProjectConfigPath (_ :| [])) = text ""
 docProjectImportedBy (ProjectConfigPath (_ :| ps)) = vcat $
     [ text " " <+> text "imported by:" <+> quoteUntrimmed l | l <- ps ]
 
-
 -- | If the path has leading or trailing spaces then show it quoted.
 quoteUntrimmed :: FilePath -> Doc
 quoteUntrimmed s = if trim s /= s then quotes (text s) else text s
@@ -258,6 +259,29 @@ quoteUntrimmed s = if trim s /= s then quotes (text s) else text s
 --     return . render $ docProjectConfigFiles ps
 -- :}
 -- "- cabal.project\n- project-cabal/constraints.config\n- project-cabal/ghc-latest.config\n- project-cabal/ghc-options.config\n- project-cabal/pkgs.config\n- project-cabal/pkgs/benchmarks.config\n- project-cabal/pkgs/buildinfo.config\n- project-cabal/pkgs/cabal.config\n- project-cabal/pkgs/install.config\n- project-cabal/pkgs/integration-tests.config\n- project-cabal/pkgs/tests.config"
+--
+-- The listing puts projects first, URLs last and sorts the other paths
+-- lexically, dropping any duplicates, like this:
+--
+-- >- cabal.project
+-- >- 0.config
+-- >- 2.config
+-- >- cfg/1.config
+-- >- cfg/3.config
+-- >- with-ghc.config
+-- >- https://www.stackage.org/lts-21.25/cabal.config
+--
+-- >>> let p = ProjectConfigPath $ "cabal.project" :| []
+-- >>> let a = ProjectConfigPath $ "0.config" :| ["cabal.project"]
+-- >>> let b = ProjectConfigPath $ "cfg/1.config" :| ["0.config", "cabal.project"]
+-- >>> let c = ProjectConfigPath $ "with.config" :| ["0.config", "cabal.project"]
+-- >>> let d = ProjectConfigPath $ "2.config" :| ["cfg/1.config", "0.config", "cabal.project"]
+-- >>> let e = ProjectConfigPath $ "cfg/3.config" :| ["2.config", "cfg/1.config", "0.config", "cabal.project"]
+-- >>> let f = ProjectConfigPath $ "https://www.stackage.org/lts-21.25/cabal.config" :| ["2.config", "cfg/1.config", "0.config", "cabal.project"]
+-- >>> let g = ProjectConfigPath $ "https://www.stackage.org/lts-21.25/cabal.config" :| ["cfg/3.config", "2.config", "cfg/1.config", "0.config", "cabal.project"]
+-- >>> let ps = [p, a, b, c, d, e, f, g]
+-- >>> render $ docProjectConfigFiles ps
+-- "- cabal.project\n- 0.config\n- 2.config\n- cfg/1.config\n- cfg/3.config\n- with.config\n- https://www.stackage.org/lts-21.25/cabal.config"
 docProjectConfigFiles :: [ProjectConfigPath] -> Doc
 docProjectConfigFiles (sortBy compareForDisplay -> ps) = vcat
     [ text "-" <+> text p
