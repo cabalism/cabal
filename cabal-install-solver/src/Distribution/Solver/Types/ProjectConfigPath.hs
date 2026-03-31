@@ -122,49 +122,41 @@ instance Ord ProjectConfigPath where
 -- | A comparison that puts projects first, URLs last and sorts the other paths
 -- lexically.
 compareLexically :: ProjectConfigPath -> ProjectConfigPath -> Ordering
-compareLexically pa@(ProjectConfigPath (NE.toList -> as)) pb@(ProjectConfigPath (NE.toList -> bs)) =
+compareLexically (ProjectConfigPath as) (ProjectConfigPath bs) =
         case (as, bs) of
             -- Single element paths are projects, they should always sort first.
-            ([a], [b]) -> compare (splitPath a) (splitPath b)
-            ([_], _) -> LT
-            (_, [_]) -> GT
+            (a :| [], b :| []) -> compare (splitPath a) (splitPath b)
+            (_ :| [], _) -> LT
+            (_, _ :| []) -> GT
 
-            (a:_, b:_) -> case (parseAbsoluteURI a, parseAbsoluteURI b) of
+            (a :| aImporters, b :| bImporters) -> case (parseAbsoluteURI a, parseAbsoluteURI b) of
                 (Just ua, Just ub) -> compare ua ub P.<> compare aImporters bImporters
                 (Just _, Nothing) -> GT
                 (Nothing, Just _) -> LT
                 (Nothing, Nothing) -> compare (splitPath a) (splitPath b) P.<> compare aImporters bImporters
-            _ ->
-                compareSegmentally pa pb
-        where
-            aImporters = snd $ unconsProjectConfigPath pa
-            bImporters = snd $ unconsProjectConfigPath pb
 
 -- | A comparison that puts projects first, URLs last and sorts the other paths
 -- by putting longer paths after shorter ones as measured by the number of path
 -- segments. If still equal, then sorting is lexical.
 compareSegmentally:: ProjectConfigPath -> ProjectConfigPath -> Ordering
-compareSegmentally pa@(ProjectConfigPath (NE.toList -> as)) pb@(ProjectConfigPath (NE.toList -> bs)) =
+compareSegmentally pa@(ProjectConfigPath as) pb@(ProjectConfigPath bs) =
         case (as, bs) of
             -- There should only ever be one root project path, only one path
             -- with length 1. Comparing it to itself should be EQ. Don't assume
             -- this though, do a comparison anyway when both sides have length
             -- 1.  The root path, the project itself, should always be the first
             -- path in a sorted listing.
-            ([a], [b]) ->
+            (a :| [], b :| []) ->
                 let aPaths = splitPath a
                     bPaths = splitPath b
                 in
                     compare (length aPaths) (length bPaths)
                     P.<> compare aPaths bPaths
 
-            ([_], _) -> LT
-            (_, [_]) -> GT
-            ([], []) -> EQ
-            ([], _) -> LT
-            (_, []) -> GT
+            (_ :| [], _) -> LT
+            (_, _ :| []) -> GT
 
-            (a:_, b:_) -> case (parseAbsoluteURI a, parseAbsoluteURI b) of
+            (a :| _, b :| _) -> case (parseAbsoluteURI a, parseAbsoluteURI b) of
                 (Just ua, Just ub) -> compare ua ub P.<> compare aImporters bImporters
                 (Just _, Nothing) -> GT
                 (Nothing, Just _) -> LT
