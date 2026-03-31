@@ -117,18 +117,14 @@ instance Show ProjectConfigPath where show = prettyShow
 -- >>> (compare abc yz, let xs = [abc, yz] in xs == sort xs)
 -- (GT,False)
 instance Ord ProjectConfigPath where
-    compare = compareProjectConfigPaths
+    compare = compareSegmentally
 
 -- | A comparison that puts projects first, URLs last and sorts the other paths
 -- lexically.
-compareForDisplay :: ProjectConfigPath -> ProjectConfigPath -> Ordering
-compareForDisplay pa@(ProjectConfigPath (NE.toList -> as)) pb@(ProjectConfigPath (NE.toList -> bs)) =
+compareLexically :: ProjectConfigPath -> ProjectConfigPath -> Ordering
+compareLexically pa@(ProjectConfigPath (NE.toList -> as)) pb@(ProjectConfigPath (NE.toList -> bs)) =
         case (as, bs) of
-            -- There should only ever be one root project path, only one path
-            -- with length 1. Comparing it to itself should be EQ. Don't assume
-            -- this though, do a comparison anyway when both sides have length
-            -- 1.  The root path, the project itself, should always be the first
-            -- path in a sorted listing.
+            -- Single element paths are projects, they should always sort first.
             ([a], [b]) -> compare (splitPath a) (splitPath b)
             ([_], _) -> LT
             (_, [_]) -> GT
@@ -139,13 +135,16 @@ compareForDisplay pa@(ProjectConfigPath (NE.toList -> as)) pb@(ProjectConfigPath
                 (Nothing, Just _) -> LT
                 (Nothing, Nothing) -> compare (splitPath a) (splitPath b) P.<> compare aImporters bImporters
             _ ->
-                compareProjectConfigPaths pa pb
+                compareSegmentally pa pb
         where
             aImporters = snd $ unconsProjectConfigPath pa
             bImporters = snd $ unconsProjectConfigPath pb
 
-compareProjectConfigPaths:: ProjectConfigPath -> ProjectConfigPath -> Ordering
-compareProjectConfigPaths pa@(ProjectConfigPath (NE.toList -> as)) pb@(ProjectConfigPath (NE.toList -> bs)) =
+-- | A comparison that puts projects first, URLs last and sorts the other paths
+-- by putting longer paths after shorter ones as measured by the number of path
+-- segments. If still equal, then sorting is lexical.
+compareSegmentally:: ProjectConfigPath -> ProjectConfigPath -> Ordering
+compareSegmentally pa@(ProjectConfigPath (NE.toList -> as)) pb@(ProjectConfigPath (NE.toList -> bs)) =
         case (as, bs) of
             -- There should only ever be one root project path, only one path
             -- with length 1. Comparing it to itself should be EQ. Don't assume
@@ -195,7 +194,6 @@ splitPath = FP.splitPath . normSep where
             else
                 Posix.joinPath $ Posix.splitDirectories
                 [if Windows.isPathSeparator c then Posix.pathSeparator else c| c <- p]
-
 
 instance Binary ProjectConfigPath
 instance NFData ProjectConfigPath
@@ -283,7 +281,7 @@ quoteUntrimmed s = if trim s /= s then quotes (text s) else text s
 -- >>> render $ docProjectConfigFiles ps
 -- "- cabal.project\n- 0.config\n- 2.config\n- cfg/1.config\n- cfg/3.config\n- with.config\n- https://www.stackage.org/lts-21.25/cabal.config"
 docProjectConfigFiles :: [ProjectConfigPath] -> Doc
-docProjectConfigFiles (sortBy compareForDisplay -> ps) = vcat
+docProjectConfigFiles (sortBy compareLexically -> ps) = vcat
     [ text "-" <+> text p
     | p <- ordNub [ p | ProjectConfigPath (p :| _) <- ps ]
     ]
