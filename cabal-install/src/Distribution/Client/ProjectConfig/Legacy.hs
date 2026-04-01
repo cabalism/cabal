@@ -226,24 +226,24 @@ reportDuplicateImports verbosity skeleton = do
   let dupes = detectDupes $ projectSkeletonImports skeleton
   unless (Map.null dupes) (noticeDoc verbosity $ vcat (dupesMsg <$> Map.toList dupes))
 
-detectDupes :: [ProjectConfigPath] -> DupesMap
+detectDupes :: [ProjectConfigPath] -> DupesMap FilePath
 detectDupes xs =
-  [ (h, [ProjectImport h (consProjectConfigPath h t)])
+  [ (h, [ProjectFileImport h (consProjectConfigPath h t)])
   | (h, Just t) <- unconsProjectConfigPath <$> sort xs
   ]
     & Map.fromListWith (<>)
     & Map.filter ((> 1) . length)
     <&> \zs -> [Dupes v zs | v <- zs]
 
-data Dupes = Dupes
-  { dupesImport :: ProjectImport
+data Dupes a = Dupes
+  { dupesImport :: ProjectImport a
   -- ^ The import that we're checking for duplicates.
-  , dupesImports :: [ProjectImport]
+  , dupesImports :: [ProjectImport a]
   -- ^ All the imports of this file.
   }
   deriving (Eq)
 
-instance Ord Dupes where
+instance Ord (Dupes a) where
   compare x y =
     (compare `on` length . dupesImports) x y
       `thenCmp` (compare `on` sort . dupesImports) x y
@@ -253,9 +253,9 @@ instance Ord Dupes where
       thenCmp EQ o2 = o2
       thenCmp o1 _ = o1
 
-type DupesMap = Map FilePath [Dupes]
+type DupesMap a = Map FilePath [Dupes a]
 
-dupesMsg :: (FilePath, [Dupes]) -> Doc
+dupesMsg :: (FilePath, [Dupes a]) -> Doc
 dupesMsg (duplicate, ds@(take 1 . sort -> dupes)) =
   vcat $
     ((text "Warning:" <+> int (length ds) <+> text "imports of" <+> text duplicate) <> semi)

@@ -1,4 +1,6 @@
 {-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE GADTs #-}
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE ViewPatterns #-}
@@ -37,7 +39,7 @@ import Prelude (sequence)
 
 import Data.Coerce (coerce)
 import Data.List.NonEmpty ((<|))
-import Network.URI (parseURI, parseAbsoluteURI)
+import Network.URI (URI, parseURI, parseAbsoluteURI)
 import System.Directory
 import System.FilePath hiding (splitPath)
 import qualified System.FilePath as FP (splitPath)
@@ -53,21 +55,33 @@ import Distribution.System (OS(Windows), buildOS)
 
 -- | Isomorphic with 'ProjectConfigPath' but with the imported file separate.
 -- Cannot represent the root project, an unimported file.
-data ProjectImport =
-    ProjectImport
-        { importOf :: FilePath
-        , importBy :: ProjectConfigPath
-        }
-    deriving Eq
+data ProjectImport a where
+    ProjectFileImport :: FilePath -> ProjectConfigPath -> ProjectImport FilePath
+    ProjectUriImport :: URI -> ProjectConfigPath -> ProjectImport URI
 
-instance Pretty ProjectImport where
-    pretty ProjectImport{..} = pretty $ consProjectConfigPath importOf importBy
+instance Eq (ProjectImport a) where
+    (==) a b
+        | ProjectFileImport importOf importBy <- a
+        , ProjectFileImport importOf' importBy' <- b = (==)
+            (consProjectConfigPath importOf importBy)
+            (consProjectConfigPath importOf' importBy')
+        | ProjectUriImport importOf importBy <- a
+        , ProjectUriImport importOf' importBy' <- b = (==)
+            (consProjectConfigPath (show importOf) importBy)
+            (consProjectConfigPath (show importOf') importBy')
 
-instance Show ProjectImport where show = prettyShow
+instance Pretty (ProjectImport a) where
+    pretty = \case
+        ProjectFileImport importOf importBy -> pretty $ consProjectConfigPath importOf importBy
+        ProjectUriImport importOf importBy -> pretty $ consProjectConfigPath (show importOf) importBy
+
+instance Show (ProjectImport a) where show = prettyShow
 
 -- | Sorts the same as 'ProjectConfigPath' does.
-instance Ord ProjectImport where
-    compare = compare `on` (\ProjectImport{..} -> consProjectConfigPath importOf importBy)
+instance Ord (ProjectImport a) where
+    compare = compare `on` (\case
+        ProjectFileImport importOf importBy -> consProjectConfigPath importOf importBy
+        ProjectUriImport importOf importBy -> consProjectConfigPath (show importOf) importBy)
 
 -- | Path to a configuration file, either a singleton project root, or a longer
 -- list representing a path to an import.  The path is a non-empty list that we
@@ -283,26 +297,35 @@ cyclicalImportMsg :: ProjectConfigPath -> Doc
 cyclicalImportMsg path@(ProjectConfigPath (duplicate :| _)) =
     seenImportMsg
         (text "cyclical import of" <+> text duplicate <> semi)
-        (ProjectImport duplicate path)
+        (ProjectFileImport duplicate path)
         []
 
 -- | A message for a duplicate import, a "duplicate import of". If a check for
 -- cyclical imports has already been made then this would report a duplicate
 -- import by two different paths.
-duplicateImportMsg :: Doc -> ProjectImport -> [ProjectImport] -> Doc
+duplicateImportMsg :: Doc -> ProjectImport a -> [ProjectImport a] -> Doc
 duplicateImportMsg intro = seenImportMsg intro
 
-seenImportMsg :: Doc -> ProjectImport -> [ProjectImport] -> Doc
-seenImportMsg intro ProjectImport{importOf = duplicate, importBy = path} seenImports =
+seenImportMsg :: Doc -> ProjectImport a -> [ProjectImport a] -> Doc
+seenImportMsg intro projectImport seenImports =
     vcat
     [ intro
     , nest 2 (docProjectConfigPath path)
     , nest 2 $
         vcat
-        [ docProjectConfigPath importBy
-        | ProjectImport{importBy} <- filter ((duplicate ==) . importOf) seenImports
+        [ docProjectConfigPath importer
+        | importer <- importBy <$> filter ((duplicate ==) . importOf) seenImports
         ]
     ]
+    where
+        duplicate = importOf projectImport
+        path = importBy projectImport
+        importOf = \case
+            ProjectFileImport dup _ -> dup
+            ProjectUriImport dup _ -> show dup
+        importBy = \case
+            ProjectFileImport _ by -> by
+            ProjectUriImport _ by -> by
 
 -- | A message for an import that has leading or trailing spaces.
 untrimmedUriImportMsg :: Doc -> ProjectConfigPath -> Doc
