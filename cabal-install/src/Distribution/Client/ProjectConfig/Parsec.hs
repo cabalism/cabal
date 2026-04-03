@@ -4,8 +4,7 @@
 -- | Parsing project configuration.
 module Distribution.Client.ProjectConfig.Parsec
   ( -- * Package configuration
-    parseProjectSkeleton
-  , parseProject
+    parseProject
   , ProjectConfigSkeleton
   , ProjectConfig (..)
 
