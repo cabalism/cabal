@@ -31,7 +31,7 @@ module Distribution.Solver.Types.ProjectConfigPath
     , canonicalizeConfigPath
     ) where
 
-import Distribution.Solver.Compat.Prelude hiding (toList, (<>))
+import Distribution.Solver.Compat.Prelude hiding (empty, toList, (<>))
 import qualified Distribution.Solver.Compat.Prelude as P ((<>))
 import Prelude (sequence)
 
@@ -51,14 +51,22 @@ import Text.PrettyPrint
 import Distribution.Simple.Utils (ordNub)
 import Distribution.System (OS(Windows), buildOS)
 
--- | Isomorphic with 'ProjectConfigPath' but with the imported file separate.
--- Cannot represent the root project, an unimported file.
+-- | Not just any file path. The project itself.
+newtype ProjectFilePath = ProjectFilePath FilePath
+    deriving (Eq, Generic)
+
+-- | Isomorphic with 'ProjectConfigPath' but with separate constructors for the
+-- root, imported file and imported URI separate.
+-- TODO: Rename to 'ProjectNode'.
 data ProjectImport a where
+    ProjectRoot :: FilePath -> ProjectImport ProjectFilePath
     ProjectFileImport :: FilePath -> ProjectConfigPath -> ProjectImport FilePath
     ProjectUriImport :: URI -> ProjectConfigPath -> ProjectImport URI
 
 instance Eq (ProjectImport a) where
     (==) a b
+        | ProjectRoot root <- a
+        , ProjectRoot root' <- b = root == root'
         | ProjectFileImport importOf importBy <- a
         , ProjectFileImport importOf' importBy' <- b = (==)
             (consProjectConfigPath importOf importBy)
@@ -70,6 +78,7 @@ instance Eq (ProjectImport a) where
 
 instance Pretty (ProjectImport a) where
     pretty = \case
+        ProjectRoot root -> text root
         ProjectFileImport importOf importBy -> pretty $ consProjectConfigPath importOf importBy
         ProjectUriImport importOf importBy -> pretty $ consProjectConfigPath (show importOf) importBy
 
@@ -78,6 +87,7 @@ instance Show (ProjectImport a) where show = prettyShow
 -- | Sorts the same as 'ProjectConfigPath' does.
 instance Ord (ProjectImport a) where
     compare = compare `on` (\case
+        ProjectRoot root -> ProjectConfigPath $ root :| []
         ProjectFileImport importOf importBy -> consProjectConfigPath importOf importBy
         ProjectUriImport importOf importBy -> consProjectConfigPath (show importOf) importBy)
 
@@ -308,22 +318,21 @@ seenImportMsg :: Doc -> ProjectImport a -> [ProjectImport a] -> Doc
 seenImportMsg intro projectImport seenImports =
     vcat
     [ intro
-    , nest 2 (docProjectConfigPath path)
-    , nest 2 $
-        vcat
-        [ docProjectConfigPath importer
-        | importer <- importBy <$> filter ((duplicate ==) . importOf) seenImports
-        ]
+    , maybe empty (nest 2 . docProjectConfigPath) path
+    , nest 2 $ vcat
+            [docProjectConfigPath i | Just i <- importBy <$> filter ((duplicate ==) . importOf) seenImports]
     ]
     where
         duplicate = importOf projectImport
         path = importBy projectImport
         importOf = \case
+            ProjectRoot dup -> dup
             ProjectFileImport dup _ -> dup
             ProjectUriImport dup _ -> show dup
         importBy = \case
-            ProjectFileImport _ by -> by
-            ProjectUriImport _ by -> by
+            ProjectRoot _ -> Nothing
+            ProjectFileImport _ by -> Just by
+            ProjectUriImport _ by -> Just by
 
 -- | A message for an import that has leading or trailing spaces.
 untrimmedUriImportMsg :: Doc -> ProjectConfigPath -> Doc
