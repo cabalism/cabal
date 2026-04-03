@@ -237,9 +237,9 @@ detectDupes xs =
     <&> \zs -> [Dupes v zs | v <- zs]
 
 data Dupes a = Dupes
-  { dupesImport :: ProjectImport a
+  { dupesImport :: ProjectNode a
   -- ^ The import that we're checking for duplicates.
-  , dupesImports :: [ProjectImport a]
+  , dupesImports :: [ProjectNode a]
   -- ^ All the imports of this file.
   }
   deriving (Eq)

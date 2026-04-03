@@ -6,7 +6,7 @@
 module Distribution.Solver.Types.ProjectConfigPath
     (
     -- * Project Config Path Manipulation
-      ProjectImport(..)
+      ProjectNode(..)
     , ProjectConfigPath(..)
     , projectConfigPathRoot
     , nullProjectConfigPath
@@ -56,14 +56,13 @@ newtype ProjectFilePath = ProjectFilePath FilePath
     deriving (Eq, Generic)
 
 -- | Isomorphic with 'ProjectConfigPath' but with separate constructors for the
--- root, imported file and imported URI separate.
--- TODO: Rename to 'ProjectNode'.
-data ProjectImport a where
-    ProjectRoot :: FilePath -> ProjectImport ProjectFilePath
-    ProjectFileImport :: FilePath -> ProjectConfigPath -> ProjectImport FilePath
-    ProjectUriImport :: URI -> ProjectConfigPath -> ProjectImport URI
+-- root, imported file and imported URI.
+data ProjectNode a where
+    ProjectRoot :: FilePath -> ProjectNode ProjectFilePath
+    ProjectFileImport :: FilePath -> ProjectConfigPath -> ProjectNode FilePath
+    ProjectUriImport :: URI -> ProjectConfigPath -> ProjectNode URI
 
-instance Eq (ProjectImport a) where
+instance Eq (ProjectNode a) where
     (==) a b
         | ProjectRoot root <- a
         , ProjectRoot root' <- b = root == root'
@@ -76,16 +75,16 @@ instance Eq (ProjectImport a) where
             (consProjectConfigPath (show importOf) importBy)
             (consProjectConfigPath (show importOf') importBy')
 
-instance Pretty (ProjectImport a) where
+instance Pretty (ProjectNode a) where
     pretty = \case
         ProjectRoot root -> text root
         ProjectFileImport importOf importBy -> pretty $ consProjectConfigPath importOf importBy
         ProjectUriImport importOf importBy -> pretty $ consProjectConfigPath (show importOf) importBy
 
-instance Show (ProjectImport a) where show = prettyShow
+instance Show (ProjectNode a) where show = prettyShow
 
 -- | Sorts the same as 'ProjectConfigPath' does.
-instance Ord (ProjectImport a) where
+instance Ord (ProjectNode a) where
     compare = compare `on` (\case
         ProjectRoot root -> ProjectConfigPath $ root :| []
         ProjectFileImport importOf importBy -> consProjectConfigPath importOf importBy
@@ -311,20 +310,22 @@ cyclicalImportMsg path@(ProjectConfigPath (duplicate :| _)) =
 -- | A message for a duplicate import, a "duplicate import of". If a check for
 -- cyclical imports has already been made then this would report a duplicate
 -- import by two different paths.
-duplicateImportMsg :: Doc -> ProjectImport a -> [ProjectImport a] -> Doc
+duplicateImportMsg :: Doc -> ProjectNode a -> [ProjectNode a] -> Doc
 duplicateImportMsg intro = seenImportMsg intro
 
-seenImportMsg :: Doc -> ProjectImport a -> [ProjectImport a] -> Doc
-seenImportMsg intro projectImport seenImports =
+seenImportMsg :: Doc -> ProjectNode a -> [ProjectNode a] -> Doc
+seenImportMsg intro projectNode seenImports =
     vcat
     [ intro
     , maybe empty (nest 2 . docProjectConfigPath) path
     , nest 2 $ vcat
-            [docProjectConfigPath i | Just i <- importBy <$> filter ((duplicate ==) . importOf) seenImports]
+        [ docProjectConfigPath i
+        | Just i <- importBy <$> filter ((duplicate ==) . importOf) seenImports
+        ]
     ]
     where
-        duplicate = importOf projectImport
-        path = importBy projectImport
+        duplicate = importOf projectNode
+        path = importBy projectNode
         importOf = \case
             ProjectRoot dup -> dup
             ProjectFileImport dup _ -> dup
