@@ -303,7 +303,7 @@ projectSkeletonImports = view traverseCondTreeC
 
 -- | Parses a project from its root config file, typically cabal.project.
 parseProject
-  :: FilePath
+  :: ProjectFilePath
   -- ^ The root of the project configuration, typically cabal.project
   -> FilePath
   -> HttpTransport
@@ -311,7 +311,7 @@ parseProject
   -> ProjectConfigToParse
   -- ^ The contents of the file to parse
   -> IO (ProjectParseResult ProjectConfigSkeleton)
-parseProject rootPath cacheDir httpTransport verbosity configToParse =
+parseProject (ProjectFilePath rootPath) cacheDir httpTransport verbosity configToParse =
   do
     let (dir, projectFileName) = splitFileName rootPath
     projectDir <- makeAbsolute dir

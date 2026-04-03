@@ -6,7 +6,8 @@
 module Distribution.Solver.Types.ProjectConfigPath
     (
     -- * Project Config Path Manipulation
-      ProjectNode(..)
+      ProjectFilePath(..)
+    , ProjectNode(..)
     , ProjectConfigPath(..)
     , projectConfigPathRoot
     , nullProjectConfigPath
