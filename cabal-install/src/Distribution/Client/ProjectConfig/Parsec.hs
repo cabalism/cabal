@@ -14,6 +14,7 @@ module Distribution.Client.ProjectConfig.Parsec
   , runParseResult
   ) where
 
+import Control.Arrow (Kleisli (..), arr, second, (>>>))
 import Distribution.CabalSpecVersion
 import Distribution.Client.HttpUtils
 import Distribution.Client.ProjectConfig.FieldGrammar (packageConfigFieldGrammar, projectConfigFieldGrammar)
@@ -58,7 +59,7 @@ import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
 import Distribution.Client.Errors.Parser (ProjectFileSource (..))
 import qualified Distribution.Compat.CharParsing as P
-import Network.URI (parseURI, uriFragment, uriPath, uriScheme)
+import Network.URI (URI, parseURI, uriFragment, uriPath, uriScheme)
 import System.Directory (createDirectoryIfMissing, makeAbsolute)
 import System.FilePath (isAbsolute, isPathSeparator, makeValid, splitFileName, (</>))
 import qualified Text.Parsec
@@ -136,10 +137,13 @@ parseProjectSkeleton cacheDir httpTransport verbosity projectDir source (Project
                   when
                     (isUntrimmedUriConfigPath importLocPath)
                     (noticeDoc verbosity $ untrimmedUriImportMsg (Disp.text "Warning:") importLocPath)
-                  let fs = (\z -> CondNode z [normLocPath] mempty) <$> fieldsToConfig normSource (reverse acc)
-                  importParseResult <- parseProjectSkeleton cacheDir httpTransport verbosity projectDir importLocPath . ProjectConfigToParse =<< fetchImportConfig normLocPath
+                  let parser = parseProjectSkeleton cacheDir httpTransport verbosity projectDir importLocPath
+                  (mbUri, importParseResult) <-
+                    fetchImportConfig normLocPath
+                      >>= runKleisli (second (arr ProjectConfigToParse >>> Kleisli parser))
 
                   rest <- go [] xs
+                  let fs = (\z -> CondNode z [(mbUri, normLocPath)] mempty) <$> fieldsToConfig normSource (reverse acc)
                   pure . fmap mconcat . sequence $ [fs, importParseResult, rest]
           )
           (parseImport pos importLines)
@@ -191,21 +195,23 @@ parseProjectSkeleton cacheDir httpTransport verbosity projectDir source (Project
       config' <- view stateConfig <$> execStateT (goSections programDb sections) (SectionS config)
       return config'
 
-    fetchImportConfig :: ProjectConfigPath -> IO BS.ByteString
+    fetchImportConfig :: ProjectConfigPath -> IO (Maybe URI, BS.ByteString)
     fetchImportConfig (ProjectConfigPath (pci :| _)) = do
       debug verbosity $ "fetching import: " ++ pci
       fetch pci
 
-    fetch :: FilePath -> IO BS.ByteString
-    fetch pci = case parseURI (trim pci) of
-      Just uri -> do
-        let fp = cacheDir </> map (\x -> if isPathSeparator x then '_' else x) (makeValid $ show uri)
-        createDirectoryIfMissing True cacheDir
-        _ <- downloadURI httpTransport verbosity uri fp
-        BS.readFile fp
-      Nothing ->
-        BS.readFile $
-          if isAbsolute pci then pci else coerce projectDir </> pci
+    fetch :: FilePath -> IO (Maybe URI, BS.ByteString)
+    fetch pci =
+      let mbUri = parseURI (trim pci)
+       in (mbUri,) <$> case mbUri of
+            Just uri -> do
+              let fp = cacheDir </> map (\x -> if isPathSeparator x then '_' else x) (makeValid $ show uri)
+              createDirectoryIfMissing True cacheDir
+              _ <- downloadURI httpTransport verbosity uri fp
+              BS.readFile fp
+            Nothing ->
+              BS.readFile $
+                if isAbsolute pci then pci else coerce projectDir </> pci
 
     modifiesCompiler :: ProjectConfig -> Bool
     modifiesCompiler pc = isSet projectConfigHcFlavor || isSet projectConfigHcPath || isSet projectConfigHcPkg
@@ -217,7 +223,7 @@ parseProjectSkeleton cacheDir httpTransport verbosity projectDir source (Project
       | underConditional && modifiesCompiler d = parseFatalFailure zeroPos "Cannot set compiler in a conditional clause of a cabal project file"
       | otherwise = mapM_ sanityWalkBranch comps >> pure t
 
-    sanityWalkBranch :: CondBranch ConfVar [ProjectConfigPath] ProjectConfig -> ParseResult ProjectFileSource ()
+    sanityWalkBranch :: CondBranch ConfVar [(Maybe URI, ProjectConfigPath)] ProjectConfig -> ParseResult ProjectFileSource ()
     sanityWalkBranch (CondBranch _c t f) = traverse_ (sanityWalkPCS True) f >> sanityWalkPCS True t >> pure ()
 
     programDb = defaultProgramDb

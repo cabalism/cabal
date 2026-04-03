@@ -227,8 +227,8 @@ reportDuplicateImports verbosity skeleton = do
   let dupes = detectDupes $ projectSkeletonImports skeleton
   unless (Map.null dupes) (noticeDoc verbosity $ vcat (dupesMsg <$> Map.toList dupes))
 
-detectDupes :: [ProjectConfigPath] -> DupesMap FilePath
-detectDupes xs =
+detectDupes :: [(Maybe URI, ProjectConfigPath)] -> DupesMap FilePath
+detectDupes (unzip -> (_, xs)) =
   [ (h, [ProjectFileImport h (consProjectConfigPath h t)])
   | (h, Just t) <- unconsProjectConfigPath <$> sort xs
   ]
@@ -268,7 +268,7 @@ dupesMsg (duplicate, ds@(take 1 . sort -> dupes)) =
 
 -- | ProjectConfigSkeleton is a tree of conditional blocks and imports wrapping a config. It can be finalized by providing the conditional resolution info
 -- and then resolving and downloading the imports
-type ProjectConfigSkeleton = CondTree ConfVar [ProjectConfigPath] ProjectConfig
+type ProjectConfigSkeleton = CondTree ConfVar [(Maybe URI, ProjectConfigPath)] ProjectConfig
 
 singletonProjectConfigSkeleton :: ProjectConfig -> ProjectConfigSkeleton
 singletonProjectConfigSkeleton x = CondNode x mempty mempty
@@ -287,7 +287,7 @@ instantiateProjectConfigSkeletonWithCompiler os arch impl _flags skel = go $ map
     go
       :: CondTree
           FlagName
-          [ProjectConfigPath]
+          [(Maybe URI, ProjectConfigPath)]
           ProjectConfig
       -> ProjectConfig
     go (CondNode l _imps ts) =
@@ -298,7 +298,7 @@ instantiateProjectConfigSkeletonWithCompiler os arch impl _flags skel = go $ map
       (Lit False) -> maybe ([]) ((: []) . go) mf
       _ -> error $ "unable to process condition: " ++ show cnd -- TODO it would be nice if there were a pretty printer
 
-projectSkeletonImports :: ProjectConfigSkeleton -> [ProjectConfigPath]
+projectSkeletonImports :: ProjectConfigSkeleton -> [(Maybe URI, ProjectConfigPath)]
 projectSkeletonImports = view traverseCondTreeC
 
 -- | Parses a project from its root config file, typically cabal.project.
@@ -352,12 +352,12 @@ parseProjectSkeleton cacheDir httpTransport verbosity projectDir source (Project
             when
               (isUntrimmedUriConfigPath importLocPath)
               (noticeDoc verbosity $ untrimmedUriImportMsg (Disp.text "Warning:") importLocPath)
-            let fs = (\z -> CondNode z [normLocPath] mempty) <$> fieldsToConfig normSource (reverse acc)
             let parser = parseProjectSkeleton cacheDir httpTransport verbosity projectDir importLocPath
-            (_mbUri, res) <-
+            (mbUri, res) <-
               fetchImportConfig normLocPath
                 >>= runKleisli (second (arr ProjectConfigToParse >>> Kleisli parser))
             rest <- go [] xs
+            let fs = (\z -> CondNode z [(mbUri, normLocPath)] mempty) <$> fieldsToConfig normSource (reverse acc)
             pure . fmap mconcat . sequence $ [projectParse Nothing normSource fs, res, rest]
       (ParseUtils.Section l "if" p xs') -> do
         normSource <- canonicalizeConfigPath projectDir source
@@ -447,13 +447,13 @@ parseProjectSkeleton cacheDir httpTransport verbosity projectDir source (Project
         isSet f = f (projectConfigShared pc) /= NoFlag
 
     sanityWalkPCS :: Bool -> ProjectConfigSkeleton -> ProjectParseResult ProjectConfigSkeleton
-    sanityWalkPCS underConditional t@(CondNode d (listToMaybe -> c) comps)
+    sanityWalkPCS underConditional t@(CondNode d (fmap snd . listToMaybe -> c) comps)
       | underConditional && modifiesCompiler d =
           projectParseFail Nothing c $ ParseUtils.FromString "Cannot set compiler in a conditional clause of a cabal project file" Nothing
       | otherwise =
           mapM_ sanityWalkBranch comps >> pure t
 
-    sanityWalkBranch :: CondBranch ConfVar [ProjectConfigPath] ProjectConfig -> ProjectParseResult ()
+    sanityWalkBranch :: CondBranch ConfVar [(Maybe URI, ProjectConfigPath)] ProjectConfig -> ProjectParseResult ()
     sanityWalkBranch (CondBranch _c t f) = traverse_ (sanityWalkPCS True) f >> sanityWalkPCS True t >> pure ()
 
 ------------------------------------------------------------------
