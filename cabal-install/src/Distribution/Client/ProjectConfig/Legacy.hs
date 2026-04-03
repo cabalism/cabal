@@ -224,17 +224,34 @@ import qualified Text.PrettyPrint as Disp (empty, render, text)
 -- via different import paths.
 reportDuplicateImports :: Verbosity -> ProjectConfigSkeleton -> IO ()
 reportDuplicateImports verbosity skeleton = do
-  let dupes = detectDupes $ projectSkeletonImports skeleton
-  unless (Map.null dupes) (noticeDoc verbosity $ vcat (dupesMsg <$> Map.toList dupes))
+  let (dupeRoots, dupeFiles, dupeUris) = detectDupes $ projectSkeletonImports skeleton
+  unless (Map.null dupeRoots) (noticeDoc verbosity $ vcat (dupesMsg <$> Map.toList dupeRoots))
+  unless (Map.null dupeFiles) (noticeDoc verbosity $ vcat (dupesMsg <$> Map.toList dupeFiles))
+  unless (Map.null dupeUris) (noticeDoc verbosity $ vcat (dupesMsg <$> Map.toList dupeUris))
 
-detectDupes :: [(Maybe URI, ProjectConfigPath)] -> DupesMap FilePath
-detectDupes (unzip -> (_, xs)) =
-  [ (h, [ProjectFileImport h (consProjectConfigPath h t)])
-  | (h, Just t) <- unconsProjectConfigPath <$> sort xs
-  ]
+toDupes :: Ord k => [(k, [ProjectNode a])] -> Map k [Dupes a]
+toDupes xs = xs
     & Map.fromListWith (<>)
     & Map.filter ((> 1) . length)
-    <&> \zs -> [Dupes v zs | v <- zs]
+    <&> \ys -> [Dupes v ys | v <- ys]
+
+-- TODO: Sorting
+detectDupes :: [(Maybe URI, ProjectConfigPath)] -> (DupesMap ProjectFilePath, DupesMap FilePath, DupesMap URI)
+detectDupes xs = (toDupes roots', toDupes files', toDupes uris') where
+    (<$$>) = fmap . fmap
+    roots' =
+      [ (h, [ProjectRoot h])
+      | (Nothing, (h, Nothing)) <- unconsProjectConfigPath <$$> xs
+      ]
+    files' =
+      [ (h, [ProjectFileImport h (consProjectConfigPath h t)])
+      | (Nothing, (h, Just t)) <- unconsProjectConfigPath <$$> xs
+      ]
+    uris' =
+      [ (f, [ProjectUriImport u (consProjectConfigPath f t)])
+      | (Just u, (f, Just t)) <- unconsProjectConfigPath <$$> xs
+      , show u == f
+      ]
 
 data Dupes a = Dupes
   { dupesImport :: ProjectNode a
