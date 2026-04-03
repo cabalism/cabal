@@ -18,7 +18,7 @@ import Control.Arrow (Kleisli (..), arr, second, (>>>))
 import Distribution.CabalSpecVersion
 import Distribution.Client.HttpUtils
 import Distribution.Client.ProjectConfig.FieldGrammar (packageConfigFieldGrammar, projectConfigFieldGrammar)
-import Distribution.Client.ProjectConfig.Legacy (ProjectConfigSkeleton)
+import Distribution.Client.ProjectConfig.Import
 import qualified Distribution.Client.ProjectConfig.Lens as L
 import Distribution.Client.ProjectConfig.Types
 import Distribution.Client.Types.Repo hiding (repoName)
@@ -49,19 +49,17 @@ import Distribution.Types.ConfVar (ConfVar (..))
 import Distribution.Types.PackageName (PackageName)
 import Distribution.Utils.Generic (fromUTF8BS, toUTF8BS, validateUTF8)
 import Distribution.Utils.NubList (toNubList)
-import Distribution.Utils.String (trim)
 import Distribution.Verbosity
 
 import Control.Monad.State.Strict (StateT, execStateT, lift)
 import qualified Data.ByteString as BS
-import Data.Coerce (coerce)
 import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
 import Distribution.Client.Errors.Parser (ProjectFileSource (..))
 import qualified Distribution.Compat.CharParsing as P
-import Network.URI (URI, parseURI, uriFragment, uriPath, uriScheme)
-import System.Directory (createDirectoryIfMissing, makeAbsolute)
-import System.FilePath (isAbsolute, isPathSeparator, makeValid, splitFileName, (</>))
+import Network.URI (URI, uriFragment, uriPath, uriScheme)
+import System.Directory (makeAbsolute)
+import System.FilePath (splitFileName)
 import qualified Text.Parsec
 import Text.PrettyPrint (render)
 import qualified Text.PrettyPrint as Disp
@@ -139,7 +137,7 @@ parseProjectSkeleton cacheDir httpTransport verbosity projectDir source (Project
                     (noticeDoc verbosity $ untrimmedUriImportMsg (Disp.text "Warning:") importLocPath)
                   let parser = parseProjectSkeleton cacheDir httpTransport verbosity projectDir importLocPath
                   (mbUri, importParseResult) <-
-                    fetchImportConfig normLocPath
+                    fetchImportConfig cacheDir httpTransport verbosity projectDir normLocPath
                       >>= runKleisli (second (arr ProjectConfigToParse >>> Kleisli parser))
 
                   rest <- go [] xs
@@ -194,24 +192,6 @@ parseProjectSkeleton cacheDir httpTransport verbosity projectDir source (Project
       config <- parseFieldGrammarCheckingStanzas cabalSpec fs (projectConfigFieldGrammar sourceConfigPath (knownProgramNames programDb)) stanzas
       config' <- view stateConfig <$> execStateT (goSections programDb sections) (SectionS config)
       return config'
-
-    fetchImportConfig :: ProjectConfigPath -> IO (Maybe URI, BS.ByteString)
-    fetchImportConfig (ProjectConfigPath (pci :| _)) = do
-      debug verbosity $ "fetching import: " ++ pci
-      fetch pci
-
-    fetch :: FilePath -> IO (Maybe URI, BS.ByteString)
-    fetch pci =
-      let mbUri = parseURI (trim pci)
-       in (mbUri,) <$> case mbUri of
-            Just uri -> do
-              let fp = cacheDir </> map (\x -> if isPathSeparator x then '_' else x) (makeValid $ show uri)
-              createDirectoryIfMissing True cacheDir
-              _ <- downloadURI httpTransport verbosity uri fp
-              BS.readFile fp
-            Nothing ->
-              BS.readFile $
-                if isAbsolute pci then pci else coerce projectDir </> pci
 
     modifiesCompiler :: ProjectConfig -> Bool
     modifiesCompiler pc = isSet projectConfigHcFlavor || isSet projectConfigHcPath || isSet projectConfigHcPkg

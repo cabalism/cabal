@@ -1,20 +1,61 @@
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE TupleSections #-}
 {-# LANGUAGE ViewPatterns #-}
 
 -- | Project configuration imports.
-module Distribution.Client.ProjectConfig.Import (reportDuplicateImports) where
+module Distribution.Client.ProjectConfig.Import
+  ( ProjectConfigSkeleton
+  , projectSkeletonImports
+  , reportDuplicateImports
+  , fetchImportConfig
+  ) where
 
+import qualified Data.ByteString.Char8 as BS
+import Data.Coerce (coerce)
 import Data.Function ((&))
+import Data.Functor ((<&>))
 import Data.List ((\\))
-import Text.PrettyPrint (Doc, int, semi, text, vcat)
-import qualified Text.PrettyPrint as Disp (empty)
-import Distribution.Client.ProjectConfig.Legacy
-import Distribution.Solver.Types.ProjectConfigPath
-import Network.URI (URI (..))
 import qualified Data.Map as Map
 import Distribution.Client.Compat.Prelude
-import Data.Functor ((<&>))
-import Distribution.Simple.Utils (noticeDoc)
+import Distribution.Client.HttpUtils
+import Distribution.Client.ProjectConfig.Types
+import Distribution.Compat.Lens (view)
+import Distribution.PackageDescription (ConfVar (..))
+import Distribution.Simple.Utils (debug, noticeDoc)
+import Distribution.Solver.Types.ProjectConfigPath
+import Distribution.Types.CondTree (CondTree (..), traverseCondTreeC)
+import Distribution.Utils.String (trim)
+import Network.URI (URI (..), parseURI)
+import System.Directory (createDirectoryIfMissing)
+import System.FilePath (isAbsolute, isPathSeparator, makeValid, (</>))
+import Text.PrettyPrint (Doc, int, semi, text, vcat)
+import qualified Text.PrettyPrint as Disp (empty)
+
+-- | ProjectConfigSkeleton is a tree of conditional blocks and imports wrapping
+-- a config. It can be finalized by providing the conditional resolution info
+-- and then resolving and downloading the imports.
+type ProjectConfigSkeleton = CondTree ConfVar [(Maybe URI, ProjectConfigPath)] ProjectConfig
+
+projectSkeletonImports :: ProjectConfigSkeleton -> [(Maybe URI, ProjectConfigPath)]
+projectSkeletonImports = view traverseCondTreeC
+
+fetchImportConfig :: FilePath -> HttpTransport -> Verbosity -> FilePath -> ProjectConfigPath -> IO (Maybe URI, BS.ByteString)
+fetchImportConfig cacheDir httpTransport verbosity projectDir (ProjectConfigPath (pci' :| _)) = do
+  debug verbosity $ "fetching import: " ++ pci'
+  fetch pci'
+  where
+    fetch :: FilePath -> IO (Maybe URI, BS.ByteString)
+    fetch pci =
+      let mbUri = parseURI (trim pci)
+       in (mbUri,) <$> case mbUri of
+            Just uri -> do
+              let fp = cacheDir </> map (\x -> if isPathSeparator x then '_' else x) (makeValid $ show uri)
+              createDirectoryIfMissing True cacheDir
+              _ <- downloadURI httpTransport verbosity uri fp
+              BS.readFile fp
+            Nothing ->
+              BS.readFile $
+                if isAbsolute pci then pci else coerce projectDir </> pci
 
 -- | Detect and report any duplicate imports, including those missed when parsing.
 --
@@ -29,14 +70,16 @@ reportDuplicateImports verbosity skeleton = do
   unless (Map.null dupeUris) (noticeDoc verbosity $ vcat (dupesMsg <$> Map.toList dupeUris))
 
 toDupes :: Ord k => [(k, [ProjectNode a])] -> Map k [Dupes a]
-toDupes xs = xs
+toDupes xs =
+  xs
     & Map.fromListWith (<>)
     & Map.filter ((> 1) . length)
     <&> \ys -> [Dupes v ys | v <- ys]
 
 -- TODO: Sorting
 detectDupes :: [(Maybe URI, ProjectConfigPath)] -> (DupesMap ProjectFilePath, DupesMap FilePath, DupesMap URI)
-detectDupes xs = (toDupes roots', toDupes files', toDupes uris') where
+detectDupes xs = (toDupes roots', toDupes files', toDupes uris')
+  where
     (<$$>) = fmap . fmap
     roots' =
       [ (h, [ProjectRoot h])

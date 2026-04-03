@@ -1,11 +1,8 @@
-{-# LANGUAGE ConstraintKinds #-}
-{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE ViewPatterns #-}
 
@@ -40,7 +37,6 @@ module Distribution.Client.ProjectConfig.Legacy
   ) where
 
 import Control.Arrow (Kleisli (..), arr, second, (>>>))
-import Data.Coerce (coerce)
 import Distribution.Client.Compat.Prelude
 
 import Distribution.Types.Flag (FlagName, parsecFlagAssignment)
@@ -63,7 +59,7 @@ import Distribution.Client.CmdInstall.ClientInstallFlags
   , defaultClientInstallFlags
   )
 
-import Distribution.Compat.Lens (toListOf, view)
+import Distribution.Compat.Lens (toListOf)
 
 import Distribution.Solver.Types.ConstraintSource
 import Distribution.Solver.Types.ProjectConfigPath
@@ -141,24 +137,9 @@ import Distribution.Simple.Utils
   , noticeDoc
   )
 
-import Distribution.Types.CondTree
-  ( CondBranch (..)
-  , CondTree (..)
-  , ignoreConditions
-  , mapTreeConds
-  , traverseCondTreeC
-  , traverseCondTreeV
-  )
-import Distribution.Types.SourceRepo (RepoType)
-import Distribution.Utils.NubList
-  ( fromNubList
-  , overNubList
-  , toNubList
-  )
-import Distribution.Utils.String (trim)
-
 import Distribution.Client.HttpUtils
 import Distribution.Client.ParseUtils
+import Distribution.Client.ProjectConfig.Import
 import Distribution.Client.ReplFlags (multiReplOption)
 import Distribution.Deprecated.ParseUtils
   ( PError (..)
@@ -194,8 +175,21 @@ import Distribution.Simple.Command
   , reqArg'
   )
 import Distribution.System (Arch, OS, buildOS)
+import Distribution.Types.CondTree
+  ( CondBranch (..)
+  , CondTree (..)
+  , ignoreConditions
+  , mapTreeConds
+  , traverseCondTreeV
+  )
 import Distribution.Types.PackageVersionConstraint
   ( PackageVersionConstraint
+  )
+import Distribution.Types.SourceRepo (RepoType)
+import Distribution.Utils.NubList
+  ( fromNubList
+  , overNubList
+  , toNubList
   )
 import Distribution.Utils.Path hiding
   ( (<.>)
@@ -206,19 +200,15 @@ import qualified Data.ByteString.Char8 as BS
 import Data.Functor ((<&>))
 import qualified Data.Map as Map
 import qualified Data.Set as Set
-import Network.URI (URI (..), nullURIAuth, parseURI)
-import System.Directory (createDirectoryIfMissing, makeAbsolute)
-import System.FilePath (isAbsolute, isPathSeparator, makeValid, splitFileName, (</>))
+import Network.URI (URI (..), nullURIAuth)
+import System.Directory (makeAbsolute)
+import System.FilePath (splitFileName)
 import Text.PrettyPrint (Doc, render, ($+$))
 import qualified Text.PrettyPrint as Disp (empty, render, text)
 
 ------------------------------------------------------------------
 -- Handle extended project config files with conditionals and imports.
 --
-
--- | ProjectConfigSkeleton is a tree of conditional blocks and imports wrapping a config. It can be finalized by providing the conditional resolution info
--- and then resolving and downloading the imports
-type ProjectConfigSkeleton = CondTree ConfVar [(Maybe URI, ProjectConfigPath)] ProjectConfig
 
 singletonProjectConfigSkeleton :: ProjectConfig -> ProjectConfigSkeleton
 singletonProjectConfigSkeleton x = CondNode x mempty mempty
@@ -247,9 +237,6 @@ instantiateProjectConfigSkeletonWithCompiler os arch impl _flags skel = go $ map
       (Lit True) -> [go t]
       (Lit False) -> maybe ([]) ((: []) . go) mf
       _ -> error $ "unable to process condition: " ++ show cnd -- TODO it would be nice if there were a pretty printer
-
-projectSkeletonImports :: ProjectConfigSkeleton -> [(Maybe URI, ProjectConfigPath)]
-projectSkeletonImports = view traverseCondTreeC
 
 -- | Parses a project from its root config file, typically cabal.project.
 parseProject
@@ -304,7 +291,7 @@ parseProjectSkeleton cacheDir httpTransport verbosity projectDir source (Project
               (noticeDoc verbosity $ untrimmedUriImportMsg (Disp.text "Warning:") importLocPath)
             let parser = parseProjectSkeleton cacheDir httpTransport verbosity projectDir importLocPath
             (mbUri, res) <-
-              fetchImportConfig normLocPath
+              fetchImportConfig cacheDir httpTransport verbosity projectDir normLocPath
                 >>= runKleisli (second (arr ProjectConfigToParse >>> Kleisli parser))
             rest <- go [] xs
             let fs = (\z -> CondNode z [(mbUri, normLocPath)] mempty) <$> fieldsToConfig normSource (reverse acc)
@@ -372,24 +359,6 @@ parseProjectSkeleton cacheDir httpTransport verbosity projectDir source (Project
         addWarnings (ProjectParseOk ws' x') = ProjectParseOk (ws' ++ ((p,) <$> ws)) x'
         addWarnings x' = x'
     liftPR p _ (ParseFailed e) = pure $ projectParseFail Nothing (Just p) e
-
-    fetchImportConfig :: ProjectConfigPath -> IO (Maybe URI, BS.ByteString)
-    fetchImportConfig (ProjectConfigPath (pci :| _)) = do
-      debug verbosity $ "fetching import: " ++ pci
-      fetch pci
-
-    fetch :: FilePath -> IO (Maybe URI, BS.ByteString)
-    fetch pci =
-      let mbUri = parseURI (trim pci)
-       in (mbUri,) <$> case mbUri of
-            Just uri -> do
-              let fp = cacheDir </> map (\x -> if isPathSeparator x then '_' else x) (makeValid $ show uri)
-              createDirectoryIfMissing True cacheDir
-              _ <- downloadURI httpTransport verbosity uri fp
-              BS.readFile fp
-            Nothing ->
-              BS.readFile $
-                if isAbsolute pci then pci else coerce projectDir </> pci
 
     modifiesCompiler :: ProjectConfig -> Bool
     modifiesCompiler pc = isSet projectConfigHcFlavor || isSet projectConfigHcPath || isSet projectConfigHcPkg
