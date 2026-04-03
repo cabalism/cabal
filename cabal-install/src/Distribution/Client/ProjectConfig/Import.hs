@@ -77,6 +77,27 @@ toDupes xs =
     <&> \ys -> [Dupes v ys | v <- ys]
 
 -- TODO: Sorting
+splitImports :: [(Maybe URI, ProjectConfigPath)] -> ([ProjectNode ProjectFilePath], [ProjectNode FilePath], [ProjectNode URI])
+splitImports xs = (roots, files, uris)
+  where
+    (<$$>) = fmap . fmap
+    roots =
+      concat
+        [ [ProjectRoot h]
+        | (Nothing, (h, Nothing)) <- unconsProjectConfigPath <$$> xs
+        ]
+    files =
+      concat
+        [ [ProjectFileImport h (consProjectConfigPath h t)]
+        | (Nothing, (h, Just t)) <- unconsProjectConfigPath <$$> xs
+        ]
+    uris =
+      concat
+        [ [ProjectUriImport u (consProjectConfigPath f t)]
+        | (Just u, (f, Just t)) <- unconsProjectConfigPath <$$> xs
+        , show u == f
+        ]
+
 detectDupes :: [(Maybe URI, ProjectConfigPath)] -> (DupesMap ProjectFilePath, DupesMap FilePath, DupesMap URI)
 detectDupes xs = (toDupes roots, toDupes files, toDupes uris)
   where
