@@ -856,7 +856,7 @@ readProjectFileSkeletonGen
         then do
           monitorFiles [monitorFileHashed extensionFile]
           pcs <- liftIO $ parseConfig extensionFile
-          monitorFiles $ map monitorFileHashed (projectConfigPathRoot <$> (snd . unzip $ projectSkeletonImports pcs))
+          monitorFiles $ map monitorFileHashed (projectConfigPathRoot <$> map snd (projectSkeletonImports pcs))
           return pcs
         else do
           monitorFiles [monitorNonExistentFile extensionFile]
