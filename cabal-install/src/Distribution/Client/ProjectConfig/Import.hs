@@ -78,18 +78,18 @@ toDupes xs =
 
 -- TODO: Sorting
 detectDupes :: [(Maybe URI, ProjectConfigPath)] -> (DupesMap ProjectFilePath, DupesMap FilePath, DupesMap URI)
-detectDupes xs = (toDupes roots', toDupes files', toDupes uris')
+detectDupes xs = (toDupes roots, toDupes files, toDupes uris)
   where
     (<$$>) = fmap . fmap
-    roots' =
+    roots =
       [ (h, [ProjectRoot h])
       | (Nothing, (h, Nothing)) <- unconsProjectConfigPath <$$> xs
       ]
-    files' =
+    files =
       [ (h, [ProjectFileImport h (consProjectConfigPath h t)])
       | (Nothing, (h, Just t)) <- unconsProjectConfigPath <$$> xs
       ]
-    uris' =
+    uris =
       [ (f, [ProjectUriImport u (consProjectConfigPath f t)])
       | (Just u, (f, Just t)) <- unconsProjectConfigPath <$$> xs
       , show u == f
