@@ -8,7 +8,9 @@ module Distribution.Solver.Types.ProjectConfigPath
     -- * Project Config Path Manipulation
       ProjectFilePath(..)
     , ProjectNode(..)
+    , ProjectNodes
     , ProjectConfigPath(..)
+    , projectNodes
     , projectConfigPathRoot
     , nullProjectConfigPath
     , consProjectConfigPath
@@ -51,6 +53,19 @@ import Distribution.Utils.String (trim)
 import Text.PrettyPrint
 import Distribution.Simple.Utils (ordNub)
 import Distribution.System (OS(Windows), buildOS)
+
+type ProjectNodes = ([ProjectNode ProjectFilePath], [ProjectNode FilePath], [ProjectNode URI])
+
+projectNodes :: [(Maybe URI, ProjectConfigPath)] -> ProjectNodes
+projectNodes = foldr go ([], [], [])
+    where
+        go (maybeUri, pcp) (roots, files, uris) =
+            case maybeUri of
+                Nothing ->
+                    case unconsProjectConfigPath pcp of
+                        (fp, Nothing) -> (ProjectRoot fp : roots, files, uris)
+                        (fp, Just imp) -> (roots, ProjectFileImport fp imp : files, uris)
+                Just uri -> (roots, files, ProjectUriImport uri pcp : uris)
 
 -- | Not just any file path. The project itself.
 newtype ProjectFilePath = ProjectFilePath FilePath
