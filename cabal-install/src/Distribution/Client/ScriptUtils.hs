@@ -58,11 +58,11 @@ import Distribution.Client.ProjectConfig
   , withGlobalConfig
   , withProjectOrGlobalConfig
   )
+import Distribution.Client.ProjectConfig.Import (reportDuplicateImports)
 import Distribution.Client.ProjectConfig.Legacy
   ( ProjectConfigSkeleton
   , instantiateProjectConfigSkeletonFetchingCompiler
   , parseProject
-  , reportDuplicateImports
   )
 import Distribution.Client.ProjectConfig.Types (ProjectConfigToParse (..))
 import Distribution.Client.ProjectFlags
