@@ -5,7 +5,6 @@
 module Distribution.Client.ProjectConfig.Parsec
   ( -- * Package configuration
     parseProject
-  , ProjectConfigSkeleton
   , ProjectConfig (..)
 
     -- ** Parsing
