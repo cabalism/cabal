@@ -1,14 +1,13 @@
 {-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE GADTs #-}
-{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE ViewPatterns #-}
 
 module Distribution.Solver.Types.ProjectConfigPath
     (
     -- * Project Config Path Manipulation
       ProjectFilePath(..)
-    , ProjectNode(..)
     , ProjectConfigPath(..)
+    , compareLexically
+    , compareSegmentally
     , projectConfigPathRoot
     , nullProjectConfigPath
     , consProjectConfigPath
@@ -18,10 +17,6 @@ module Distribution.Solver.Types.ProjectConfigPath
     -- * Messages
     , docProjectConfigPath
     , docProjectImportedBy
-    , docProjectConfigFiles
-    , cyclicalImportMsg
-    , duplicateImportMsg
-    , untrimmedUriImportMsg
     , docProjectConfigPathFailReason
     , quoteUntrimmed
 
@@ -38,7 +33,7 @@ import Prelude (sequence)
 
 import Data.Coerce (coerce)
 import Data.List.NonEmpty ((<|))
-import Network.URI (URI, parseURI, parseAbsoluteURI)
+import Network.URI (parseURI, parseAbsoluteURI)
 import System.Directory
 import System.FilePath hiding (splitPath)
 import qualified System.FilePath as FP (splitPath)
@@ -49,47 +44,11 @@ import Distribution.Solver.Modular.Version (VR)
 import Distribution.Pretty (prettyShow, Pretty(..))
 import Distribution.Utils.String (trim)
 import Text.PrettyPrint
-import Distribution.Simple.Utils (ordNub)
 import Distribution.System (OS(Windows), buildOS)
 
 -- | Not just any file path. The project itself.
 newtype ProjectFilePath = ProjectFilePath FilePath
     deriving (Eq, Generic)
-
--- | Isomorphic with 'ProjectConfigPath' but with separate constructors for the
--- root, imported file and imported URI.
-data ProjectNode a where
-    ProjectRoot :: FilePath -> ProjectNode ProjectFilePath
-    ProjectFileImport :: FilePath -> ProjectConfigPath -> ProjectNode FilePath
-    ProjectUriImport :: URI -> ProjectConfigPath -> ProjectNode URI
-
-instance Eq (ProjectNode a) where
-    (==) a b
-        | ProjectRoot root <- a
-        , ProjectRoot root' <- b = root == root'
-        | ProjectFileImport importOf importBy <- a
-        , ProjectFileImport importOf' importBy' <- b = (==)
-            (consProjectConfigPath importOf importBy)
-            (consProjectConfigPath importOf' importBy')
-        | ProjectUriImport importOf importBy <- a
-        , ProjectUriImport importOf' importBy' <- b = (==)
-            (consProjectConfigPath (show importOf) importBy)
-            (consProjectConfigPath (show importOf') importBy')
-
-instance Pretty (ProjectNode a) where
-    pretty = \case
-        ProjectRoot root -> text root
-        ProjectFileImport importOf importBy -> pretty $ consProjectConfigPath importOf importBy
-        ProjectUriImport importOf importBy -> pretty $ consProjectConfigPath (show importOf) importBy
-
-instance Show (ProjectNode a) where show = prettyShow
-
--- | Sorts the same as 'ProjectConfigPath' does.
-instance Ord (ProjectNode a) where
-    compare = compare `on` (\case
-        ProjectRoot root -> ProjectConfigPath $ root :| []
-        ProjectFileImport importOf importBy -> consProjectConfigPath importOf importBy
-        ProjectUriImport importOf importBy -> consProjectConfigPath (show importOf) importBy)
 
 -- | Path to a configuration file, either a singleton project root, or a longer
 -- list representing a path to an import.  The path is a non-empty list that we
@@ -236,113 +195,6 @@ docProjectImportedBy (ProjectConfigPath (_ :| ps)) = vcat $
 -- | If the path has leading or trailing spaces then show it quoted.
 quoteUntrimmed :: FilePath -> Doc
 quoteUntrimmed s = if trim s /= s then quotes (text s) else text s
-
--- | Renders the paths as a list without showing which path imports another,
--- like this;
---
--- >- cabal.project
--- >- project-cabal/constraints.config
--- >- project-cabal/ghc-latest.config
--- >- project-cabal/ghc-options.config
--- >- project-cabal/pkgs.config
--- >- project-cabal/pkgs/benchmarks.config
--- >- project-cabal/pkgs/buildinfo.config
--- >- project-cabal/pkgs/cabal.config
--- >- project-cabal/pkgs/install.config
--- >- project-cabal/pkgs/integration-tests.config
--- >- project-cabal/pkgs/tests.config
---
---
--- >>> :{
---   do
---     let ps =
---              [ ProjectConfigPath ("cabal.project" :| [])
---              , ProjectConfigPath ("project-cabal/constraints.config" :| ["cabal.project"])
---              , ProjectConfigPath ("project-cabal/ghc-latest.config" :| ["cabal.project"])
---              , ProjectConfigPath ("project-cabal/ghc-options.config" :| ["cabal.project"])
---              , ProjectConfigPath ("project-cabal/pkgs.config" :| ["cabal.project"])
---              , ProjectConfigPath ("project-cabal/pkgs/benchmarks.config" :| ["project-cabal/pkgs.config","cabal.project"])
---              , ProjectConfigPath ("project-cabal/pkgs/buildinfo.config" :| ["project-cabal/pkgs.config","cabal.project"])
---              , ProjectConfigPath ("project-cabal/pkgs/cabal.config" :| ["project-cabal/pkgs.config","cabal.project"])
---              , ProjectConfigPath ("project-cabal/pkgs/install.config" :| ["project-cabal/pkgs.config","cabal.project"])
---              , ProjectConfigPath ("project-cabal/pkgs/integration-tests.config" :| ["project-cabal/pkgs.config","cabal.project"])
---              , ProjectConfigPath ("project-cabal/pkgs/tests.config" :| ["project-cabal/pkgs.config","cabal.project"])
---              ]
---     return . render $ docProjectConfigFiles ps
--- :}
--- "- cabal.project\n- project-cabal/constraints.config\n- project-cabal/ghc-latest.config\n- project-cabal/ghc-options.config\n- project-cabal/pkgs.config\n- project-cabal/pkgs/benchmarks.config\n- project-cabal/pkgs/buildinfo.config\n- project-cabal/pkgs/cabal.config\n- project-cabal/pkgs/install.config\n- project-cabal/pkgs/integration-tests.config\n- project-cabal/pkgs/tests.config"
---
--- The listing puts projects first, URLs last and sorts the other paths
--- lexically, dropping any duplicates, like this:
---
--- >- cabal.project
--- >- 0.config
--- >- 2.config
--- >- cfg/1.config
--- >- cfg/3.config
--- >- with-ghc.config
--- >- https://www.stackage.org/lts-21.25/cabal.config
---
--- >>> let p = ProjectConfigPath $ "cabal.project" :| []
--- >>> let a = ProjectConfigPath $ "0.config" :| ["cabal.project"]
--- >>> let b = ProjectConfigPath $ "cfg/1.config" :| ["0.config", "cabal.project"]
--- >>> let c = ProjectConfigPath $ "with.config" :| ["0.config", "cabal.project"]
--- >>> let d = ProjectConfigPath $ "2.config" :| ["cfg/1.config", "0.config", "cabal.project"]
--- >>> let e = ProjectConfigPath $ "cfg/3.config" :| ["2.config", "cfg/1.config", "0.config", "cabal.project"]
--- >>> let f = ProjectConfigPath $ "https://www.stackage.org/lts-21.25/cabal.config" :| ["2.config", "cfg/1.config", "0.config", "cabal.project"]
--- >>> let g = ProjectConfigPath $ "https://www.stackage.org/lts-21.25/cabal.config" :| ["cfg/3.config", "2.config", "cfg/1.config", "0.config", "cabal.project"]
--- >>> let ps = [p, a, b, c, d, e, f, g]
--- >>> render $ docProjectConfigFiles ps
--- "- cabal.project\n- 0.config\n- 2.config\n- cfg/1.config\n- cfg/3.config\n- with.config\n- https://www.stackage.org/lts-21.25/cabal.config"
-docProjectConfigFiles :: [ProjectConfigPath] -> Doc
-docProjectConfigFiles (sortBy compareLexically -> ps) = vcat
-    [ text "-" <+> text p
-    | p <- ordNub [ p | ProjectConfigPath (p :| _) <- ps ]
-    ]
-
--- | A message for a cyclical import, a "cyclical import of".
-cyclicalImportMsg :: ProjectConfigPath -> Doc
-cyclicalImportMsg path@(ProjectConfigPath (duplicate :| _)) =
-    seenImportMsg
-        (text "cyclical import of" <+> text duplicate <> semi)
-        (ProjectFileImport duplicate path)
-        []
-
--- | A message for a duplicate import, a "duplicate import of". If a check for
--- cyclical imports has already been made then this would report a duplicate
--- import by two different paths.
-duplicateImportMsg :: Doc -> ProjectNode a -> [ProjectNode a] -> Doc
-duplicateImportMsg intro = seenImportMsg intro
-
-seenImportMsg :: Doc -> ProjectNode a -> [ProjectNode a] -> Doc
-seenImportMsg intro projectNode seenImports =
-    vcat
-    [ intro
-    , maybe empty (nest 2 . docProjectConfigPath) path
-    , nest 2 $ vcat
-        [ docProjectConfigPath i
-        | Just i <- importBy <$> filter ((duplicate ==) . importOf) seenImports
-        ]
-    ]
-    where
-        duplicate = importOf projectNode
-        path = importBy projectNode
-        importOf = \case
-            ProjectRoot dup -> dup
-            ProjectFileImport dup _ -> dup
-            ProjectUriImport dup _ -> show dup
-        importBy = \case
-            ProjectRoot _ -> Nothing
-            ProjectFileImport _ by -> Just by
-            ProjectUriImport _ by -> Just by
-
--- | A message for an import that has leading or trailing spaces.
-untrimmedUriImportMsg :: Doc -> ProjectConfigPath -> Doc
-untrimmedUriImportMsg intro path =
-    vcat
-    [ intro <+> text "import has leading or trailing whitespace" <> semi
-    , nest 2 (docProjectConfigPath path)
-    ]
 
 docProjectConfigPathFailReason :: VR -> ProjectConfigPath -> Doc
 docProjectConfigPathFailReason vr pcp
@@ -500,7 +352,3 @@ canonicalizeConfigPath d (ProjectConfigPath p) = do
 
 isURI :: FilePath -> Bool
 isURI = isJust . parseURI
-
--- $setup
--- >>> import Data.List
--- >>> testDir <- makeAbsolute =<< canonicalizePath "../cabal-testsuite/PackageTests/ConditionalAndImport"

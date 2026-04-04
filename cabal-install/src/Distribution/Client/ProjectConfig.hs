@@ -79,7 +79,6 @@ module Distribution.Client.ProjectConfig
 
 import Data.Bifunctor (second)
 import Distribution.Client.Compat.Prelude hiding (empty)
-import Distribution.Client.ProjectConfig.Import (reportDuplicateImports)
 import Distribution.Parsec.Source
 import Distribution.Simple.Utils
   ( createDirectoryIfMissingVerbose
@@ -257,6 +256,7 @@ import System.IO
   , withBinaryFile
   )
 
+import Distribution.Client.ProjectConfig.Import
 import Distribution.Deprecated.ProjectParseUtils (ProjectParseError (..), ProjectParseWarning)
 import Distribution.Solver.Types.ProjectConfigPath
 
