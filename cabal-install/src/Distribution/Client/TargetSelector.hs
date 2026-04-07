@@ -679,13 +679,13 @@ data TargetSelectorProblem
   deriving (Show, Eq)
 
 -- | Qualification levels.
--- Given the filepath src/F, executable component A, and package foo:
+-- Given the filepath @src/F@, executable component @A@, and package @foo@:
 data QualLevel
   = -- | @src/F@
     QL1
-  | -- | @foo:src/F | A:src/F@
+  | -- | @foo:src\/F | A:src/F@
     QL2
-  | -- | @foo:A:src/F | exe:A:src/F@
+  | -- | @foo:A:src\/F | exe:A:src/F@
     QL3
   | -- | @pkg:foo:exe:A:file:src/F@
     QLFull
