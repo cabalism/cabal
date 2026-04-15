@@ -60,17 +60,18 @@ module Distribution.Parsec
 
 import Data.ByteString (ByteString)
 import Data.Char (digitToInt, intToDigit)
+import Data.Functor (($>))
 import Data.List (transpose)
+import Data.Monoid (Last (..))
+import Prelude ()
+
 import Distribution.CabalSpecVersion
 import Distribution.Compat.Prelude
 import Distribution.Parsec.Error (PError (..), PErrorWithSource (..), showPError, showPErrorWithSource)
-
-import Data.Monoid (Last (..))
 import Distribution.Parsec.FieldLineStream (FieldLineStream, fieldLineStreamFromBS, fieldLineStreamFromString)
 import Distribution.Parsec.Position (Position (..), incPos, retPos, showPos, zeroPos)
 import Distribution.Parsec.Warning
 import Numeric (showIntAtBase)
-import Prelude ()
 
 import qualified Control.Monad.Fail as Fail
 import qualified Distribution.Compat.CharParsing as P
@@ -254,8 +255,8 @@ instance Parsec Bool where
       postprocess str
         | str == "True" = pure True
         | str == "False" = pure False
-        | lstr == "true" = parsecWarning PWTBoolCase caseWarning *> pure True
-        | lstr == "false" = parsecWarning PWTBoolCase caseWarning *> pure False
+        | lstr == "true" = parsecWarning PWTBoolCase caseWarning $> True
+        | lstr == "false" = parsecWarning PWTBoolCase caseWarning $> False
         | otherwise = fail $ "Not a boolean: " ++ str
         where
           lstr = map toLower str

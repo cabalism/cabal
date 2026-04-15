@@ -36,13 +36,14 @@ module Distribution.Types.VersionRange.Internal
   , wildcardUpperBound
   ) where
 
-import Distribution.Compat.Prelude
-import Distribution.Types.Version
+import Data.Functor (($>))
 import Prelude ()
 
 import Distribution.CabalSpecVersion
+import Distribution.Compat.Prelude
 import Distribution.Parsec
 import Distribution.Pretty
+import Distribution.Types.Version
 import Distribution.Utils.Generic (unsnoc)
 
 import qualified Distribution.Compat.CharParsing as P
@@ -525,7 +526,7 @@ versionRangeParser digitParser csv = expr
     verLoop :: CabalParsing m => DList.DList Int -> m (Bool, Version)
     verLoop acc =
       verLoop' acc
-        <|> (tags *> pure (False, mkVersion (DList.toList acc)))
+        <|> (tags $> (False, mkVersion (DList.toList acc)))
 
     verLoop' :: CabalParsing m => DList.DList Int -> m (Bool, Version)
     verLoop' acc = do
