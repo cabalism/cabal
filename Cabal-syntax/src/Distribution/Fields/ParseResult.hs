@@ -1,6 +1,7 @@
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE ViewPatterns #-}
 
 -- | A parse result type for parsers from AST to Haskell types.
 module Distribution.Fields.ParseResult
@@ -146,13 +147,17 @@ getCabalSpecVersion = PR $ \s@(PRState _ _ v) _fp _failure success ->
 
 -- | Add a warning. This doesn't fail the parsing process.
 parseWarning :: Position -> PWarnType -> String -> ParseResult src ()
-parseWarning pos t msg = PR $ \(PRState warns errs v) ctx _failure success ->
-  success (PRState (warns ++ [PWarningWithSource (prContextSource ctx) (PWarning t pos msg)]) errs v) ()
+parseWarning pos t (PWarning t pos -> warn) = parseWarnings [warn]
 
 -- | Add multiple warnings at once.
 parseWarnings :: [PWarning] -> ParseResult src ()
-parseWarnings newWarns = PR $ \(PRState warns errs v) ctx _failure success ->
-  success (PRState (warns ++ map (PWarningWithSource (prContextSource ctx)) newWarns) errs v) ()
+parseWarnings ws = PR $ \s ctx _failure success ->
+  success (appendWarnings ws s ctx) ()
+
+-- | Appends warnings to the current state, associating them with the current source.
+appendWarnings :: [PWarning] -> PRState src -> PRContext src -> PRState src
+appendWarnings w' (PRState w e v) (prContextSource -> src) =
+  PRState (w ++ map (PWarningWithSource src) w') e v
 
 -- | Add an error, but not fail the parser yet.
 --
