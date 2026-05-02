@@ -780,8 +780,11 @@ preConfigurePackage verbHandles cfg g_pkg_descr = do
   return (lbc, comp, compPlatform, enabled)
 
 pattern ConfigVerbosity :: Verbosity -> (VerbosityHandles, ConfigFlags)
-pattern ConfigVerbosity v <- ((\(hs, cfg) -> mkVerbosity hs (fromFlag $ setupVerbosity (configCommonFlags cfg))) -> v)
+pattern ConfigVerbosity v <- (mkConfigVerbosity -> v)
 {-# COMPLETE ConfigVerbosity #-}
+
+mkConfigVerbosity :: (VerbosityHandles, ConfigFlags) -> Verbosity
+mkConfigVerbosity (hs, cfg) = mkVerbosity hs (fromFlag . setupVerbosity $ configCommonFlags cfg)
 
 computeLocalBuildConfig
   :: VerbosityHandles
