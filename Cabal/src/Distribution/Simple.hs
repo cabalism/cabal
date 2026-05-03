@@ -103,7 +103,7 @@ import Distribution.Simple.PackageDescription
 import Distribution.Simple.PreProcess
 import Distribution.Simple.Program
 import Distribution.Simple.Setup
-import Distribution.Simple.Setup.Config
+import Distribution.Simple.Setup.Common
 import qualified Distribution.Simple.SetupHooks.Internal as SetupHooks
 import Distribution.Simple.UserHooks
 

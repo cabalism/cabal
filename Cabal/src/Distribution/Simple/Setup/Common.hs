@@ -3,6 +3,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE ViewPatterns #-}
 
 -- |
 -- Module      :  Distribution.Simple.Setup.Common
@@ -51,6 +52,7 @@ module Distribution.Simple.Setup.Common
   , reqSymbolicPathArgFlag
   , optionVerbosity
   , optionNumJobs
+  , pattern CommonSetupVerbosity
   ) where
 
 import Distribution.Compat.Prelude hiding (get)
@@ -114,6 +116,13 @@ defaultCommonSetupFlags =
     , setupTargets = []
     , setupKeepTempFiles = NoFlag
     }
+
+pattern CommonSetupVerbosity :: Verbosity -> (VerbosityHandles, CommonSetupFlags)
+pattern CommonSetupVerbosity v <- (mkConfigCommonVerbosity -> v)
+{-# COMPLETE CommonSetupVerbosity #-}
+
+mkConfigCommonVerbosity :: (VerbosityHandles, CommonSetupFlags) -> Verbosity
+mkConfigCommonVerbosity (hs, commonFlags) = mkVerbosity hs (fromFlag $ setupVerbosity commonFlags)
 
 -- | Get `TempFileOptions` that respect the `setupKeepTempFiles` flag.
 commonSetupTempFileOptions :: CommonSetupFlags -> TempFileOptions

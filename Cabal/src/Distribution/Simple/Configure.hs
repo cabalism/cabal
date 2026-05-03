@@ -2,10 +2,12 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TupleSections #-}
+{-# LANGUAGE ViewPatterns #-}
 
 -----------------------------------------------------------------------------
 
@@ -196,6 +198,13 @@ import Text.PrettyPrint
 import qualified Data.Maybe as M
 import qualified Data.Set as Set
 import qualified Distribution.Compat.NonEmptySet as NES
+
+pattern ConfigVerbosity :: Verbosity -> (VerbosityHandles, ConfigFlags)
+pattern ConfigVerbosity v <- (mkConfigVerbosity -> v)
+{-# COMPLETE ConfigVerbosity #-}
+
+mkConfigVerbosity :: (VerbosityHandles, ConfigFlags) -> Verbosity
+mkConfigVerbosity (hs, cfg) = let CommonSetupVerbosity v = (hs, configCommonFlags cfg) in v
 
 type UseExternalInternalDeps = Bool
 
