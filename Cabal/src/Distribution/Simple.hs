@@ -103,6 +103,7 @@ import Distribution.Simple.PackageDescription
 import Distribution.Simple.PreProcess
 import Distribution.Simple.Program
 import Distribution.Simple.Setup
+import Distribution.Simple.Setup.Config
 import qualified Distribution.Simple.SetupHooks.Internal as SetupHooks
 import Distribution.Simple.UserHooks
 
@@ -416,7 +417,7 @@ configureAction verbHandles globalFlags hooks flags args = do
           { configCommonFlags = commonFlags'
           }
       mbWorkDir = flagToMaybe $ setupWorkingDir commonFlags'
-      verbosity = mkVerbosity verbHandles (fromFlag $ setupVerbosity commonFlags')
+      CommonSetupVerbosity verbosity = (verbHandles, commonFlags')
 
   -- See docs for 'HookedBuildInfo'
   pbi <- preConf hooks args flags'
@@ -995,7 +996,7 @@ autoconfUserHooks =
     defaultPostConf args flags pkg_descr lbi =
       do
         let common = configCommonFlags flags
-            verbosity = mkVerbosity defaultVerbosityHandles (fromFlag $ setupVerbosity common)
+            CommonSetupVerbosity verbosity = (defaultVerbosityHandles, common)
             mbWorkDir = flagToMaybe $ setupWorkingDir common
         runConfigureScript
           defaultVerbosityHandles
@@ -1016,7 +1017,7 @@ autoconfUserHooks =
       -> IO HookedBuildInfo
     readHookWithArgs get_common_flags _args flags = do
       let common = get_common_flags flags
-          verbosity = mkVerbosity defaultVerbosityHandles (fromFlag (setupVerbosity common))
+          CommonSetupVerbosity verbosity = (defaultVerbosityHandles, common)
           mbWorkDir = flagToMaybe $ setupWorkingDir common
           distPref = setupDistPref common
       dist_dir <- findDistPrefOrDefault distPref
@@ -1029,7 +1030,7 @@ autoconfUserHooks =
       -> IO HookedBuildInfo
     readHook get_common_flags args flags = do
       let common = get_common_flags flags
-          verbosity = mkVerbosity defaultVerbosityHandles (fromFlag (setupVerbosity common))
+          CommonSetupVerbosity verbosity = (defaultVerbosityHandles, common)
           mbWorkDir = flagToMaybe $ setupWorkingDir common
           distPref = setupDistPref common
       noExtraFlags args

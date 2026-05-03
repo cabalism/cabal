@@ -40,6 +40,8 @@ module Distribution.Simple.Setup.Config
   , configureArgs
   , configureOptions
   , installDirsOptions
+  , pattern CommonSetupVerbosity
+  , pattern ConfigVerbosity
   ) where
 
 import Distribution.Compat.Prelude hiding (get)
@@ -78,6 +80,20 @@ import qualified Text.PrettyPrint as Disp
 -- * Config flags
 
 -- ------------------------------------------------------------
+
+pattern ConfigVerbosity :: Verbosity -> (VerbosityHandles, ConfigFlags)
+pattern ConfigVerbosity v <- (mkConfigVerbosity -> v)
+{-# COMPLETE ConfigVerbosity #-}
+
+mkConfigVerbosity :: (VerbosityHandles, ConfigFlags) -> Verbosity
+mkConfigVerbosity (hs, cfg) = mkConfigCommonVerbosity (hs, configCommonFlags cfg)
+
+pattern CommonSetupVerbosity :: Verbosity -> (VerbosityHandles, CommonSetupFlags)
+pattern CommonSetupVerbosity v <- (mkConfigCommonVerbosity -> v)
+{-# COMPLETE CommonSetupVerbosity #-}
+
+mkConfigCommonVerbosity :: (VerbosityHandles, CommonSetupFlags) -> Verbosity
+mkConfigCommonVerbosity (hs, commonFlags) = mkVerbosity hs (fromFlag $ setupVerbosity commonFlags)
 
 -- | Flags to @configure@ command.
 --
