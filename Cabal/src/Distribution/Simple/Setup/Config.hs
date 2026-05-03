@@ -42,8 +42,6 @@ module Distribution.Simple.Setup.Config
   , installDirsOptions
   , pattern ConfigVerbosity
   , pattern CommonSetupVerbosity
-  , pattern DefaultConfigVerbosity
-  , pattern DefaultCommonSetupVerbosity
   ) where
 
 import Distribution.Compat.Prelude hiding (get)
@@ -83,10 +81,6 @@ import qualified Text.PrettyPrint as Disp
 
 -- ------------------------------------------------------------
 
-pattern DefaultConfigVerbosity :: Verbosity -> ConfigFlags
-pattern DefaultConfigVerbosity v <- (mkDefaultConfigVerbosity -> v)
-{-# COMPLETE DefaultConfigVerbosity #-}
-
 pattern ConfigVerbosity :: Verbosity -> (VerbosityHandles, ConfigFlags)
 pattern ConfigVerbosity v <- (mkConfigVerbosity -> v)
 {-# COMPLETE ConfigVerbosity #-}
@@ -94,26 +88,12 @@ pattern ConfigVerbosity v <- (mkConfigVerbosity -> v)
 mkConfigVerbosity :: (VerbosityHandles, ConfigFlags) -> Verbosity
 mkConfigVerbosity (hs, cfg) = mkConfigCommonVerbosity (hs, configCommonFlags cfg)
 
-pattern DefaultCommonSetupVerbosity :: Verbosity -> CommonSetupFlags
-pattern DefaultCommonSetupVerbosity v <- (mkDefaultCommonVerbosity -> v)
-{-# COMPLETE CommonSetupVerbosity #-}
-
 pattern CommonSetupVerbosity :: Verbosity -> (VerbosityHandles, CommonSetupFlags)
 pattern CommonSetupVerbosity v <- (mkConfigCommonVerbosity -> v)
 {-# COMPLETE CommonSetupVerbosity #-}
 
 mkConfigCommonVerbosity :: (VerbosityHandles, CommonSetupFlags) -> Verbosity
 mkConfigCommonVerbosity (hs, commonFlags) = mkVerbosity hs (fromFlag $ setupVerbosity commonFlags)
-
-mkDefaultConfigVerbosity :: ConfigFlags -> Verbosity
-mkDefaultConfigVerbosity configFlags = mkDefaultCommonVerbosity $ configCommonFlags configFlags
-
-mkDefaultCommonVerbosity :: CommonSetupFlags -> Verbosity
-mkDefaultCommonVerbosity commonFlags =
-  mkVerbosity defaultVerbosityHandles $
-    fromFlagOrDefault
-      normal
-      (setupVerbosity commonFlags)
 
 -- | Flags to @configure@ command.
 --
