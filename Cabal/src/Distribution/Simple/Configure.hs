@@ -77,6 +77,8 @@ module Distribution.Simple.Configure
   , ConfigStateFileError (..)
   , tryGetConfigStateFile
   , platformDefines
+  , pattern CommonSetupVerbosity
+  , pattern ConfigVerbosity
   ) where
 
 import Control.Monad
@@ -779,12 +781,19 @@ preConfigurePackage verbHandles cfg g_pkg_descr = do
   lbc <- computeLocalBuildConfig verbHandles cfg comp programDb00
   return (lbc, comp, compPlatform, enabled)
 
+pattern CommonSetupVerbosity :: Verbosity -> (VerbosityHandles, CommonSetupFlags)
+pattern CommonSetupVerbosity v <- (mkConfigCommonVerbosity -> v)
+{-# COMPLETE CommonSetupVerbosity #-}
+
 pattern ConfigVerbosity :: Verbosity -> (VerbosityHandles, ConfigFlags)
 pattern ConfigVerbosity v <- (mkConfigVerbosity -> v)
 {-# COMPLETE ConfigVerbosity #-}
 
+mkConfigCommonVerbosity :: (VerbosityHandles, CommonSetupFlags) -> Verbosity
+mkConfigCommonVerbosity (hs, commonFlags) = mkVerbosity hs (fromFlag $ setupVerbosity commonFlags)
+
 mkConfigVerbosity :: (VerbosityHandles, ConfigFlags) -> Verbosity
-mkConfigVerbosity (hs, cfg) = mkVerbosity hs (fromFlag . setupVerbosity $ configCommonFlags cfg)
+mkConfigVerbosity (hs, cfg) = mkConfigCommonVerbosity (hs, configCommonFlags cfg)
 
 computeLocalBuildConfig
   :: VerbosityHandles
