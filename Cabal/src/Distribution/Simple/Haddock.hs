@@ -69,7 +69,6 @@ import qualified Distribution.Simple.Program.HcPkg as HcPkg
 import Distribution.Simple.Program.ResponseFile
 import Distribution.Simple.Register
 import Distribution.Simple.Setup
-import Distribution.Simple.Setup.Common
 import qualified Distribution.Simple.SetupHooks.Internal as SetupHooks
   ( PreBuildComponentInputs (..)
   )
