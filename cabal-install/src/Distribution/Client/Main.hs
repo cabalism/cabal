@@ -3,7 +3,6 @@
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
-{-# LANGUAGE ViewPatterns #-}
 
 -- |
 -- Module      :  Main
@@ -93,6 +92,7 @@ import Distribution.Simple.Setup
   , toFlag
   , pattern Flag
   , pattern NoFlag
+  , pattern DefaultCommonSetupVerbosity
   )
 
 import Distribution.Client.Compat.Prelude hiding (get)
@@ -270,7 +270,6 @@ import Distribution.Version
 import Control.Exception (AssertionFailed, assert, try)
 import Data.Monoid (Any (..))
 import Distribution.Client.Types
-import Distribution.Simple.Setup (pattern DefaultCommonSetupVerbosity)
 import System.Directory
   ( doesFileExist
   , withCurrentDirectory

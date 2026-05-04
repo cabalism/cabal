@@ -49,7 +49,6 @@ import Distribution.Client.ScriptUtils
   )
 import Distribution.Client.Setup (ConfigFlags (..), GlobalFlags (..))
 import Distribution.Client.TargetProblem (TargetProblem (..))
-import Distribution.Simple.Setup (pattern DefaultCommonSetupVerbosity)
 
 import Distribution.Simple.BuildPaths
   ( haddockBenchmarkDirPath
@@ -87,6 +86,7 @@ import Distribution.Simple.Setup
   , Visibility (..)
   , defaultHaddockFlags
   , haddockProjectCommand
+  , pattern DefaultCommonSetupVerbosity
   )
 import Distribution.Simple.Utils
   ( copyDirectoryRecursive
