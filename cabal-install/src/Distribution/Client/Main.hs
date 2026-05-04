@@ -270,6 +270,7 @@ import Distribution.Version
 import Control.Exception (AssertionFailed, assert, try)
 import Data.Monoid (Any (..))
 import Distribution.Client.Types
+import Distribution.Simple.Setup (pattern DefaultCommonSetupVerbosity)
 import System.Directory
   ( doesFileExist
   , withCurrentDirectory
@@ -1594,14 +1595,3 @@ chooseRepo verbosity ctx mrepo = do
           , intercalate ", " (fmap (unRepoName . repoName) (repoContextRepos ctx))
           ]
     else pure ctx{repoContextRepos = filtered}
-
-pattern DefaultCommonSetupVerbosity :: Verbosity -> CommonSetupFlags
-pattern DefaultCommonSetupVerbosity v <- (mkDefaultCommonVerbosity -> v)
-{-# COMPLETE DefaultCommonSetupVerbosity #-}
-
-mkDefaultCommonVerbosity :: CommonSetupFlags -> Verbosity
-mkDefaultCommonVerbosity commonFlags =
-  mkVerbosity defaultVerbosityHandles $
-    fromFlagOrDefault
-      normal
-      (setupVerbosity commonFlags)

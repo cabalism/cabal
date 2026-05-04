@@ -18,6 +18,8 @@
 -- See: @Distribution.Simple.Setup@
 module Distribution.Simple.Setup.Common
   ( CommonSetupFlags (..)
+  , pattern CommonSetupVerbosity
+  , pattern DefaultCommonSetupVerbosity
   , defaultCommonSetupFlags
   , withCommonSetupOptions
   , commonSetupTempFileOptions
@@ -52,7 +54,6 @@ module Distribution.Simple.Setup.Common
   , reqSymbolicPathArgFlag
   , optionVerbosity
   , optionNumJobs
-  , pattern CommonSetupVerbosity
   ) where
 
 import Distribution.Compat.Prelude hiding (get)
@@ -117,12 +118,29 @@ defaultCommonSetupFlags =
     , setupKeepTempFiles = NoFlag
     }
 
+-- | From the provided handles and 'fromFlag' to get the setup verbosity from
+-- the provided flags, constructs a verbosity.
 pattern CommonSetupVerbosity :: Verbosity -> (VerbosityHandles, CommonSetupFlags)
 pattern CommonSetupVerbosity v <- (mkConfigCommonVerbosity -> v)
+
 {-# COMPLETE CommonSetupVerbosity #-}
+
+-- | Same as 'CommonSetupVerbosity', but using the default verbosity handles and
+-- 'fromFlagOrDefault' to get the verbosity from the flags.
+pattern DefaultCommonSetupVerbosity :: Verbosity -> CommonSetupFlags
+pattern DefaultCommonSetupVerbosity v <- (mkDefaultCommonVerbosity -> v)
+
+{-# COMPLETE DefaultCommonSetupVerbosity #-}
 
 mkConfigCommonVerbosity :: (VerbosityHandles, CommonSetupFlags) -> Verbosity
 mkConfigCommonVerbosity (hs, commonFlags) = mkVerbosity hs (fromFlag $ setupVerbosity commonFlags)
+
+mkDefaultCommonVerbosity :: CommonSetupFlags -> Verbosity
+mkDefaultCommonVerbosity commonFlags =
+  mkVerbosity defaultVerbosityHandles $
+    fromFlagOrDefault
+      normal
+      (setupVerbosity commonFlags)
 
 -- | Get `TempFileOptions` that respect the `setupKeepTempFiles` flag.
 commonSetupTempFileOptions :: CommonSetupFlags -> TempFileOptions

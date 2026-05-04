@@ -1,6 +1,7 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE RecordWildCards #-}
 
 module Distribution.Client.CmdLegacy (legacyCmd, legacyWrapperCmd, newCmd) where
@@ -20,6 +21,7 @@ import Distribution.Client.SetupWrapper
   , setupWrapper
   )
 import Distribution.Simple.Command
+import Distribution.Simple.Setup (pattern DefaultCommonSetupVerbosity)
 import qualified Distribution.Simple.Setup as Setup
 import Distribution.Simple.Utils
   ( wrapText
@@ -61,9 +63,7 @@ wrapperAction command getCommonFlags =
       }
     $ \flags extraArgs globalFlags -> do
       let common = getCommonFlags flags
-          verbosity' =
-            mkVerbosity defaultVerbosityHandles $
-              Setup.fromFlagOrDefault normal (Setup.setupVerbosity common)
+          DefaultCommonSetupVerbosity verbosity' = common
           mbWorkDir = Setup.flagToMaybe $ Setup.setupWorkingDir common
 
       load <- try (loadConfigOrSandboxConfig verbosity' globalFlags)
