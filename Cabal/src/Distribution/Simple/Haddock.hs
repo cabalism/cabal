@@ -58,7 +58,6 @@ import Distribution.Simple.Errors
 import Distribution.Simple.FileMonitor.Types
   ( MonitorFilePath
   )
-import Distribution.Simple.Setup.Common
 import Distribution.Simple.Glob (matchDirFileGlob)
 import Distribution.Simple.InstallDirs
 import Distribution.Simple.LocalBuildInfo hiding (substPathTemplate)
@@ -70,6 +69,7 @@ import qualified Distribution.Simple.Program.HcPkg as HcPkg
 import Distribution.Simple.Program.ResponseFile
 import Distribution.Simple.Register
 import Distribution.Simple.Setup
+import Distribution.Simple.Setup.Common
 import qualified Distribution.Simple.SetupHooks.Internal as SetupHooks
   ( PreBuildComponentInputs (..)
   )

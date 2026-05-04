@@ -90,9 +90,9 @@ import Distribution.Simple.Setup
   , fromFlagOrDefault
   , hscolourCommand
   , toFlag
+  , pattern DefaultCommonSetupVerbosity
   , pattern Flag
   , pattern NoFlag
-  , pattern DefaultCommonSetupVerbosity
   )
 
 import Distribution.Client.Compat.Prelude hiding (get)
