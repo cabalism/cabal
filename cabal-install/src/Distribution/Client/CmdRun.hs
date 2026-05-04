@@ -199,7 +199,9 @@ runCommand =
 -- For more details on how this works, see the module
 -- "Distribution.Client.ProjectOrchestration"
 runAction :: NixStyleFlags () -> [String] -> GlobalFlags -> IO ()
-runAction flags targetAndArgs globalFlags =
+runAction flags targetAndArgs globalFlags = do
+  fullArgs <- getFullArgs
+  let (targetStr, args) = splitTargetAndArgs fullArgs targetAndArgs
   withContextAndSelectors (cfgVerbosity normal flags) RejectNoTargets (Just ExeKind) flags targetStr globalFlags OtherCommand $ \targetCtx ctx targetSelectors -> do
     (baseCtx, defaultVerbosity) <- case targetCtx of
       ProjectContext -> return (ctx, normal)
@@ -213,7 +215,6 @@ runAction flags targetAndArgs globalFlags =
         when (buildSettingOnlyDeps (buildSettings baseCtx)) $
           dieWithException verbosity NoSupportForRunCommand
 
-        fullArgs <- getFullArgs
         when (occursOnlyOrBefore fullArgs "+RTS" "--") $
           warn verbosity $
             giveRTSWarning "run"
@@ -353,8 +354,34 @@ runAction flags targetAndArgs globalFlags =
                     (distDirLayout baseCtx)
                     elaboratedPlan
             }
-  where
-    (targetStr, args) = splitAt 1 targetAndArgs
+
+-- | Split @cabal run@ arguments into target selectors and executable arguments.
+--
+-- The first argument is the original command line from 'getFullArgs', which is only used
+-- to detect whether a @--@ separator was present so that @cabal run -- ...@ keeps the target empty.
+-- The second argument is the parser-produced list that combines targets and executable arguments.
+--
+-- >>> splitTargetAndArgs ["cabal", "run", "foo"] ["foo"]
+-- (["foo"],[])
+--
+-- >>> splitTargetAndArgs ["cabal", "run", "foo", "--", "+RTS"] ["foo", "+RTS"]
+-- (["foo"],["+RTS"])
+--
+-- >>> splitTargetAndArgs ["cabal", "run", "--", "+RTS"] ["+RTS"]
+-- ([],["+RTS"])
+--
+-- >>> splitTargetAndArgs ["cabal", "run", "--"] []
+-- ([],[])
+splitTargetAndArgs :: [String] -> [String] -> ([String], [String])
+splitTargetAndArgs fullArgs targetAndArgs = case dropWhile (/= "--") fullArgs of
+  ("--" : exeArgs) ->
+    -- targetAndArgs contains targets (>=0) and args; exeArgs contains only args; so
+    -- the difference (>=0) is the number of targets
+    let numTargets = length targetAndArgs - length exeArgs
+     in splitAt numTargets targetAndArgs
+  _ ->
+    -- No '--': first element (if any) is the target.
+    splitAt 1 targetAndArgs
 
 -- | Used by the main CLI parser as heuristic to decide whether @cabal@ was
 -- invoked as a script interpreter, i.e. via
