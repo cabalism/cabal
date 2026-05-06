@@ -5,8 +5,6 @@
 CABALBUILD := cabal build
 CABALRUN   := cabal run
 
-DOCTEST := cabal repl --with-compiler=doctest --build-depends=QuickCheck --repl-options='-w -Wdefault'
-
 # default rules
 
 .PHONY: all
@@ -149,19 +147,40 @@ ghcid-lib: ## Run ghcid for the Cabal library.
 ghcid-cli: ## Run ghcid for the cabal-install executable.
 	ghcid -c 'cabal repl cabal-install'
 
+# doctests
+
+# To find package directories that might have doctests:
+# $ grep --exclude generics-sop-lens.hs -E "\- >>>" **/*.hs | awk -F/ '{print $1}' | sort -u
+DOCTEST_PACKAGES := \
+  Cabal \
+  Cabal-described \
+  Cabal-syntax \
+  cabal-install \
+  cabal-install-solver \
+  cabal-testsuite
+
+DOCTEST_TARGETS := $(addprefix doctest-, $(DOCTEST_PACKAGES))
+DOCTEST := cabal repl --with-compiler=doctest --build-depends=QuickCheck --verbose=0 --repl-options='-w -Wdefault -Wno-inconsistent-flags --verbose'
+
+doctest-%: ## Run doctests for a specific package.
+	$(DOCTEST) $*
+
+doctest-PACKAGENAME: ## Run doctests for a single package (replace PACKAGENAME).
+	@echo 'Please use one of the following targets:'
+	@printf "%s\n" $(DOCTEST_TARGETS)
+
 .PHONY: doctest
-doctest: ## Run doctests.
-	cd Cabal-syntax && $(DOCTEST)
-	cd Cabal-described && $(DOCTEST)
-	cd Cabal && $(DOCTEST)
-	cd cabal-install-solver && $(DOCTEST)
-	cd cabal-install && $(DOCTEST)
+doctest: ## Run doctests in all packages.
+doctest: $(DOCTEST_TARGETS)
 
 # This is not run as part of validate.sh (we need hackage-security, which is tricky to get).
 .PHONY: doctest-cli
 doctest-cli :
 	doctest -D__DOCTEST__ --fast cabal-install/src cabal-install-solver/src cabal-install-solver/src-assertion
 
+# We don't use the cabal-doctest external command but we install it anyway along
+# with doctest.
+# SEE: https://github.com/haskell/cabal/issues/11493
 .PHONY: doctest-install
 doctest-install: ## Install doctest tool needed for running doctests.
 	cabal install doctest --overwrite-policy=always --ignore-project --flag cabal-doctest
