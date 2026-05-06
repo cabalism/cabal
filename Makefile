@@ -5,7 +5,7 @@
 CABALBUILD := cabal build
 CABALRUN   := cabal run
 
-DOCTEST := cabal doctest
+DOCTEST := cabal repl --with-compiler=doctest --build-depends=QuickCheck --repl-options='-w -Wdefault'
 
 # default rules
 
