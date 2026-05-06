@@ -160,10 +160,11 @@ DOCTEST_PACKAGES := \
   cabal-testsuite
 
 DOCTEST_TARGETS := $(addprefix doctest-, $(DOCTEST_PACKAGES))
-DOCTEST := cabal repl --with-compiler=doctest --build-depends=QuickCheck --verbose=0 --repl-options='-w -Wdefault -Wno-inconsistent-flags --verbose'
+DOCTEST := cabal repl --with-compiler=doctest --build-depends=QuickCheck --verbose=0 --repl-options='-w -Wdefault -Wno-inconsistent-flags'
 
 doctest-%: ## Run doctests for a specific package.
-	$(DOCTEST) $*
+	@echo "Running doctests for $*:"
+	@$(DOCTEST) $*
 
 doctest-PACKAGENAME: ## Run doctests for a single package (replace PACKAGENAME).
 	@echo 'Please use one of the following targets:'
