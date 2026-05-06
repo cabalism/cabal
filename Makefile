@@ -183,7 +183,7 @@ doctest-cli :
 # SEE: https://github.com/haskell/cabal/issues/11493
 .PHONY: doctest-install
 doctest-install: ## Install doctest tool needed for running doctests.
-	cabal install doctest --overwrite-policy=always --ignore-project --flag cabal-doctest
+	cabal install doctest-0.24.3 --overwrite-policy=always --ignore-project --flag cabal-doctest
 
 # tests
 
