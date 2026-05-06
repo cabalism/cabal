@@ -150,17 +150,16 @@ ghcid-cli: ## Run ghcid for the cabal-install executable.
 	ghcid -c 'cabal repl cabal-install'
 
 .PHONY: doctest
-doctest: ## Run doctests.
+doctest: ## Run doctests for all core packages (+ Cabal-described).
 	cd Cabal-syntax && $(DOCTEST)
 	cd Cabal-described && $(DOCTEST)
 	cd Cabal && $(DOCTEST)
 	cd cabal-install-solver && $(DOCTEST)
 	cd cabal-install && $(DOCTEST)
 
-# This is not run as part of validate.sh (we need hackage-security, which is tricky to get).
-.PHONY: doctest-cli
-doctest-cli :
-	doctest -D__DOCTEST__ --fast cabal-install/src cabal-install-solver/src cabal-install-solver/src-assertion
+# Per-package doctest targets for convenience / expediency.
+doctest-%:
+	cd $* && $(DOCTEST)
 
 .PHONY: doctest-install
 doctest-install: ## Install doctest tool needed for running doctests.
