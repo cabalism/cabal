@@ -361,19 +361,19 @@ runAction flags targetAndArgs globalFlags = do
 -- to detect whether a @--@ separator was present so that @cabal run -- ...@ keeps the target empty.
 -- The second argument is the parser-produced list that combines targets and executable arguments.
 --
--- >>> splitTargetAndArgs ["cabal", "run", "foo"] ["foo"]
+-- >>> splitTargetAndArgs ["exe", "cmd", "foo"] ["foo"]
 -- (["foo"],[])
 --
--- >>> splitTargetAndArgs ["cabal", "run", "foo", "--", "+RTS"] ["foo", "+RTS"]
+-- >>> splitTargetAndArgs ["exe", "cmd", "foo", "--", "+RTS"] ["foo", "+RTS"]
 -- (["foo"],["+RTS"])
 --
--- >>> splitTargetAndArgs ["cabal", "run", "--", "+RTS"] ["+RTS"]
+-- >>> splitTargetAndArgs ["exe", "cmd", "--", "+RTS"] ["+RTS"]
 -- ([],["+RTS"])
 --
--- >>> splitTargetAndArgs ["cabal", "run", "--"] []
+-- >>> splitTargetAndArgs ["exe", "cmd", "--"] []
 -- ([],[])
 --
--- >>> splitTargetAndArgs ["exe", "target", "--"] ["foo", "bar"]
+-- >>> splitTargetAndArgs ["exe", "cmd", "--"] ["foo", "bar"]
 -- (["foo","bar"],[])
 --
 -- >>> splitTargetAndArgs ["exe", "--", "bar"] ["foo", "bar"]
