@@ -372,6 +372,18 @@ runAction flags targetAndArgs globalFlags = do
 --
 -- >>> splitTargetAndArgs ["cabal", "run", "--"] []
 -- ([],[])
+--
+-- >>> splitTargetAndArgs ["exe", "target", "--"] ["foo", "bar"]
+-- (["foo","bar"],[])
+--
+-- >>> splitTargetAndArgs ["exe", "--", "bar"] ["foo", "bar"]
+-- (["foo"],["bar"])
+--
+-- >>> splitTargetAndArgs ["--", "baz", "qux"] ["foo", "bar"]
+-- ([],["foo","bar"])
+--
+-- >>> splitTargetAndArgs ["baz", "qux"] ["foo", "bar"]
+-- (["foo"],["bar"])
 splitTargetAndArgs :: [String] -> [String] -> ([String], [String])
 splitTargetAndArgs fullArgs targetAndArgs = case dropWhile (/= "--") fullArgs of
   ("--" : exeArgs) ->
