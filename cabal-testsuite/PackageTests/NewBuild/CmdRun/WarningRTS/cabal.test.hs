@@ -1,17 +1,29 @@
 import Test.Cabal.Prelude
 
-main = cabalTest $ do
-    res <- cabal' "run" ["foo", "+RTS"]
+opts1 = ["+RTS"]
+opts2 = ["+RTS", "--"]
+opts3 = ["--", "+RTS"]
+
+main = do
+  cabalTest $ do
+    res <- cabal' "run" ("foo" : opts1)
     assertOutputContains "Warning: Your RTS options" res
 
-    res <- cabal' "run" ["foo", "+RTS", "--"]
+    res <- cabal' "run" ("foo" : opts2)
     assertOutputContains "Warning: Your RTS options" res
 
-    res <- cabal' "run" ["foo", "--", "+RTS"]
+    res <- cabal' "run" ("foo" : opts3)
     assertOutputDoesNotContain "Warning: Your RTS options" res
 
-    -- Regression test for https://github.com/haskell/cabal/issues/10487:
-    -- 'cabal run -- +RTS' should not fail with "Unrecognised target '+RTS'"
-    resNoTarget <- cabal' "run" ["--", "+RTS"]
-    assertOutputDoesNotContain "Warning: Your RTS options" resNoTarget
-    assertOutputDoesNotContain "Unrecognised target" resNoTarget
+  -- Regression tests for https://github.com/haskell/cabal/issues/10487:
+  -- 'cabal run -- +RTS' should not fail with "Unrecognised target '+RTS'"
+  cabalTest' "no-target" $ do
+    res <- cabal' "run" opts1
+    assertOutputContains "Warning: Your RTS options" res
+
+    res <- cabal' "run" opts2
+    assertOutputContains "Warning: Your RTS options" res
+
+    res <- cabal' "run" opts3
+    assertOutputDoesNotContain "Warning: Your RTS options" res
+    assertOutputDoesNotContain "Unrecognised target" res
