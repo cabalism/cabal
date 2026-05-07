@@ -355,24 +355,52 @@ runAction flags targetAndArgs globalFlags = do
                     elaboratedPlan
             }
 
--- | Split @cabal run@ arguments into target selectors and executable arguments.
+-- | Split @cabal run@ arguments (@exe cmd@ arguments in the examples) into
+-- target selectors and target executable arguments.
 --
--- The first argument is the original command line from 'getFullArgs', which is only used
--- to detect whether a @--@ separator was present so that @cabal run -- ...@ keeps the target empty.
--- The second argument is the parser-produced list that combines targets and executable arguments.
+-- When a target is given it appears in both lists:
 --
--- >>> splitTargetAndArgs ["cabal", "run", "foo"] ["foo"]
--- (["foo"],[])
+-- >>> splitTargetAndArgs ["exe", "cmd", "target"] ["target"]
+-- (["target"],[])
 --
--- >>> splitTargetAndArgs ["cabal", "run", "foo", "--", "+RTS"] ["foo", "+RTS"]
--- (["foo"],["+RTS"])
+-- The @+RTS@ argument is passed to the executable so only appears in the first
+-- list:
 --
--- >>> splitTargetAndArgs ["cabal", "run", "--", "+RTS"] ["+RTS"]
--- ([],["+RTS"])
+-- >>> splitTargetAndArgs ["exe", "cmd", "target", "+RTS"] ["target"]
+-- (["target"],[])
 --
--- >>> splitTargetAndArgs ["cabal", "run", "--"] []
+-- The @--@ follows the @+RTS@ argument, so @+RTS@ is passed to the executable
+-- and only appears in the first list:
+--
+-- >>> splitTargetAndArgs ["exe", "cmd", "target", "+RTS", "--"] ["target"]
+-- (["target"],[])
+--
+-- The @--@ precedes the @+RTS@ argument, so @+RTS@ is included in the
+-- 'targetAndArgs' list as well:
+--
+-- >>> splitTargetAndArgs ["exe", "cmd", "target", "--", "+RTS"] ["target", "+RTS"]
+-- (["target"],["+RTS"])
+--
+-- Same examples as above but when no target is given:
+--
+-- >>> splitTargetAndArgs ["exe", "cmd"] []
 -- ([],[])
-splitTargetAndArgs :: [String] -> [String] -> ([String], [String])
+-- >>> splitTargetAndArgs ["exe", "cmd", "+RTS"] []
+-- ([],[])
+-- >>> splitTargetAndArgs ["exe", "cmd", "+RTS", "--"] []
+-- ([],[])
+-- >>> splitTargetAndArgs ["exe", "cmd", "--", "+RTS"] ["+RTS"]
+-- ([],["+RTS"])
+splitTargetAndArgs
+  :: [String]
+  -- ^ Full commmand line arguments, the original command line from
+  -- 'getFullArgs', which is only used to detect whether a @--@ separator was
+  -- present so that @cabal run -- ...@ keeps the target empty.
+  -> [String]
+  -- ^ The second argument is the parser-produced list that combines targets and
+  -- their arguments.  These arguments do not include those passed to @cabal@
+  -- such as @+RTS@ preceding the @--@ separator.
+  -> ([String], [String])
 splitTargetAndArgs fullArgs targetAndArgs = case dropWhile (/= "--") fullArgs of
   ("--" : exeArgs) ->
     -- targetAndArgs contains targets (>=0) and args; exeArgs contains only args; so
