@@ -53,7 +53,10 @@
         lhs: nub x
         rhs: ordNub x
         name: Use ordNub
-        note: The growth rate of nub is O(n^2) and for ordNub it is O(n log n).
+        note: |
+            The growth rate of nub is O(n^2) and for ordNub it is O(n log n).  May require adding import of either;
+              - Distribution.Utils.Generic from Cabal-syntax, or
+              - Distribution.Simple.Utils from Cabal.
 
 - arguments:
     - --ignore-glob=Cabal-syntax/src/Distribution/Fields/Lexer.hs
