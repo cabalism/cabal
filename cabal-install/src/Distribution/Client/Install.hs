@@ -129,6 +129,7 @@ import Distribution.Client.Types as Source
 import Distribution.Client.Types.OverwritePolicy (OverwritePolicy (..))
 import qualified Distribution.Client.Win32SelfUpgrade as Win32SelfUpgrade
 import qualified Distribution.InstalledPackageInfo as Installed
+import Distribution.Simple.Utils (ordNub)
 import Distribution.Solver.Types.PackageFixedDeps
 
 import qualified Distribution.Solver.Types.ComponentDeps as CD
@@ -712,7 +713,7 @@ pruneInstallPlan pkgSpecifiers =
         ++ "required by a dependency of one of the other targets."
       where
         pkgids =
-          nub
+          ordNub
             [ depid
             | SolverInstallPlan.PackageMissingDeps _ depids <- problems
             , depid <- depids

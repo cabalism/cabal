@@ -130,7 +130,7 @@ data BuildTarget
     BuildTargetModule ComponentName ModuleName
   | -- | A specific file within a specific component.
     BuildTargetFile ComponentName FilePath
-  deriving (Eq, Show, Generic)
+  deriving (Eq, Ord, Show, Generic)
 
 instance Binary BuildTarget
 
@@ -853,7 +853,7 @@ type Confidence = Int
 data MatchError
   = MatchErrorExpected String String
   | MatchErrorNoSuch String String
-  deriving (Show, Eq)
+  deriving (Show, Eq, Ord)
 
 instance Alternative Match where
   empty = mzero
@@ -943,13 +943,13 @@ increaseConfidence = ExactMatch 1 [()]
 increaseConfidenceFor :: Match a -> Match a
 increaseConfidenceFor m = m >>= \r -> increaseConfidence >> return r
 
-nubMatches :: Eq a => Match a -> Match a
+nubMatches :: Ord a => Match a -> Match a
 nubMatches (NoMatch d msgs) = NoMatch d msgs
-nubMatches (ExactMatch d xs) = ExactMatch d (nub xs)
-nubMatches (InexactMatch d xs) = InexactMatch d (nub xs)
+nubMatches (ExactMatch d xs) = ExactMatch d (ordNub xs)
+nubMatches (InexactMatch d xs) = InexactMatch d (ordNub xs)
 
 nubMatchErrors :: Match a -> Match a
-nubMatchErrors (NoMatch d msgs) = NoMatch d (nub msgs)
+nubMatchErrors (NoMatch d msgs) = NoMatch d (ordNub msgs)
 nubMatchErrors (ExactMatch d xs) = ExactMatch d xs
 nubMatchErrors (InexactMatch d xs) = InexactMatch d xs
 
@@ -970,14 +970,14 @@ tryEach = exactMatches
 -- | Given a matcher and a key to look up, use the matcher to find all the
 -- possible matches. There may be 'None', a single 'Unambiguous' match or
 -- you may have an 'Ambiguous' match with several possibilities.
-findMatch :: Eq b => Match b -> MaybeAmbiguous b
+findMatch :: Ord b => Match b -> MaybeAmbiguous b
 findMatch match =
   case match of
-    NoMatch _ msgs -> None (nub msgs)
+    NoMatch _ msgs -> None (ordNub msgs)
     ExactMatch _ xs -> checkAmbiguous xs
     InexactMatch _ xs -> checkAmbiguous xs
   where
-    checkAmbiguous xs = case nub xs of
+    checkAmbiguous xs = case ordNub xs of
       [x] -> Unambiguous x
       xs' -> Ambiguous xs'
 

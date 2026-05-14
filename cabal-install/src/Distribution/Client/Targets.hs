@@ -57,6 +57,7 @@ import Distribution.Package
   , unPackageName
   )
 
+import Distribution.Simple.Utils (ordNub)
 import Distribution.Solver.Types.OptionalStanza
 import Distribution.Solver.Types.PackageConstraint
 import Distribution.Solver.Types.PackageIndex (PackageIndex)
@@ -556,7 +557,7 @@ disambiguatePackageName
   -> PackageName
   -> MaybeAmbiguous PackageName
 disambiguatePackageName (PackageNameEnv pkgNameLookup) name =
-  case nub (pkgNameLookup name) of
+  case ordNub (pkgNameLookup name) of
     [] -> None
     names -> case find (name ==) names of
       Just name' -> Unambiguous name'
