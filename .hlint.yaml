@@ -51,8 +51,9 @@
         name: Use findWithDefault
     - hint:
         lhs: nub x
-        rhs: nubOrd x
-        name: Use nubOrd or ordNub
+        rhs: ordNub x
+        name: Use ordNub
+        note: The growth rate of nub is O(n^2) and for ordNub it is O(n log n).
 
 - arguments:
     - --ignore-glob=Cabal-syntax/src/Distribution/Fields/Lexer.hs
