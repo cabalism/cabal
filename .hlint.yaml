@@ -45,6 +45,10 @@
         lhs: fromMaybe x (Data.Map.lookup k m)
         rhs: Map.findWithDefault x k m
         name: Use findWithDefault
+    - hint:
+        lhs: nub xs
+        rhs: nubOrd xs
+        name: Use nubOrd or ordNub
 
 - arguments:
     - --ignore-glob=Cabal-syntax/src/Distribution/Fields/Lexer.hs
