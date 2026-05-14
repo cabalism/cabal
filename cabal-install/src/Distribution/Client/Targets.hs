@@ -57,7 +57,6 @@ import Distribution.Package
   , unPackageName
   )
 
-import Distribution.Simple.Utils (ordNub)
 import Distribution.Solver.Types.OptionalStanza
 import Distribution.Solver.Types.PackageConstraint
 import Distribution.Solver.Types.PackageIndex (PackageIndex)
@@ -83,6 +82,7 @@ import Distribution.PackageDescription
 import Distribution.Simple.Utils
   ( dieWithException
   , lowercase
+  , ordNub
   )
 import Distribution.Types.Flag
   ( parsecFlagAssignmentNonEmpty
