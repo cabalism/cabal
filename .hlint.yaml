@@ -37,6 +37,10 @@
 - ignore: {name: "Use fmap", within: [Distribution.Client.HttpUtils, Distribution.Simple.SrcDist]}
 - ignore: {name: "Use fold", within: [Test.Laws]}
 
+# For lists in these rules we use single letter variables like x rather than xs,
+# because "hlint considers only single-letter identifiers as rules' variables.
+# Anything longer will match literally".
+# SEE: https://github.com/ndmitchell/hlint/issues/1612
 - group:
     name: cabal-suggestions
     enabled: true
@@ -46,8 +50,8 @@
         rhs: Map.findWithDefault x k m
         name: Use findWithDefault
     - hint:
-        lhs: nub xs
-        rhs: nubOrd xs
+        lhs: nub x
+        rhs: nubOrd x
         name: Use nubOrd or ordNub
 
 - arguments:
