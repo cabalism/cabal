@@ -153,7 +153,7 @@ checkPackageFileMonitorChanged
       MonitorChanged monitorReason ->
         return (Left (BuildStatusConfigure monitorReason'))
         where
-          monitorReason' = fmap (const ()) monitorReason
+          monitorReason' = void monitorReason
       MonitorUnchanged () _
         -- The configChanged here includes the identity of the dependencies,
         -- so depsBuildStatus is just needed for the changes in the content
@@ -183,7 +183,7 @@ checkPackageFileMonitorChanged
                 return (Left (BuildStatusBuild mreg buildReason))
                 where
                   buildReason = BuildReasonFilesChanged monitorReason'
-                  monitorReason' = fmap (const ()) monitorReason
+                  monitorReason' = void monitorReason
               (MonitorUnchanged _ _, MonitorChanged monitorReason) ->
                 -- this should only happen if the file is corrupt or been
                 -- manually deleted. We don't want to bother with another
@@ -191,7 +191,7 @@ checkPackageFileMonitorChanged
                 return (Left (BuildStatusBuild Nothing buildReason))
                 where
                   buildReason = BuildReasonFilesChanged monitorReason'
-                  monitorReason' = fmap (const ()) monitorReason
+                  monitorReason' = void monitorReason
               (MonitorUnchanged _ _, MonitorUnchanged _ _)
                 | pkgHasEphemeralBuildTargets pkg ->
                     return (Left (BuildStatusBuild mreg buildReason))

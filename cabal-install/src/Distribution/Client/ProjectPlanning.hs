@@ -3035,11 +3035,9 @@ instantiateInstallPlan storeDirLayout defaultInstallDirs elaboratedShared plan =
       case pkg of
         InstallPlan.Configured elab
           | not (Map.null (elabLinkedInstantiatedWith elab)) ->
-              indefiniteUnitId (elabComponentId elab)
-                >> return ()
+              void (indefiniteUnitId (elabComponentId elab))
         _ ->
-          instantiateUnitId (getComponentId pkg) Map.empty
-            >> return ()
+          void (instantiateUnitId (getComponentId pkg) Map.empty)
 
 ---------------------------
 -- Build targets

@@ -409,5 +409,5 @@ toReadyComponents pid_map subst0 comps =
       | otherwise =
           forM_ (Map.elems cmap) $ \lc ->
             if null (lc_insts lc)
-              then instantiateUnitId (lc_cid lc) Map.empty >> return ()
-              else indefiniteUnitId (lc_cid lc) >> return ()
+              then void (instantiateUnitId (lc_cid lc) Map.empty)
+              else void (indefiniteUnitId (lc_cid lc))
