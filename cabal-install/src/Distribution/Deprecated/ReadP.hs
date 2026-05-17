@@ -331,7 +331,7 @@ option x p = p +++ return x
 
 optional :: ReadP r a -> ReadP r ()
 -- ^ @optional p@ optionally parses @p@ and always returns @()@.
-optional p = (p >> return ()) +++ return ()
+optional p = void p +++ return ()
 
 many :: ReadP r a -> ReadP r [a]
 -- ^ Parses zero or more occurrences of the given parser.
@@ -343,7 +343,7 @@ many1 p = liftM2 (:) p (many p)
 
 skipMany :: ReadP r a -> ReadP r ()
 -- ^ Like 'many', but discards the result.
-skipMany p = many p >> return ()
+skipMany p = void $ many p
 
 skipMany1 :: ReadP r a -> ReadP r ()
 -- ^ Like 'many1', but discards the result.
