@@ -224,7 +224,7 @@ class Alternative m => Parsing m where
   -- | A version of many that discards its input. Specialized because it
   -- can often be implemented more cheaply.
   skipMany :: m a -> m ()
-  skipMany p = void (many p)
+  skipMany p = void $ many p
   {-# INLINE skipMany #-}
 
   -- | @skipSome p@ applies the parser @p@ /one/ or more times, skipping

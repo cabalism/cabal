@@ -343,7 +343,7 @@ many1 p = liftM2 (:) p (many p)
 
 skipMany :: ReadP r a -> ReadP r ()
 -- ^ Like 'many', but discards the result.
-skipMany p = void (many p)
+skipMany p = void $ many p
 
 skipMany1 :: ReadP r a -> ReadP r ()
 -- ^ Like 'many1', but discards the result.
