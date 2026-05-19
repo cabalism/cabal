@@ -4,8 +4,7 @@
 module Distribution.Solver.Types.ProjectConfigPath
     (
     -- * Project Config Path Manipulation
-      ProjectFilePath(..)
-    , ProjectConfigPath(..)
+      ProjectConfigPath(..)
     , compareLexicographically
     , compareSegmentally
     , projectConfigPathRoot
@@ -27,7 +26,7 @@ module Distribution.Solver.Types.ProjectConfigPath
     , canonicalizeConfigPath
     ) where
 
-import Distribution.Solver.Compat.Prelude hiding (empty, toList, (<>))
+import Distribution.Solver.Compat.Prelude hiding (toList, (<>))
 import qualified Distribution.Solver.Compat.Prelude as P ((<>))
 import Prelude (sequence)
 
@@ -45,10 +44,6 @@ import Distribution.Pretty (prettyShow, Pretty(..))
 import Distribution.Utils.String (trim)
 import Text.PrettyPrint
 import Distribution.System (OS(Windows), buildOS)
-
--- | Not just any file path. The project itself.
-newtype ProjectFilePath = ProjectFilePath FilePath
-    deriving (Eq, Generic)
 
 -- | Path to a configuration file, either a singleton project root, or a longer
 -- list representing a path to an import.  The path is a non-empty list that we

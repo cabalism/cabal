@@ -1,3 +1,4 @@
+{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE RecordWildCards #-}
@@ -12,13 +13,9 @@ module Distribution.Client.ProjectConfig.Import
   , projectSkeletonImports
   , fetchImport
 
-    -- * Classification
-  , ProjectNode (..)
-
     -- * Messages
   , docProjectConfigFiles
   , cyclicalImportMsg
-  , duplicateImportMsg
   , untrimmedUriImportMsg
 
     -- * Checks
@@ -80,6 +77,10 @@ fetchImport parser cacheDir httpTransport verbosity projectDir normLocPath =
         Nothing ->
           BS.readFile $
             if isAbsolute pci then pci else coerce projectDir </> pci
+
+-- | Not just any file path. The project itself.
+newtype ProjectFilePath = ProjectFilePath FilePath
+  deriving (Eq, Generic)
 
 -- | Isomorphic with 'ProjectConfigPath' but with separate constructors for the
 -- root, imported file and imported URI.

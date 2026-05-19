@@ -239,7 +239,7 @@ instantiateProjectConfigSkeletonWithCompiler os arch impl _flags skel = go $ map
 
 -- | Parses a project from its root config file, typically cabal.project.
 parseProject
-  :: ProjectFilePath
+  :: FilePath
   -- ^ The root of the project configuration, typically cabal.project
   -> FilePath
   -> HttpTransport
@@ -247,7 +247,7 @@ parseProject
   -> ProjectConfigToParse
   -- ^ The contents of the file to parse
   -> IO (ProjectParseResult ProjectConfigSkeleton)
-parseProject (ProjectFilePath rootPath) cacheDir httpTransport verbosity configToParse =
+parseProject rootPath cacheDir httpTransport verbosity configToParse =
   do
     let (dir, projectFileName) = splitFileName rootPath
     projectDir <- makeAbsolute dir

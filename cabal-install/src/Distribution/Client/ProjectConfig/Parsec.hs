@@ -84,7 +84,7 @@ readPreprocessFields bs = do
 
 -- | Parses a project from its root config file, typically cabal.project.
 parseProject
-  :: ProjectFilePath
+  :: FilePath
   -- ^ The root of the project configuration, typically cabal.project
   -> FilePath
   -> HttpTransport
@@ -92,7 +92,7 @@ parseProject
   -> ProjectConfigToParse
   -- ^ The contents of the file to parse
   -> IO (ParseResult ProjectFileSource ProjectConfigSkeleton)
-parseProject (ProjectFilePath rootPath) cacheDir httpTransport verbosity configToParse = do
+parseProject rootPath cacheDir httpTransport verbosity configToParse = do
   let (dir, projectFileName) = splitFileName rootPath
   projectDir <- makeAbsolute dir
   projectPath <- canonicalizeConfigPath projectDir (ProjectConfigPath $ projectFileName :| [])
