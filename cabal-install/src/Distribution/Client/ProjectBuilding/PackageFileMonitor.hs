@@ -1,5 +1,6 @@
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE ViewPatterns #-}
 
 module Distribution.Client.ProjectBuilding.PackageFileMonitor where
 
@@ -139,16 +140,12 @@ checkPackageFileMonitorChanged
   -> IO (Either BuildStatusRebuild BuildResult)
 checkPackageFileMonitorChanged
   PackageFileMonitor{..}
-  pkg
+  pkg@(packageFileMonitorKeyValues -> (pkgconfig, buildComponents))
   srcdir
   depsBuildStatus = do
     -- TODO: [nice to have] some debug-level message about file
     -- changes, like rerunIfChanged
-    configChanged <-
-      checkFileMonitorChanged
-        pkgFileMonitorConfig
-        srcdir
-        pkgconfig
+    configChanged <- checkFileMonitorChanged pkgFileMonitorConfig srcdir pkgconfig
     case configChanged of
       MonitorChanged monitorReason ->
         return (Left (BuildStatusConfigure $ void monitorReason))
@@ -158,42 +155,24 @@ checkPackageFileMonitorChanged
         -- of dependencies.
         | any buildStatusRequiresBuild depsBuildStatus -> do
             regChanged <- checkFileMonitorChanged pkgFileMonitorReg srcdir ()
-            let mreg = changedToMaybe regChanged
-            return (Left (BuildStatusBuild mreg BuildReasonDepsRebuilt))
+            leftRegChangedStatus regChanged BuildReasonDepsRebuilt
         | otherwise -> do
-            buildChanged <-
-              checkFileMonitorChanged
-                pkgFileMonitorBuild
-                srcdir
-                buildComponents
-            regChanged <-
-              checkFileMonitorChanged
-                pkgFileMonitorReg
-                srcdir
-                ()
-            let mreg = changedToMaybe regChanged
+            buildChanged <- checkFileMonitorChanged pkgFileMonitorBuild srcdir buildComponents
+            regChanged <- checkFileMonitorChanged pkgFileMonitorReg srcdir ()
+            let leftStatus = leftRegChangedStatus regChanged
             case (buildChanged, regChanged) of
               (MonitorChanged (MonitoredValueChanged prevBuildComponents), _) ->
-                return (Left (BuildStatusBuild mreg buildReason))
-                where
-                  buildReason = BuildReasonExtraTargets prevBuildComponents
+                leftStatus $ BuildReasonExtraTargets prevBuildComponents
               (MonitorChanged monitorReason, _) ->
-                return (Left (BuildStatusBuild mreg buildReason))
-                where
-                  buildReason = BuildReasonFilesChanged $ void monitorReason
+                leftStatus (BuildReasonFilesChanged $ void monitorReason)
               (MonitorUnchanged _ _, MonitorChanged monitorReason) ->
                 -- this should only happen if the file is corrupt or been
                 -- manually deleted. We don't want to bother with another
                 -- phase just for this, so we'll reregister by doing a build.
-                return (Left (BuildStatusBuild Nothing buildReason))
-                where
-                  buildReason = BuildReasonFilesChanged $ void monitorReason
+                leftStatus (BuildReasonFilesChanged $ void monitorReason)
               (MonitorUnchanged _ _, MonitorUnchanged _ _)
-                | pkgHasEphemeralBuildTargets pkg ->
-                    return (Left (BuildStatusBuild mreg buildReason))
-                where
-                  buildReason = BuildReasonEphemeralTargets
-              (MonitorUnchanged buildResult _, MonitorUnchanged _ _) ->
+                | pkgHasEphemeralBuildTargets pkg -> leftStatus BuildReasonEphemeralTargets
+              (MonitorUnchanged (docsResult, testsResult) _, MonitorUnchanged _ _) ->
                 return $
                   Right
                     BuildResult
@@ -201,13 +180,13 @@ checkPackageFileMonitorChanged
                       , buildResultTests = testsResult
                       , buildResultLogFile = Nothing
                       }
-                where
-                  (docsResult, testsResult) = buildResult
-    where
-      (pkgconfig, buildComponents) = packageFileMonitorKeyValues pkg
-      changedToMaybe :: MonitorChanged a b -> Maybe b
-      changedToMaybe (MonitorChanged _) = Nothing
-      changedToMaybe (MonitorUnchanged x _) = Just x
+
+leftRegChangedStatus :: MonitorChanged a (Maybe InstalledPackageInfo) -> BuildReason -> IO (Either BuildStatusRebuild b)
+leftRegChangedStatus regChanged = return . Left . BuildStatusBuild (changedToMaybe regChanged)
+  where
+    changedToMaybe :: MonitorChanged a b -> Maybe b
+    changedToMaybe (MonitorChanged _) = Nothing
+    changedToMaybe (MonitorUnchanged x _) = Just x
 
 updatePackageConfigFileMonitor
   :: PackageFileMonitor
