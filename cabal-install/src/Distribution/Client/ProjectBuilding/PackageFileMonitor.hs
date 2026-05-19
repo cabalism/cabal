@@ -1,5 +1,4 @@
 {-# LANGUAGE NamedFieldPuns #-}
-{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE ViewPatterns #-}
 
 module Distribution.Client.ProjectBuilding.PackageFileMonitor where
@@ -139,13 +138,14 @@ checkPackageFileMonitorChanged
   -> [BuildStatus]
   -> IO (Either BuildStatusRebuild BuildResult)
 checkPackageFileMonitorChanged
-  PackageFileMonitor{..}
+  PackageFileMonitor{pkgFileMonitorConfig, pkgFileMonitorBuild, pkgFileMonitorReg}
   pkg@(packageFileMonitorKeyValues -> (pkgconfig, buildComponents))
   srcdir
   depsBuildStatus = do
+    let checkSrcChanged x y = checkFileMonitorChanged x srcdir y
     -- TODO: [nice to have] some debug-level message about file
     -- changes, like rerunIfChanged
-    configChanged <- checkFileMonitorChanged pkgFileMonitorConfig srcdir pkgconfig
+    configChanged <- checkSrcChanged pkgFileMonitorConfig pkgconfig
     case configChanged of
       MonitorChanged monitorReason ->
         return (Left (BuildStatusConfigure $ void monitorReason))
@@ -154,11 +154,11 @@ checkPackageFileMonitorChanged
         -- so depsBuildStatus is just needed for the changes in the content
         -- of dependencies.
         | any buildStatusRequiresBuild depsBuildStatus -> do
-            regChanged <- checkFileMonitorChanged pkgFileMonitorReg srcdir ()
+            regChanged <- checkSrcChanged pkgFileMonitorReg ()
             leftRegChangedStatus regChanged BuildReasonDepsRebuilt
         | otherwise -> do
-            buildChanged <- checkFileMonitorChanged pkgFileMonitorBuild srcdir buildComponents
-            regChanged <- checkFileMonitorChanged pkgFileMonitorReg srcdir ()
+            buildChanged <- checkSrcChanged pkgFileMonitorBuild buildComponents
+            regChanged <- checkSrcChanged pkgFileMonitorReg ()
             let leftStatus = leftRegChangedStatus regChanged
             case (buildChanged, regChanged) of
               (MonitorChanged (MonitoredValueChanged prevBuildComponents), _) ->
