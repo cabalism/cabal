@@ -163,13 +163,13 @@ checkPackageFileMonitorChanged
             case (buildChanged, regChanged) of
               (MonitorChanged (MonitoredValueChanged prevBuildComponents), _) ->
                 leftStatus $ BuildReasonExtraTargets prevBuildComponents
-              (MonitorChanged monitorReason, _) ->
-                leftStatus (BuildReasonFilesChanged $ void monitorReason)
-              (MonitorUnchanged _ _, MonitorChanged monitorReason) ->
+              (MonitorChanged (void -> monitorReason), _) ->
+                leftStatus $ BuildReasonFilesChanged monitorReason
+              (MonitorUnchanged _ _, MonitorChanged (void -> monitorReason)) ->
                 -- this should only happen if the file is corrupt or been
                 -- manually deleted. We don't want to bother with another
                 -- phase just for this, so we'll reregister by doing a build.
-                leftStatus (BuildReasonFilesChanged $ void monitorReason)
+                leftStatus $ BuildReasonFilesChanged monitorReason
               (MonitorUnchanged _ _, MonitorUnchanged _ _)
                 | pkgHasEphemeralBuildTargets pkg -> leftStatus BuildReasonEphemeralTargets
               (MonitorUnchanged (docsResult, testsResult) _, MonitorUnchanged _ _) ->
