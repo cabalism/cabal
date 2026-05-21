@@ -3,6 +3,7 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TupleSections #-}
 
 -----------------------------------------------------------------------------
@@ -130,7 +131,10 @@ data BuildTarget
     BuildTargetModule ComponentName ModuleName
   | -- | A specific file within a specific component.
     BuildTargetFile ComponentName FilePath
-  deriving (Eq, Ord, Show, Generic)
+  deriving (Eq, Show, Generic)
+
+-- | @since 3.18
+deriving instance Ord BuildTarget
 
 instance Binary BuildTarget
 
@@ -853,7 +857,10 @@ type Confidence = Int
 data MatchError
   = MatchErrorExpected String String
   | MatchErrorNoSuch String String
-  deriving (Show, Eq, Ord)
+  deriving (Show, Eq)
+
+-- | @since 3.18
+deriving instance Ord MatchError
 
 instance Alternative Match where
   empty = mzero

@@ -1,4 +1,5 @@
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE StandaloneDeriving  #-}
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
@@ -71,7 +72,10 @@ data CabalResult
   | PkgNotFound
   | Timeout
   | Unknown
-  deriving (Eq, Ord, Show)
+  deriving (Eq, Show)
+
+-- | @since 3.18
+deriving instance Ord CabalResult
 
 hackageBenchmarkMain :: IO ()
 hackageBenchmarkMain = do
