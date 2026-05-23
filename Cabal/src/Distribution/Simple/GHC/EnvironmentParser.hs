@@ -3,6 +3,7 @@
 
 module Distribution.Simple.GHC.EnvironmentParser (parseGhcEnvironmentFile, readGhcEnvironmentFile, ParseErrorExc (..)) where
 
+import Data.Functor (($>))
 import Distribution.Compat.Prelude
 import Prelude ()
 
@@ -34,8 +35,8 @@ parseEnvironmentFileLine =
           *> P.spaces
           *> (mkUnitId <$> P.many1 (P.satisfy $ \c -> isAlphaNum c || c `elem` "-_.+"))
     packageDb =
-      (P.string "global-package-db" *> pure GlobalPackageDB)
-        <|> (P.string "user-package-db" *> pure UserPackageDB)
+      (P.string "global-package-db" $> GlobalPackageDB)
+        <|> (P.string "user-package-db" $> UserPackageDB)
         <|> (P.string "package-db" *> P.spaces *> (SpecificPackageDB <$> P.many1 (P.noneOf "\r\n") <* P.lookAhead P.endOfLine))
     clearDb = P.string "clear-package-db"
 
