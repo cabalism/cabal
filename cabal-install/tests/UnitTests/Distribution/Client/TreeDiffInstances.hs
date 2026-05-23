@@ -41,7 +41,6 @@ instance ToExpr AllowOlder
 instance ToExpr BuildReport
 instance ToExpr ClientInstallFlags
 instance ToExpr CombineStrategy
-instance ToExpr PCPLeaf
 instance ToExpr ProjectConfigPath
 instance ToExpr ConstraintSource
 instance ToExpr CountConflicts
