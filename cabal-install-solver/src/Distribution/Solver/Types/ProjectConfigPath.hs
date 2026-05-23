@@ -1,21 +1,15 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE ViewPatterns #-}
-{-# OPTIONS_GHC -Wno-orphans #-}
 
 module Distribution.Solver.Types.ProjectConfigPath
     (
     -- * Project Config Path Manipulation
       ProjectConfigPath(..)
-    , PCPLeaf(..)
     , projectConfigPathRoot
     , nullProjectConfigPath
     , consProjectConfigPath
     , unconsProjectConfigPath
     , currentProjectConfigPath
-
-    -- * parsers and conversions
-    , parseLeaf
-    , leafToEither
 
     -- * Messages
     , docProjectConfigPath
@@ -29,17 +23,17 @@ module Distribution.Solver.Types.ProjectConfigPath
     -- * Checks and Normalization
     , isCyclicConfigPath
     , isTopLevelConfigPath
+    , isUntrimmedUriConfigPath
     , canonicalizeConfigPath
     ) where
 
-import Distribution.Compat.Orphans ()
-import Distribution.Solver.Compat.Prelude hiding (length, toList, last, head, nub, (<>))
+import Distribution.Solver.Compat.Prelude hiding (toList, (<>))
 import qualified Distribution.Solver.Compat.Prelude as P ((<>))
-import Prelude (length, sequence)
+import Prelude (sequence)
 
-import Data.List (nub)
+import Data.Coerce (coerce)
 import Data.List.NonEmpty ((<|))
-import Network.URI (parseAbsoluteURI, URI)
+import Network.URI (parseURI, parseAbsoluteURI)
 import System.Directory
 import System.FilePath hiding (splitPath)
 import qualified System.FilePath as FP (splitPath)
@@ -64,36 +58,8 @@ import Distribution.System (OS(Windows), buildOS)
 --
 -- List elements are relative to each other but once canonicalized, elements are
 -- relative to the directory of the project root.
-data ProjectConfigPath = PCPWithImports PCPLeaf (NonEmpty FilePath)
-                       | PCPWithoutImports FilePath
+newtype ProjectConfigPath = ProjectConfigPath (NonEmpty FilePath)
     deriving (Eq, Show, Generic)
-
--- | The last importee, which can be a local filepath
--- or a remote URI.
-data PCPLeaf = PCPFilePath FilePath
-             | PCPURI URI
-    deriving (Eq, Show, Generic)
-
-parseLeaf :: String -> PCPLeaf
-parseLeaf (trim -> str) = case parseAbsoluteURI str of
-                            Just uri -> PCPURI uri
-                            _ -> PCPFilePath str
-
-leafToEither :: PCPLeaf -> Either URI FilePath
-leafToEither (PCPFilePath fp) = Right fp
-leafToEither (PCPURI uri) = Left uri
-
-instance Pretty PCPLeaf where
-  pretty (PCPFilePath f) = quoteUntrimmed f
-  pretty (PCPURI uri) = text $ show uri
-
-instance Ord PCPLeaf where
-    compare leaf_a leaf_b =
-        case (leaf_a, leaf_b) of
-                (PCPURI ua,     PCPURI ub)     -> compare ua ub
-                (PCPURI _,      PCPFilePath _) -> GT
-                (PCPFilePath _, PCPURI _)      -> LT
-                (PCPFilePath a, PCPFilePath b) -> compare (splitPath a) (splitPath b)
 
 instance Pretty ProjectConfigPath where
   pretty = docProjectConfigPath
@@ -109,58 +75,49 @@ instance Pretty ProjectConfigPath where
 -- For comparison purposes, path separators are normalized to the @buildOS@
 -- platform's path separator.
 --
--- >>> let abFwd = PCPWithoutImports "a/b.config"
--- >>> let abBwd = PCPWithoutImports "a\\b.config"
+-- >>> let abFwd = ProjectConfigPath $ "a/b.config" :| []
+-- >>> let abBwd = ProjectConfigPath $ "a\\b.config" :| []
 -- >>> compare abFwd abBwd
 -- EQ
 instance Ord ProjectConfigPath where
-    compare (PCPWithoutImports pa) (PCPWithoutImports pb) = compare (splitPath pa) (splitPath pb)
-    compare (PCPWithImports _ _) (PCPWithoutImports _) = GT
-    compare (PCPWithoutImports _) (PCPWithImports _ _) = LT
-    compare (PCPWithImports leaf_a roots_a) (PCPWithImports leaf_b roots_b) =
-        case (leaf_a, leaf_b) of
-                (PCPURI ua,     PCPURI ub)     -> compare ua ub P.<> compareRoots
-                (PCPURI _,      PCPFilePath _) -> GT
-                (PCPFilePath _, PCPURI _)      -> LT
-                (PCPFilePath a, PCPFilePath b) -> compare (splitPath a) (splitPath b) P.<> compareRoots
+    compare pa@(ProjectConfigPath (NE.toList -> as)) pb@(ProjectConfigPath (NE.toList -> bs)) =
+        case (as, bs) of
+            -- There should only ever be one root project path, only one path
+            -- with length 1. Comparing it to itself should be EQ. Don't assume
+            -- this though, do a comparison anyway when both sides have length
+            -- 1.  The root path, the project itself, should always be the first
+            -- path in a sorted listing.
+            ([a], [b]) -> compare (splitPath a) (splitPath b)
+            ([_], _) -> LT
+            (_, [_]) -> GT
 
+            (a:_, b:_) -> case (parseAbsoluteURI a, parseAbsoluteURI b) of
+                (Just ua, Just ub) -> compare ua ub P.<> compare aImporters bImporters
+                (Just _, Nothing) -> GT
+                (Nothing, Just _) -> LT
+                (Nothing, Nothing) -> compare (splitPath a) (splitPath b) P.<> compare aImporters bImporters
+            _ ->
+                compare (length as) (length bs)
+                P.<> compare (length aPaths) (length bPaths)
+                P.<> compare aPaths bPaths
         where
-            compareRoots =
-                    case (NE.toList roots_a, NE.toList roots_b) of
-                      -- There should only ever be one root project path, only one path
-                      -- with length 1. Comparing it to itself should be EQ. Don't assume
-                      -- this though, do a comparison anyway when both sides have length
-                      -- 1.  The root path, the project itself, should always be the first
-                      -- path in a sorted listing.
-                      ([a], [b]) -> compare (splitPath a) (splitPath b)
-                      ([_], _) -> LT
-                      (_, [_]) -> GT
+            splitPath = FP.splitPath . normSep where
+                normSep p =
+                    if buildOS == Windows
+                        then
+                            Windows.joinPath $ Windows.splitDirectories
+                            [if Posix.isPathSeparator c then Windows.pathSeparator else c| c <- p]
+                        else
+                            Posix.joinPath $ Posix.splitDirectories
+                            [if Windows.isPathSeparator c then Posix.pathSeparator else c| c <- p]
 
-                      _ ->
-                          compare (length roots_a) (length roots_b)
-                          P.<> compare (length aPaths) (length bPaths)
-                          P.<> compare aPaths bPaths
+            aPaths = splitPath <$> as
+            bPaths = splitPath <$> bs
+            aImporters = snd $ unconsProjectConfigPath pa
+            bImporters = snd $ unconsProjectConfigPath pb
 
-
-            aPaths = splitPath <$> roots_a
-            bPaths = splitPath <$> roots_b
-
-splitPath :: FilePath -> [FilePath]
-splitPath = FP.splitPath . normSep where
-    normSep p =
-        if buildOS == Windows
-            then
-                Windows.joinPath $ Windows.splitDirectories
-                [if Posix.isPathSeparator c then Windows.pathSeparator else c| c <- p]
-            else
-                Posix.joinPath $ Posix.splitDirectories
-                [if Windows.isPathSeparator c then Posix.pathSeparator else c| c <- p]
-
-instance Binary PCPLeaf
 instance Binary ProjectConfigPath
-instance NFData PCPLeaf
 instance NFData ProjectConfigPath
-instance Structured PCPLeaf
 instance Structured ProjectConfigPath
 
 -- | Renders the path like this;
@@ -170,17 +127,17 @@ instance Structured ProjectConfigPath
 -- >  imported by: B.config
 -- >  imported by: A.project
 --
--- >>> render . docProjectConfigPath $ PCPWithImports (PCPFilePath "D.config") ("C.config" :| ["B.config", "A.project"])
+-- >>> render . docProjectConfigPath $ ProjectConfigPath $ "D.config" :| ["C.config", "B.config", "A.project"]
 -- "D.config\n  imported by: C.config\n  imported by: B.config\n  imported by: A.project"
 docProjectConfigPath :: ProjectConfigPath -> Doc
-docProjectConfigPath (PCPWithoutImports p) = quoteUntrimmed p
-docProjectConfigPath (PCPWithImports leaf (NE.toList -> roots)) = vcat $ pretty leaf :
-    [ text " " <+> text "imported by:" <+> quoteUntrimmed l | l <- roots ]
+docProjectConfigPath (ProjectConfigPath (p :| [])) = quoteUntrimmed p
+docProjectConfigPath (ProjectConfigPath (p :| ps)) = vcat $ quoteUntrimmed p :
+    [ text " " <+> text "imported by:" <+> quoteUntrimmed l | l <- ps ]
 
 -- | Render the paths which imports this config.
 docProjectImportedBy :: ProjectConfigPath -> Doc
-docProjectImportedBy (PCPWithoutImports _) = text ""
-docProjectImportedBy (PCPWithImports _ (NE.toList -> ps)) = vcat $
+docProjectImportedBy (ProjectConfigPath (_ :| [])) = text ""
+docProjectImportedBy (ProjectConfigPath (_ :| ps)) = vcat $
     [ text " " <+> text "imported by:" <+> quoteUntrimmed l | l <- ps ]
 
 
@@ -207,33 +164,32 @@ quoteUntrimmed s = if trim s /= s then quotes (text s) else text s
 -- >>> :{
 --   do
 --     let ps =
---              [ PCPWithoutImports "cabal.project"
---              , PCPWithImports (PCPFilePath "project-cabal/constraints.config")            ("cabal.project" :| [])
---              , PCPWithImports (PCPFilePath "project-cabal/ghc-latest.config")             ("cabal.project" :| [])
---              , PCPWithImports (PCPFilePath "project-cabal/ghc-options.config")            ("cabal.project" :| [])
---              , PCPWithImports (PCPFilePath "project-cabal/pkgs.config")                   ("cabal.project" :| [])
---              , PCPWithImports (PCPFilePath "project-cabal/pkgs/benchmarks.config")        ("project-cabal/pkgs.config" :| ["cabal.project"])
---              , PCPWithImports (PCPFilePath "project-cabal/pkgs/buildinfo.config")         ("project-cabal/pkgs.config" :| ["cabal.project"])
---              , PCPWithImports (PCPFilePath "project-cabal/pkgs/cabal.config")             ("project-cabal/pkgs.config" :| ["cabal.project"])
---              , PCPWithImports (PCPFilePath "project-cabal/pkgs/install.config")           ("project-cabal/pkgs.config" :| ["cabal.project"])
---              , PCPWithImports (PCPFilePath "project-cabal/pkgs/integration-tests.config") ("project-cabal/pkgs.config" :| ["cabal.project"])
---              , PCPWithImports (PCPFilePath "project-cabal/pkgs/tests.config")             ("project-cabal/pkgs.config" :| ["cabal.project"])
+--              [ ProjectConfigPath ("cabal.project" :| [])
+--              , ProjectConfigPath ("project-cabal/constraints.config" :| ["cabal.project"])
+--              , ProjectConfigPath ("project-cabal/ghc-latest.config" :| ["cabal.project"])
+--              , ProjectConfigPath ("project-cabal/ghc-options.config" :| ["cabal.project"])
+--              , ProjectConfigPath ("project-cabal/pkgs.config" :| ["cabal.project"])
+--              , ProjectConfigPath ("project-cabal/pkgs/benchmarks.config" :| ["project-cabal/pkgs.config","cabal.project"])
+--              , ProjectConfigPath ("project-cabal/pkgs/buildinfo.config" :| ["project-cabal/pkgs.config","cabal.project"])
+--              , ProjectConfigPath ("project-cabal/pkgs/cabal.config" :| ["project-cabal/pkgs.config","cabal.project"])
+--              , ProjectConfigPath ("project-cabal/pkgs/install.config" :| ["project-cabal/pkgs.config","cabal.project"])
+--              , ProjectConfigPath ("project-cabal/pkgs/integration-tests.config" :| ["project-cabal/pkgs.config","cabal.project"])
+--              , ProjectConfigPath ("project-cabal/pkgs/tests.config" :| ["project-cabal/pkgs.config","cabal.project"])
 --              ]
 --     return . render $ docProjectConfigFiles ps
 -- :}
 -- "- cabal.project\n- project-cabal/constraints.config\n- project-cabal/ghc-latest.config\n- project-cabal/ghc-options.config\n- project-cabal/pkgs.config\n- project-cabal/pkgs/benchmarks.config\n- project-cabal/pkgs/buildinfo.config\n- project-cabal/pkgs/cabal.config\n- project-cabal/pkgs/install.config\n- project-cabal/pkgs/integration-tests.config\n- project-cabal/pkgs/tests.config"
 docProjectConfigFiles :: [ProjectConfigPath] -> Doc
 docProjectConfigFiles ps = vcat
-    [ text "-" <+> pretty leaf
-    | leaf <- ordNub [ currentProjectConfigPath p | p <- ps ]
+    [ text "-" <+> text p
+    | p <- ordNub [ p | ProjectConfigPath (p :| _) <- ps ]
     ]
 
 -- | A message for a cyclical import, a "cyclical import of".
 cyclicalImportMsg :: ProjectConfigPath -> Doc
-cyclicalImportMsg (PCPWithoutImports _) = text ""
-cyclicalImportMsg path@(PCPWithImports duplicate _) =
+cyclicalImportMsg path@(ProjectConfigPath (duplicate :| _)) =
     vcat
-    [ text "cyclical import of" <+> pretty duplicate <> semi
+    [ text "cyclical import of" <+> text duplicate <> semi
     , nest 2 (docProjectConfigPath path)
     ]
 
@@ -247,43 +203,23 @@ untrimmedUriImportMsg intro path =
 
 docProjectConfigPathFailReason :: VR -> ProjectConfigPath -> Doc
 docProjectConfigPathFailReason vr pcp
-    | PCPWithoutImports p <- pcp =
-        constraint (PCPFilePath p)
-    | PCPWithImports p (NE.toList -> ps) <- pcp = vcat
+    | ProjectConfigPath (p :| []) <- pcp =
+        constraint p
+    | ProjectConfigPath (p :| ps) <- pcp = vcat
         [ constraint p
         , cat [nest 2 $ text "imported by:" <+> text l | l <- ps ]
         ]
     where
-        pathRequiresVersion p = pretty p <+> text "requires" <+> text (prettyShow vr)
+        pathRequiresVersion p = text p <+> text "requires" <+> text (prettyShow vr)
         constraint p = parens $ text "constraint from" <+> pathRequiresVersion p
 
 -- | The root of the path, the project itself.
---
--- Let's say @cabal.project@ imports @cabal.project.common@, which
--- imports @cabal.project.windows@. Then we have a path, such as:
---
--- > ("cabal.project.windows" :| ["cabal.project.common", "cabal.project])
---
--- And we want @cabal.project@.
 projectConfigPathRoot :: ProjectConfigPath -> FilePath
-projectConfigPathRoot (PCPWithoutImports fp)  = fp
-projectConfigPathRoot (PCPWithImports _ roots) = NE.last roots
-
--- | The "current" project file of the path, the project itself.
---
--- Let's say @cabal.project@ imports @cabal.project.common@, which
--- imports @cabal.project.windows@. Then we have a path, such as:
---
--- > ("cabal.project.windows" :| ["cabal.project.common", "cabal.project])
---
--- And we want @cabal.project.windows@.
-currentProjectConfigPath :: ProjectConfigPath -> PCPLeaf
-currentProjectConfigPath (PCPWithImports leaf _) = leaf
-currentProjectConfigPath (PCPWithoutImports fp)  = PCPFilePath fp
+projectConfigPathRoot (ProjectConfigPath xs) = last xs
 
 -- | Used by some tests as a dummy "unused" project root.
 nullProjectConfigPath :: ProjectConfigPath
-nullProjectConfigPath = PCPWithoutImports "unused"
+nullProjectConfigPath = ProjectConfigPath $ "unused" :| []
 
 -- | Check if the path has duplicates. A cycle of imports is not allowed. This
 -- check should only be done after the path has been canonicalized with
@@ -291,40 +227,36 @@ nullProjectConfigPath = PCPWithoutImports "unused"
 -- that are the same in relation to their importers but different in relation to
 -- the project root directory.
 isCyclicConfigPath :: ProjectConfigPath -> Bool
-isCyclicConfigPath (PCPWithoutImports _) = False
-isCyclicConfigPath (PCPWithImports (PCPFilePath fp_leaf) (NE.toList -> roots)) =
-  let p = fp_leaf : roots
-  in length p /= length (nub p)
-isCyclicConfigPath (PCPWithImports _ (NE.toList -> roots)) = length roots /= length (nub roots)
+isCyclicConfigPath (ProjectConfigPath p) = length p /= length (NE.nub p)
+
+-- | Check if the last segment of the path (root or importee) is a URI that has
+-- leading or trailing spaces.
+isUntrimmedUriConfigPath :: ProjectConfigPath -> Bool
+isUntrimmedUriConfigPath (ProjectConfigPath (p :| _)) = let p' = trim p in p' /= p && isURI p'
 
 -- | Check if the project config path is top-level, meaning it was not included by
 -- some other project config.
 isTopLevelConfigPath :: ProjectConfigPath -> Bool
-isTopLevelConfigPath (PCPWithoutImports _) = True
-isTopLevelConfigPath _                     = False
+isTopLevelConfigPath (ProjectConfigPath p) = NE.length p == 1
 
 -- | Prepends the path of the importee to the importer path.
-consProjectConfigPath :: PCPLeaf -> ProjectConfigPath -> Maybe ProjectConfigPath
-consProjectConfigPath leaf (PCPWithoutImports fp) = Just $ PCPWithImports leaf (fp :| [])
-consProjectConfigPath leaf (PCPWithImports (PCPFilePath fp) roots) = Just $ PCPWithImports leaf (fp <| roots)
--- a project file pointed to by a URI must not import other files
-consProjectConfigPath _ _ = Nothing
+consProjectConfigPath :: FilePath -> ProjectConfigPath -> ProjectConfigPath
+consProjectConfigPath p ps = ProjectConfigPath (p <| coerce ps)
 
 -- | Split the path into the importee and the importer path.
-unconsProjectConfigPath :: ProjectConfigPath -> (PCPLeaf, Maybe ProjectConfigPath)
-unconsProjectConfigPath (PCPWithoutImports fp)               = (PCPFilePath fp, Nothing)
-unconsProjectConfigPath (PCPWithImports leaf (root :| []))   = (leaf, Just (PCPWithoutImports root))
-unconsProjectConfigPath (PCPWithImports leaf (root :| rest)) = (leaf, Just (PCPWithImports (PCPFilePath root) (NE.fromList rest)))
+unconsProjectConfigPath :: ProjectConfigPath -> (FilePath, Maybe ProjectConfigPath)
+unconsProjectConfigPath ps = fmap ProjectConfigPath <$> NE.uncons (coerce ps)
+
+currentProjectConfigPath :: ProjectConfigPath -> FilePath
+currentProjectConfigPath (ProjectConfigPath (p :| _)) = p
 
 -- | Make paths relative to the directory of the root of the project, not
 -- relative to the file they were imported from.
 makeRelativeConfigPath :: FilePath -> ProjectConfigPath -> ProjectConfigPath
-makeRelativeConfigPath dir (PCPWithoutImports p)
-  = PCPWithoutImports $ makeRelative dir p
-makeRelativeConfigPath dir (PCPWithImports (PCPFilePath fp) roots)
-  = PCPWithImports (PCPFilePath $ makeRelative dir fp) ((makeRelative dir) <$> roots)
-makeRelativeConfigPath dir (PCPWithImports (PCPURI uri) roots)
-  = PCPWithImports (PCPURI uri) ((makeRelative dir) <$> roots)
+makeRelativeConfigPath dir (ProjectConfigPath p) =
+    ProjectConfigPath
+    $ (\segment@(trim -> trimSegment) -> (if isURI trimSegment then trimSegment else makeRelative dir segment))
+    <$> p
 
 -- | Normalizes and canonicalizes a path removing '.' and '..' indirections.
 -- Makes the path relative to the given directory (typically the project root)
@@ -367,7 +299,7 @@ makeRelativeConfigPath dir (PCPWithImports (PCPURI uri) roots)
 -- "hops-8.config"
 --
 -- >>> let d = testDir
--- >>> p <- canonicalizeConfigPath d (PCPWithoutImports (d </> "hops/../hops/../hops/../hops/../hops-8.config"))
+-- >>> p <- canonicalizeConfigPath d (ProjectConfigPath $ (d </> "hops/../hops/../hops/../hops/../hops-8.config") :| [])
 -- >>> render $ docProjectConfigPath p
 -- "hops-8.config"
 --
@@ -386,9 +318,9 @@ makeRelativeConfigPath dir (PCPWithImports (PCPURI uri) roots)
 --           , "  imported by: hops-0.project"
 --           ]
 --     let d = testDir
---     let configPath = PCPWithImports (PCPFilePath "hops/hops-9.config")
---           ("../hops-8.config" :|
---           [ "hops/hops-7.config"
+--     let configPath = ProjectConfigPath ("hops/hops-9.config" :|
+--           [ "../hops-8.config"
+--           , "hops/hops-7.config"
 --           , "../hops-6.config"
 --           , "hops/hops-5.config"
 --           , "../hops-4.config"
@@ -406,24 +338,25 @@ makeRelativeConfigPath dir (PCPWithImports (PCPURI uri) roots)
 --
 -- Trailing spaces for @ProjectConfigPath@ URLs are trimmed.
 --
+-- >>> p <- canonicalizeConfigPath "" (ProjectConfigPath $ ("https://www.stackage.org/nightly-2024-12-05/cabal.config ") :| [])
+-- >>> render $ docProjectConfigPath p
+-- "https://www.stackage.org/nightly-2024-12-05/cabal.config"
+--
 -- >>> let d = testDir
--- >>> Just uri <- pure $ parseAbsoluteURI "https://www.stackage.org/nightly-2024-12-05/cabal.config"
--- >>> p <- canonicalizeConfigPath d $ PCPWithImports (PCPURI uri)  ((d </> "cabal.project") :| [])
+-- >>> p <- canonicalizeConfigPath d (ProjectConfigPath $ ("https://www.stackage.org/nightly-2024-12-05/cabal.config ") :| [d </> "cabal.project"])
 -- >>> render $ docProjectConfigPath p
 -- "https://www.stackage.org/nightly-2024-12-05/cabal.config\n  imported by: cabal.project"
 canonicalizeConfigPath :: FilePath -> ProjectConfigPath -> IO ProjectConfigPath
-canonicalizeConfigPath d (PCPWithoutImports p) = do
-  can <- canonicalizePath (d </> p)
-  pure . makeRelativeConfigPath d . PCPWithoutImports $ can
-canonicalizeConfigPath d (PCPWithImports leaf roots) = do
-    newRoots <- sequence $ NE.scanr (\importee -> (>>= \importer ->
-                canonicalizePath $ d </> takeDirectory importer </> importee))
-            (pure ".") roots
-    newLeaf <- case leaf of
-                 PCPFilePath f -> PCPFilePath <$> canonicalizePath (d </> takeDirectory (NE.head newRoots) </> f)
-                 PCPURI uri -> pure $ PCPURI uri
-    pure . makeRelativeConfigPath d . PCPWithImports newLeaf . NE.fromList $ NE.init newRoots
+canonicalizeConfigPath d (ProjectConfigPath p) = do
+    xs <- sequence $ NE.scanr (\importee@(trim -> trimImportee) -> (>>= \importer@(trim -> trimImporter) ->
+            if isURI trimImportee || isURI trimImporter
+                then pure trimImportee
+                else canonicalizePath $ d </> takeDirectory importer </> importee))
+            (pure ".") p
+    return . makeRelativeConfigPath d . ProjectConfigPath . NE.fromList $ NE.init xs
 
+isURI :: FilePath -> Bool
+isURI = isJust . parseURI
 
 -- $setup
 -- >>> import Data.List
