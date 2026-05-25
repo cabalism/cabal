@@ -47,10 +47,10 @@ import Text.PrettyPrint (Doc, empty, int, nest, semi, text, vcat, (<>))
 -- | ProjectConfigSkeleton is a tree of conditional blocks and imports wrapping
 -- a config. It can be finalized by providing the conditional resolution info
 -- and then resolving and downloading the imports
-type ProjectConfigSkeleton = CondTree ConfVar ([(Maybe URI, ProjectConfigPath)], ProjectConfig)
+type ProjectConfigSkeleton = CondTree ConfVar ([(Maybe ProjectConfig, (Maybe URI, ProjectConfigPath))], ProjectConfig)
 
 projectSkeletonImports :: ProjectConfigSkeleton -> [(Maybe URI, ProjectConfigPath)]
-projectSkeletonImports = fst . view traverseCondTreeA
+projectSkeletonImports = snd . unzip . fst . view traverseCondTreeA
 
 -- | Fetch a local file import or remote URL import and parse it.
 fetchImport

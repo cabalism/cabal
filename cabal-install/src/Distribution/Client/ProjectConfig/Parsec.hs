@@ -111,11 +111,11 @@ parseProjectSkeleton
   -> IO (ParseResult ProjectFileSource ProjectConfigSkeleton)
 parseProjectSkeleton cacheDir httpTransport verbosity projectDir source (ProjectConfigToParse bs) = do
   normSource <- canonicalizeConfigPath projectDir source
-  res <- (sanityWalkPCS False =<<) <$> liftParseResult (go []) (readPreprocessFields bs)
+  res <- (sanityWalkPCS False =<<) <$> liftParseResult (go Nothing []) (readPreprocessFields bs)
   pure $ withSource (ProjectFileSource (normSource, bs)) res
   where
-    go :: [Field Position] -> [Field Position] -> IO (ParseResult ProjectFileSource ProjectConfigSkeleton)
-    go acc (x : xs) = case x of
+    go :: Maybe ProjectConfig -> [Field Position] -> [Field Position] -> IO (ParseResult ProjectFileSource ProjectConfigSkeleton)
+    go importerConfig acc (x : xs) = case x of
       (Field (Name pos name) importLines) | name == "import" -> do
         liftParseResult
           ( \importLoc -> do
@@ -134,42 +134,42 @@ parseProjectSkeleton cacheDir httpTransport verbosity projectDir source (Project
                     (noticeDoc verbosity $ untrimmedUriImportMsg (Disp.text "Warning:") importLocPath)
                   let parser = parseProjectSkeleton cacheDir httpTransport verbosity projectDir importLocPath
                   (mbUri, importParseResult) <- fetchImport parser cacheDir httpTransport verbosity projectDir normLocPath
-                  rest <- go [] xs
-                  let fs = (\z -> CondNode ([(mbUri, normLocPath)], z) mempty) <$> fieldsToConfig normSource (reverse acc)
+                  rest <- go importerConfig [] xs
+                  let fs = (\z -> CondNode ([(importerConfig, (mbUri, normLocPath))], z) mempty) <$> fieldsToConfig normSource (reverse acc)
                   pure . fmap mconcat . sequence $ [fs, importParseResult, rest]
           )
           (parseImport pos importLines)
       (Section (Name pos "if") args xs') -> do
-        subpcs <- go [] xs'
+        subpcs <- go importerConfig [] xs'
         let fs = fmap singletonProjectConfigSkeleton $ fieldsToConfig source (reverse acc)
-        (elseClauses, rest) <- parseElseClauses xs
+        (elseClauses, rest) <- parseElseClauses importerConfig xs
         let condNode =
               (\c pcs e -> CondNode mempty [CondBranch c pcs e])
                 <$> parseConditionConfVar (startOfSection (incPos 2 pos) args) args
                 <*> subpcs
                 <*> elseClauses
         pure . fmap mconcat . sequence $ [fs, condNode, rest]
-      _ -> go (x : acc) xs
-    go acc [] = do
+      _ -> go importerConfig (x : acc) xs
+    go _importerConfig acc [] = do
       normSource <- canonicalizeConfigPath projectDir source
       pure . fmap singletonProjectConfigSkeleton . fieldsToConfig normSource $ reverse acc
 
-    parseElseClauses :: [Field Position] -> IO (ParseResult ProjectFileSource (Maybe ProjectConfigSkeleton), ParseResult ProjectFileSource ProjectConfigSkeleton)
-    parseElseClauses x = case x of
+    parseElseClauses :: Maybe ProjectConfig -> [Field Position] -> IO (ParseResult ProjectFileSource (Maybe ProjectConfigSkeleton), ParseResult ProjectFileSource ProjectConfigSkeleton)
+    parseElseClauses importerConfig x = case x of
       (Section (Name _pos "else") _args xs' : xs) -> do
-        subpcs <- go [] xs'
-        rest <- go [] xs
+        subpcs <- go importerConfig [] xs'
+        rest <- go importerConfig [] xs
         pure (Just <$> subpcs, rest)
       (Section (Name pos "elif") args xs' : xs) -> do
-        subpcs <- go [] xs'
-        (elseClauses, rest) <- parseElseClauses xs
+        subpcs <- go importerConfig [] xs'
+        (elseClauses, rest) <- parseElseClauses importerConfig xs
         let condNode =
               (\c pcs e -> CondNode mempty [CondBranch c pcs e])
                 <$> parseConditionConfVar (startOfSection (incPos 4 pos) args) args
                 <*> subpcs
                 <*> elseClauses
         pure (Just <$> condNode, rest)
-      _ -> (pure Nothing,) <$> go [] x
+      _ -> (pure Nothing,) <$> go importerConfig [] x
 
     parseImport :: Position -> [FieldLine Position] -> ParseResult ProjectFileSource FilePath
     parseImport pos lines' = runFieldParser pos (P.many P.anyChar) cabalSpec lines'
@@ -196,7 +196,7 @@ parseProjectSkeleton cacheDir httpTransport verbosity projectDir source (Project
       | underConditional && modifiesCompiler d = parseFatalFailure zeroPos "Cannot set compiler in a conditional clause of a cabal project file"
       | otherwise = mapM_ sanityWalkBranch comps >> pure t
 
-    sanityWalkBranch :: CondBranch ConfVar ([(Maybe URI, ProjectConfigPath)], ProjectConfig) -> ParseResult ProjectFileSource ()
+    sanityWalkBranch :: CondBranch ConfVar ([(Maybe ProjectConfig, (Maybe URI, ProjectConfigPath))], ProjectConfig) -> ParseResult ProjectFileSource ()
     sanityWalkBranch (CondBranch _c t f) = traverse_ (sanityWalkPCS True) f >> sanityWalkPCS True t >> pure ()
 
     programDb = defaultProgramDb

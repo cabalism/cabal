@@ -228,7 +228,7 @@ instantiateProjectConfigSkeletonFetchingCompiler fetch flags skel
 instantiateProjectConfigSkeletonWithCompiler :: OS -> Arch -> CompilerInfo -> FlagAssignment -> ProjectConfigSkeleton -> ProjectConfig
 instantiateProjectConfigSkeletonWithCompiler os arch impl _flags skel = go $ mapTreeConds (fst . simplifyWithSysParams os arch impl) skel
   where
-    go :: CondTree FlagName ([(Maybe URI, ProjectConfigPath)], ProjectConfig) -> ProjectConfig
+    go :: CondTree FlagName ([(Maybe ProjectConfig, (Maybe URI, ProjectConfigPath))], ProjectConfig) -> ProjectConfig
     go (CondNode (_, l) ts) =
       let branches = concatMap processBranch ts
        in l <> mconcat branches
@@ -270,10 +270,10 @@ parseProjectSkeleton
   -- ^ The contents of the file to parse
   -> IO (ProjectParseResult ProjectConfigSkeleton)
 parseProjectSkeleton cacheDir httpTransport verbosity projectDir source (ProjectConfigToParse bs) =
-  (sanityWalkPCS False =<<) <$> liftPR source (go []) (ParseUtils.readFields bs)
+  (sanityWalkPCS False =<<) <$> liftPR source (go Nothing []) (ParseUtils.readFields bs)
   where
-    go :: [ParseUtils.Field] -> [ParseUtils.Field] -> IO (ProjectParseResult ProjectConfigSkeleton)
-    go acc (x : xs) = case x of
+    go :: Maybe ProjectConfig -> [ParseUtils.Field] -> [ParseUtils.Field] -> IO (ProjectParseResult ProjectConfigSkeleton)
+    go importerConfig acc  (x : xs) = case x of
       (ParseUtils.F _ "import" importLoc) -> do
         let importLocPath = importLoc `consProjectConfigPath` source
 
@@ -290,14 +290,14 @@ parseProjectSkeleton cacheDir httpTransport verbosity projectDir source (Project
               (noticeDoc verbosity $ untrimmedUriImportMsg (Disp.text "Warning:") importLocPath)
             let parser = parseProjectSkeleton cacheDir httpTransport verbosity projectDir importLocPath
             (mbUri, res) <- fetchImport parser cacheDir httpTransport verbosity projectDir normLocPath
-            rest <- go [] xs
-            let fs = (\z -> CondNode ([(mbUri, normLocPath)], z) mempty) <$> fieldsToConfig normSource (reverse acc)
+            rest <- go importerConfig [] xs
+            let fs = (\z -> CondNode ([(importerConfig, (mbUri, normLocPath))], z) mempty) <$> fieldsToConfig normSource (reverse acc)
             pure . fmap mconcat . sequence $ [projectParse Nothing normSource fs, res, rest]
       (ParseUtils.Section l "if" p xs') -> do
         normSource <- canonicalizeConfigPath projectDir source
-        subpcs <- go [] xs'
+        subpcs <- go importerConfig [] xs'
         let fs = singletonProjectConfigSkeleton <$> fieldsToConfig source (reverse acc)
-        (elseClauses, rest) <- parseElseClauses xs
+        (elseClauses, rest) <- parseElseClauses importerConfig xs
         let condNode =
               (\c pcs e -> CondNode mempty [CondBranch c pcs e])
                 <$>
@@ -308,21 +308,21 @@ parseProjectSkeleton cacheDir httpTransport verbosity projectDir source (Project
                 <*> subpcs
                 <*> elseClauses
         pure . fmap mconcat . sequence $ [projectParse Nothing normSource fs, condNode, rest]
-      _ -> go (x : acc) xs
-    go acc [] = do
+      _ -> go importerConfig (x : acc) xs
+    go _importerConfig acc [] = do
       normSource <- canonicalizeConfigPath projectDir source
       pure . fmap singletonProjectConfigSkeleton . projectParse Nothing normSource . fieldsToConfig normSource $ reverse acc
 
-    parseElseClauses :: [ParseUtils.Field] -> IO (ProjectParseResult (Maybe ProjectConfigSkeleton), ProjectParseResult ProjectConfigSkeleton)
-    parseElseClauses x = case x of
+    parseElseClauses :: Maybe ProjectConfig -> [ParseUtils.Field] -> IO (ProjectParseResult (Maybe ProjectConfigSkeleton), ProjectParseResult ProjectConfigSkeleton)
+    parseElseClauses importerConfig x = case x of
       (ParseUtils.Section _l "else" _p xs' : xs) -> do
-        subpcs <- go [] xs'
-        rest <- go [] xs
+        subpcs <- go importerConfig [] xs'
+        rest <- go importerConfig [] xs
         pure (Just <$> subpcs, rest)
       (ParseUtils.Section l "elif" p xs' : xs) -> do
         normSource <- canonicalizeConfigPath projectDir source
-        subpcs <- go [] xs'
-        (elseClauses, rest) <- parseElseClauses xs
+        subpcs <- go importerConfig [] xs'
+        (elseClauses, rest) <- parseElseClauses importerConfig xs
         let condNode =
               (\c pcs e -> CondNode mempty [CondBranch c pcs e])
                 <$> ( let s = "elif(" <> p <> ")"
@@ -331,7 +331,7 @@ parseProjectSkeleton cacheDir httpTransport verbosity projectDir source (Project
                 <*> subpcs
                 <*> elseClauses
         pure (Just <$> condNode, rest)
-      _ -> (pure Nothing,) <$> go [] x
+      _ -> (pure Nothing,) <$> go importerConfig [] x
 
     -- We want a normalized path for @fieldsToConfig@. This eventually surfaces
     -- in solver rejection messages and build messages "this build was affected
@@ -362,13 +362,13 @@ parseProjectSkeleton cacheDir httpTransport verbosity projectDir source (Project
         isSet f = f (projectConfigShared pc) /= NoFlag
 
     sanityWalkPCS :: Bool -> ProjectConfigSkeleton -> ProjectParseResult ProjectConfigSkeleton
-    sanityWalkPCS underConditional t@(CondNode (fmap snd . listToMaybe -> c, d) comps)
+    sanityWalkPCS underConditional t@(CondNode (fmap snd . fmap snd . listToMaybe -> c, d) comps)
       | underConditional && modifiesCompiler d =
           projectParseFail Nothing c $ ParseUtils.FromString "Cannot set compiler in a conditional clause of a cabal project file" Nothing
       | otherwise =
           mapM_ sanityWalkBranch comps >> pure t
 
-    sanityWalkBranch :: CondBranch ConfVar ([(Maybe URI, ProjectConfigPath)], ProjectConfig) -> ProjectParseResult ()
+    sanityWalkBranch :: CondBranch ConfVar ([(Maybe ProjectConfig, (Maybe URI, ProjectConfigPath))], ProjectConfig) -> ProjectParseResult ()
     sanityWalkBranch (CondBranch _c t f) = traverse_ (sanityWalkPCS True) f >> sanityWalkPCS True t >> pure ()
 
 ------------------------------------------------------------------
