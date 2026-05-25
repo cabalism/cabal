@@ -1,0 +1,82 @@
+Warning: this is a debug build of cabal-install with assertions enabled.
+Searching for curl in path.
+Found curl at /usr/bin/curl
+Searching for powershell in path.
+Cannot find powershell on the path
+Searching for wget in path.
+Found wget at /usr/bin/wget
+Selected http transport implementation: curl
+File monitor 'config' changed: first run
+Project settings changed, reconfiguring...
+Reading project file using the fallback parser
+
+XXXXXXXXXXXXXX:import path, normalized
+=======================
+project-cabal/ghc-options.config
+imported by: cabal.project
+fetching import: project-cabal/ghc-options.config
+
+XXXXXXXXXXXXXX:import path, normalized
+=======================
+project-cabal/ghc-latest.config
+imported by: cabal.project
+fetching import: project-cabal/ghc-latest.config
+
+XXXXXXXXXXXXXX:import path, normalized
+=======================
+project-cabal/pkgs.config
+imported by: cabal.project
+fetching import: project-cabal/pkgs.config
+
+XXXXXXXXXXXXXX:import path, normalized
+=======================
+project-cabal/pkgs/cabal.config
+imported by: project-cabal/pkgs.config
+imported by: cabal.project
+fetching import: project-cabal/pkgs/cabal.config
+
+XXXXXXXXXXXXXX:import path, normalized
+=======================
+project-cabal/pkgs/install.config
+imported by: project-cabal/pkgs.config
+imported by: cabal.project
+fetching import: project-cabal/pkgs/install.config
+
+XXXXXXXXXXXXXX:import path, normalized
+=======================
+project-cabal/pkgs/buildinfo.config
+imported by: project-cabal/pkgs.config
+imported by: cabal.project
+fetching import: project-cabal/pkgs/buildinfo.config
+
+XXXXXXXXXXXXXX:import path, normalized
+=======================
+project-cabal/pkgs/tests.config
+imported by: project-cabal/pkgs.config
+imported by: cabal.project
+fetching import: project-cabal/pkgs/tests.config
+
+XXXXXXXXXXXXXX:import path, normalized
+=======================
+project-cabal/pkgs/integration-tests.config
+imported by: project-cabal/pkgs.config
+imported by: cabal.project
+fetching import: project-cabal/pkgs/integration-tests.config
+
+XXXXXXXXXXXXXX:import path, normalized
+=======================
+project-cabal/pkgs/benchmarks.config
+imported by: project-cabal/pkgs.config
+imported by: cabal.project
+fetching import: project-cabal/pkgs/benchmarks.config
+
+XXXXXXXXXXXXXX:import config
+=======================
+src/Distribution/Client/ProjectConfig/Parsec.hs:(138,38)-(141,101): Non-exhaustive patterns in case
+
+
+HasCallStack backtrace:
+  collectExceptionAnnotation, called at libraries/ghc-internal/src/GHC/Internal/Exception.hs:170:37 in ghc-internal:GHC.Internal.Exception
+  toExceptionWithBacktrace, called at libraries/ghc-internal/src/GHC/Internal/Exception.hs:90:42 in ghc-internal:GHC.Internal.Exception
+  throw, called at libraries/ghc-internal/src/GHC/Internal/Control/Exception/Base.hs:434:30 in ghc-internal:GHC.Internal.Control.Exception.Base
+

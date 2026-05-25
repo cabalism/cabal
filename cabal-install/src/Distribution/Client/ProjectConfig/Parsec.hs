@@ -1,5 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TupleSections #-}
+{-# LANGUAGE ViewPatterns #-}
 
 -- | Parsing project configuration.
 module Distribution.Client.ProjectConfig.Parsec
@@ -124,7 +125,7 @@ parseProjectSkeleton cacheDir httpTransport verbosity projectDir source (Project
               -- Once we canonicalize the import path, we can check for cyclical imports
               normSource <- canonicalizeConfigPath projectDir source
               normLocPath <- canonicalizeConfigPath projectDir importLocPath
-              debug verbosity $ "\nimport path, normalized\n=======================\n" ++ render (docProjectConfigPath normLocPath)
+              debug verbosity $ "\nXXXXXXXXXXXXXX:import path, normalized\n=======================\n" ++ render (docProjectConfigPath normLocPath)
 
               if isCyclicConfigPath normLocPath
                 then pure $ parseFatalFailure pos (render $ cyclicalImportMsg normLocPath)
@@ -134,8 +135,13 @@ parseProjectSkeleton cacheDir httpTransport verbosity projectDir source (Project
                     (noticeDoc verbosity $ untrimmedUriImportMsg (Disp.text "Warning:") importLocPath)
                   let parser = parseProjectSkeleton cacheDir httpTransport verbosity projectDir importLocPath
                   (mbUri, importParseResult) <- fetchImport parser cacheDir httpTransport verbosity projectDir normLocPath
-                  rest <- go importerConfig [] xs
+                  let importConfig = case snd $ runParseResult importParseResult of
+                        Left{} -> Nothing
+                        Right (CondNode (fst . unzip -> [importerConfig'], _) _) -> importerConfig'
+                        Right (CondNode (fst . unzip -> importerConfig' : _, _) _) -> importerConfig'
+                  rest <- go importConfig [] xs
                   let fs = (\z -> CondNode ([(importerConfig, (mbUri, normLocPath))], z) mempty) <$> fieldsToConfig normSource (reverse acc)
+                  debug verbosity $ "\nXXXXXXXXXXXXXX:import config\n=======================\n" ++ maybe "NONE" (("SOME" ++) . show) importerConfig
                   pure . fmap mconcat . sequence $ [fs, importParseResult, rest]
           )
           (parseImport pos importLines)
