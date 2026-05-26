@@ -2416,7 +2416,7 @@ elaborateInstallPlan
                 [ (programId prog, programPath prog)
                 | prog <- configuredPrograms compilerprogdb
                 ]
-                <> (getMapLast $ perPkgOption pkgid packageConfigProgramPaths)
+                <> getMapLast (perPkgOption pkgid packageConfigProgramPaths)
 
             elabProgramArgs =
               -- Workaround for <https://github.com/haskell/cabal/issues/4010>
