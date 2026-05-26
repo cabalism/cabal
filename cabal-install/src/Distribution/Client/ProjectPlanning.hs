@@ -2,6 +2,7 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE ViewPatterns #-}
 
 -- |
 -- /Elaborated: worked out with great care and nicety of detail; executed with great minuteness: elaborate preparations; elaborate care./
@@ -2514,13 +2515,8 @@ elaborateInstallPlan
       perPkgOptionList = perPkgOption
 
       perPkgOptionLibExeFlag :: a -> PackageId -> (PackageConfig -> Flag a) -> (PackageConfig -> Flag a) -> (a, a)
-      perPkgOptionLibExeFlag def pkgid fboth flib = (exe, lib)
-        where
-          exe = fromFlagOrDefault def bothflag
-          lib = fromFlagOrDefault def (bothflag <> libflag)
-
-          bothflag = perPkgOption pkgid fboth
-          libflag = perPkgOption pkgid flib
+      perPkgOptionLibExeFlag (fromFlagOrDefault -> f) pkgid (perPkgOption pkgid -> both) (perPkgOption pkgid -> lib) =
+        (f both, f (both <> lib))
 
       inplacePackageDbs =
         corePackageDbs
