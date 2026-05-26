@@ -872,20 +872,20 @@ rebuildInstallPlan
                       Just pkgId ->
                         let testsEnabled =
                               lookupPerPkgOption
+                                (const True)
+                                projectConfigAllPackages
+                                projectConfigLocalPackages
+                                (getMapMappend projectConfigSpecificPackage)
                                 pkgId
                                 packageConfigTests
-                                projectConfigAllPackages
-                                projectConfigLocalPackages
-                                (getMapMappend projectConfigSpecificPackage)
-                                (const True)
                             benchmarksEnabled =
                               lookupPerPkgOption
-                                pkgId
-                                packageConfigBenchmarks
+                                (const True)
                                 projectConfigAllPackages
                                 projectConfigLocalPackages
                                 (getMapMappend projectConfigSpecificPackage)
-                                (const True)
+                                pkgId
+                                packageConfigBenchmarks
                          in Map.fromList $
                               [ (TestStanzas, enabled)
                               | enabled <- flagToList testsEnabled
@@ -2499,12 +2499,8 @@ elaborateInstallPlan
           bothflag = lookupPerPkgOption' pkgid fboth
           libflag = lookupPerPkgOption' pkgid flib
 
-      lookupPerPkgOption'
-        :: (Package pkg, Monoid m)
-        => pkg
-        -> (PackageConfig -> m)
-        -> m
-      lookupPerPkgOption' pkg f = lookupPerPkgOption pkg f allPackagesConfig localPackagesConfig perPackageConfig isLocalToProject
+      lookupPerPkgOption' :: (Package pkg, Monoid m) => pkg -> (PackageConfig -> m) -> m
+      lookupPerPkgOption' = lookupPerPkgOption isLocalToProject allPackagesConfig localPackagesConfig perPackageConfig
 
       inplacePackageDbs =
         corePackageDbs
@@ -4667,14 +4663,14 @@ determineCoverageFor configuredPkg plan =
 -- packages, all project local packages, and to specific named packages.
 lookupPerPkgOption
   :: (Package pkg, Monoid m)
-  => pkg
-  -> (PackageConfig -> m)
+  => (pkg -> Bool)
   -> PackageConfig
   -> PackageConfig
   -> Map PackageName PackageConfig
-  -> (pkg -> Bool)
+  -> pkg
+  -> (PackageConfig -> m)
   -> m
-lookupPerPkgOption pkg f allPackagesConfig localPackagesConfig perPackageConfig isLocalPkg =
+lookupPerPkgOption isLocalPkg allPackagesConfig localPackagesConfig perPackageConfig pkg f =
   global `mappend` local `mappend` perpkg
   where
     global = f allPackagesConfig
