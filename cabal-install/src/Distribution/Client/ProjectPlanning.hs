@@ -2487,9 +2487,6 @@ elaborateInstallPlan
 
             elabBenchmarkOptions = perPkgOptionList pkgid packageConfigBenchmarkOptions
 
-      perPkgOption :: (Package pkg, Monoid m) => pkg -> (PackageConfig -> m) -> m
-      perPkgOption = lookupPerPkgOption isLocalToProject allPackagesConfig localPackagesConfig perPackageConfig
-
       perPkgOptionFlag :: a -> PackageId -> (PackageConfig -> Flag a) -> a
       perPkgOptionFlag def = fmap (fromFlagOrDefault def) . perPkgOption
 
@@ -2502,6 +2499,9 @@ elaborateInstallPlan
       perPkgOptionLibExeFlag :: a -> PackageId -> (PackageConfig -> Flag a) -> (PackageConfig -> Flag a) -> (a, a)
       perPkgOptionLibExeFlag (fromFlagOrDefault -> f) pkgid (perPkgOption pkgid -> both) (perPkgOption pkgid -> lib) =
         (f both, f (both <> lib))
+
+      perPkgOption :: (Package pkg, Monoid m) => pkg -> (PackageConfig -> m) -> m
+      perPkgOption = lookupPerPkgOption isLocalToProject allPackagesConfig localPackagesConfig perPackageConfig
 
       inplacePackageDbs =
         corePackageDbs
