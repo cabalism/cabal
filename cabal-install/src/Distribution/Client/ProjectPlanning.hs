@@ -4663,6 +4663,8 @@ determineCoverageFor configuredPkg plan =
     isIndefiniteOrInstantiation :: ModuleShape -> Bool
     isIndefiniteOrInstantiation = not . Set.null . modShapeRequires
 
+-- | Look up and merge the options from the project config that apply to all
+-- packages, all project local packages, and to specific named packages.
 lookupPerPkgOption
   :: (Package pkg, Monoid m)
   => pkg
@@ -4673,9 +4675,6 @@ lookupPerPkgOption
   -> (pkg -> Bool)
   -> m
 lookupPerPkgOption pkg f allPackagesConfig localPackagesConfig perPackageConfig isLocalPkg =
-  -- This is where we merge the options from the project config that
-  -- apply to all packages, all project local packages, and to specific
-  -- named packages
   global `mappend` local `mappend` perpkg
   where
     global = f allPackagesConfig
