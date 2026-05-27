@@ -843,6 +843,7 @@ readProjectLocalFreezeConfig verbosity parserOption httpTransport distDirLayout 
 readProjectFileSkeletonGen
   :: DistDirLayout
   -> String
+  -- ^ "" for the main project file, or one of "local" or "freeze"
   -> (FilePath -> IO ProjectConfigSkeleton)
   -> Rebuild ProjectConfigSkeleton
 readProjectFileSkeletonGen dir extensionName parseConfig =
