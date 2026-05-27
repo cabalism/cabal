@@ -4,7 +4,6 @@
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TypeApplications #-}
-{-# OPTIONS_GHC -Wno-unused-matches #-}
 
 -- | Handling project configuration.
 module Distribution.Client.ProjectConfig
@@ -767,7 +766,7 @@ readProjectConfig
   -> Flag FilePath
   -> DistDirLayout
   -> Rebuild ProjectConfigSkeleton
-readProjectConfig verbosity parserOption _ (Flag True) configFileFlag _ = do
+readProjectConfig verbosity _parserOption _ (Flag True) configFileFlag _ = do
   global <- singletonProjectConfigSkeleton <$> readGlobalConfig verbosity configFileFlag
   return (global <> singletonProjectConfigSkeleton defaultImplicitProjectConfig)
 readProjectConfig verbosity parserOption httpTransport _ configFileFlag distDirLayout = do
@@ -843,11 +842,11 @@ readProjectLocalFreezeConfig verbosity parserOption httpTransport distDirLayout 
 -- This function is generic and can be used with the legacy or parsec parser, or a combination of both.
 readProjectFileSkeletonGen :: Verbosity -> HttpTransport -> DistDirLayout -> String -> String -> (FilePath -> IO ProjectConfigSkeleton) -> Rebuild ProjectConfigSkeleton
 readProjectFileSkeletonGen
-  verbosity
-  httpTransport
+  _verbosity
+  _httpTransport
   dir
   extensionName
-  extensionDescription
+  _extensionDescription
   parseConfig =
     do
       exists <- liftIO $ doesFileExist extensionFile
@@ -940,7 +939,7 @@ readProjectFileSkeletonCompare verbosity httpTransport distDirLayout extensionNa
     let (_, ppres) = runParseResult pres
     case (lres, ppres) of
       -- 1. Both succeed, compare the results
-      (OldParser.ProjectParseOk lwarns lpcs, Right ppcs) -> do
+      (OldParser.ProjectParseOk _lwarns lpcs, Right ppcs) -> do
         unless (lpcs == ppcs) (dieWithException verbosity $ LegacyAndParsecParseResultsDiffer fp (show lpcs) (show ppcs))
         liftIO $ reportParseResultParsec verbosity fp bs pres
       -- 2. The legacy parser failed, but the parsec parser succeeded.
@@ -963,7 +962,7 @@ reportParseResultParsec
   -> BS.ByteString
   -> Parsec.ParseResult ProjectFileSource a
   -> IO a
-reportParseResultParsec verbosity fpath contents pr = do
+reportParseResultParsec verbosity fpath _contents pr = do
   let (warnings, result) = runParseResult pr
   case result of
     Right x -> do
@@ -976,7 +975,7 @@ reportParseResultParsec verbosity fpath contents pr = do
 
 -- | Reads a named extended (with imports and conditionals) config file in the given project root dir, or returns empty.
 parseProjectFileSkeletonLegacy :: Verbosity -> HttpTransport -> DistDirLayout -> String -> String -> FilePath -> IO (OldParser.ProjectParseResult ProjectConfigSkeleton)
-parseProjectFileSkeletonLegacy verbosity httpTransport distDirLayout extensionName extensionDescription extensionFile = do
+parseProjectFileSkeletonLegacy verbosity httpTransport distDirLayout _extName _extDescription extensionFile = do
   bs <- BS.readFile extensionFile
   res <- parseProject extensionFile (distDownloadSrcDirectory distDirLayout) httpTransport verbosity $ ProjectConfigToParse bs
   case res of
@@ -984,12 +983,12 @@ parseProjectFileSkeletonLegacy verbosity httpTransport distDirLayout extensionNa
     x@OldParser.ProjectParseFailed{} -> pure x
 
 parseProjectFileSkeletonParsec :: Verbosity -> HttpTransport -> DistDirLayout -> String -> String -> FilePath -> IO (Parsec.ParseResult ProjectFileSource ProjectConfigSkeleton, BS.ByteString)
-parseProjectFileSkeletonParsec verbosity httpTransport distDirLayout extensionName extensionDescription extensionFile = do
+parseProjectFileSkeletonParsec verbosity httpTransport distDirLayout _extName _extDescription extensionFile = do
   bs <- BS.readFile extensionFile
   res <- Parsec.parseProject extensionFile (distDownloadSrcDirectory distDirLayout) httpTransport verbosity $ ProjectConfigToParse bs
   case snd $ runParseResult res of
-    x@(Right skeleton) -> reportDuplicateImports verbosity skeleton >> pure (res, bs)
-    x@Left{} -> pure (res, bs)
+    Right skeleton -> reportDuplicateImports verbosity skeleton >> pure (res, bs)
+    Left{} -> pure (res, bs)
 
 -- | Render the 'ProjectConfig' format.
 --
