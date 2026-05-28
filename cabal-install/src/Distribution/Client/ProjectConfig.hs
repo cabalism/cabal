@@ -872,7 +872,7 @@ readProjectFileSkeletonGen
                   ]
             let uniqueFiles = ordNub localFiles
             let (unmonitoredFiles, specialFiles) =
-                  partition (`notElem` [extensionFile, projFile "freeze", projFile "local"]) $ uniqueFiles
+                  partition (`notElem` [extensionFile, projFile "freeze", projFile "local"]) uniqueFiles
 
             liftIO $ do
               let debugLog = debug verbosity . ("\n[ProjectMonitoring]" ++)
