@@ -1,4 +1,5 @@
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ViewPatterns #-}
@@ -220,10 +221,13 @@ registerAction verbHandles flags args = do
 unregisterAction :: VerbosityHandles -> RegisterFlags -> [String] -> IO ()
 unregisterAction verbHandles flags args = do
   noExtraFlags args
-  let FlagVerbosity verbosity = (verbHandles, registerVerbosity flags)
+  let verbosity = fromFlagVerbosity verbHandles (registerVerbosity flags)
       mbWorkDir = flagToMaybe $ registerWorkingDir flags
   rawSystemExit verbosity mbWorkDir "make" ["unregister"]
 
-pattern FlagVerbosity :: Verbosity -> (VerbosityHandles, Last VerbosityFlags)
-pattern FlagVerbosity v <- (uncurry mkVerbosity . fmap fromFlag -> v)
+fromFlagVerbosity :: VerbosityHandles -> Last VerbosityFlags -> Verbosity
+fromFlagVerbosity verbHandles = \case FlagVerbosity f -> f verbHandles
+
+pattern FlagVerbosity :: (VerbosityHandles -> Verbosity) -> Last VerbosityFlags
+pattern FlagVerbosity f <- (flip mkVerbosity . fromFlag -> f)
 {-# COMPLETE FlagVerbosity #-}
