@@ -878,16 +878,23 @@ readProjectFileSkeletonGen
               let debugLog = debug verbosity . ("\n[ProjectMonitoring]" ++)
               debugLog ": Project Configuration Paths:\n"
               for_ configPaths $ \(_, path) -> debug verbosity $ "\t\t" ++ render (docProjectConfigPath path)
+
               debugLog " Local Files:\n"
               for_ localFiles $ \file -> debug verbosity $ "\t\t" ++ file
-              debugLog " Unique Files:\n"
-              for_ uniqueFiles $ \file -> debug verbosity $ "\t\t" ++ file
+              if uniqueFiles == localFiles
+                then debugLog " There are no duplicate files."
+                else do
+                  debugLog " There are duplicate files, but only the following unique files will be monitored:\n"
+                  debugLog " Unique Files:\n"
+                  for_ uniqueFiles $ \file -> debug verbosity $ "\t\t" ++ file
+
               debugLog " Unmonitored Files:\n"
               for_ unmonitoredFiles $ \file -> debug verbosity $ "\t\t" ++ file
+              let specialIntro = " Explicit Import of Implicit Files (.local|.freeze):"
               if null specialFiles
-                then debugLog " Special Files (.local|.freeze): There are none.\n "
+                then debugLog $ specialIntro ++ " There are none.\n "
                 else do
-                  debugLog " Special Files:\n "
+                  debugLog $ specialIntro ++ "\n"
                   for_ specialFiles $ \file -> debug verbosity $ "\t\t" ++ file
                   debug verbosity "\n"
 
