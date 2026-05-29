@@ -13,6 +13,7 @@
 #ifdef GIT_REV
 {-# LANGUAGE TemplateHaskell #-}
 #endif
+{-# LANGUAGE ViewPatterns #-}
 
 -----------------------------------------------------------------------------
 
@@ -715,10 +716,9 @@ infoNoWrap verbosity msg = withFrozenCallStack $
 --
 -- We display these messages when the verbosity level is 'deafening'
 debug :: Verbosity -> String -> IO ()
-debug verbosity msg = withFrozenCallStack $
+debug verbosity@(verbosityChosenOutputHandle -> h) msg = withFrozenCallStack $
   when (verbosityLevel verbosity >= Deafening) $ do
-    let h = verbosityChosenOutputHandle verbosity
-        flags = verbosityFlags verbosity
+    let flags = verbosityFlags verbosity
     ts <- getPOSIXTime
     hPutStr h $
       withMetadata ts NeverMark FlagTrace flags $
@@ -729,9 +729,8 @@ debug verbosity msg = withFrozenCallStack $
 -- | A variant of 'debug' that doesn't perform the automatic line
 -- wrapping. Produces better output in some cases.
 debugNoWrap :: Verbosity -> String -> IO ()
-debugNoWrap verbosity msg = withFrozenCallStack $
+debugNoWrap verbosity@(verbosityChosenOutputHandle -> h) msg = withFrozenCallStack $
   when (verbosityLevel verbosity >= Deafening) $ do
-    let h = verbosityChosenOutputHandle verbosity
     ts <- getPOSIXTime
     hPutStr h $
       withMetadata ts NeverMark FlagTrace (verbosityFlags verbosity) msg
