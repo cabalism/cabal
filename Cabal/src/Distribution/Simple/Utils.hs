@@ -724,7 +724,7 @@ debug verbosity msg = withFrozenCallStack $
       withMetadata ts NeverMark FlagTrace flags $
         wrapTextVerbosity flags msg
     -- ensure that we don't lose output if we segfault/infinite loop
-    hFlush stdout
+    hFlush h
 
 -- | A variant of 'debug' that doesn't perform the automatic line
 -- wrapping. Produces better output in some cases.
@@ -736,7 +736,7 @@ debugNoWrap verbosity msg = withFrozenCallStack $
     hPutStr h $
       withMetadata ts NeverMark FlagTrace (verbosityFlags verbosity) msg
     -- ensure that we don't lose output if we segfault/infinite loop
-    hFlush stdout
+    hFlush h
 
 -- | Perform an IO action, catching any IO exceptions and printing an error
 --   if one occurs.
