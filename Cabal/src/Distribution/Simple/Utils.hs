@@ -716,26 +716,32 @@ infoNoWrap verbosity msg = withFrozenCallStack $
 --
 -- We display these messages when the verbosity level is 'deafening'
 debug :: Verbosity -> String -> IO ()
-debug verbosity@(verbosityChosenOutputHandle -> h) msg = withFrozenCallStack $
-  when (verbosityLevel verbosity >= Deafening) $ do
-    let flags = verbosityFlags verbosity
-    ts <- getPOSIXTime
-    hPutStr h $
-      withMetadata ts NeverMark FlagTrace flags $
-        wrapTextVerbosity flags msg
-    -- ensure that we don't lose output if we segfault/infinite loop
-    hFlush h
+debug verbosity@(verbosityChosenOutputHandle -> h) msg =
+  withFrozenCallStack $
+    -- Flush to ensure that we don't lose output if we segfault/infinite loop
+    Exception.finally
+      ( when (verbosityLevel verbosity >= Deafening) $ do
+          let flags = verbosityFlags verbosity
+          ts <- getPOSIXTime
+          hPutStr h $
+            withMetadata ts NeverMark FlagTrace flags $
+              wrapTextVerbosity flags msg
+      )
+      (hFlush h)
 
 -- | A variant of 'debug' that doesn't perform the automatic line
 -- wrapping. Produces better output in some cases.
 debugNoWrap :: Verbosity -> String -> IO ()
-debugNoWrap verbosity@(verbosityChosenOutputHandle -> h) msg = withFrozenCallStack $
-  when (verbosityLevel verbosity >= Deafening) $ do
-    ts <- getPOSIXTime
-    hPutStr h $
-      withMetadata ts NeverMark FlagTrace (verbosityFlags verbosity) msg
-    -- ensure that we don't lose output if we segfault/infinite loop
-    hFlush h
+debugNoWrap verbosity@(verbosityChosenOutputHandle -> h) msg =
+  withFrozenCallStack $
+    -- Flush to ensure that we don't lose output if we segfault/infinite loop
+    Exception.finally
+      ( when (verbosityLevel verbosity >= Deafening) $ do
+          ts <- getPOSIXTime
+          hPutStr h $
+            withMetadata ts NeverMark FlagTrace (verbosityFlags verbosity) msg
+      )
+      (hFlush h)
 
 -- | Perform an IO action, catching any IO exceptions and printing an error
 --   if one occurs.
