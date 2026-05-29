@@ -717,31 +717,26 @@ infoNoWrap verbosity msg = withFrozenCallStack $
 -- We display these messages when the verbosity level is 'deafening'
 debug :: Verbosity -> String -> IO ()
 debug verbosity@(verbosityChosenOutputHandle -> h) msg =
-  withFrozenCallStack $
-    -- Flush to ensure that we don't lose output if we segfault/infinite loop
-    Exception.finally
-      ( when (verbosityLevel verbosity >= Deafening) $ do
-          let flags = verbosityFlags verbosity
-          ts <- getPOSIXTime
-          hPutStr h $
-            withMetadata ts NeverMark FlagTrace flags $
-              wrapTextVerbosity flags msg
-      )
-      (hFlush h)
+  -- Flush to ensure that we don't lose output if we segfault/infinite loop
+  withFrozenCallStack $ action `Exception.finally` hFlush h
+  where
+    action = when (verbosityLevel verbosity >= Deafening) $ do
+      let flags = verbosityFlags verbosity
+      ts <- getPOSIXTime
+      hPutStr h $
+        withMetadata ts NeverMark FlagTrace flags $
+          wrapTextVerbosity flags msg
 
 -- | A variant of 'debug' that doesn't perform the automatic line
 -- wrapping. Produces better output in some cases.
 debugNoWrap :: Verbosity -> String -> IO ()
 debugNoWrap verbosity@(verbosityChosenOutputHandle -> h) msg =
-  withFrozenCallStack $
-    -- Flush to ensure that we don't lose output if we segfault/infinite loop
-    Exception.finally
-      ( when (verbosityLevel verbosity >= Deafening) $ do
-          ts <- getPOSIXTime
-          hPutStr h $
-            withMetadata ts NeverMark FlagTrace (verbosityFlags verbosity) msg
-      )
-      (hFlush h)
+  -- Flush to ensure that we don't lose output if we segfault/infinite loop
+  withFrozenCallStack $ action `Exception.finally` hFlush h
+  where
+    action = when (verbosityLevel verbosity >= Deafening) $ do
+      ts <- getPOSIXTime
+      hPutStr h $ withMetadata ts NeverMark FlagTrace (verbosityFlags verbosity) msg
 
 -- | Perform an IO action, catching any IO exceptions and printing an error
 --   if one occurs.
