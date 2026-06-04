@@ -43,7 +43,7 @@ import Distribution.Utils.String (trim)
 import Network.URI (URI (..), parseURI)
 import System.Directory (createDirectoryIfMissing)
 import System.FilePath (isAbsolute, isPathSeparator, makeValid, takeExtension, (</>))
-import Text.PrettyPrint (Doc, empty, int, nest, semi, text, vcat, (<>))
+import Text.PrettyPrint (render, Doc, empty, int, nest, semi, text, vcat, (<>))
 
 type ProjectConfigSources = [(Maybe URI, ProjectConfigPath)]
 
@@ -52,8 +52,10 @@ type ProjectConfigSources = [(Maybe URI, ProjectConfigPath)]
 -- and then resolving and downloading the imports
 type ProjectConfigSkeleton = CondTree ConfVar (ProjectConfigSources, ProjectConfig)
 
-projectSkeletonImports :: ProjectConfigSkeleton -> ProjectConfigSources
-projectSkeletonImports = fst . view traverseCondTreeA
+type GetProjectConfigSources = (ProjectConfigSources, ProjectConfig) -> [(Maybe URI, ProjectConfigPath)]
+
+projectSkeletonImports :: GetProjectConfigSources -> ProjectConfigSkeleton -> ProjectConfigSources
+projectSkeletonImports getSources = getSources . view traverseCondTreeA
 
 -- | Fetch a local file import or remote URL import and parse it.
 fetchImport
@@ -245,9 +247,19 @@ untrimmedUriImportMsg intro path =
 -- A project root is expected to have a @.project@ extension, and an import is
 -- expected to have a @.config@ extension, or to be a @.project@ imported by
 -- another @.project@. URI imports are not checked.
-reportUnexpectedExtensions :: Verbosity -> ProjectConfigSkeleton -> IO ()
-reportUnexpectedExtensions verbosity skeleton = do
-  let msgs = hasExpectedExtensionMsg $ projectSkeletonImports skeleton
+reportUnexpectedExtensions :: Verbosity -> FilePath -> ProjectConfigSkeleton -> IO ()
+reportUnexpectedExtensions verbosity root skeleton = do
+  let getPaths x = let y = fst x in if y == [] then [(Nothing, ProjectConfigPath (root :| []))] else y
+  let paths = projectSkeletonImports getPaths skeleton
+  let RootsFilesUris{..} = classifyProject paths
+  putStrLn "XXXXXXXXXXXXXXXXXXXXXXXX: PATHS"
+  for_ paths $ \(_, p) -> putStrLn $ "PATH: " ++ render (docProjectConfigPath p)
+  putStrLn "XXXXXXXXXXXXXXXXXXXXXXXX: ROOTS"
+  for_ roots $ \(_, rs) -> sequence_ [putStrLn $ "ROOT: " ++ prettyShow r | r <- rs]
+  putStrLn "XXXXXXXXXXXXXXXXXXXXXXXX: FILES"
+  for_ files $ \(_, fs) -> sequence_ [putStrLn $ "FILE: " ++ prettyShow f | f <- fs]
+  putStrLn "XXXXXXXXXXXXXXXXXXXXXXXX: REPORT UNEXPECTED EXTENSIONS"
+  let msgs = hasExpectedExtensionMsg paths
   unless (null msgs) (noticeDoc verbosity $ vcat msgs)
 
 -- | Detect and report any duplicate imports, including those missed when parsing.
@@ -257,7 +269,7 @@ reportUnexpectedExtensions verbosity skeleton = do
 -- via different import paths.
 reportDuplicateImports :: Verbosity -> ProjectConfigSkeleton -> IO ()
 reportDuplicateImports verbosity skeleton = do
-  let (dupeRoots, dupeFiles, dupeUris) = detectDupes $ projectSkeletonImports skeleton
+  let (dupeRoots, dupeFiles, dupeUris) = detectDupes $ projectSkeletonImports fst skeleton
   unless (Map.null dupeRoots) (noticeDoc verbosity $ vcat (dupesMsg <$> Map.toList dupeRoots))
   unless (Map.null dupeFiles) (noticeDoc verbosity $ vcat (dupesMsg <$> Map.toList dupeFiles))
   unless (Map.null dupeUris) (noticeDoc verbosity $ vcat (dupesMsg <$> Map.toList dupeUris))
@@ -269,9 +281,6 @@ toDupes xs =
     & Map.filter ((> 1) . length)
     <&> \ys -> [Dupes v ys | v <- ys]
 
-(<$$>) :: (Functor f, Functor g) => (a -> b) -> f (g a) -> f (g b)
-(<$$>) = fmap . fmap
-
 data RootsFilesUris = RootsFilesUris
   { roots :: [(FilePath, [ProjectNode ProjectFilePath])]
   , files :: [(FilePath, [ProjectNode FilePath])]
@@ -281,17 +290,17 @@ data RootsFilesUris = RootsFilesUris
 classifyProject :: [(Maybe URI, ProjectConfigPath)] -> RootsFilesUris
 classifyProject xs = RootsFilesUris{..}
   where
-    roots =
+    roots = ordNub
       [ (h, [ProjectRoot h])
-      | (Nothing, (h, Nothing)) <- unconsProjectConfigPath <$$> xs
+      | (Nothing, projectConfigPathRoot -> h) <- xs
       ]
     files =
       [ (h, [ProjectFileImport h (consProjectConfigPath h t)])
-      | (Nothing, (h, Just t)) <- unconsProjectConfigPath <$$> xs
+      | (Nothing, unconsProjectConfigPath -> (h, Just t)) <- xs
       ]
     uris =
       [ (f, [ProjectUriImport u (consProjectConfigPath f t)])
-      | (Just u, (f, Just t)) <- unconsProjectConfigPath <$$> xs
+      | (Just u, unconsProjectConfigPath -> (f, Just t)) <- xs
       , show u == f
       ]
 
