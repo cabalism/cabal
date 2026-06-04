@@ -1,6 +1,7 @@
 .cabal-sandbox/
 cabal.sandbox.config
 cabal.project.local
+!cabal-testsuite/PackageTests/ProjectImport/ExpectedExtensions/cabal.project.local
 .ghc.environment.*
 cabal-dev/
 .hpc/
