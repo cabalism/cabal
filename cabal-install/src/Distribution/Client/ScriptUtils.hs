@@ -58,7 +58,11 @@ import Distribution.Client.ProjectConfig
   , withGlobalConfig
   , withProjectOrGlobalConfig
   )
-import Distribution.Client.ProjectConfig.Import (ProjectConfigSkeleton, reportDuplicateImports)
+import Distribution.Client.ProjectConfig.Import
+  ( ProjectConfigSkeleton
+  , reportDuplicateImports
+  , reportUnexpectedExtensions
+  )
 import Distribution.Client.ProjectConfig.Legacy
   ( instantiateProjectConfigSkeletonFetchingCompiler
   , parseProject
@@ -527,7 +531,9 @@ readProjectBlockFromScript verbosity httpTransport DistDirLayout{distDownloadSrc
     Right bs -> do
       res <- parseProject scriptName distDownloadSrcDirectory httpTransport verbosity (ProjectConfigToParse bs)
       case res of
-        OldParser.ProjectParseOk _ skeleton -> reportDuplicateImports verbosity skeleton
+        OldParser.ProjectParseOk _ skeleton -> do
+          reportDuplicateImports verbosity skeleton
+          reportUnexpectedExtensions verbosity skeleton
         OldParser.ProjectParseFailed{} -> pure ()
       reportParseResult verbosity "script" scriptName res
 
