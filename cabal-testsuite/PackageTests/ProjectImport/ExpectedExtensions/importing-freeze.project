@@ -1,0 +1,2 @@
+packages: .
+import: cabal.project.freeze
