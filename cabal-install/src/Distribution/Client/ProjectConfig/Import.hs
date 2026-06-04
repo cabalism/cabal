@@ -20,6 +20,7 @@ module Distribution.Client.ProjectConfig.Import
 
     -- * Checks
   , reportDuplicateImports
+  , reportUnexpectedExtensions
   ) where
 
 import Control.Arrow (Kleisli (..), arr, second, (>>>))
@@ -44,12 +45,14 @@ import System.Directory (createDirectoryIfMissing)
 import System.FilePath (isAbsolute, isPathSeparator, makeValid, takeExtension, (</>))
 import Text.PrettyPrint (Doc, empty, int, nest, semi, text, vcat, (<>))
 
+type ProjectConfigSources = [(Maybe URI, ProjectConfigPath)]
+
 -- | ProjectConfigSkeleton is a tree of conditional blocks and imports wrapping
 -- a config. It can be finalized by providing the conditional resolution info
 -- and then resolving and downloading the imports
-type ProjectConfigSkeleton = CondTree ConfVar ([(Maybe URI, ProjectConfigPath)], ProjectConfig)
+type ProjectConfigSkeleton = CondTree ConfVar (ProjectConfigSources, ProjectConfig)
 
-projectSkeletonImports :: ProjectConfigSkeleton -> [(Maybe URI, ProjectConfigPath)]
+projectSkeletonImports :: ProjectConfigSkeleton -> ProjectConfigSources
 projectSkeletonImports = fst . view traverseCondTreeA
 
 -- | Fetch a local file import or remote URL import and parse it.
@@ -236,6 +239,17 @@ untrimmedUriImportMsg intro path =
     , nest 2 (docProjectConfigPath path)
     ]
 
+-- | Detect and report if the project or any of its imports don't have the
+-- expected file extension.
+--
+-- A project root is expected to have a @.project@ extension, and an import is
+-- expected to have a @.config@ extension, or to be a @.project@ imported by
+-- another @.project@. URI imports are not checked.
+reportUnexpectedExtensions :: Verbosity -> ProjectConfigSkeleton -> IO ()
+reportUnexpectedExtensions verbosity skeleton = do
+  let msgs = hasExpectedExtensionMsg $ projectSkeletonImports skeleton
+  unless (null msgs) (noticeDoc verbosity $ vcat msgs)
+
 -- | Detect and report any duplicate imports, including those missed when parsing.
 --
 -- Parsing catches cyclical imports and some but not all duplicate imports. In
@@ -294,7 +308,19 @@ hasExpectedExtension = \case
   ProjectFileImport (takeExtension -> ".project") (ProjectConfigPath ((takeExtension -> ".project") :| _)) -> Just True
   ProjectFileImport{} -> Just False
 
-detectDupes :: [(Maybe URI, ProjectConfigPath)] -> (DupesMap ProjectFilePath, DupesMap FilePath, DupesMap URI)
+hasExpectedExtensionMsg :: ProjectConfigSources -> [Doc]
+hasExpectedExtensionMsg (classifyProject -> RootsFilesUris{..}) = rootsMsg ++ filesMsg
+  where
+    rootsMsg =
+      [ text "bad root:" <+> text (let ProjectRoot r = root in r)
+      | root@(hasExpectedExtension -> Just False) : _ <- snd <$> roots
+      ]
+    filesMsg =
+      [ text "bad file:" <+> text (let ProjectFileImport f _ = file in f)
+      | file@(hasExpectedExtension -> Just False) : _ <- snd <$> files
+      ]
+
+detectDupes :: ProjectConfigSources -> (DupesMap ProjectFilePath, DupesMap FilePath, DupesMap URI)
 detectDupes (classifyProject -> RootsFilesUris{..}) = (toDupes roots, toDupes files, toDupes uris)
 
 data Dupes a = Dupes
