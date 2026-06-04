@@ -533,7 +533,7 @@ readProjectBlockFromScript verbosity httpTransport DistDirLayout{distDownloadSrc
       case res of
         OldParser.ProjectParseOk _ skeleton -> do
           reportDuplicateImports verbosity skeleton
-          reportUnexpectedExtensions verbosity scriptName skeleton
+          reportUnexpectedExtensions verbosity (takeFileName scriptName) skeleton
         OldParser.ProjectParseFailed{} -> pure ()
       reportParseResult verbosity "script" scriptName res
 
