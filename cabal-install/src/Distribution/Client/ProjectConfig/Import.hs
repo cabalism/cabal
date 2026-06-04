@@ -41,7 +41,7 @@ import Distribution.Types.CondTree (CondTree (..), traverseCondTreeA)
 import Distribution.Utils.String (trim)
 import Network.URI (URI (..), parseURI)
 import System.Directory (createDirectoryIfMissing)
-import System.FilePath (isAbsolute, isPathSeparator, makeValid, (</>))
+import System.FilePath (isAbsolute, isPathSeparator, makeValid, takeExtension, (</>))
 import Text.PrettyPrint (Doc, empty, int, nest, semi, text, vcat, (<>))
 
 -- | ProjectConfigSkeleton is a tree of conditional blocks and imports wrapping
@@ -255,10 +255,18 @@ toDupes xs =
     & Map.filter ((> 1) . length)
     <&> \ys -> [Dupes v ys | v <- ys]
 
-detectDupes :: [(Maybe URI, ProjectConfigPath)] -> (DupesMap ProjectFilePath, DupesMap FilePath, DupesMap URI)
-detectDupes xs = (toDupes roots, toDupes files, toDupes uris)
+(<$$>) :: (Functor f, Functor g) => (a -> b) -> f (g a) -> f (g b)
+(<$$>) = fmap . fmap
+
+data RootsFilesUris = RootsFilesUris
+  { roots :: [(FilePath, [ProjectNode ProjectFilePath])]
+  , files :: [(FilePath, [ProjectNode FilePath])]
+  , uris :: [(FilePath, [ProjectNode URI])]
+  }
+
+classifyProject :: [(Maybe URI, ProjectConfigPath)] -> RootsFilesUris
+classifyProject xs = RootsFilesUris{..}
   where
-    (<$$>) = fmap . fmap
     roots =
       [ (h, [ProjectRoot h])
       | (Nothing, (h, Nothing)) <- unconsProjectConfigPath <$$> xs
@@ -272,6 +280,22 @@ detectDupes xs = (toDupes roots, toDupes files, toDupes uris)
       | (Just u, (f, Just t)) <- unconsProjectConfigPath <$$> xs
       , show u == f
       ]
+
+-- | A project root is expected to have a @.project@ extension, and an import is
+-- expected to have a @.config@ extension, or to be a @.project@ imported by
+-- another @.project@. If this node is a URI import then we can't check the
+-- extension, so return 'Nothing'.
+hasExpectedExtension :: ProjectNode a -> Maybe Bool
+hasExpectedExtension = \case
+  ProjectUriImport{} -> Nothing
+  ProjectRoot (takeExtension -> ".project") -> Just True
+  ProjectRoot{} -> Just False
+  ProjectFileImport (takeExtension -> ".config") _ -> Just True
+  ProjectFileImport (takeExtension -> ".project") (ProjectConfigPath ((takeExtension -> ".project") :| _)) -> Just True
+  ProjectFileImport{} -> Just False
+
+detectDupes :: [(Maybe URI, ProjectConfigPath)] -> (DupesMap ProjectFilePath, DupesMap FilePath, DupesMap URI)
+detectDupes (classifyProject -> RootsFilesUris{..}) = (toDupes roots, toDupes files, toDupes uris)
 
 data Dupes a = Dupes
   { dupesImport :: ProjectNode a
