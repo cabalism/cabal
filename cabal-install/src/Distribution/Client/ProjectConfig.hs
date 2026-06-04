@@ -838,7 +838,7 @@ readProjectFileSkeletonGen
           pcs <- liftIO $ parseConfig extensionFile
           let paths =
                 [ currentProjectConfigPath path
-                | (Nothing, path) <- projectSkeletonImports pcs
+                | (Nothing, path) <- projectSkeletonImports fst pcs
                 ]
           for_ paths $ \p -> do
             monitorLog $ "Monitor imported: " ++ fileWithAbsolute p
@@ -976,7 +976,7 @@ parseProjectFileSkeletonLegacy verbosity httpTransport distDirLayout key extensi
   case res of
     x@(OldParser.ProjectParseOk _ skeleton) -> do
       reportDuplicateImports verbosity skeleton
-      reportUnexpectedExtensions verbosity skeleton
+      reportUnexpectedExtensions verbosity extensionFile skeleton
       pure x
     x@OldParser.ProjectParseFailed{} -> pure x
 
@@ -987,7 +987,7 @@ parseProjectFileSkeletonParsec verbosity httpTransport distDirLayout key extensi
   case snd $ runParseResult res of
     x@(Right skeleton) -> do
       reportDuplicateImports verbosity skeleton
-      reportUnexpectedExtensions verbosity skeleton
+      reportUnexpectedExtensions verbosity extensionFile skeleton
       pure (res, bs)
     x@Left{} -> pure (res, bs)
 
