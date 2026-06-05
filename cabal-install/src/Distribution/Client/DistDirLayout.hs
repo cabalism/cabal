@@ -1,3 +1,4 @@
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE RecordWildCards #-}
 
 -- |
@@ -8,6 +9,7 @@ module Distribution.Client.DistDirLayout
   ( -- * 'DistDirLayout'
     DistDirLayout (..)
   , DistDirParams (..)
+  , ProjectFileKey (..)
   , defaultDistDirLayout
   , distProjectFileMain
 
@@ -70,6 +72,23 @@ data DistDirParams = DistDirParams
   --  Flag assignments
   --  Optimization
   }
+
+-- | The principal project file is read and parsed. Its file name was either
+-- provided with the @--project-file@ option, or it had the default name of
+-- @cabal.project@.
+--
+-- Related ``.local`` and ``.freeze`` files are read and parsed separately.
+--
+-- This key datatype distinguishes between the different project files, so that
+-- we can give better error messages, such as encountering an unexpected
+-- extension to the principal project file or when a ``.local`` or ``.freeze``
+-- is itself passed as the principal project file or when either are explicitly
+-- imported. They should only ever be implicitly imported.
+data ProjectFileKey
+  = ProjectFileKeyMain
+  | ProjectFileKeyLocal
+  | ProjectFileKeyFreeze
+  deriving Eq
 
 -- | The layout of the project state directory. Traditionally this has been
 -- called the @dist@ directory.
