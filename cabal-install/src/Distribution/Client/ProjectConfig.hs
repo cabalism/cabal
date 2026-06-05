@@ -790,7 +790,7 @@ readProjectLocalConfigOrDefault verbosity parserOption httpTransport distDirLayo
   usesExplicitProjectRoot <- liftIO $ doesFileExist projectFile
   if usesExplicitProjectRoot
     then do
-      readProjectFileSkeleton parserOption verbosity httpTransport distDirLayout ProjectFileKey
+      readProjectFileSkeleton parserOption verbosity httpTransport distDirLayout ProjectFileKeyMain
     else do
       monitorFiles [monitorNonExistentFile projectFile]
       return (singletonProjectConfigSkeleton defaultImplicitProjectConfig)
@@ -815,7 +815,7 @@ defaultImplicitProjectConfig =
 -- is itself passed as the principal project file or when either are explicitly
 -- imported. They should only ever be implicitly imported.
 data ProjectFileKey
-  = ProjectFileKey
+  = ProjectFileKeyMain
   | ProjectFileKeyLocal
   | ProjectFileKeyFreeze
   deriving Eq
@@ -823,7 +823,7 @@ data ProjectFileKey
 -- | A human readable description of the project file.
 extensionDescription :: ProjectFileKey -> String
 extensionDescription = \case
-  ProjectFileKey -> "project file"
+  ProjectFileKeyMain -> "project file"
   ProjectFileKeyLocal -> "project local configuration file"
   ProjectFileKeyFreeze -> "project freeze file"
 
@@ -831,7 +831,7 @@ extensionDescription = \case
 -- project file, the local config file or the freeze file.
 extensionName :: ProjectFileKey -> String
 extensionName = \case
-  ProjectFileKey -> ""
+  ProjectFileKeyMain -> ""
   ProjectFileKeyLocal -> "local"
   ProjectFileKeyFreeze -> "freeze"
 
@@ -1011,7 +1011,7 @@ parseProjectFileSkeletonLegacy verbosity httpTransport distDirLayout key extensi
   case res of
     x@(OldParser.ProjectParseOk _ skeleton) -> do
       reportDuplicateImports verbosity skeleton
-      when (key == ProjectFileKey) $ reportUnexpectedExtensions verbosity (takeFileName extensionFile) skeleton
+      when (key == ProjectFileKeyMain) $ reportUnexpectedExtensions verbosity (takeFileName extensionFile) skeleton
       pure x
     x@OldParser.ProjectParseFailed{} -> pure x
 
@@ -1022,7 +1022,7 @@ parseProjectFileSkeletonParsec verbosity httpTransport distDirLayout key extensi
   case snd $ runParseResult res of
     x@(Right skeleton) -> do
       reportDuplicateImports verbosity skeleton
-      when (key == ProjectFileKey) $ reportUnexpectedExtensions verbosity (takeFileName extensionFile) skeleton
+      when (key == ProjectFileKeyMain) $ reportUnexpectedExtensions verbosity (takeFileName extensionFile) skeleton
       pure (res, bs)
     x@Left{} -> pure (res, bs)
 
