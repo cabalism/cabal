@@ -1,6 +1,7 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE MultiWayIf #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE ViewPatterns #-}
@@ -317,11 +318,36 @@ hasExpectedExtension = \case
   ProjectFileImport (takeExtension -> ".project") (ProjectConfigPath ((takeExtension -> ".project") :| _)) -> Just True
   ProjectFileImport{} -> Just False
 
+isRootFreezeFile :: ProjectNode a -> Bool
+isRootFreezeFile = \case
+  ProjectRoot (takeExtension -> ".freeze") -> True
+  _ -> False
+
+isRootLocalFile :: ProjectNode a -> Bool
+isRootLocalFile = \case
+  ProjectRoot (takeExtension -> ".local") -> True
+  _ -> False
+
 hasExpectedExtensionMsg :: ProjectConfigSources -> [Doc]
 hasExpectedExtensionMsg (classifyProject -> RootsFilesUris{..}) = rootsMsg ++ filesMsg
   where
+    freezeRootMsg root =
+      text "Use the project file. Its '.freeze' file,"
+      <+> text root
+      <> text ", gets imported implicitly."
+    localRootMsg root =
+      text "Use the project file. Its '.local' file,"
+      <+> text root
+      <> text ", gets imported implicitly."
+    unexpectRootMsg root =
+      text "This project file,"
+      <+> text root
+      <> text ", has an unexpected extension."
+      <+> text "It is expected to have a '.project' extension."
     rootsMsg =
-      [ text "bad root:" <+> text (let ProjectRoot r = root in r)
+      [ if | isRootFreezeFile root -> freezeRootMsg (let ProjectRoot r = root in r)
+           | isRootLocalFile root -> localRootMsg (let ProjectRoot r = root in r)
+           | otherwise -> unexpectRootMsg(let ProjectRoot r = root in r)
       | root@(hasExpectedExtension -> Just False) : _ <- snd <$> roots
       ]
     filesMsg =
