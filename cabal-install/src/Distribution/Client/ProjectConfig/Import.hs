@@ -328,6 +328,16 @@ isRootLocalFile = \case
   ProjectRoot (takeExtension -> ".local") -> True
   _ -> False
 
+isFileImportFreezeFile :: ProjectNode a -> Bool
+isFileImportFreezeFile = \case
+  ProjectFileImport (takeExtension -> ".freeze") _ -> True
+  _ -> False
+
+isFileImportLocalFile :: ProjectNode a -> Bool
+isFileImportLocalFile = \case
+  ProjectFileImport (takeExtension -> ".local") _ -> True
+  _ -> False
+
 hasExpectedExtensionMsg :: ProjectConfigSources -> [Doc]
 hasExpectedExtensionMsg (classifyProject -> RootsFilesUris{..}) = rootsMsg ++ filesMsg
   where
@@ -344,6 +354,19 @@ hasExpectedExtensionMsg (classifyProject -> RootsFilesUris{..}) = rootsMsg ++ fi
       <+> text root
       <> text ", has an unexpected extension."
       <+> text "It is expected to have a '.project' extension."
+    freezeFileMsg root =
+      text "The project's '.freeze' file,"
+      <+> text root
+      <> text ", gets imported implicitly and shouldn't be imported directly."
+    localFileMsg root =
+      text "The project's '.local' file,"
+      <+> text root
+      <> text ", gets imported implicitly and shouldn't be imported directly."
+    unexpectFileMsg root =
+      text "This imported project file,"
+      <+> text root
+      <> text ", has an unexpected extension."
+      <+> text "It is expected to have a '.project' or '.config' extension."
     rootsMsg =
       [ if | isRootFreezeFile root -> freezeRootMsg (let ProjectRoot r = root in r)
            | isRootLocalFile root -> localRootMsg (let ProjectRoot r = root in r)
@@ -351,7 +374,9 @@ hasExpectedExtensionMsg (classifyProject -> RootsFilesUris{..}) = rootsMsg ++ fi
       | root@(hasExpectedExtension -> Just False) : _ <- snd <$> roots
       ]
     filesMsg =
-      [ text "bad file:" <+> text (let ProjectFileImport f _ = file in f)
+      [ if | isFileImportFreezeFile file -> freezeFileMsg (let ProjectFileImport f _ = file in f)
+           | isFileImportLocalFile file -> localFileMsg (let ProjectFileImport f _ = file in f)
+           | otherwise -> unexpectFileMsg (let ProjectFileImport f _ = file in f)
       | file@(hasExpectedExtension -> Just False) : _ <- snd <$> files
       ]
 
