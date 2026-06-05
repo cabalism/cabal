@@ -121,8 +121,8 @@ import Distribution.Client.Config
 import Distribution.Client.DistDirLayout
   ( CabalDirLayout (..)
   , DistDirLayout (..)
-  , ProjectRoot (..)
   , ProjectFileKey (..)
+  , ProjectRoot (..)
   , defaultProjectFile
   )
 import Distribution.Client.Errors.Parser
@@ -787,7 +787,7 @@ readProjectLocalConfigOrDefault
   -> DistDirLayout
   -> Rebuild ProjectConfigSkeleton
 readProjectLocalConfigOrDefault verbosity parserOption httpTransport distDirLayout = do
-  let projectFile = distProjectFile distDirLayout ""
+  let projectFile = distProjectFile distDirLayout ProjectFileKeyMain
   usesExplicitProjectRoot <- liftIO $ doesFileExist projectFile
   if usesExplicitProjectRoot
     then do
@@ -810,14 +810,6 @@ extensionDescription = \case
   ProjectFileKeyMain -> "project file"
   ProjectFileKeyLocal -> "project local configuration file"
   ProjectFileKeyFreeze -> "project freeze file"
-
--- | Used as a key into the 'DistDirLayout' to get the correct file path for the
--- project file, the local config file or the freeze file.
-extensionName :: ProjectFileKey -> String
-extensionName = \case
-  ProjectFileKeyMain -> ""
-  ProjectFileKeyLocal -> "local"
-  ProjectFileKeyFreeze -> "freeze"
 
 -- | Reads a @cabal.project.local@ file in the given project root dir,
 -- or returns empty. This file gets written by @cabal configure@, or in
@@ -877,7 +869,7 @@ readProjectFileSkeletonGen
           monitorFiles [monitorNonExistentFile extensionFile]
           return mempty
     where
-      extensionFile = distProjectFile dir (extensionName key)
+      extensionFile = distProjectFile dir key
 
 -- There are 3 different variants of the project parsing function.
 -- 1. readProjectFileSkeletonLegacy: always uses the legacy parser
@@ -1021,12 +1013,12 @@ showProjectConfig =
 -- | Write a @cabal.project.local@ file in the given project root dir.
 writeProjectLocalExtraConfig :: DistDirLayout -> ProjectConfig -> IO ()
 writeProjectLocalExtraConfig DistDirLayout{distProjectFile} =
-  writeProjectConfigFile (distProjectFile "local")
+  writeProjectConfigFile (distProjectFile ProjectFileKeyLocal)
 
 -- | Write a @cabal.project.freeze@ file in the given project root dir.
 writeProjectLocalFreezeConfig :: DistDirLayout -> ProjectConfig -> IO ()
 writeProjectLocalFreezeConfig DistDirLayout{distProjectFile} =
-  writeProjectConfigFile (distProjectFile "freeze")
+  writeProjectConfigFile (distProjectFile ProjectFileKeyFreeze)
 
 -- | Write in the @cabal.project@ format to the given file.
 writeProjectConfigFile :: FilePath -> ProjectConfig -> IO ()

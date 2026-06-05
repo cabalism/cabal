@@ -88,7 +88,7 @@ data ProjectFileKey
   = ProjectFileKeyMain
   | ProjectFileKeyLocal
   | ProjectFileKeyFreeze
-  deriving Eq
+  deriving (Eq)
 
 -- | The layout of the project state directory. Traditionally this has been
 -- called the @dist@ directory.
@@ -96,10 +96,9 @@ data DistDirLayout = DistDirLayout
   { distProjectRootDirectory :: FilePath
   -- ^ The root directory of the project. Many other files are relative to
   -- this location (e.g. the @cabal.project@ file).
-  , distProjectFile :: String -> FilePath
-  -- ^ The @cabal.project@ file and related like @cabal.project.freeze@.
-  -- The parameter is for the extension, like \"freeze\", or \"\" for the
-  -- main file.
+  , distProjectFile :: ProjectFileKey -> FilePath
+  -- ^ Files that are project parsing roots, the main @cabal.project@ file and
+  -- its related freeze file and local file.
   , distDirectory :: FilePath
   -- ^ The \"dist\" directory, which is the root of where cabal keeps all
   -- its state including the build artifacts from each package we build.
@@ -203,8 +202,11 @@ defaultDistDirLayout projectRoot mdistDirectory haddockOutputDir =
     distProjectRootDirectory :: FilePath
     distProjectRootDirectory = projectRootDir
 
-    distProjectFile :: String -> FilePath
-    distProjectFile ext = projectFile <.> ext
+    distProjectFile :: ProjectFileKey -> FilePath
+    distProjectFile = \case
+      ProjectFileKeyMain -> projectFile
+      ProjectFileKeyLocal -> projectFile <.> "local"
+      ProjectFileKeyFreeze -> projectFile <.> "freeze"
 
     distDirectory :: FilePath
     distDirectory =
