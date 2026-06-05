@@ -44,7 +44,7 @@ import Distribution.Utils.String (trim)
 import Network.URI (URI (..), parseURI)
 import System.Directory (createDirectoryIfMissing)
 import System.FilePath (isAbsolute, isPathSeparator, makeValid, takeExtension, (</>))
-import Text.PrettyPrint (render, Doc, empty, int, nest, semi, text, vcat, (<>))
+import Text.PrettyPrint (Doc, empty, int, nest, render, semi, text, vcat, (<>))
 
 type ProjectConfigSources = [(Maybe URI, ProjectConfigPath)]
 
@@ -253,15 +253,16 @@ reportUnexpectedExtensions verbosity root skeleton = do
   let getPaths x = let y = fst x in if y == [] then [(Nothing, ProjectConfigPath (root :| []))] else y
   let paths = projectSkeletonImports getPaths skeleton
   let RootsFilesUris{..} = classifyProject paths
-  putStrLn "XXXXXXXXXXXXXXXXXXXXXXXX: PATHS"
-  for_ paths $ \(_, p) -> putStrLn $ "PATH: " ++ render (docProjectConfigPath p)
-  putStrLn "XXXXXXXXXXXXXXXXXXXXXXXX: ROOTS"
-  for_ roots $ \(_, rs) -> sequence_ [putStrLn $ "ROOT: " ++ prettyShow r | r <- rs]
-  putStrLn "XXXXXXXXXXXXXXXXXXXXXXXX: FILES"
-  for_ files $ \(_, fs) -> sequence_ [putStrLn $ "FILE: " ++ prettyShow f | f <- fs]
-  putStrLn "XXXXXXXXXXXXXXXXXXXXXXXX: REPORT UNEXPECTED EXTENSIONS"
+  putStrLn "Checking these paths for unexpected extensons:"
+  putStrLn . render $ vcat [docProjectConfigPath p | (_, p) <- paths]
+  putStrLn "Checking these roots:"
+  putStrLn . render $ vcat [text $ prettyShow r | (_, rs) <- roots, r <- rs]
+  putStrLn "Checking these imported files:"
+  putStrLn . render $ vcat [text $ prettyShow f | (_, fs) <- files, f <- fs]
   let msgs = hasExpectedExtensionMsg paths
-  unless (null msgs) (noticeDoc verbosity $ vcat msgs)
+  unless (null msgs) $ do
+    putStrLn "Found unexpected extensions:"
+    noticeDoc verbosity $ vcat msgs
 
 -- | Detect and report any duplicate imports, including those missed when parsing.
 --
@@ -291,10 +292,11 @@ data RootsFilesUris = RootsFilesUris
 classifyProject :: [(Maybe URI, ProjectConfigPath)] -> RootsFilesUris
 classifyProject xs = RootsFilesUris{..}
   where
-    roots = ordNub
-      [ (h, [ProjectRoot h])
-      | (Nothing, projectConfigPathRoot -> h) <- xs
-      ]
+    roots =
+      ordNub
+        [ (h, [ProjectRoot h])
+        | (Nothing, projectConfigPathRoot -> h) <- xs
+        ]
     files =
       [ (h, [ProjectFileImport h (consProjectConfigPath h t)])
       | (Nothing, unconsProjectConfigPath -> (h, Just t)) <- xs
@@ -343,40 +345,42 @@ hasExpectedExtensionMsg (classifyProject -> RootsFilesUris{..}) = rootsMsg ++ fi
   where
     freezeRootMsg root =
       text "Use the project file. Its '.freeze' file,"
-      <+> text root
-      <> text ", gets imported implicitly."
+        <+> text root
+          <> text ", gets imported implicitly."
     localRootMsg root =
       text "Use the project file. Its '.local' file,"
-      <+> text root
-      <> text ", gets imported implicitly."
+        <+> text root
+          <> text ", gets imported implicitly."
     unexpectRootMsg root =
       text "This project file,"
-      <+> text root
-      <> text ", has an unexpected extension."
-      <+> text "It is expected to have a '.project' extension."
+        <+> text root
+          <> text ", has an unexpected extension."
+        <+> text "It is expected to have a '.project' extension."
     freezeFileMsg root =
       text "The project's '.freeze' file,"
-      <+> text root
-      <> text ", gets imported implicitly and shouldn't be imported directly."
+        <+> text root
+          <> text ", gets imported implicitly and shouldn't be imported directly."
     localFileMsg root =
       text "The project's '.local' file,"
-      <+> text root
-      <> text ", gets imported implicitly and shouldn't be imported directly."
+        <+> text root
+          <> text ", gets imported implicitly and shouldn't be imported directly."
     unexpectFileMsg root =
       text "This imported project file,"
-      <+> text root
-      <> text ", has an unexpected extension."
-      <+> text "It is expected to have a '.project' or '.config' extension."
+        <+> text root
+          <> text ", has an unexpected extension."
+        <+> text "It is expected to have a '.project' or '.config' extension."
     rootsMsg =
-      [ if | isRootFreezeFile root -> freezeRootMsg (let ProjectRoot r = root in r)
-           | isRootLocalFile root -> localRootMsg (let ProjectRoot r = root in r)
-           | otherwise -> unexpectRootMsg(let ProjectRoot r = root in r)
+      [ if
+          | isRootFreezeFile root -> freezeRootMsg (let ProjectRoot r = root in r)
+          | isRootLocalFile root -> localRootMsg (let ProjectRoot r = root in r)
+          | otherwise -> unexpectRootMsg (let ProjectRoot r = root in r)
       | root@(hasExpectedExtension -> Just False) : _ <- snd <$> roots
       ]
     filesMsg =
-      [ if | isFileImportFreezeFile file -> freezeFileMsg (let ProjectFileImport f _ = file in f)
-           | isFileImportLocalFile file -> localFileMsg (let ProjectFileImport f _ = file in f)
-           | otherwise -> unexpectFileMsg (let ProjectFileImport f _ = file in f)
+      [ if
+          | isFileImportFreezeFile file -> freezeFileMsg (let ProjectFileImport f _ = file in f)
+          | isFileImportLocalFile file -> localFileMsg (let ProjectFileImport f _ = file in f)
+          | otherwise -> unexpectFileMsg (let ProjectFileImport f _ = file in f)
       | file@(hasExpectedExtension -> Just False) : _ <- snd <$> files
       ]
 
