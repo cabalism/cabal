@@ -44,7 +44,7 @@ import Distribution.Utils.String (trim)
 import Network.URI (URI (..), parseURI)
 import System.Directory (createDirectoryIfMissing)
 import System.FilePath (isAbsolute, isPathSeparator, makeValid, takeExtension, (</>))
-import Text.PrettyPrint (Doc, empty, int, nest, render, semi, text, vcat, (<>))
+import Text.PrettyPrint (Doc, empty, int, nest, semi, text, vcat, (<>))
 
 type ProjectConfigSources = [(Maybe URI, ProjectConfigPath)]
 
@@ -253,16 +253,19 @@ reportUnexpectedExtensions verbosity root skeleton = do
   let getPaths x = let y = fst x in if y == [] then [(Nothing, ProjectConfigPath (root :| []))] else y
   let paths = projectSkeletonImports getPaths skeleton
   let RootsFilesUris{..} = classifyProject paths
-  putStrLn "Checking these paths for unexpected extensons:"
-  putStrLn . render $ vcat [docProjectConfigPath p | (_, p) <- paths]
-  putStrLn "Checking these roots:"
-  putStrLn . render $ vcat [text $ prettyShow r | (_, rs) <- roots, r <- rs]
-  putStrLn "Checking these imported files:"
-  putStrLn . render $ vcat [text $ prettyShow f | (_, fs) <- files, f <- fs]
+  noticeDoc verbosity $
+    vcat
+      [ text "Unexpected extensions, checking these paths:"
+      , nest 2 $ vcat [text "-" <+> docProjectConfigPath p | (_, p) <- paths]
+      , text "Unexpected extensions, checking these roots:"
+      , nest 2 $ vcat [text "-" <+> text r | (_, rs) <- roots, ProjectRoot r <- rs]
+      , text "Unexpected extensions, checking these imported files:"
+      , nest 2 $ vcat [text "-" <+> text f | (_, fs) <- files, ProjectFileImport f _ <- fs]
+      ]
   let msgs = hasExpectedExtensionMsg paths
-  unless (null msgs) $ do
-    putStrLn "Found unexpected extensions:"
-    noticeDoc verbosity $ vcat msgs
+  unless (null msgs) $
+    noticeDoc verbosity $
+      vcat [text "Unexpected extensions, found these to be unexpected:", nest 2 (vcat msgs)]
 
 -- | Detect and report any duplicate imports, including those missed when parsing.
 --
@@ -352,23 +355,25 @@ hasExpectedExtensionMsg (classifyProject -> RootsFilesUris{..}) = rootsMsg ++ fi
         <+> text root
           <> text ", gets imported implicitly."
     unexpectRootMsg root =
-      text "This project file,"
-        <+> text root
-          <> text ", has an unexpected extension."
-        <+> text "It is expected to have a '.project' extension."
+      vcat
+        [ text "This project file," <+> text root <> text ", has an unexpected extension."
+        , text "Project files are expected to have a '.project' extension."
+        ]
     freezeFileMsg root =
-      text "The project's '.freeze' file,"
-        <+> text root
-          <> text ", gets imported implicitly and shouldn't be imported directly."
+      vcat
+        [ text "The project's '.freeze' file," <+> text root <> text " is imported."
+        , text "Project .freeze files are imported implicitly and shouldn't be imported directly."
+        ]
     localFileMsg root =
-      text "The project's '.local' file,"
-        <+> text root
-          <> text ", gets imported implicitly and shouldn't be imported directly."
+      vcat
+        [ text "The project's '.local' file," <+> text root <> text " is imported."
+        , text "Project .local files are imported implicitly and shouldn't be imported directly."
+        ]
     unexpectFileMsg root =
-      text "This imported project file,"
-        <+> text root
-          <> text ", has an unexpected extension."
-        <+> text "It is expected to have a '.project' or '.config' extension."
+      vcat
+        [ text "The imported project file," <+> text root <> text ", has an unexpected extension."
+        , text "Imported project files are expected to have '.project' or '.config' extensions."
+        ]
     rootsMsg =
       [ if
           | isRootFreezeFile root -> freezeRootMsg (let ProjectRoot r = root in r)
