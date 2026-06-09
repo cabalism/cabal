@@ -11,6 +11,7 @@ module Distribution.Client.ProjectConfig.Import
   ( -- * Parsing skeleton
     ProjectConfigSkeleton
   , SourcedProjectConfig (..)
+  , singletonProjectConfigSkeleton
   , projectSkeletonImports
   , fetchImport
 
@@ -74,6 +75,9 @@ instance Monoid SourcedProjectConfig where
 type ProjectConfigSkeleton = CondTree ConfVar SourcedProjectConfig
 
 type GetProjectConfigSources = SourcedProjectConfig -> ProjectConfigSources
+
+singletonProjectConfigSkeleton :: ProjectConfig -> ProjectConfigSkeleton
+singletonProjectConfigSkeleton x = CondNode (SourcedProjectConfig mempty x) mempty
 
 projectSkeletonImports :: GetProjectConfigSources -> ProjectConfigSkeleton -> ProjectConfigSources
 projectSkeletonImports getSources = getSources . view traverseCondTreeA
