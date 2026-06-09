@@ -214,9 +214,6 @@ import qualified Text.PrettyPrint as Disp
 -- Handle extended project config files with conditionals and imports.
 --
 
-singletonProjectConfigSkeleton :: ProjectConfig -> ProjectConfigSkeleton
-singletonProjectConfigSkeleton x = CondNode (SourcedProjectConfig mempty x) mempty
-
 instantiateProjectConfigSkeletonFetchingCompiler :: Monad m => m (OS, Arch, Compiler) -> FlagAssignment -> ProjectConfigSkeleton -> m (ProjectConfig, Maybe Compiler)
 instantiateProjectConfigSkeletonFetchingCompiler fetch flags skel
   | null (toListOf traverseCondTreeV skel) = pure (ignoreConditions $ mapTreeData projectConfig skel, Nothing)

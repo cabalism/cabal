@@ -62,9 +62,6 @@ import qualified Text.Parsec
 import Text.PrettyPrint (render)
 import qualified Text.PrettyPrint as Disp
 
-singletonProjectConfigSkeleton :: ProjectConfig -> ProjectConfigSkeleton
-singletonProjectConfigSkeleton x = CondNode (SourcedProjectConfig mempty x) mempty
-
 readPreprocessFields :: BS.ByteString -> ParseResult src [Field Position]
 readPreprocessFields bs = do
   case readFields' bs' of
