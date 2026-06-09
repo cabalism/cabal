@@ -25,6 +25,7 @@ import Prelude ()
 import Distribution.Compat.Lens
 import qualified Distribution.Types.Lens as L
 
+import Data.Coerce (coerce)
 import Distribution.CabalSpecVersion
   ( CabalSpecVersion (..)
   , cabalSpecLatest
@@ -58,10 +59,6 @@ import Distribution.Client.ProjectConfig
   , withProjectOrGlobalConfig
   )
 import Distribution.Client.ProjectConfig.Import
-  ( ProjectConfigSkeleton
-  , reportDuplicateImports
-  , reportUnexpectedExtensions
-  )
 import Distribution.Client.ProjectConfig.Legacy
   ( instantiateProjectConfigSkeletonFetchingCompiler
   , parseProject
@@ -391,7 +388,12 @@ withContextAndSelectors verbosity noTargets kind flags@NixStyleFlags{..} targetS
           projectCfgSkeleton <- readProjectBlockFromScript verbosity httpTransport (distDirLayout ctx) (takeFileName script) scriptContents
 
           createDirectoryIfMissingVerbose verbosity True (distProjectCacheDirectory $ distDirLayout ctx)
-          (compiler, platform@(Platform arch os), _) <- runRebuild projectRoot $ configureCompiler verbosity (distDirLayout ctx) (snd (ignoreConditions projectCfgSkeleton) <> projectConfig ctx)
+          (compiler, platform@(Platform arch os), _) <-
+            runRebuild projectRoot $
+              configureCompiler
+                verbosity
+                (distDirLayout ctx)
+                ((snd . coerce) (ignoreConditions projectCfgSkeleton) <> projectConfig ctx)
 
           (projectCfg, _) <- instantiateProjectConfigSkeletonFetchingCompiler (pure (os, arch, compiler)) mempty projectCfgSkeleton
 
