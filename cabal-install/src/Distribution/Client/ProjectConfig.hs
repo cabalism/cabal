@@ -838,7 +838,7 @@ readProjectFileSkeletonGen
           pcs <- liftIO $ parseConfig extensionFile
           let paths =
                 [ currentProjectConfigPath path
-                | (Nothing, path) <- projectSkeletonImports fst pcs
+                | (Nothing, path) <- projectSkeletonImports projectConfigSources pcs
                 ]
           for_ paths $ \p -> do
             monitorLog $ "Monitor imported: " ++ fileWithAbsolute p
