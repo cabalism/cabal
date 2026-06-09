@@ -1,5 +1,6 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE GADTs #-}
+{-# LANGUAGE GeneralisedNewtypeDeriving #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE MultiWayIf #-}
 {-# LANGUAGE RecordWildCards #-}
@@ -11,6 +12,7 @@
 module Distribution.Client.ProjectConfig.Import
   ( -- * Parsing skeleton
     ProjectConfigSkeleton
+  , SourcedProjectConfig (..)
   , projectSkeletonImports
   , fetchImport
 
@@ -48,15 +50,20 @@ import Text.PrettyPrint (Doc, empty, int, nest, semi, text, vcat, (<>))
 
 type ProjectConfigSources = [(Maybe URI, ProjectConfigPath)]
 
+-- | The 'ProjectConfig' and the file (OR FILES?) it was read from.
+newtype SourcedProjectConfig
+  = SourcedProjectConfig (ProjectConfigSources, ProjectConfig)
+  deriving (Semigroup, Monoid, Show, Eq)
+
 -- | ProjectConfigSkeleton is a tree of conditional blocks and imports wrapping
 -- a config. It can be finalized by providing the conditional resolution info
 -- and then resolving and downloading the imports
-type ProjectConfigSkeleton = CondTree ConfVar (ProjectConfigSources, ProjectConfig)
+type ProjectConfigSkeleton = CondTree ConfVar SourcedProjectConfig
 
-type GetProjectConfigSources = (ProjectConfigSources, ProjectConfig) -> [(Maybe URI, ProjectConfigPath)]
+type GetProjectConfigSources = (ProjectConfigSources, ProjectConfig) -> ProjectConfigSources
 
 projectSkeletonImports :: GetProjectConfigSources -> ProjectConfigSkeleton -> ProjectConfigSources
-projectSkeletonImports getSources = getSources . view traverseCondTreeA
+projectSkeletonImports getSources = getSources . coerce . view traverseCondTreeA
 
 -- | Fetch a local file import or remote URL import and parse it.
 fetchImport
@@ -292,7 +299,7 @@ data RootsFilesUris = RootsFilesUris
   , uris :: [(FilePath, [ProjectNode URI])]
   }
 
-classifyProject :: [(Maybe URI, ProjectConfigPath)] -> RootsFilesUris
+classifyProject :: ProjectConfigSources -> RootsFilesUris
 classifyProject xs = RootsFilesUris{..}
   where
     roots =

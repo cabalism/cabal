@@ -15,7 +15,7 @@ module Distribution.Client.ProjectConfig.Parsec
 import Distribution.CabalSpecVersion
 import Distribution.Client.HttpUtils
 import Distribution.Client.ProjectConfig.FieldGrammar (packageConfigFieldGrammar, projectConfigFieldGrammar)
-import Distribution.Client.ProjectConfig.Import (ProjectConfigSkeleton, cyclicalImportMsg, fetchImport, untrimmedUriImportMsg)
+import Distribution.Client.ProjectConfig.Import
 import qualified Distribution.Client.ProjectConfig.Lens as L
 import Distribution.Client.ProjectConfig.Types
 import Distribution.Client.Types.Repo hiding (repoName)
@@ -55,7 +55,7 @@ import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
 import Distribution.Client.Errors.Parser (ProjectFileSource (..))
 import qualified Distribution.Compat.CharParsing as P
-import Network.URI (URI, uriFragment, uriPath, uriScheme)
+import Network.URI (uriFragment, uriPath, uriScheme)
 import System.Directory (makeAbsolute)
 import System.FilePath (splitFileName)
 import qualified Text.Parsec
@@ -63,7 +63,7 @@ import Text.PrettyPrint (render)
 import qualified Text.PrettyPrint as Disp
 
 singletonProjectConfigSkeleton :: ProjectConfig -> ProjectConfigSkeleton
-singletonProjectConfigSkeleton x = CondNode (mempty, x) mempty
+singletonProjectConfigSkeleton x = CondNode (SourcedProjectConfig (mempty, x)) mempty
 
 readPreprocessFields :: BS.ByteString -> ParseResult src [Field Position]
 readPreprocessFields bs = do
@@ -136,7 +136,7 @@ parseProjectSkeleton cacheDir httpTransport verbosity projectDir source (Project
                   let parser = parseProjectSkeleton cacheDir httpTransport verbosity projectDir importLocPath
                   (mbUri, importParseResult) <- fetchImport parser cacheDir httpTransport verbosity projectDir normLocPath
                   rest <- go [] xs
-                  let fs = (\z -> CondNode ([(mbUri, normLocPath)], z) mempty) <$> fieldsToConfig normSource (reverse acc)
+                  let fs = (\z -> CondNode (SourcedProjectConfig ([(mbUri, normLocPath)], z)) mempty) <$> fieldsToConfig normSource (reverse acc)
                   pure . fmap mconcat . sequence $ [fs, importParseResult, rest]
           )
           (parseImport pos importLines)
@@ -193,11 +193,11 @@ parseProjectSkeleton cacheDir httpTransport verbosity projectDir source (Project
         isSet f = f (projectConfigShared pc) /= NoFlag
 
     sanityWalkPCS :: Bool -> ProjectConfigSkeleton -> ParseResult ProjectFileSource ProjectConfigSkeleton
-    sanityWalkPCS underConditional t@(CondNode (_c, d) comps)
+    sanityWalkPCS underConditional t@(CondNode (SourcedProjectConfig (_c, d)) comps)
       | underConditional && modifiesCompiler d = parseFatalFailure zeroPos "Cannot set compiler in a conditional clause of a cabal project file"
       | otherwise = mapM_ sanityWalkBranch comps >> pure t
 
-    sanityWalkBranch :: CondBranch ConfVar ([(Maybe URI, ProjectConfigPath)], ProjectConfig) -> ParseResult ProjectFileSource ()
+    sanityWalkBranch :: CondBranch ConfVar SourcedProjectConfig -> ParseResult ProjectFileSource ()
     sanityWalkBranch (CondBranch _c t f) = traverse_ (sanityWalkPCS True) f >> sanityWalkPCS True t >> pure ()
 
     programDb = defaultProgramDb

@@ -36,6 +36,7 @@ module Distribution.Client.ProjectConfig.Legacy
   , renderPackageLocationToken
   ) where
 
+import Data.Coerce (coerce)
 import Distribution.Client.Compat.Prelude
 
 import Distribution.Types.Flag (FlagName, parsecFlagAssignment)
@@ -64,7 +65,7 @@ import Distribution.Solver.Types.ConstraintSource
 import Distribution.Solver.Types.ProjectConfigPath
 
 import Distribution.Client.NixStyleOptions (NixStyleFlags (..))
-import Distribution.Client.ProjectConfig.Import (ProjectConfigSkeleton, cyclicalImportMsg, fetchImport, untrimmedUriImportMsg)
+import Distribution.Client.ProjectConfig.Import
 import Distribution.Client.ProjectFlags (ProjectFlags (..), defaultProjectFlags, projectFlagsOptions)
 import Distribution.Client.Setup
   ( ConfigExFlags (..)
@@ -215,11 +216,11 @@ import qualified Text.PrettyPrint as Disp
 --
 
 singletonProjectConfigSkeleton :: ProjectConfig -> ProjectConfigSkeleton
-singletonProjectConfigSkeleton x = CondNode (mempty, x) mempty
+singletonProjectConfigSkeleton x = CondNode (SourcedProjectConfig (mempty, x)) mempty
 
 instantiateProjectConfigSkeletonFetchingCompiler :: Monad m => m (OS, Arch, Compiler) -> FlagAssignment -> ProjectConfigSkeleton -> m (ProjectConfig, Maybe Compiler)
 instantiateProjectConfigSkeletonFetchingCompiler fetch flags skel
-  | null (toListOf traverseCondTreeV skel) = pure (ignoreConditions $ mapTreeData snd skel, Nothing)
+  | null (toListOf traverseCondTreeV skel) = pure (ignoreConditions $ mapTreeData (snd . coerce) skel, Nothing)
   | otherwise = do
       (os, arch, comp) <- fetch
       let conf = instantiateProjectConfigSkeletonWithCompiler os arch (compilerInfo comp) flags skel
@@ -228,8 +229,8 @@ instantiateProjectConfigSkeletonFetchingCompiler fetch flags skel
 instantiateProjectConfigSkeletonWithCompiler :: OS -> Arch -> CompilerInfo -> FlagAssignment -> ProjectConfigSkeleton -> ProjectConfig
 instantiateProjectConfigSkeletonWithCompiler os arch impl _flags skel = go $ mapTreeConds (fst . simplifyWithSysParams os arch impl) skel
   where
-    go :: CondTree FlagName ([(Maybe URI, ProjectConfigPath)], ProjectConfig) -> ProjectConfig
-    go (CondNode (_, l) ts) =
+    go :: CondTree FlagName SourcedProjectConfig -> ProjectConfig
+    go (CondNode (SourcedProjectConfig (_, l)) ts) =
       let branches = concatMap processBranch ts
        in l <> mconcat branches
     processBranch (CondBranch cnd t mf) = case cnd of
@@ -291,7 +292,7 @@ parseProjectSkeleton cacheDir httpTransport verbosity projectDir source (Project
             let parser = parseProjectSkeleton cacheDir httpTransport verbosity projectDir importLocPath
             (mbUri, res) <- fetchImport parser cacheDir httpTransport verbosity projectDir normLocPath
             rest <- go [] xs
-            let fs = (\z -> CondNode ([(mbUri, normLocPath)], z) mempty) <$> fieldsToConfig normSource (reverse acc)
+            let fs = (\z -> CondNode (SourcedProjectConfig ([(mbUri, normLocPath)], z)) mempty) <$> fieldsToConfig normSource (reverse acc)
             pure . fmap mconcat . sequence $ [projectParse Nothing normSource fs, res, rest]
       (ParseUtils.Section l "if" p xs') -> do
         normSource <- canonicalizeConfigPath projectDir source
@@ -362,13 +363,13 @@ parseProjectSkeleton cacheDir httpTransport verbosity projectDir source (Project
         isSet f = f (projectConfigShared pc) /= NoFlag
 
     sanityWalkPCS :: Bool -> ProjectConfigSkeleton -> ProjectParseResult ProjectConfigSkeleton
-    sanityWalkPCS underConditional t@(CondNode (fmap snd . listToMaybe -> c, d) comps)
+    sanityWalkPCS underConditional t@(CondNode (coerce -> (fmap snd . listToMaybe -> c, d)) comps)
       | underConditional && modifiesCompiler d =
           projectParseFail Nothing c $ ParseUtils.FromString "Cannot set compiler in a conditional clause of a cabal project file" Nothing
       | otherwise =
           mapM_ sanityWalkBranch comps >> pure t
 
-    sanityWalkBranch :: CondBranch ConfVar ([(Maybe URI, ProjectConfigPath)], ProjectConfig) -> ProjectParseResult ()
+    sanityWalkBranch :: CondBranch ConfVar SourcedProjectConfig -> ProjectParseResult ()
     sanityWalkBranch (CondBranch _c t f) = traverse_ (sanityWalkPCS True) f >> sanityWalkPCS True t >> pure ()
 
 ------------------------------------------------------------------
