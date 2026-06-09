@@ -63,7 +63,7 @@ import Text.PrettyPrint (render)
 import qualified Text.PrettyPrint as Disp
 
 singletonProjectConfigSkeleton :: ProjectConfig -> ProjectConfigSkeleton
-singletonProjectConfigSkeleton x = CondNode (SourcedProjectConfig (mempty, x)) mempty
+singletonProjectConfigSkeleton x = CondNode (SourcedProjectConfig mempty x) mempty
 
 readPreprocessFields :: BS.ByteString -> ParseResult src [Field Position]
 readPreprocessFields bs = do
@@ -136,7 +136,7 @@ parseProjectSkeleton cacheDir httpTransport verbosity projectDir source (Project
                   let parser = parseProjectSkeleton cacheDir httpTransport verbosity projectDir importLocPath
                   (mbUri, importParseResult) <- fetchImport parser cacheDir httpTransport verbosity projectDir normLocPath
                   rest <- go [] xs
-                  let fs = (\z -> CondNode (SourcedProjectConfig ([(mbUri, normLocPath)], z)) mempty) <$> fieldsToConfig normSource (reverse acc)
+                  let fs = (\z -> CondNode (SourcedProjectConfig [(mbUri, normLocPath)] z) mempty) <$> fieldsToConfig normSource (reverse acc)
                   pure . fmap mconcat . sequence $ [fs, importParseResult, rest]
           )
           (parseImport pos importLines)
@@ -193,7 +193,7 @@ parseProjectSkeleton cacheDir httpTransport verbosity projectDir source (Project
         isSet f = f (projectConfigShared pc) /= NoFlag
 
     sanityWalkPCS :: Bool -> ProjectConfigSkeleton -> ParseResult ProjectFileSource ProjectConfigSkeleton
-    sanityWalkPCS underConditional t@(CondNode (SourcedProjectConfig (_c, d)) comps)
+    sanityWalkPCS underConditional t@(CondNode SourcedProjectConfig{projectConfig = d} comps)
       | underConditional && modifiesCompiler d = parseFatalFailure zeroPos "Cannot set compiler in a conditional clause of a cabal project file"
       | otherwise = mapM_ sanityWalkBranch comps >> pure t
 

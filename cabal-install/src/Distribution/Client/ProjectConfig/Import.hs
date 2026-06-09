@@ -4,6 +4,7 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE MultiWayIf #-}
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE ViewPatterns #-}
 {-# LANGUAGE NoImplicitPrelude #-}
@@ -51,19 +52,34 @@ import Text.PrettyPrint (Doc, empty, int, nest, semi, text, vcat, (<>))
 type ProjectConfigSources = [(Maybe URI, ProjectConfigPath)]
 
 -- | The 'ProjectConfig' and the file (OR FILES?) it was read from.
-newtype SourcedProjectConfig
-  = SourcedProjectConfig (ProjectConfigSources, ProjectConfig)
-  deriving (Semigroup, Monoid, Show, Eq)
+data SourcedProjectConfig = SourcedProjectConfig
+  { projectConfigSources :: ProjectConfigSources
+  , projectConfig :: ProjectConfig
+  }
+
+deriving instance Show SourcedProjectConfig
+deriving instance Eq SourcedProjectConfig
+
+instance Semigroup SourcedProjectConfig where
+  SourcedProjectConfig{projectConfigSources = sa, projectConfig = ca}
+    <> SourcedProjectConfig{projectConfigSources = sb, projectConfig = cb} =
+      SourcedProjectConfig
+        { projectConfigSources = sa Prelude.<> sb
+        , projectConfig = ca Prelude.<> cb
+        }
+
+instance Monoid SourcedProjectConfig where
+  mempty = SourcedProjectConfig mempty mempty
 
 -- | ProjectConfigSkeleton is a tree of conditional blocks and imports wrapping
 -- a config. It can be finalized by providing the conditional resolution info
 -- and then resolving and downloading the imports
 type ProjectConfigSkeleton = CondTree ConfVar SourcedProjectConfig
 
-type GetProjectConfigSources = (ProjectConfigSources, ProjectConfig) -> ProjectConfigSources
+type GetProjectConfigSources = SourcedProjectConfig -> ProjectConfigSources
 
 projectSkeletonImports :: GetProjectConfigSources -> ProjectConfigSkeleton -> ProjectConfigSources
-projectSkeletonImports getSources = getSources . coerce . view traverseCondTreeA
+projectSkeletonImports getSources = getSources . view traverseCondTreeA
 
 -- | Fetch a local file import or remote URL import and parse it.
 fetchImport
@@ -257,7 +273,7 @@ untrimmedUriImportMsg intro path =
 -- another @.project@. URI imports are not checked.
 reportUnexpectedExtensions :: Verbosity -> FilePath -> ProjectConfigSkeleton -> IO ()
 reportUnexpectedExtensions verbosity root skeleton = do
-  let getPaths x = let y = fst x in if y == [] then [(Nothing, ProjectConfigPath (root :| []))] else y
+  let getPaths x = let y = projectConfigSources x in if y == [] then [(Nothing, ProjectConfigPath (root :| []))] else y
   let paths = projectSkeletonImports getPaths skeleton
   let RootsFilesUris{..} = classifyProject paths
   noticeDoc verbosity $
@@ -281,7 +297,7 @@ reportUnexpectedExtensions verbosity root skeleton = do
 -- via different import paths.
 reportDuplicateImports :: Verbosity -> ProjectConfigSkeleton -> IO ()
 reportDuplicateImports verbosity skeleton = do
-  let (dupeRoots, dupeFiles, dupeUris) = detectDupes $ projectSkeletonImports fst skeleton
+  let (dupeRoots, dupeFiles, dupeUris) = detectDupes $ projectSkeletonImports projectConfigSources skeleton
   unless (Map.null dupeRoots) (noticeDoc verbosity $ vcat (dupesMsg <$> Map.toList dupeRoots))
   unless (Map.null dupeFiles) (noticeDoc verbosity $ vcat (dupesMsg <$> Map.toList dupeFiles))
   unless (Map.null dupeUris) (noticeDoc verbosity $ vcat (dupesMsg <$> Map.toList dupeUris))

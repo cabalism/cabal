@@ -98,7 +98,6 @@ module Distribution.Client.ProjectPlanning
   , storePackageInstallDirs'
   ) where
 
-import Data.Coerce (coerce)
 import Distribution.Client.Compat.Prelude
 import Text.PrettyPrint
   ( colon
@@ -405,7 +404,7 @@ rebuildProjectConfig
           let fetchCompiler = do
                 -- have to create the cache directory before configuring the compiler
                 liftIO $ createDirectoryIfMissingVerbose verbosity True distProjectCacheDirectory
-                (compiler, Platform arch os, _) <- configureCompiler verbosity distDirLayout ((snd . coerce) (PD.ignoreConditions projectConfigSkeleton) <> cliConfig)
+                (compiler, Platform arch os, _) <- configureCompiler verbosity distDirLayout (projectConfig (PD.ignoreConditions projectConfigSkeleton) <> cliConfig)
                 pure (os, arch, compiler)
 
           (projectConfig, compiler) <- instantiateProjectConfigSkeletonFetchingCompiler fetchCompiler mempty projectConfigSkeleton

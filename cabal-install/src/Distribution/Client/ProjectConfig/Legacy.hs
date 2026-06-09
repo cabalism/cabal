@@ -36,7 +36,6 @@ module Distribution.Client.ProjectConfig.Legacy
   , renderPackageLocationToken
   ) where
 
-import Data.Coerce (coerce)
 import Distribution.Client.Compat.Prelude
 
 import Distribution.Types.Flag (FlagName, parsecFlagAssignment)
@@ -216,11 +215,11 @@ import qualified Text.PrettyPrint as Disp
 --
 
 singletonProjectConfigSkeleton :: ProjectConfig -> ProjectConfigSkeleton
-singletonProjectConfigSkeleton x = CondNode (SourcedProjectConfig (mempty, x)) mempty
+singletonProjectConfigSkeleton x = CondNode (SourcedProjectConfig mempty x) mempty
 
 instantiateProjectConfigSkeletonFetchingCompiler :: Monad m => m (OS, Arch, Compiler) -> FlagAssignment -> ProjectConfigSkeleton -> m (ProjectConfig, Maybe Compiler)
 instantiateProjectConfigSkeletonFetchingCompiler fetch flags skel
-  | null (toListOf traverseCondTreeV skel) = pure (ignoreConditions $ mapTreeData (snd . coerce) skel, Nothing)
+  | null (toListOf traverseCondTreeV skel) = pure (ignoreConditions $ mapTreeData projectConfig skel, Nothing)
   | otherwise = do
       (os, arch, comp) <- fetch
       let conf = instantiateProjectConfigSkeletonWithCompiler os arch (compilerInfo comp) flags skel
@@ -230,7 +229,7 @@ instantiateProjectConfigSkeletonWithCompiler :: OS -> Arch -> CompilerInfo -> Fl
 instantiateProjectConfigSkeletonWithCompiler os arch impl _flags skel = go $ mapTreeConds (fst . simplifyWithSysParams os arch impl) skel
   where
     go :: CondTree FlagName SourcedProjectConfig -> ProjectConfig
-    go (CondNode (SourcedProjectConfig (_, l)) ts) =
+    go (CondNode SourcedProjectConfig{projectConfig = l} ts) =
       let branches = concatMap processBranch ts
        in l <> mconcat branches
     processBranch (CondBranch cnd t mf) = case cnd of
@@ -292,7 +291,7 @@ parseProjectSkeleton cacheDir httpTransport verbosity projectDir source (Project
             let parser = parseProjectSkeleton cacheDir httpTransport verbosity projectDir importLocPath
             (mbUri, res) <- fetchImport parser cacheDir httpTransport verbosity projectDir normLocPath
             rest <- go [] xs
-            let fs = (\z -> CondNode (SourcedProjectConfig ([(mbUri, normLocPath)], z)) mempty) <$> fieldsToConfig normSource (reverse acc)
+            let fs = (\z -> CondNode (SourcedProjectConfig [(mbUri, normLocPath)] z) mempty) <$> fieldsToConfig normSource (reverse acc)
             pure . fmap mconcat . sequence $ [projectParse Nothing normSource fs, res, rest]
       (ParseUtils.Section l "if" p xs') -> do
         normSource <- canonicalizeConfigPath projectDir source
@@ -363,7 +362,7 @@ parseProjectSkeleton cacheDir httpTransport verbosity projectDir source (Project
         isSet f = f (projectConfigShared pc) /= NoFlag
 
     sanityWalkPCS :: Bool -> ProjectConfigSkeleton -> ProjectParseResult ProjectConfigSkeleton
-    sanityWalkPCS underConditional t@(CondNode (coerce -> (fmap snd . listToMaybe -> c, d)) comps)
+    sanityWalkPCS underConditional t@(CondNode SourcedProjectConfig{projectConfigSources = fmap snd . listToMaybe -> c, projectConfig = d} comps)
       | underConditional && modifiesCompiler d =
           projectParseFail Nothing c $ ParseUtils.FromString "Cannot set compiler in a conditional clause of a cabal project file" Nothing
       | otherwise =

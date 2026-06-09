@@ -26,7 +26,6 @@ import Prelude ()
 import Distribution.Compat.Lens
 import qualified Distribution.Types.Lens as L
 
-import Data.Coerce (coerce)
 import Distribution.CabalSpecVersion
   ( CabalSpecVersion (..)
   , cabalSpecLatest
@@ -59,7 +58,7 @@ import Distribution.Client.ProjectConfig
   , withGlobalConfig
   , withProjectOrGlobalConfig
   )
-import Distribution.Client.ProjectConfig.Import
+import qualified Distribution.Client.ProjectConfig.Import as ProjectImport
 import Distribution.Client.ProjectConfig.Legacy
   ( instantiateProjectConfigSkeletonFetchingCompiler
   , parseProject
@@ -385,7 +384,7 @@ withContextAndSelectors verbosity noTargets kind flags@NixStyleFlags{..} targetS
               configureCompiler
                 verbosity
                 (distDirLayout ctx)
-                ((snd . coerce) (ignoreConditions projectCfgSkeleton) <> projectConfig ctx)
+                (ProjectImport.projectConfig (ignoreConditions projectCfgSkeleton) <> projectConfig ctx)
 
           (projectCfg, _) <- instantiateProjectConfigSkeletonFetchingCompiler (pure (os, arch, compiler)) mempty projectCfgSkeleton
 
@@ -526,7 +525,7 @@ readExecutableBlockFromScript verbosity str = do
 -- * @-}@
 --
 -- Return the metadata.
-readProjectBlockFromScript :: Verbosity -> HttpTransport -> DistDirLayout -> String -> BS.ByteString -> IO ProjectConfigSkeleton
+readProjectBlockFromScript :: Verbosity -> HttpTransport -> DistDirLayout -> String -> BS.ByteString -> IO ProjectImport.ProjectConfigSkeleton
 readProjectBlockFromScript verbosity httpTransport DistDirLayout{distDownloadSrcDirectory} scriptName str = do
   case extractScriptBlock "project" str of
     Left _ -> return mempty
@@ -534,8 +533,8 @@ readProjectBlockFromScript verbosity httpTransport DistDirLayout{distDownloadSrc
       res <- parseProject scriptName distDownloadSrcDirectory httpTransport verbosity (ProjectConfigToParse bs)
       case res of
         OldParser.ProjectParseOk _ skeleton -> do
-          reportDuplicateImports verbosity skeleton
-          reportUnexpectedExtensions verbosity (takeFileName scriptName) skeleton
+          ProjectImport.reportDuplicateImports verbosity skeleton
+          ProjectImport.reportUnexpectedExtensions verbosity (takeFileName scriptName) skeleton
         OldParser.ProjectParseFailed{} -> pure ()
       reportParseResult verbosity "script" scriptName res
 
