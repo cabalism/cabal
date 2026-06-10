@@ -1,6 +1,7 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TypeApplications #-}
@@ -14,6 +15,7 @@ module Distribution.Client.ProjectConfig
   , ProjectConfigBuildOnly (..)
   , ProjectConfigShared (..)
   , ProjectConfigSkeleton
+  , showProjectConfigSkeleton
   , ProjectConfigProvenance (..)
   , PackageConfig (..)
   , MapLast (..)
@@ -256,9 +258,22 @@ import System.IO
   , withBinaryFile
   )
 
+import Distribution.Client.ProjectConfig.FieldGrammar
 import Distribution.Client.ProjectConfig.Import
 import Distribution.Deprecated.ProjectParseUtils (ProjectParseError (..), ProjectParseWarning)
 import Distribution.Solver.Types.ProjectConfigPath
+import Distribution.PackageDescription.PrettyPrint (ppCondTree2)
+import Distribution.CabalSpecVersion (cabalSpecLatest)
+
+showProjectConfigSkeleton :: ProjectConfigPath -> [String] -> Maybe ProjectConfigSkeleton -> String
+showProjectConfigSkeleton pcf kps s = showFields (const NoComment) $ ppCondProject pcf kps s
+
+ppCondProject :: ProjectConfigPath -> [String] -> Maybe ProjectConfigSkeleton -> [PrettyField ()]
+ppCondProject _ _ Nothing = mempty
+ppCondProject p knownPrograms (Just condTree) =
+  pure $
+    PrettySection () "project" [] $
+      ppCondTree2 cabalSpecLatest (projectConfigPrettyFieldGrammar p knownPrograms) condTree
 
 ----------------------------------------
 -- Resolving configuration to settings

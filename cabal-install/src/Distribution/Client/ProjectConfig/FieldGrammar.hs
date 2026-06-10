@@ -4,6 +4,8 @@
 -- | 'ProjectConfig' Field descriptions
 module Distribution.Client.ProjectConfig.FieldGrammar
   ( projectConfigFieldGrammar
+  , projectConfigPrettyFieldGrammar
+
   , packageConfigFieldGrammar
   ) where
 
@@ -21,6 +23,10 @@ import Distribution.Simple.InstallDirs
 import Distribution.Solver.Types.ConstraintSource (ConstraintSource (..))
 import Distribution.Solver.Types.ProjectConfigPath
 import Distribution.Types.PackageVersionConstraint (PackageVersionConstraint (..))
+import Distribution.Client.ProjectConfig.Import 
+
+projectConfigPrettyFieldGrammar :: ProjectConfigPath -> [String] -> PrettyFieldGrammar SourcedProjectConfig SourcedProjectConfig
+projectConfigPrettyFieldGrammar = undefined
 
 projectConfigFieldGrammar :: ProjectConfigPath -> [String] -> ParsecFieldGrammar' ProjectConfig
 projectConfigFieldGrammar source knownPrograms =

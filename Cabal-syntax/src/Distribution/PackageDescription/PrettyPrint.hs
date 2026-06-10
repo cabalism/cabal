@@ -27,6 +27,8 @@ module Distribution.PackageDescription.PrettyPrint
     -- ** Supplementary build information
   , writeHookedBuildInfo
   , showHookedBuildInfo
+  
+  , ppCondTree2
   ) where
 
 import Distribution.Compat.Prelude
