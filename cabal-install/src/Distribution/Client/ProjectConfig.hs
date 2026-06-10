@@ -769,10 +769,10 @@ readProjectConfig
   -> DistDirLayout
   -> Rebuild ProjectConfigSkeleton
 readProjectConfig verbosity parserOption _ (Flag True) configFileFlag _ = do
-  global <- singletonProjectConfigSkeleton <$> readGlobalConfig verbosity configFileFlag
-  return (global <> singletonProjectConfigSkeleton defaultImplicitProjectConfig)
+  global <- singletonProjectConfigSkeleton . SourcedProjectConfig [] <$> readGlobalConfig verbosity configFileFlag
+  return (global <> singletonProjectConfigSkeleton (SourcedProjectConfig [] defaultImplicitProjectConfig))
 readProjectConfig verbosity parserOption httpTransport _ configFileFlag distDirLayout = do
-  global <- singletonProjectConfigSkeleton <$> readGlobalConfig verbosity configFileFlag
+  global <- singletonProjectConfigSkeleton . SourcedProjectConfig [] <$> readGlobalConfig verbosity configFileFlag
   local <- readProjectLocalConfigOrDefault verbosity parserOption httpTransport distDirLayout
   freeze <- readProjectLocalFreezeConfig verbosity parserOption httpTransport distDirLayout
   extra <- readProjectLocalExtraConfig verbosity parserOption httpTransport distDirLayout
@@ -794,7 +794,10 @@ readProjectLocalConfigOrDefault verbosity parserOption httpTransport distDirLayo
       readProjectFileSkeleton parserOption verbosity httpTransport distDirLayout ProjectFileKeyMain
     else do
       monitorFiles [monitorNonExistentFile projectFile]
-      return (singletonProjectConfigSkeleton defaultImplicitProjectConfig)
+      return . singletonProjectConfigSkeleton $
+        SourcedProjectConfig
+          [(Nothing, ProjectConfigPath (projectFile :| []))]
+          defaultImplicitProjectConfig
 
 defaultImplicitProjectConfig :: ProjectConfig
 defaultImplicitProjectConfig =

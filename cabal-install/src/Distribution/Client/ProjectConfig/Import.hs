@@ -78,8 +78,8 @@ type ProjectConfigSkeleton = CondTree ConfVar SourcedProjectConfig
 
 type GetProjectConfigSources = SourcedProjectConfig -> ProjectConfigSources
 
-singletonProjectConfigSkeleton :: ProjectConfig -> ProjectConfigSkeleton
-singletonProjectConfigSkeleton x = CondNode (SourcedProjectConfig mempty x) mempty
+singletonProjectConfigSkeleton :: SourcedProjectConfig -> ProjectConfigSkeleton
+singletonProjectConfigSkeleton x = CondNode x mempty
 
 projectSkeletonImports :: GetProjectConfigSources -> ProjectConfigSkeleton -> ProjectConfigSources
 projectSkeletonImports getSources = getSources . view traverseCondTreeA
