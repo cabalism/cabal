@@ -209,8 +209,7 @@ defaultInstallDirs' False comp userInstall _hasLibs = do
       Windows -> return "$prefix"
       _ -> return ("$prefix" </> "lib")
   return $
-    fmap toPathTemplate $
-      InstallDirs
+    (toPathTemplate <$> InstallDirs
         { prefix = installPrefix
         , bindir = "$prefix" </> "bin"
         , libdir = installLibDir
@@ -247,7 +246,7 @@ defaultInstallDirs' False comp userInstall _hasLibs = do
         , sysconfdir = case buildOS of
             Haiku -> "boot" </> "system" </> "settings"
             _other -> "$prefix" </> "etc"
-        }
+        })
 
 -- ---------------------------------------------------------------------------
 -- Converting directories, absolute or prefix-relative
