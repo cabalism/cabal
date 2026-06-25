@@ -46,6 +46,7 @@ module Distribution.Simple.Utils
   , isUserException
   , warn
   , warnError
+  , warnMessage
   , notice
   , noticeNoWrap
   , noticeDoc
