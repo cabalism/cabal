@@ -19,10 +19,7 @@ main = do
   cabalTest' "main-project" . recordMode DoNotRecord $ do
     let opts = ["--project-file=cabal.project"]
     expectedMonitoring <-
-      -- TODO: When fixed, use expected output, not the actual output and delete
-      -- the actual output file.
-      -- readFileVerbatim "cabal.main-project.expect.txt"
-      readFileVerbatim "cabal.main-project.actual.txt"
+      readFileVerbatim "cabal.main-project.expect.txt"
     runProjectTest expectedMonitoring opts
     runCommandTest opts
     runConfigureTest "cabal.project.local" opts
@@ -32,20 +29,14 @@ main = do
   cabalTest' "local-only" . recordMode DoNotRecord $ do
     let opts = ["--project-file=cabal.local-only.project"]
     expectedMonitoring <-
-      -- TODO: When fixed, use expected output, not the actual output and delete
-      -- the actual output file.
-      -- readFileVerbatim "cabal.local-only.expect.txt"
-      readFileVerbatim "cabal.local-only.actual.txt"
+      readFileVerbatim "cabal.local-only.expect.txt"
     runProjectTest expectedMonitoring opts
     runCommandTest opts
 
   cabalTest' "freeze-only" . recordMode DoNotRecord $ do
     let opts = ["--project-file=cabal.freeze-only.project"]
     expectedMonitoring <-
-      -- TODO: When fixed, use expected output, not the actual output and delete
-      -- the actual output file.
-      -- readFileVerbatim "cabal.freeze-only.expect.txt"
-      readFileVerbatim "cabal.freeze-only.actual.txt"
+      readFileVerbatim "cabal.freeze-only.expect.txt"
     runProjectTest expectedMonitoring opts
     runCommandTest opts
     runConfigureTest "cabal.freeze-only.project.local" opts
