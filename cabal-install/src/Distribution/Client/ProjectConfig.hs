@@ -42,10 +42,7 @@ module Distribution.Client.ProjectConfig
   , CabalFileParseError (..)
   , readProjectFileSkeleton
   , ProjectFileParser (..)
-  , readProjectFileSkeletonLegacy
   , readProjectFileSkeletonParsec
-  , readProjectFileSkeletonFallback
-  , readProjectFileSkeletonCompare
 
     -- * Packages within projects
   , ProjectPackageLocation (..)
@@ -88,7 +85,7 @@ import Distribution.Simple.Utils
   , rawSystemIOWithEnv
   , warn
   )
-import Text.PrettyPrint (cat, colon, comma, empty, hsep, nest, quotes, render, text, vcat)
+import Text.PrettyPrint (cat, colon, comma, nest, render, text, vcat)
 import Prelude ()
 
 import Distribution.Client.Glob
@@ -107,7 +104,8 @@ import Distribution.Client.VCS
   , syncSourceRepos
   , validateSourceRepos
   )
-import Distribution.Fields.ParseResult
+
+import qualified Distribution.Fields.ParseResult as Fields
 
 import Distribution.Client.BuildReports.Types
   ( ReportLevel (..)
@@ -159,14 +157,7 @@ import Distribution.Client.Types.SourceRepo
 import Distribution.Client.Utils
   ( determineNumJobs
   )
-import qualified Distribution.Deprecated.ParseUtils as OldParser
-  ( locatedErrorMsg
-  , showPWarning
-  )
-import qualified Distribution.Deprecated.ProjectParseUtils as OldParser
-  ( ProjectParseResult (..)
-  )
-import Distribution.Fields
+import Distribution.Fields hiding (ParseResult)
 import Distribution.Package
 import Distribution.PackageDescription.Parsec
   ( parseGenericPackageDescription
@@ -252,7 +243,6 @@ import System.IO
   )
 
 import Distribution.Client.ProjectConfig.Import
-import Distribution.Deprecated.ProjectParseUtils (ProjectParseError (..), ProjectParseWarning)
 import Distribution.Solver.Types.ProjectConfigPath
 
 ----------------------------------------
@@ -800,13 +790,6 @@ defaultImplicitProjectConfig =
     , projectConfigProvenance = Set.singleton Implicit
     }
 
--- | A human readable description of the project file.
-extensionDescription :: ProjectFileKey -> String
-extensionDescription = \case
-  ProjectFileKeyMain -> "project file"
-  ProjectFileKeyLocal -> "project local configuration file"
-  ProjectFileKeyFreeze -> "project freeze file"
-
 -- | Reads a @cabal.project.local@ file in the given project root dir,
 -- or returns empty. This file gets written by @cabal configure@, or in
 -- principle can be edited manually or by other tools.
@@ -881,62 +864,13 @@ readProjectFileSkeletonGen
         | isAbsolute f = f
         | otherwise = distProjectRootDirectory </> f
 
--- There are 3 different variants of the project parsing function.
--- 1. readProjectFileSkeletonLegacy: always uses the legacy parser
--- 2. readProjectFileSkeletonParsec: always uses the parsec parser
--- 3. readProjectFileSkeletonFallback: uses the parsec parser, but if that fails, it falls back to the legacy parser.
--- 4. readProjectFileSkeletonCompare: Run both parsers, and compare the results to check they are the same.
---
---
--- correspondingly there are two "pure" functions to attempt to parse a project
--- file using the "legacy" or "parsec" parser.
---
--- 1. parseProjectFileSkeletonLegacy: parses a project file using the legacy parser
--- 2. parseProjectFileSkeletonParsec: parses a project file using the parsec parser
---
--- Errors are handled in each case by
---
--- 1. reportParseResult: reports legacy parse errors to the user
--- 2. reportParseResultParsec: reports parsec parse errors to the user
-
 readProjectFileSkeleton :: ProjectFileParser -> Verbosity -> HttpTransport -> DistDirLayout -> ProjectFileKey -> Rebuild ProjectConfigSkeleton
 readProjectFileSkeleton option =
   case option of
-    LegacyParser -> readProjectFileSkeletonLegacy
     ParsecParser -> readProjectFileSkeletonParsec
-    FallbackParser -> readProjectFileSkeletonFallback
-    CompareParser -> readProjectFileSkeletonCompare
-
--- | Read a project file using the legacy parser.
-readProjectFileSkeletonLegacy :: Verbosity -> HttpTransport -> DistDirLayout -> ProjectFileKey -> Rebuild ProjectConfigSkeleton
-readProjectFileSkeletonLegacy verbosity httpTransport distDirLayout key = do
-  readProjectFileSkeletonGen verbosity httpTransport distDirLayout key $ \fp -> do
-    debug verbosity "Reading project file using the legacy parser"
-    parseProjectFileSkeletonLegacy verbosity httpTransport distDirLayout key fp
-      >>= liftIO . reportParseResult verbosity (extensionDescription key) fp
-
--- | Read a project file using the parsec parser, but if that fails, it falls back to the legacy parser.
-readProjectFileSkeletonFallback :: Verbosity -> HttpTransport -> DistDirLayout -> ProjectFileKey -> Rebuild ProjectConfigSkeleton
-readProjectFileSkeletonFallback verbosity httpTransport distDirLayout key = do
-  readProjectFileSkeletonGen verbosity httpTransport distDirLayout key $ \fp -> do
-    debug verbosity "Reading project file using the fallback parser"
-    (res, bs) <- parseProjectFileSkeletonParsec verbosity httpTransport distDirLayout key fp
-    let (_, pres) = runParseResult res
-    case pres of
-      -- 1. Successful parse with parsec parser, handle the result as normal.
-      Right{} -> liftIO $ reportParseResultParsec verbosity fp bs res
-      -- 2. The parse failed with the parsec parser, fallback to the legacy parser.
-      Left{} -> do
-        lres <- parseProjectFileSkeletonLegacy verbosity httpTransport distDirLayout key fp
-        case lres of
-          -- 3a. The legacy parser worked, but the parsec parser failed!
-          -- Report a warning to the user that this happened.
-          OldParser.ProjectParseOk{} -> do
-            warn verbosity "The new parsec parser failed, but the legacy parser worked. This is unexpected, please report this as a bug.\nThe legacy parser will be removed in the next major version."
-            liftIO $ reportParseResult verbosity (extensionDescription key) fp lres
-          -- 3b. The legacy parser failed as well, report the original error.
-          OldParser.ProjectParseFailed{} -> do
-            liftIO $ reportParseResultParsec verbosity fp bs res
+    LegacyParser -> error "readProjectFileSkeletonLegacy was removed, use readProjectFileSkeletonParsec instead"
+    FallbackParser -> error "readProjectFileSkeletonFallback was removed, use readProjectFileSkeletonParsec instead"
+    CompareParser -> error "readProjectFileSkeletonCompare was removed, use readProjectFileSkeletonParsec instead"
 
 -- | Read a project file using the parsec parser.
 readProjectFileSkeletonParsec :: Verbosity -> HttpTransport -> DistDirLayout -> ProjectFileKey -> Rebuild ProjectConfigSkeleton
@@ -944,41 +878,15 @@ readProjectFileSkeletonParsec verbosity httpTransport distDirLayout key = do
   readProjectFileSkeletonGen verbosity httpTransport distDirLayout key $ \fp -> do
     debug verbosity "Reading project file using the parsec parser"
     (res, bs) <- parseProjectFileSkeletonParsec verbosity httpTransport distDirLayout key fp
-    liftIO $ reportParseResultParsec verbosity fp bs res
+    liftIO $ reportParseResult verbosity fp bs res
 
-readProjectFileSkeletonCompare :: Verbosity -> HttpTransport -> DistDirLayout -> ProjectFileKey -> Rebuild ProjectConfigSkeleton
-readProjectFileSkeletonCompare verbosity httpTransport distDirLayout key = do
-  readProjectFileSkeletonGen verbosity httpTransport distDirLayout key $ \fp -> do
-    debug verbosity "Reading project file using the comparative parser"
-    (pres, bs) <- parseProjectFileSkeletonParsec verbosity httpTransport distDirLayout key fp
-    lres <- parseProjectFileSkeletonLegacy verbosity httpTransport distDirLayout key fp
-    let (_, ppres) = runParseResult pres
-    case (lres, ppres) of
-      -- 1. Both succeed, compare the results
-      (OldParser.ProjectParseOk lwarns lpcs, Right ppcs) -> do
-        unless (lpcs == ppcs) (dieWithException verbosity $ LegacyAndParsecParseResultsDiffer fp (show lpcs) (show ppcs))
-        liftIO $ reportParseResultParsec verbosity fp bs pres
-      -- 2. The legacy parser failed, but the parsec parser succeeded.
-      -- Report a warning to the user that this happened.
-      (OldParser.ProjectParseFailed{}, Right{}) -> do
-        warn verbosity "The legacy parser failed, but the new parsec parser worked. This is unexpected, please report this as a bug.\nThe legacy parser will be removed in the next major version."
-        liftIO $ reportParseResult verbosity (extensionDescription key) fp lres
-      -- 3. The legacy parser succeeded, but the parsec parser failed.
-      -- Report a warning to the user that this happened.
-      (OldParser.ProjectParseOk{}, Left{}) -> do
-        warn verbosity "The new parsec parser failed, but the legacy parser worked. This is unexpected, please report this as a bug.\nThe legacy parser will be removed in the next major version."
-        liftIO $ reportParseResult verbosity (extensionDescription key) fp lres
-      (OldParser.ProjectParseFailed{}, Left{}) -> do
-        -- 4. Both failed, report the original error. We don't check that the same errors are reported.
-        liftIO $ reportParseResultParsec verbosity fp bs pres
-
-reportParseResultParsec
+reportParseResult
   :: Verbosity
   -> FilePath
   -> BS.ByteString
   -> Parsec.ParseResult ProjectFileSource a
   -> IO a
-reportParseResultParsec verbosity fpath contents pr = do
+reportParseResult verbosity fpath contents pr = do
   let (warnings, result) = runParseResult pr
   case result of
     Right x -> do
@@ -988,15 +896,6 @@ reportParseResultParsec verbosity fpath contents pr = do
       return x
     Left (_, errors) -> do
       dieWithException verbosity $ ProjectConfigParseFailure $ ProjectConfigParseError errors warnings
-
--- | Reads a named extended (with imports and conditionals) config file in the given project root dir, or returns empty.
-parseProjectFileSkeletonLegacy :: Verbosity -> HttpTransport -> DistDirLayout -> ProjectFileKey -> FilePath -> IO (OldParser.ProjectParseResult ProjectConfigSkeleton)
-parseProjectFileSkeletonLegacy verbosity httpTransport distDirLayout key extensionFile = do
-  bs <- BS.readFile extensionFile
-  res <- parseProject extensionFile (distDownloadSrcDirectory distDirLayout) httpTransport verbosity $ ProjectConfigToParse bs
-  case res of
-    x@(OldParser.ProjectParseOk _ skeleton) -> reportDuplicateImports verbosity skeleton >> pure x
-    x@OldParser.ProjectParseFailed{} -> pure x
 
 parseProjectFileSkeletonParsec :: Verbosity -> HttpTransport -> DistDirLayout -> ProjectFileKey -> FilePath -> IO (Parsec.ParseResult ProjectFileSource ProjectConfigSkeleton, BS.ByteString)
 parseProjectFileSkeletonParsec verbosity httpTransport distDirLayout key extensionFile = do
@@ -1037,15 +936,6 @@ readGlobalConfig verbosity configFileFlag = do
   monitorFiles [monitorFileHashed configFile]
   return (convertLegacyGlobalConfig config)
 
-reportProjectParseWarningsLegacy :: Verbosity -> FilePath -> [ProjectParseWarning] -> IO ()
-reportProjectParseWarningsLegacy verbosity projectFile warnings =
-  let msgs =
-        [ OldParser.showPWarning pFilename w
-        | (p, w) <- warnings
-        , let pFilename = fst $ unconsProjectConfigPath p
-        ]
-   in reportProjectParseWarnings verbosity projectFile msgs
-
 reportProjectParseWarnings :: Verbosity -> FilePath -> [String] -> IO ()
 reportProjectParseWarnings verbosity projectFile msgs =
   unless (null msgs) $
@@ -1054,32 +944,6 @@ reportProjectParseWarnings verbosity projectFile msgs =
         [ (text "Warnings found while parsing the project file" <> comma) <+> (text (takeFileName projectFile) <> colon)
         , cat [nest 1 $ text "-" <+> text m | m <- ordNub msgs]
         ]
-
-reportParseResult :: Verbosity -> String -> FilePath -> OldParser.ProjectParseResult ProjectConfigSkeleton -> IO ProjectConfigSkeleton
-reportParseResult verbosity _filetype projectFile (OldParser.ProjectParseOk warnings x) = do
-  reportProjectParseWarningsLegacy verbosity projectFile warnings
-  return x
-reportParseResult verbosity filetype projectFile (OldParser.ProjectParseFailed (ProjectParseError snippet rootOrImportee err)) = do
-  let (line, msg) = OldParser.locatedErrorMsg err
-  let errLineNo = maybe "" (\n -> ':' : show n) line
-  let (sourceFile, provenance) =
-        maybe
-          (projectFile, empty)
-          ( \p ->
-              ( currentProjectConfigPath p
-              , if isTopLevelConfigPath p then empty else docProjectConfigPath p
-              )
-          )
-          rootOrImportee
-  let doc = case snippet of
-        Nothing -> vcat (text <$> lines msg)
-        Just s ->
-          vcat
-            [ provenance
-            , text "Failed to parse" <+> quotes (text s) <+> (text "with error" <> colon)
-            , nest 2 $ hsep $ text <$> lines msg
-            ]
-  dieWithException verbosity $ ReportParseResult filetype sourceFile errLineNo doc
 
 ---------------------------------------------
 -- Finding packages in the project
@@ -1784,7 +1648,7 @@ readSourcePackageCabalFile'
   -> BS.ByteString
   -> IO GenericPackageDescription
 readSourcePackageCabalFile' logWarnings pkgfilename content =
-  case runParseResult (withSource (PCabalFile (pkgfilename, content)) $ parseGenericPackageDescription content) of
+  case runParseResult (Fields.withSource (PCabalFile (pkgfilename, content)) $ parseGenericPackageDescription content) of
     (warnings, Right pkg) -> do
       unless (null warnings) $
         logWarnings (formatWarnings . map (fmap renderCabalFileSource) $ warnings)

@@ -13,7 +13,6 @@ module Distribution.Client.ProjectConfig.Legacy
   , singletonProjectConfigSkeleton
 
     -- * Parsing
-  , parseProject
   , parseLegacyProjectConfig
 
     -- * Legacy Configuration
@@ -61,7 +60,7 @@ import Distribution.Solver.Types.ConstraintSource
 import Distribution.Solver.Types.ProjectConfigPath
 
 import Distribution.Client.NixStyleOptions (NixStyleFlags (..))
-import Distribution.Client.ProjectConfig.Import (ProjectConfigSkeleton, cyclicalImportMsg, fetchImport, untrimmedUriImportMsg)
+import Distribution.Client.ProjectConfig.Import (ProjectConfigSkeleton)
 import Distribution.Client.ProjectFlags (ProjectFlags (..), defaultProjectFlags, projectFlagsOptions)
 import Distribution.Client.Setup
   ( ConfigExFlags (..)
@@ -77,7 +76,6 @@ import Distribution.FieldGrammar
 import Distribution.Package
 import Distribution.PackageDescription
   ( Condition (..)
-  , ConfVar (..)
   , FlagAssignment
   , dispFlagAssignment
   )
@@ -128,11 +126,7 @@ import Distribution.Simple.Setup
   , pattern Flag
   , pattern NoFlag
   )
-import Distribution.Simple.Utils
-  ( debug
-  , lowercase
-  , noticeDoc
-  )
+import Distribution.Simple.Utils (lowercase)
 import Distribution.Types.CondTree
   ( CondBranch (..)
   , CondTree (..)
@@ -148,7 +142,6 @@ import Distribution.Utils.NubList
   , toNubList
   )
 
-import Distribution.Client.HttpUtils
 import Distribution.Client.ParseUtils
 import Distribution.Client.ReplFlags (multiReplOption)
 import Distribution.Deprecated.ParseUtils
@@ -157,7 +150,6 @@ import Distribution.Deprecated.ParseUtils
   , ParseResult (..)
   , commaNewLineListFieldParsec
   , newLineListField
-  , parseFail
   , parseHaskellString
   , parseTokenQ
   , showToken
@@ -165,17 +157,11 @@ import Distribution.Deprecated.ParseUtils
   , syntaxError
   )
 import qualified Distribution.Deprecated.ParseUtils as ParseUtils
-import Distribution.Deprecated.ProjectParseUtils
-  ( ProjectParseResult (..)
-  , projectParse
-  , projectParseFail
-  )
 import Distribution.Deprecated.ReadP
   ( ReadP
   , (+++)
   )
 import qualified Distribution.Deprecated.ReadP as Parse
-import Distribution.Fields.ConfVar (parseConditionConfVarFromClause)
 import Distribution.Parsec (ParsecParser, parsecToken)
 import Distribution.Simple.Command
   ( CommandUI (commandOptions)
@@ -194,17 +180,9 @@ import Distribution.Utils.Path hiding
   )
 
 import qualified Data.ByteString.Char8 as BS
-import Data.Functor ((<&>))
 import qualified Data.Map as Map
-import qualified Data.Set as Set
 import Network.URI (URI (..), nullURIAuth)
-import System.Directory (makeAbsolute)
-import System.FilePath (splitFileName)
-import Text.PrettyPrint
-  ( Doc
-  , render
-  , ($+$)
-  )
+import Text.PrettyPrint (Doc, ($+$))
 import qualified Text.PrettyPrint as Disp
 
 ------------------------------------------------------------------
@@ -233,140 +211,6 @@ instantiateProjectConfigSkeletonWithCompiler os arch impl _flags skel = go $ map
       (Lit True) -> [go t]
       (Lit False) -> maybe [] ((: []) . go) mf
       _ -> error $ "unable to process condition: " ++ show cnd -- TODO it would be nice if there were a pretty printer
-
--- | Parses a project from its root config file, typically cabal.project.
-parseProject
-  :: FilePath
-  -- ^ The root of the project configuration, typically cabal.project
-  -> FilePath
-  -> HttpTransport
-  -> Verbosity
-  -> ProjectConfigToParse
-  -- ^ The contents of the file to parse
-  -> IO (ProjectParseResult ProjectConfigSkeleton)
-parseProject rootPath cacheDir httpTransport verbosity configToParse =
-  do
-    let (dir, projectFileName) = splitFileName rootPath
-    projectDir <- makeAbsolute dir
-    projectPath <- canonicalizeConfigPath projectDir (ProjectConfigPath $ projectFileName :| [])
-    parseProjectSkeleton cacheDir httpTransport verbosity projectDir projectPath configToParse
-    <&> \case
-      -- NOTE: Reverse the warnings so they are in line number order.
-      ProjectParseOk ws skeleton -> ProjectParseOk (reverse ws) skeleton
-      x@ProjectParseFailed{} -> x
-
-parseProjectSkeleton
-  :: FilePath
-  -> HttpTransport
-  -> Verbosity
-  -> FilePath
-  -- ^ The directory of the project configuration, typically the directory of cabal.project
-  -> ProjectConfigPath
-  -- ^ The path of the file being parsed, either the root or an import
-  -> ProjectConfigToParse
-  -- ^ The contents of the file to parse
-  -> IO (ProjectParseResult ProjectConfigSkeleton)
-parseProjectSkeleton cacheDir httpTransport verbosity projectDir source (ProjectConfigToParse bs) =
-  (sanityWalkPCS False =<<) <$> liftPR source (go []) (ParseUtils.readFields bs)
-  where
-    go :: [ParseUtils.Field] -> [ParseUtils.Field] -> IO (ProjectParseResult ProjectConfigSkeleton)
-    go acc (x : xs) = case x of
-      (ParseUtils.F _ "import" importLoc) -> do
-        let importLocPath = importLoc `consProjectConfigPath` source
-
-        -- Once we canonicalize the import path, we can check for cyclical imports
-        normSource <- canonicalizeConfigPath projectDir source
-        normLocPath <- canonicalizeConfigPath projectDir importLocPath
-        debug verbosity $ "\nimport path, normalized\n=======================\n" ++ render (docProjectConfigPath normLocPath)
-
-        if isCyclicConfigPath normLocPath
-          then pure . projectParseFail Nothing (Just normSource) $ ParseUtils.FromString (render $ cyclicalImportMsg normLocPath) Nothing
-          else do
-            when
-              (isUntrimmedUriConfigPath importLocPath)
-              (noticeDoc verbosity $ untrimmedUriImportMsg (Disp.text "Warning:") importLocPath)
-            let parser = parseProjectSkeleton cacheDir httpTransport verbosity projectDir importLocPath
-            (mbUri, res) <- fetchImport parser cacheDir httpTransport verbosity projectDir normLocPath
-            rest <- go [] xs
-            let fs = (\z -> CondNode ([(mbUri, normLocPath)], z) mempty) <$> fieldsToConfig normSource (reverse acc)
-            pure . fmap mconcat . sequence $ [projectParse Nothing normSource fs, res, rest]
-      (ParseUtils.Section l "if" p xs') -> do
-        normSource <- canonicalizeConfigPath projectDir source
-        subpcs <- go [] xs'
-        let fs = singletonProjectConfigSkeleton <$> fieldsToConfig source (reverse acc)
-        (elseClauses, rest) <- parseElseClauses xs
-        let condNode =
-              (\c pcs e -> CondNode mempty [CondBranch c pcs e])
-                <$>
-                -- we rewrap as as a section so the readFields lexer of the conditional parser doesn't get confused
-                ( let s = "if(" <> p <> ")"
-                   in projectParse (Just s) normSource (adaptParseError l (parseConditionConfVarFromClause $ BS.pack s))
-                )
-                <*> subpcs
-                <*> elseClauses
-        pure . fmap mconcat . sequence $ [projectParse Nothing normSource fs, condNode, rest]
-      _ -> go (x : acc) xs
-    go acc [] = do
-      normSource <- canonicalizeConfigPath projectDir source
-      pure . fmap singletonProjectConfigSkeleton . projectParse Nothing normSource . fieldsToConfig normSource $ reverse acc
-
-    parseElseClauses :: [ParseUtils.Field] -> IO (ProjectParseResult (Maybe ProjectConfigSkeleton), ProjectParseResult ProjectConfigSkeleton)
-    parseElseClauses x = case x of
-      (ParseUtils.Section _l "else" _p xs' : xs) -> do
-        subpcs <- go [] xs'
-        rest <- go [] xs
-        pure (Just <$> subpcs, rest)
-      (ParseUtils.Section l "elif" p xs' : xs) -> do
-        normSource <- canonicalizeConfigPath projectDir source
-        subpcs <- go [] xs'
-        (elseClauses, rest) <- parseElseClauses xs
-        let condNode =
-              (\c pcs e -> CondNode mempty [CondBranch c pcs e])
-                <$> ( let s = "elif(" <> p <> ")"
-                       in projectParse (Just s) normSource (adaptParseError l (parseConditionConfVarFromClause $ BS.pack s))
-                    )
-                <*> subpcs
-                <*> elseClauses
-        pure (Just <$> condNode, rest)
-      _ -> (pure Nothing,) <$> go [] x
-
-    -- We want a normalized path for @fieldsToConfig@. This eventually surfaces
-    -- in solver rejection messages and build messages "this build was affected
-    -- by the following (project) config files" so we want all paths shown there
-    -- to be relative to the directory of the project, not relative to the file
-    -- they were imported from.
-    fieldsToConfig :: ProjectConfigPath -> [ParseUtils.Field] -> ParseResult ProjectConfig
-    fieldsToConfig sourceConfigPath xs =
-      addProvenance sourceConfigPath . convertLegacyProjectConfig
-        <$> parseLegacyProjectConfigFields sourceConfigPath xs
-
-    addProvenance :: ProjectConfigPath -> ProjectConfig -> ProjectConfig
-    addProvenance sourcePath x = x{projectConfigProvenance = Set.singleton $ Explicit sourcePath}
-
-    adaptParseError :: Show e => ParseUtils.LineNo -> Either e a -> ParseResult a
-    adaptParseError _ (Right x) = pure x
-    adaptParseError l (Left e) = parseFail $ ParseUtils.FromString (show e) (Just l)
-
-    liftPR :: ProjectConfigPath -> (a -> IO (ProjectParseResult b)) -> ParseResult a -> IO (ProjectParseResult b)
-    liftPR p f (ParseOk ws x) = addWarnings <$> f x
-      where
-        addWarnings (ProjectParseOk ws' x') = ProjectParseOk (ws' ++ ((p,) <$> ws)) x'
-        addWarnings x' = x'
-    liftPR p _ (ParseFailed e) = pure $ projectParseFail Nothing (Just p) e
-    modifiesCompiler :: ProjectConfig -> Bool
-    modifiesCompiler pc = isSet projectConfigHcFlavor || isSet projectConfigHcPath || isSet projectConfigHcPkg
-      where
-        isSet f = f (projectConfigShared pc) /= NoFlag
-
-    sanityWalkPCS :: Bool -> ProjectConfigSkeleton -> ProjectParseResult ProjectConfigSkeleton
-    sanityWalkPCS underConditional t@(CondNode (fmap snd . listToMaybe -> c, d) comps)
-      | underConditional && modifiesCompiler d =
-          projectParseFail Nothing c $ ParseUtils.FromString "Cannot set compiler in a conditional clause of a cabal project file" Nothing
-      | otherwise =
-          mapM_ sanityWalkBranch comps >> pure t
-
-    sanityWalkBranch :: CondBranch ConfVar ([(Maybe URI, ProjectConfigPath)], ProjectConfig) -> ProjectParseResult ()
-    sanityWalkBranch (CondBranch _c t f) = traverse_ (sanityWalkPCS True) f >> sanityWalkPCS True t >> pure ()
 
 ------------------------------------------------------------------
 -- Representing the project config file in terms of legacy types

@@ -58,10 +58,8 @@ import Distribution.Client.ProjectConfig
   , withProjectOrGlobalConfig
   )
 import Distribution.Client.ProjectConfig.Import (ProjectConfigSkeleton, reportDuplicateImports)
-import Distribution.Client.ProjectConfig.Legacy
-  ( instantiateProjectConfigSkeletonFetchingCompiler
-  , parseProject
-  )
+import Distribution.Client.ProjectConfig.Legacy (instantiateProjectConfigSkeletonFetchingCompiler)
+import Distribution.Client.ProjectConfig.Parsec (parseProject)
 import Distribution.Client.ProjectConfig.Types (ProjectConfigToParse (..))
 import Distribution.Client.ProjectFlags
   ( flagIgnoreProject
@@ -91,18 +89,12 @@ import Distribution.Compiler
   ( CompilerId (..)
   , perCompilerFlavorToList
   )
-import qualified Distribution.Deprecated.ProjectParseUtils as OldParser
-  ( ProjectParseResult (..)
-  )
 import Distribution.FieldGrammar
   ( parseFieldGrammar
   , takeFields
   )
-import Distribution.Fields
-  ( ParseResult
-  , parseFatalFailure
-  , readFields
-  )
+import qualified Distribution.Fields as Fields
+import Distribution.Fields (parseFatalFailure, readFields)
 import Distribution.PackageDescription
   ( ignoreConditions
   )
@@ -481,7 +473,7 @@ updateContextAndWriteProjectFile ctx scriptPath scriptExecutable = do
 
   updateContextAndWriteProjectFile' ctx sourcePackage
 
-parseScriptBlock :: BS.ByteString -> ParseResult src Executable
+parseScriptBlock :: BS.ByteString -> Fields.ParseResult src Executable
 parseScriptBlock str =
   case readFields str of
     Right fs -> do
@@ -525,10 +517,10 @@ readProjectBlockFromScript verbosity httpTransport DistDirLayout{distDownloadSrc
     Left _ -> return mempty
     Right bs -> do
       res <- parseProject scriptName distDownloadSrcDirectory httpTransport verbosity (ProjectConfigToParse bs)
-      case res of
-        OldParser.ProjectParseOk _ skeleton -> reportDuplicateImports verbosity skeleton
-        OldParser.ProjectParseFailed{} -> pure ()
-      reportParseResult verbosity "script" scriptName res
+      case Fields.runParseResult res of
+        (_, Right skeleton) -> reportDuplicateImports verbosity skeleton
+        (_, Left _) -> pure ()
+      reportParseResult verbosity scriptName bs res
 
 -- | Extract the first encountered script metadata block started end
 -- terminated by the tokens
