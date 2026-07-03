@@ -122,10 +122,10 @@ runProjectTest expectMsg projOpts = do
   cwd <- testCurrentDir <$> getTestEnv
   let configFile = cwd </> "test" </> "tests-toggle.config"
   liftIO $ writeFile configFile "package *\n  tests: False"
-  -- TODO: If project imports were properly monitored, the build
-  -- should succeed without a clean. When fixed, remove the clean.
+  -- NOTE: When project imports are properly monitored, the build succeeds
+  -- without a clean or touching the root project file. The change to the
+  -- imported file is noticed.
   log "A clean should not be necessary with proper monitoring of files a project imports."
-  _ <- cabal' "clean" projOpts
   projDisabledTests <- cabal' "build" projOpts
   assertOutputDoesNotContain testNotYetImplementedMsg projDisabledTests
   assertOutputDoesNotContain failureMsg projDisabledTests
