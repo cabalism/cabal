@@ -561,6 +561,37 @@ probeMonitorStateGlob
           MonitorStateGlob kindfile kinddir globroot
             <$> probeMonitorStateGlobRel kindfile kinddir root "" glob
 
+probeWithChildren
+  :: FilePath
+  -> FilePath
+  -> a
+  -> [GlobPiece]
+  -> [(FilePath, MonitorStateFileStatus)]
+  -> Maybe a
+  -> (MergeResult (FilePath, MonitorStateFileStatus) FilePath -> ChangedM b)
+  -> (a -> [(FilePath, MonitorStateFileStatus)] -> c)
+  -> ChangedM c
+probeWithChildren root dirName mtime glob children change probeMergeResult f = do
+  mtime' <- case change of
+    Nothing -> return mtime
+    Just mtime' -> do
+      -- directory modification time changed:
+      -- a matching file may have been added or deleted
+      matches <- liftIO $ filter (matchGlobPieces glob) <$> listDirectory (root </> dirName)
+
+      traverse_ probeMergeResult $
+        mergeBy
+          (\(path1, _) path2 -> compare path1 path2)
+          children
+          (sort matches)
+      return mtime'
+
+  -- Check that none of the children have changed
+  for_ children $ \(file, status) ->
+    probeMonitorStateFileStatus root (dirName </> file) status
+
+  return $ f mtime' children
+
 probeMonitorStateFiles
   :: FilePath
   -- ^ root path
@@ -580,25 +611,7 @@ probeMonitorStateFiles
   mtime
   children = do
     change <- liftIO $ checkDirectoryModificationTime (root </> dirName) mtime
-    mtime' <- case change of
-      Nothing -> return mtime
-      Just mtime' -> do
-        -- directory modification time changed:
-        -- a matching file may have been added or deleted
-        matches <- liftIO $ filter (matchGlobPieces glob) <$> listDirectory (root </> dirName)
-
-        traverse_ probeMergeResult $
-          mergeBy
-            (\(path1, _) path2 -> compare path1 path2)
-            children
-            (sort matches)
-        return mtime'
-
-    -- Check that none of the children have changed
-    for_ children $ \(file, status) ->
-      probeMonitorStateFileStatus root (dirName </> file) status
-
-    return (mtime', children)
+    probeWithChildren root dirName mtime glob children change probeMergeResult (,)
     where
       -- Again, we don't force a cache rewrite with 'cacheChanged', but we do use
       -- the new mtime' if any.
@@ -782,25 +795,7 @@ probeMonitorStateGlobRel
   dirName
   (MonitorStateGlobFiles glob mtime children) = do
     change <- liftIO $ checkDirectoryModificationTime (root </> dirName) mtime
-    mtime' <- case change of
-      Nothing -> return mtime
-      Just mtime' -> do
-        -- directory modification time changed:
-        -- a matching file may have been added or deleted
-        matches <- liftIO $ filter (matchGlobPieces glob) <$> listDirectory (root </> dirName)
-
-        traverse_ probeMergeResult $
-          mergeBy
-            (\(path1, _) path2 -> compare path1 path2)
-            children
-            (sort matches)
-        return mtime'
-
-    -- Check that none of the children have changed
-    for_ children $ \(file, status) ->
-      probeMonitorStateFileStatus root (dirName </> file) status
-
-    return (MonitorStateGlobFiles glob mtime' children)
+    probeWithChildren root dirName mtime glob children change probeMergeResult (MonitorStateGlobFiles glob)
     where
       -- Again, we don't force a cache rewrite with 'cacheChanged', but we do use
       -- the new mtime' if any.
