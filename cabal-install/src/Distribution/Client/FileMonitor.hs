@@ -568,29 +568,40 @@ probeWithChildren
   -> [GlobPiece]
   -> [(FilePath, MonitorStateFileStatus)]
   -> Maybe a
-  -> (MergeResult (FilePath, MonitorStateFileStatus) FilePath -> ChangedM b)
   -> (a -> [(FilePath, MonitorStateFileStatus)] -> c)
   -> ChangedM c
-probeWithChildren root dirName mtime glob children change probeMergeResult f = do
-  mtime' <- case change of
-    Nothing -> return mtime
-    Just mtime' -> do
-      -- directory modification time changed:
-      -- a matching file may have been added or deleted
-      matches <- liftIO $ filter (matchGlobPieces glob) <$> listDirectory (root </> dirName)
+probeWithChildren root dirName mtime glob children change f = do
+    mtime' <- case change of
+      Nothing -> return mtime
+      Just mtime' -> do
+        -- directory modification time changed:
+        -- a matching file may have been added or deleted
+        matches <- liftIO $ filter (matchGlobPieces glob) <$> listDirectory (root </> dirName)
 
-      traverse_ probeMergeResult $
-        mergeBy
-          (\(path1, _) path2 -> compare path1 path2)
-          children
-          (sort matches)
-      return mtime'
+        traverse_ probeMergeResult $
+          mergeBy
+            (\(path1, _) path2 -> compare path1 path2)
+            children
+            (sort matches)
+        return mtime'
 
-  -- Check that none of the children have changed
-  for_ children $ \(file, status) ->
-    probeMonitorStateFileStatus root (dirName </> file) status
+    -- Check that none of the children have changed
+    for_ children $ \(file, status) ->
+      probeMonitorStateFileStatus root (dirName </> file) status
 
-  return $ f mtime' children
+    return $ f mtime' children
+  where
+    -- Again, we don't force a cache rewrite with 'cacheChanged', but we do use
+    -- the new mtime' if any.
+
+    probeMergeResult
+      :: MergeResult (FilePath, MonitorStateFileStatus) FilePath
+      -> ChangedM ()
+    probeMergeResult mr = case mr of
+      InBoth _ _ -> return ()
+      -- this is just to be able to accurately report which file changed:
+      OnlyInLeft (path, _) -> somethingChanged (dirName </> path)
+      OnlyInRight path -> somethingChanged (dirName </> path)
 
 probeMonitorStateFiles
   :: FilePath
@@ -611,19 +622,7 @@ probeMonitorStateFiles
   mtime
   children = do
     change <- liftIO $ checkDirectoryModificationTime (root </> dirName) mtime
-    probeWithChildren root dirName mtime glob children change probeMergeResult (,)
-    where
-      -- Again, we don't force a cache rewrite with 'cacheChanged', but we do use
-      -- the new mtime' if any.
-
-      probeMergeResult
-        :: MergeResult (FilePath, MonitorStateFileStatus) FilePath
-        -> ChangedM ()
-      probeMergeResult mr = case mr of
-        InBoth _ _ -> return ()
-        -- this is just to be able to accurately report which file changed:
-        OnlyInLeft (path, _) -> somethingChanged (dirName </> path)
-        OnlyInRight path -> somethingChanged (dirName </> path)
+    probeWithChildren root dirName mtime glob children change (,)
 
 probeMonitorStateDirs
   :: MonitorKindFile
@@ -795,19 +794,8 @@ probeMonitorStateGlobRel
   dirName
   (MonitorStateGlobFiles glob mtime children) = do
     change <- liftIO $ checkDirectoryModificationTime (root </> dirName) mtime
-    probeWithChildren root dirName mtime glob children change probeMergeResult (MonitorStateGlobFiles glob)
-    where
-      -- Again, we don't force a cache rewrite with 'cacheChanged', but we do use
-      -- the new mtime' if any.
+    probeWithChildren root dirName mtime glob children change (MonitorStateGlobFiles glob)
 
-      probeMergeResult
-        :: MergeResult (FilePath, MonitorStateFileStatus) FilePath
-        -> ChangedM ()
-      probeMergeResult mr = case mr of
-        InBoth _ _ -> return ()
-        -- this is just to be able to accurately report which file changed:
-        OnlyInLeft (path, _) -> somethingChanged (dirName </> path)
-        OnlyInRight path -> somethingChanged (dirName </> path)
 probeMonitorStateGlobRel
   kindfile
   kinddir
