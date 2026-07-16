@@ -212,7 +212,8 @@ import Distribution.Compat.CopyFile
 import Distribution.Compat.Internal.TempFile
 import Distribution.Compat.Lens (Lens', over)
 import Distribution.Compat.Prelude
-import Distribution.Compat.Stack
+import Distribution.Compat.Stack hiding (withFrozenCallStack)
+import qualified Distribution.Compat.Stack as Stack (withFrozenCallStack)
 import Distribution.Compat.SysInfo as SIC
 import Distribution.ModuleName as ModuleName
 import Distribution.Simple.Errors
@@ -449,7 +450,7 @@ dieWithLocation' verbosity filename mb_lineno msg =
       ++ msg
 
 die' :: Verbosity -> String -> IO a
-die' verbosity msg = withFrozenCallStack $ do
+die' verbosity msg = Stack.withFrozenCallStack $ do
   ioError . verbatimUserError
     =<< annotateErrorString verbosity
     =<< pure . wrapTextVerbosity (verbosityFlags verbosity)
@@ -481,7 +482,7 @@ instance Exception (VerboseException CabalException) where
       ++ exceptionWithMetadata stack timestamp verb (exceptionMessage cabalexception)
 
 dieNoWrap :: Verbosity -> String -> IO a
-dieNoWrap verbosity msg = withFrozenCallStack $ do
+dieNoWrap verbosity msg = Stack.withFrozenCallStack $ do
   -- TODO: should this have program name or not?
   ioError . verbatimUserError
     =<< annotateErrorString
@@ -684,6 +685,9 @@ setupMessage :: Verbosity -> String -> PackageIdentifier -> IO ()
 setupMessage verbosity msg pkgid = withFrozenCallStack $ do
   noticeNoWrap verbosity (msg ++ ' ' : prettyShow pkgid ++ "...")
 
+withFrozenCallStack :: HasCallStack => (HasCallStack => IO ()) -> IO ()
+withFrozenCallStack = Stack.withFrozenCallStack
+
 -- | More detail on the operation of some action.
 --
 -- We display these messages when the verbosity level is 'verbose'
@@ -793,7 +797,7 @@ withTrailingNewline (x : xs) = x : go x xs
 -- | Prepend a call-site and/or call-stack based on Verbosity
 withCallStackPrefix :: WithCallStack (TraceWhen -> VerbosityFlags -> String -> String)
 withCallStackPrefix tracer verbosity s =
-  withFrozenCallStack $
+  Stack.withFrozenCallStack $
     ( if isVerboseCallSite verbosity
         then
           parentSrcLocPrefix
@@ -837,7 +841,7 @@ data MarkWhen = AlwaysMark | NormalMark | NeverMark
 -- | Add all necessary metadata to a logging message
 withMetadata :: WithCallStack (POSIXTime -> MarkWhen -> TraceWhen -> VerbosityFlags -> String -> String)
 withMetadata ts marker tracer verbosity x =
-  withFrozenCallStack
+  Stack.withFrozenCallStack
     $
     -- NB: order matters.  Output marker first because we
     -- don't want to capture call stacks.
@@ -878,7 +882,7 @@ clearMarkers s = unlines . filter isMarker $ lines s
 exceptionWithCallStackPrefix :: CallStack -> VerbosityFlags -> String -> String
 exceptionWithCallStackPrefix stack verbosity s =
   s
-    ++ withFrozenCallStack
+    ++ Stack.withFrozenCallStack
       ( ( if isVerboseCallSite verbosity
             then
               parentSrcLocPrefix
@@ -947,7 +951,7 @@ rawSystemExitCode
   -> Maybe [(String, String)]
   -> IO ExitCode
 rawSystemExitCode verbosity mbWorkDir path args menv =
-  withFrozenCallStack $
+  Stack.withFrozenCallStack $
     fmap fst $
       rawSystemIOWithEnvAndAction
         verbosity
@@ -967,7 +971,7 @@ rawSystemExitCode verbosity mbWorkDir path args menv =
 -- to ensure consistent options with other 'rawSystem' functions in this
 -- module.
 rawSystemProc :: Verbosity -> Process.CreateProcess -> IO ExitCode
-rawSystemProc verbosity cp = withFrozenCallStack $ do
+rawSystemProc verbosity cp = Stack.withFrozenCallStack $ do
   (exitcode, _) <- rawSystemProcAction verbosity cp $ \_ _ _ -> return ()
   return exitcode
 
@@ -984,7 +988,7 @@ rawSystemProcAction
   -> Process.CreateProcess
   -> (Maybe Handle -> Maybe Handle -> Maybe Handle -> IO a)
   -> IO (ExitCode, a)
-rawSystemProcAction verbosity cp action = withFrozenCallStack $ do
+rawSystemProcAction verbosity cp action = Stack.withFrozenCallStack $ do
   logCommand verbosity cp
   (exitcode, a) <- compatWithCreateProcess verbosity cp $ \mStdin mStdout mStderr p -> do
     a <- action mStdin mStdout mStderr
@@ -1095,7 +1099,7 @@ rawSystemIOWithEnv
   -> Maybe Handle
   -- ^ stderr
   -> IO ExitCode
-rawSystemIOWithEnv verbosity path args mcwd menv inp out err = withFrozenCallStack $ do
+rawSystemIOWithEnv verbosity path args mcwd menv inp out err = Stack.withFrozenCallStack $ do
   (exitcode, _) <-
     rawSystemIOWithEnvAndAction
       verbosity
@@ -1137,7 +1141,7 @@ rawSystemIOWithEnvAndAction
   -- ^ stderr
   -> IO (ExitCode, a)
 rawSystemIOWithEnvAndAction verbosity path args mcwd menv action inp out err =
-  withFrozenCallStack $ do
+  Stack.withFrozenCallStack $ do
     -- If the output/error handle is Nothing, we need to use the corresponding
     -- logging handle stored in 'Verbosity'.
     let
@@ -1166,7 +1170,7 @@ rawSystemIOWithEnvAndAction verbosity path args mcwd menv action inp out err =
 --
 -- Provides control over the binary/text mode of the output.
 rawSystemStdout :: forall mode. KnownIODataMode mode => Verbosity -> FilePath -> [String] -> IO mode
-rawSystemStdout verbosity path args = withFrozenCallStack $ do
+rawSystemStdout verbosity path args = Stack.withFrozenCallStack $ do
   (output, errors, exitCode) <-
     rawSystemStdInOut
       verbosity
@@ -1205,7 +1209,7 @@ rawSystemStdInOut
   -- ^ iodata mode, acts as proxy
   -> IO (mode, String, ExitCode)
   -- ^ output, errors, exit
-rawSystemStdInOut verbosity path args mcwd menv input _ = withFrozenCallStack $ do
+rawSystemStdInOut verbosity path args mcwd menv input _ = Stack.withFrozenCallStack $ do
   let cp =
         (proc path args)
           { Process.cwd = mcwd
@@ -1287,7 +1291,7 @@ findProgramVersion
   -> FilePath
   -- ^ location
   -> IO (Maybe Version)
-findProgramVersion versionArg selectVersion verbosity path = withFrozenCallStack $ do
+findProgramVersion versionArg selectVersion verbosity path = Stack.withFrozenCallStack $ do
   str <-
     rawSystemStdout verbosity path [versionArg]
       `catchIO` (\_ -> return "")
@@ -1883,7 +1887,7 @@ withTempFile
   -- ^ File name template. See 'openTempFile'.
   -> (FilePath -> Handle -> IO a)
   -> IO a
-withTempFile template f = withFrozenCallStack $
+withTempFile template f = Stack.withFrozenCallStack $
   withTempFileCwd template $
     \fp h -> f (getSymbolicPath fp) h
 
@@ -1893,7 +1897,7 @@ withTempFileCwd
   -- ^ File name template. See 'openTempFile'.
   -> (SymbolicPath Pkg File -> Handle -> IO a)
   -> IO a
-withTempFileCwd = withFrozenCallStack $ withTempFileEx defaultTempFileOptions
+withTempFileCwd = Stack.withFrozenCallStack $ withTempFileEx defaultTempFileOptions
 
 -- | A version of 'withTempFile' that additionally takes a 'TempFileOptions'
 -- argument.
@@ -1906,7 +1910,7 @@ withTempFileEx
   -> IO a
 withTempFileEx opts template action = do
   tmp <- getTemporaryDirectory
-  withFrozenCallStack $
+  Stack.withFrozenCallStack $
     Exception.bracket
       (openTempFile tmp template)
       ( \(name, handle) -> do
@@ -1942,7 +1946,7 @@ withTempDirectory
   -> (FilePath -> IO a)
   -> IO a
 withTempDirectory targetDir template f =
-  withFrozenCallStack $
+  Stack.withFrozenCallStack $
     withTempDirectoryCwd
       Nothing
       (makeSymbolicPath targetDir)
@@ -1966,7 +1970,7 @@ withTempDirectoryCwd
   -> (SymbolicPath Pkg (Dir tmpDir2) -> IO a)
   -> IO a
 withTempDirectoryCwd mbWorkDir targetDir template f =
-  withFrozenCallStack $
+  Stack.withFrozenCallStack $
     withTempDirectoryCwdEx
       defaultTempFileOptions
       mbWorkDir
@@ -1983,7 +1987,7 @@ withTempDirectoryEx
   -> (FilePath -> IO a)
   -> IO a
 withTempDirectoryEx opts targetDir template f =
-  withFrozenCallStack $
+  Stack.withFrozenCallStack $
     withTempDirectoryCwdEx opts Nothing (makeSymbolicPath targetDir) template $
       \fp -> f (getSymbolicPath fp)
 
@@ -1999,7 +2003,7 @@ withTempDirectoryCwdEx
   -> (SymbolicPath Pkg (Dir tmpDir2) -> IO a)
   -> IO a
 withTempDirectoryCwdEx opts mbWorkDir targetDir template f =
-  withFrozenCallStack $
+  Stack.withFrozenCallStack $
     Exception.bracket
       (createTempDirectory (i targetDir) template)
       ( \tmpDirRelPath ->
