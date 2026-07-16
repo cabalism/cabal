@@ -709,6 +709,38 @@ debug verbosity msg
   | verbosityLevel verbosity >= Deafening = withFrozenCallStack $ logMsgWrap NeverMark verbosity msg
   | otherwise = pure ()
 
+okHasCallStack :: String -> IO () 
+okHasCallStack msg = withFrozenCallStack $ putStrLn msg
+
+-- error: [GHC-83865]
+--     • Couldn't match type: IO ()
+--                      with: HasCallStack => IO ()
+--       Expected: IO () -> IO ()
+--         Actual: (HasCallStack => IO ()) -> IO ()
+-- error: [GHC-88464]
+--     • Found type wildcard ‘_’ standing for ‘IO () -> IO ()’
+-- okWhatTypeHasCallStack :: String -> IO ()
+-- okWhatTypeHasCallStack msg = (withFrozenCallStack :: _) $ putStrLn msg
+
+okThisTypeHasCallStack :: String -> IO ()
+okThisTypeHasCallStack msg = (withFrozenCallStack :: (HasCallStack => IO ()) -> IO ()) $ putStrLn msg
+
+-- error: [GHC-83865]
+--     • Couldn't match type: HasCallStack => IO ()
+--                      with: IO ()
+--       Expected: IO () -> IO ()
+--         Actual: (HasCallStack => IO ()) -> IO ()
+-- okThisTypeFnCompositionHasCallStack :: String -> IO ()
+-- okThisTypeFnCompositionHasCallStack = (withFrozenCallStack :: (HasCallStack => IO ()) -> IO ()) . putStrLn
+
+-- error: [GHC-83865]
+--     • Couldn't match type: HasCallStack => IO ()
+--                      with: IO ()
+--       Expected: IO () -> IO ()
+--         Actual: (HasCallStack => IO ()) -> IO ()
+ohohHasCallStack :: String -> IO ()
+ohohHasCallStack = withFrozenCallStack . putStrLn
+
 -- | A variant of 'debug' that doesn't perform the automatic line
 -- wrapping. Produces better output in some cases.
 debugNoWrap :: Verbosity -> String -> IO ()
