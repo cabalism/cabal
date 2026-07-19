@@ -31,6 +31,13 @@ import Distribution.Client.NixStyleOptions
   , cfgVerbosity
   , defaultNixStyleFlags
   , nixStyleOptions
+  , removeBenchOptions
+  , removeHaddockOptions
+  , removeInstallOptions
+  , removeIrrelevantOptions
+  , removeProfilingOptions
+  , removeTestOptions
+  , removeUnsupportedOptions
   )
 import Distribution.Client.ScriptUtils
   ( AcceptNoTargets (..)
@@ -98,9 +105,9 @@ buildCommand =
           ++ " v2-build cname --enable-profiling\n"
           ++ "    Build the component in profiling mode "
           ++ "(including dependencies as needed)\n"
-    , commandDefaultFlags = defaultNixStyleFlags defaultBuildFlags
+    , commandDefaultFlags = (defaultNixStyleFlags defaultBuildFlags) :: NixStyleFlags BuildFlags
     , commandOptions =
-        removeIgnoreProjectOption
+        removeOptions
           . nixStyleOptions
             ( \showOrParseArgs ->
                 [ option
@@ -113,6 +120,16 @@ buildCommand =
                 ]
             )
     }
+  where
+    removeOptions =
+      removeUnsupportedOptions
+        . removeInstallOptions
+        . removeIrrelevantOptions
+        . removeHaddockOptions
+        . removeTestOptions
+        . removeBenchOptions
+        . removeProfilingOptions
+        . removeIgnoreProjectOption
 
 data BuildFlags = BuildFlags
   { buildOnlyConfigure :: Flag Bool

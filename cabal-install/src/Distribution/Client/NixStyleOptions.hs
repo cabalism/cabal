@@ -1,3 +1,5 @@
+{-# LANGUAGE ViewPatterns #-}
+
 -- | Command line options for nix-style / v2 commands.
 --
 -- The commands take a lot of the same options, which affect how install plan
@@ -8,6 +10,15 @@ module Distribution.Client.NixStyleOptions
   , defaultNixStyleFlags
   , updNixStyleCommonSetupFlags
   , cfgVerbosity
+
+    -- * Option filtering
+  , removeUnsupportedOptions
+  , removeInstallOptions
+  , removeIrrelevantOptions
+  , removeHaddockOptions
+  , removeTestOptions
+  , removeBenchOptions
+  , removeProfilingOptions
   ) where
 
 import Distribution.Client.Compat.Prelude
@@ -40,6 +51,7 @@ import Distribution.Client.Setup
   , liftOptions
   , testOptions
   )
+import Distribution.Simple.Utils (isInfixOf)
 import Distribution.Verbosity (VerbosityFlags, defaultVerbosityHandles, mkVerbosity)
 
 data NixStyleFlags a = NixStyleFlags
@@ -162,3 +174,42 @@ cfgVerbosity :: VerbosityFlags -> NixStyleFlags a -> Verbosity
 cfgVerbosity v flags =
   mkVerbosity defaultVerbosityHandles $
     fromFlagOrDefault v (setupVerbosity . configCommonFlags $ configFlags flags)
+
+removeUnsupportedOptions :: [OptionField a] -> [OptionField a]
+removeUnsupportedOptions = filter (\(optionName -> o) -> not ("root-cmd" == o || "allow-boot-library-installs" == o))
+
+removeInstallOptions :: [OptionField a] -> [OptionField a]
+removeInstallOptions =
+  filter
+    ( \(optionName -> o) ->
+        not
+          ( "dir" `isSuffixOf` o
+              || "reinstall" `isInfixOf` o
+              || "run-tests" == o
+              || "root-cmd" == o
+              || "allow-boot-library-installs" == o
+          )
+    )
+
+removeIrrelevantOptions :: [OptionField a] -> [OptionField a]
+removeIrrelevantOptions = filter (\(optionName -> o) -> not ("per-component" `isSuffixOf` o))
+
+removeHaddockOptions :: [OptionField a] -> [OptionField a]
+removeHaddockOptions =
+  filter
+    ( \(optionName -> o) ->
+        not
+          ( "haddock" `isPrefixOf` o
+              || "test" `isPrefixOf` o
+              || "bench" `isPrefixOf` o
+          )
+    )
+
+removeTestOptions :: [OptionField a] -> [OptionField a]
+removeTestOptions = filter (\(optionName -> o) -> not ("test" `isPrefixOf` o))
+
+removeBenchOptions :: [OptionField a] -> [OptionField a]
+removeBenchOptions = filter (\(optionName -> o) -> not ("bench" `isPrefixOf` o))
+
+removeProfilingOptions :: [OptionField a] -> [OptionField a]
+removeProfilingOptions = filter (\(optionName -> o) -> not ("profiling" `isInfixOf` o))
