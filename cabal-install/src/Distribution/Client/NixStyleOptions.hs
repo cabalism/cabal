@@ -381,3 +381,26 @@ removeProgOptions =
               || "PROG-option" `isPrefixOf` o
           )
     )
+
+{-
+$ cabal run cabal-install -- build --list-options
+-h
+--help
+-g
+--ghc
+--ghcjs
+--uhc
+--with-hc-pkg
+--user
+--global
+--package-db
+-f
+--flags
+--instantiate-with
+--disable-response-files
+-c
+--constraint
+--strong-flags
+--project-file
+--project-file-parser
+-}
