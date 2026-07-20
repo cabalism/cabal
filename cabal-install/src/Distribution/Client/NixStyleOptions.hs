@@ -24,6 +24,10 @@ module Distribution.Client.NixStyleOptions
   , removeLibOptions
   , removeCoverageOptions
   , removeOutputOptions
+  , removeConfigureOptions
+  , removePhaseOptions
+  , removeCompilerOptions
+  , removeLoggingOptions
   ) where
 
 import Distribution.Client.Compat.Prelude
@@ -199,6 +203,7 @@ removeInstallOptions =
               || "cid" == o
               || "user" == o
               || "global" == o
+              || "prefix" == o
           )
     )
 
@@ -245,6 +250,7 @@ removeSolvingOptions =
               || "solver" == o
               || "only-dependencies" == o
               || "dependencies-only" == o
+              || "minimize-conflict-set" == o
           )
     )
 
@@ -291,5 +297,55 @@ removeOutputOptions =
               || "debug-info" `isSuffixOf` o
               || "deterministic" `isSuffixOf` o
               || "relocatable" `isSuffixOf` o
+              || "write-ghc-environment-files" == o
+          )
+    )
+
+removeConfigureOptions :: [OptionField a] -> [OptionField a]
+removeConfigureOptions =
+  filter
+    ( \(optionName -> o) ->
+        not
+          ( "append" `isSuffixOf` o
+              || "backup" `isSuffixOf` o
+              || "configure-option" == o
+          )
+    )
+
+removePhaseOptions :: [OptionField a] -> [OptionField a]
+removePhaseOptions =
+  filter
+    ( \(optionName -> o) ->
+        not
+          ( "only-configure" == o
+              || "only-download" == o
+              || "dry-run" == o
+          )
+    )
+
+removeCompilerOptions :: [OptionField a] -> [OptionField a]
+removeCompilerOptions =
+  filter
+    ( \(optionName -> o) ->
+        not
+          ( "ghc" == o
+              || "ghcjs" == o
+              || "uhc" == o
+              || "with-compiler" == o
+          )
+    )
+
+removeLoggingOptions :: [OptionField a] -> [OptionField a]
+removeLoggingOptions =
+  filter
+    ( \(optionName -> o) ->
+        not
+          ( "verbose" == o
+              || "keep-temp-files" == o
+              || "build-summary" == o
+              || "build-log" == o
+              || "build-timings" == o
+              || "remote-build-reporting" == o
+              || "report-planning-failure" == o
           )
     )
