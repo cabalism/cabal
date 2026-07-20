@@ -28,6 +28,8 @@ module Distribution.Client.NixStyleOptions
   , removePhaseOptions
   , removeCompilerOptions
   , removeLoggingOptions
+  , removeIncludeOptions
+  , removeProgOptions
   ) where
 
 import Distribution.Client.Compat.Prelude
@@ -328,10 +330,11 @@ removeCompilerOptions =
   filter
     ( \(optionName -> o) ->
         not
-          ( "ghc" == o
-              || "ghcjs" == o
-              || "uhc" == o
+          ( "ghc" == o -- TODO: Check
+              || "ghcjs" == o -- TODO: Check
+              || "uhc" == o -- TODO: Check
               || "with-compiler" == o
+              || "cabal-lib-version" == o
           )
     )
 
@@ -347,5 +350,28 @@ removeLoggingOptions =
               || "build-timings" == o
               || "remote-build-reporting" == o
               || "report-planning-failure" == o
+          )
+    )
+
+removeIncludeOptions :: [OptionField a] -> [OptionField a]
+removeIncludeOptions =
+  filter
+    ( \(optionName -> o) ->
+        not
+          ( "extra-include-dirs" == o
+              || "extra-lib-dirs" == o
+              || "extra-framework-dirs" == o
+              || "extra-prog-path" == o
+              || "disable-response-files" == o -- TODO: Check
+          )
+    )
+
+removeProgOptions :: [OptionField a] -> [OptionField a]
+removeProgOptions =
+  filter
+    ( \(optionName -> o) ->
+        not
+          ( "with-PROG" == o
+              || "PROG-option" `isPrefixOf` o
           )
     )
