@@ -36,6 +36,7 @@ import Distribution.Client.NixStyleOptions
   , removeInstallOptions
   , removeIrrelevantOptions
   , removeProfilingOptions
+  , removeSolvingOptions
   , removeTestOptions
   , removeUnsupportedOptions
   )
@@ -129,6 +130,7 @@ buildCommand =
         . removeTestOptions
         . removeBenchOptions
         . removeProfilingOptions
+        . removeSolvingOptions
         . removeIgnoreProjectOption
 
 data BuildFlags = BuildFlags
