@@ -20,6 +20,10 @@ module Distribution.Client.NixStyleOptions
   , removeBenchOptions
   , removeProfilingOptions
   , removeSolvingOptions
+  , removeExeOptions
+  , removeLibOptions
+  , removeCoverageOptions
+  , removeOutputOptions
   ) where
 
 import Distribution.Client.Compat.Prelude
@@ -189,6 +193,12 @@ removeInstallOptions =
               || "run-tests" == o
               || "root-cmd" == o
               || "allow-boot-library-installs" == o
+              || "program-prefix" == o
+              || "program-suffix" == o
+              || "ipid" == o
+              || "cid" == o
+              || "user" == o
+              || "global" == o
           )
     )
 
@@ -201,8 +211,8 @@ removeHaddockOptions =
     ( \(optionName -> o) ->
         not
           ( "haddock" `isPrefixOf` o
-              || "test" `isPrefixOf` o
-              || "bench" `isPrefixOf` o
+              || "documentation" `isSuffixOf` o
+              || "doc-index-file" == o
           )
     )
 
@@ -231,5 +241,55 @@ removeSolvingOptions =
               || "allow-newer" == o
               || "preference" == o
               || "shadow-installed-packages" == o
+              || "ignore-build-tools" == o
+              || "solver" == o
+              || "only-dependencies" == o
+              || "dependencies-only" == o
+          )
+    )
+
+removeExeOptions :: [OptionField a] -> [OptionField a]
+removeExeOptions =
+  filter
+    ( \(optionName -> o) ->
+        not
+          ( "executable" `isInfixOf` o
+              || "split" `isInfixOf` o
+              || "stripping" `isInfixOf` o
+          )
+    )
+
+removeLibOptions :: [OptionField a] -> [OptionField a]
+removeLibOptions =
+  filter
+    ( \(optionName -> o) ->
+        not
+          ( "vanilla" `isSuffixOf` o
+              || "shared" `isSuffixOf` o
+              || "static" `isSuffixOf` o
+              || "bytecode" `isSuffixOf` o
+              || "ghci" `isSuffixOf` o
+          )
+    )
+
+removeCoverageOptions :: [OptionField a] -> [OptionField a]
+removeCoverageOptions =
+  filter
+    ( \(optionName -> o) ->
+        not
+          ( "coverage" `isSuffixOf` o
+              || "coverage" `isPrefixOf` o
+          )
+    )
+
+removeOutputOptions :: [OptionField a] -> [OptionField a]
+removeOutputOptions =
+  filter
+    ( \(optionName -> o) ->
+        not
+          ( "build-info" `isSuffixOf` o
+              || "debug-info" `isSuffixOf` o
+              || "deterministic" `isSuffixOf` o
+              || "relocatable" `isSuffixOf` o
           )
     )
