@@ -46,6 +46,8 @@ import Distribution.Client.NixStyleOptions
   , removeSolvingOptions
   , removeTestOptions
   , removeLoggingOptions
+  , removeIncludeOptions
+  , removeProgOptions
   , removeUnsupportedOptions
   )
 import Distribution.Client.ScriptUtils
@@ -147,6 +149,8 @@ buildCommand =
         . removePhaseOptions
         . removeCompilerOptions
         . removeLoggingOptions
+        . removeIncludeOptions
+        . removeProgOptions
         . removeIgnoreProjectOption
 
 data BuildFlags = BuildFlags
