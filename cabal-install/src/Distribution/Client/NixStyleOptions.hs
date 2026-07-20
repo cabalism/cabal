@@ -253,6 +253,7 @@ removeSolvingOptions =
               || "only-dependencies" == o
               || "dependencies-only" == o
               || "minimize-conflict-set" == o
+              || "allow-depending-on-private-libs" == o
           )
     )
 
@@ -335,6 +336,11 @@ removeCompilerOptions =
               || "uhc" == o -- TODO: Check
               || "with-compiler" == o
               || "cabal-lib-version" == o
+              || "optimization" `isSuffixOf` o
+              || "semaphore" == o
+              || "jobs" == o
+              || "keep-going" == o
+              || "offline" == o
           )
     )
 
