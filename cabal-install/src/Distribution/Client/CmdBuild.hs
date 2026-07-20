@@ -32,13 +32,17 @@ import Distribution.Client.NixStyleOptions
   , defaultNixStyleFlags
   , nixStyleOptions
   , removeBenchOptions
+  , removeCoverageOptions
+  , removeExeOptions
   , removeHaddockOptions
   , removeInstallOptions
   , removeIrrelevantOptions
+  , removeLibOptions
   , removeProfilingOptions
   , removeSolvingOptions
   , removeTestOptions
   , removeUnsupportedOptions
+  , removeOutputOptions
   )
 import Distribution.Client.ScriptUtils
   ( AcceptNoTargets (..)
@@ -131,6 +135,10 @@ buildCommand =
         . removeBenchOptions
         . removeProfilingOptions
         . removeSolvingOptions
+        . removeExeOptions
+        . removeLibOptions
+        . removeCoverageOptions
+        . removeOutputOptions
         . removeIgnoreProjectOption
 
 data BuildFlags = BuildFlags
