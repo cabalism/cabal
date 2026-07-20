@@ -19,6 +19,7 @@ module Distribution.Client.NixStyleOptions
   , removeTestOptions
   , removeBenchOptions
   , removeProfilingOptions
+  , removeSolvingOptions
   ) where
 
 import Distribution.Client.Compat.Prelude
@@ -213,3 +214,22 @@ removeBenchOptions = filter (\(optionName -> o) -> not ("bench" `isPrefixOf` o))
 
 removeProfilingOptions :: [OptionField a] -> [OptionField a]
 removeProfilingOptions = filter (\(optionName -> o) -> not ("profiling" `isInfixOf` o))
+
+removeSolvingOptions :: [OptionField a] -> [OptionField a]
+removeSolvingOptions =
+  filter
+    ( \(optionName -> o) ->
+        not
+          ( "max-backjumps" == o
+              || "conflicts" `isInfixOf` o
+              || "goals" `isInfixOf` o
+              || "index-state" == o
+              || "upgrade-dependencies" == o
+              || "reject-unconstrained-dependencies" == o
+              || "prefer-oldest" == o
+              || "allow-older" == o
+              || "allow-newer" == o
+              || "preference" == o
+              || "shadow-installed-packages" == o
+          )
+    )
