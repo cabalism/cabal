@@ -256,11 +256,7 @@ data ProjectFileParser
 instance NFData ProjectFileParser
 
 defaultProjectFileParser :: ProjectFileParser
-#ifdef LEGACY_COMPARISON
-defaultProjectFileParser = CompareParser
-#else
-defaultProjectFileParser = FallbackParser
-#endif
+defaultProjectFileParser = ParsecParser
 
 -- | Specifies the provenance of project configuration, whether defaults were
 -- used or if the configuration was read from an explicit file path.

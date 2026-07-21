@@ -300,9 +300,6 @@ library
       build-depends: githash ^>= 0.1.7.0
       cpp-options: -DGIT_REV
 
-    if flag(legacy-comparison)
-      cpp-options: -DLEGACY_COMPARISON
-
 executable cabal
     import: warnings, base-dep
     main-is: Main.hs
