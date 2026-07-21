@@ -108,7 +108,9 @@ data CommandUI flags = CommandUI
   , commandDefaultFlags :: flags
   -- ^ Initial \/ empty flags
   , commandOptions :: ShowOrParseArgs -> [OptionField flags]
-  -- ^ All the Option fields for this command
+  -- ^ All the option fields in the unnamed group for this command
+  , commandOptionGroups :: [(String, [OptionField flags])]
+  -- ^ Each named group of option fields for this command
   }
 
 data ShowOrParseArgs = ShowArgs | ParseArgs
@@ -521,6 +523,7 @@ mkCommandUI name synopsis usages flags options =
     , commandUsage = usageAlternatives name usages
     , commandDefaultFlags = flags
     , commandOptions = options
+    , commandOptionGroups = []
     }
 
 -- | Common flags that apply to every command

@@ -158,6 +158,7 @@ registerCommand =
               (\v flags -> flags{regPrintId = v})
               trueArg
           ]
+    , commandOptionGroups = []
     }
 
 unregisterCommand :: CommandUI RegisterFlags
@@ -203,6 +204,7 @@ unregisterCommand =
               (\v flags -> flags{regGenScript = v})
               trueArg
           ]
+    , commandOptionGroups = []
     }
 
 emptyRegisterFlags :: RegisterFlags

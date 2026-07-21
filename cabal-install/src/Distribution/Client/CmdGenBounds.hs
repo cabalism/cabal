@@ -76,6 +76,7 @@ genBoundsCommand =
     , commandOptions =
         removeIgnoreProjectOption
           . nixStyleOptions (const [])
+    , commandOptionGroups = []
     }
 
 -- | The action for the @gen-bounds@ command when used in a project context.

@@ -127,6 +127,7 @@ sdistCommand =
               (\v flags -> flags{sDistDirectory = v})
               (reqArgFlag "DIR")
           ]
+    , commandOptionGroups = []
     }
 
 emptySDistFlags :: SDistFlags

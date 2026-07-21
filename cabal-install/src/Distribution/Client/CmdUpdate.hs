@@ -128,6 +128,7 @@ updateCommand =
           ++ "    head.hackage must be a known repo-id. E.g. from\n"
           ++ "    your cabal.project(.local) file.\n"
     , commandOptions = nixStyleOptions $ const []
+    , commandOptionGroups = []
     , commandDefaultFlags = defaultNixStyleFlags ()
     }
 

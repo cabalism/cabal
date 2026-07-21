@@ -157,6 +157,7 @@ testCommand =
           ]
     , commandDefaultFlags = defaultTestFlags
     , commandOptions = testOptions'
+    , commandOptionGroups = []
     }
 
 testOptions' :: ShowOrParseArgs -> [OptionField TestFlags]

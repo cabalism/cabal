@@ -258,6 +258,7 @@ replCommand =
           ++ "    for default (in this case library) components in two packages\n"
     , commandDefaultFlags = defaultNixStyleFlags defaultReplFlags
     , commandOptions = nixStyleOptions topReplOptions
+    , commandOptionGroups = []
     }
 
 data MultiReplDecision = MultiReplDecision

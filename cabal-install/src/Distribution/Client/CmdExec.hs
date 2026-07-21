@@ -136,6 +136,7 @@ execCommand =
     , commandOptions =
         removeIgnoreProjectOption
           . nixStyleOptions (const [])
+    , commandOptionGroups = []
     , commandDefaultFlags = defaultNixStyleFlags ()
     }
 

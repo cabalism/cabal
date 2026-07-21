@@ -125,6 +125,7 @@ copyCommand =
             )
             $ copyOptions ShowArgs
         ParseArgs -> copyOptions ParseArgs
+    , commandOptionGroups = []
     }
 
 copyOptions :: ShowOrParseArgs -> [OptionField CopyFlags]

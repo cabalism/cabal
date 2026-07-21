@@ -132,6 +132,7 @@ cleanCommand =
           (liftOptionL _1)
           (removeIgnoreProjectOption (projectFlagsOptions showOrParseArgs))
           ++ map (liftOptionL _2) (cleanOptions showOrParseArgs)
+    , commandOptionGroups = []
     }
 
 cleanOptions :: ShowOrParseArgs -> [OptionField CleanFlags]

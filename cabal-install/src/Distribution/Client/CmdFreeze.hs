@@ -115,6 +115,7 @@ freezeCommand =
           ++ "    Freeze a solution using the given constraints\n"
     , commandDefaultFlags = defaultNixStyleFlags ()
     , commandOptions = nixStyleOptions (const [])
+    , commandOptionGroups = []
     }
 
 -- | To a first approximation, the @freeze@ command runs the first phase of

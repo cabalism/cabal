@@ -96,6 +96,7 @@ benchCommand =
           ++ "    Run the benchmark built with '-O2' (including local libs used)\n"
     , commandDefaultFlags = defaultNixStyleFlags ()
     , commandOptions = nixStyleOptions (const [])
+    , commandOptionGroups = []
     }
 
 -- | The @build@ command does a lot. It brings the install plan up to date,

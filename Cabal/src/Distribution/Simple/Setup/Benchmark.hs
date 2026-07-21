@@ -105,6 +105,7 @@ benchmarkCommand =
           ]
     , commandDefaultFlags = defaultBenchmarkFlags
     , commandOptions = benchmarkOptions'
+    , commandOptionGroups = []
     }
 
 benchmarkOptions' :: ShowOrParseArgs -> [OptionField BenchmarkFlags]

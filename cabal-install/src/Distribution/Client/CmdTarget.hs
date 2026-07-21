@@ -68,6 +68,7 @@ targetCommand =
     , commandNotes = Just $ \pname -> render (examples pname) ++ "\n"
     , commandDefaultFlags = defaultNixStyleFlags ()
     , commandOptions = nixStyleOptions (const [])
+    , commandOptionGroups = []
     }
   where
     intro =

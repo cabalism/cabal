@@ -109,6 +109,7 @@ cleanCommand =
               (\v flags -> flags{cleanSaveConf = v})
               trueArg
           ]
+    , commandOptionGroups = []
     }
 
 emptyCleanFlags :: CleanFlags
