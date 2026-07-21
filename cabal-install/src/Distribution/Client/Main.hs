@@ -340,6 +340,44 @@ warnIfAssertionsAreEnabled =
     assertionsEnabledMsg =
       "Warning: this is a debug build of cabal-install with assertions enabled."
 
+commandListOptions' :: CommandUI flags -> [String]
+commandListOptions' command =
+  concatMap listOption $
+    addCommonFlags ShowArgs $ -- This is a slight hack, we don't want
+    -- "--list-options" showing up in the
+    -- list options output, so use ShowArgs
+      commandGetOpts ShowArgs command
+  where
+    listOption (GetOpt.Option shortNames longNames _ _) =
+      ["-" ++ [name] | name <- shortNames]
+        ++ ["--" ++ name | name <- longNames]
+
+-- | The help text for this command with descriptions of all the options.
+commandHelp' :: CommandUI flags -> String -> String
+commandHelp' command pname =
+  commandSynopsis command
+    ++ "\n\n"
+    ++ commandUsage command pname
+    ++ ( case commandDescription command of
+          Nothing -> ""
+          Just desc -> '\n' : desc pname
+       )
+    ++ "\n"
+    ++ ( if cname == ""
+          then "Global flags:"
+          else "Flags for " ++ cname ++ ":"
+       )
+    ++ ( GetOpt.usageInfo ""
+          . addCommonFlags ShowArgs
+          $ commandGetOpts ShowArgs command
+       )
+    ++ ( case commandNotes command of
+          Nothing -> ""
+          Just notes -> '\n' : notes pname
+       )
+  where
+    cname = commandName command
+
 
 -- | Parse a bunch of command line arguments
 commandParseArgs'
@@ -357,8 +395,8 @@ commandParseArgs' command global args =
         | otherwise = GetOpt.Permute
    in case GetOpt.getOpt' order options args of
         (flags, _, _, _)
-          | any listFlag flags -> CommandList (commandListOptions command)
-          | any helpFlag flags -> CommandHelp (commandHelp command)
+          | any listFlag flags -> CommandList (commandListOptions' command)
+          | any helpFlag flags -> CommandHelp (commandHelp' command)
           where
             listFlag (Left ListOptionsFlag) = True; listFlag _ = False
             helpFlag (Left HelpFlag) = True; helpFlag _ = False
