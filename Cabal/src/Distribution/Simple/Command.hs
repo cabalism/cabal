@@ -24,6 +24,12 @@ module Distribution.Simple.Command
   , getNormalCommandDescriptions
   , helpCommandUI
 
+  , CommonFlag(..)
+  , addCommonFlags
+  , commandGetOpts
+  , commandHelp
+  , commandListOptions
+
     -- ** Constructing commands
   , ShowOrParseArgs (..)
   , usageDefault
@@ -32,7 +38,7 @@ module Distribution.Simple.Command
   , hiddenCommand
 
     -- ** Associating actions with commands
-  , Command
+  , Command(..)
   , commandAddAction
   , noExtraFlags
 
