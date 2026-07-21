@@ -17,7 +17,6 @@ import System.Directory (canonicalizePath, withCurrentDirectory)
 import System.FilePath
 import System.IO.Unsafe (unsafePerformIO)
 
-import Distribution.Deprecated.ParseUtils
 import qualified Distribution.Deprecated.ReadP as Parse
 
 import Distribution.Package
@@ -47,6 +46,7 @@ import Distribution.Solver.Types.ProjectConfigPath
 import Distribution.Solver.Types.Settings
 
 import Distribution.Client.ProjectConfig
+import Distribution.Client.ProjectConfig.Parsec
 import Distribution.Client.ProjectConfig.Legacy
 
 import UnitTests.Distribution.Client.ArbitraryInstances
@@ -259,11 +259,11 @@ prop_roundtrip_legacytypes_specific config =
 
 roundtrip_printparse :: ProjectConfig -> Property
 roundtrip_printparse config =
-  case fmap convertLegacyProjectConfig (parseLegacyProjectConfig "unused" (toUTF8BS str)) of
-    ParseOk _ x ->
+  case runParseResult $ parseProjectConfig "unused" (toUTF8BS str) of
+    (_, Right x) ->
       counterexample ("shown:\n" ++ str) $
         x `ediffEq` config{projectConfigProvenance = mempty}
-    ParseFailed err -> counterexample ("shown:\n" ++ str ++ "\nERROR: " ++ show err) False
+    (_, Left err) -> counterexample ("shown:\n" ++ str ++ "\nERROR: " ++ show err) False
   where
     str :: String
     str = showLegacyProjectConfig (convertToLegacyProjectConfig config)
