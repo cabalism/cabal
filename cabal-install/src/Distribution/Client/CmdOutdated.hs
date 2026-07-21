@@ -105,6 +105,7 @@ outdatedCommand =
     , commandDefaultFlags = defaultNixStyleFlags defaultOutdatedFlags
     , commandOptions = nixStyleOptions $ \showOrParseArgs ->
         outdatedOptions showOrParseArgs
+    , commandOptionGroups = []
     }
 
 -------------------------------------------------------------------------------

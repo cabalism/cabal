@@ -134,6 +134,7 @@ buildCommand progDb =
           ]
     , commandDefaultFlags = defaultBuildFlags
     , commandOptions = buildOptions progDb
+    , commandOptionGroups = []
     }
 
 buildOptions

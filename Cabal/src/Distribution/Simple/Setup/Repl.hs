@@ -192,6 +192,7 @@ replCommand progDb =
                 ]
               _ -> []
             ++ map liftReplOption (replOptions showOrParseArgs)
+    , commandOptionGroups = []
     }
   where
     liftReplOption = liftOption replReplOptions (\v flags -> flags{replReplOptions = v})

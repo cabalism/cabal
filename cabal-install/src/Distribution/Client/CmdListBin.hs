@@ -79,6 +79,7 @@ listbinCommand =
     , commandNotes = Nothing
     , commandDefaultFlags = defaultNixStyleFlags ()
     , commandOptions = nixStyleOptions (const [])
+    , commandOptionGroups = []
     }
 
 -------------------------------------------------------------------------------

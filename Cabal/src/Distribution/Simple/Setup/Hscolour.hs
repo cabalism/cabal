@@ -170,4 +170,5 @@ hscolourCommand =
               (\v flags -> flags{hscolourCSS = v})
               (reqArgFlag "PATH")
           ]
+    , commandOptionGroups = []
     }

@@ -102,6 +102,7 @@ haddockCommand =
           ++ " v2-haddock pkgname"
           ++ "    Build documentation for the package named pkgname\n"
     , commandOptions = nixStyleOptions haddockOptions
+    , commandOptionGroups = []
     , commandDefaultFlags = defaultNixStyleFlags (ClientHaddockFlags (Flag False))
     }
 

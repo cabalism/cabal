@@ -124,6 +124,7 @@ globalCommand commands =
             (\v flags -> flags{globalWorkingDir = v})
             (reqSymbolicPathArgFlag "DIR")
         ]
+    , commandOptionGroups = []
     }
 
 emptyGlobalFlags :: GlobalFlags

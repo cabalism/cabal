@@ -188,6 +188,7 @@ runCommand =
           ++ "    Build with '-O2' and run the program, passing it extra arguments.\n"
     , commandDefaultFlags = defaultNixStyleFlags ()
     , commandOptions = nixStyleOptions (const [])
+    , commandOptionGroups = []
     }
 
 -- | The @run@ command runs a specified executable-like component, building it

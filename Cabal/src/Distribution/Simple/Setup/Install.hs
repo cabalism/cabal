@@ -122,6 +122,7 @@ installCommand =
                 )
                 installOptions
             ParseArgs -> installOptions
+    , commandOptionGroups = []
     }
 
 installOptions :: [OptionField InstallFlags]

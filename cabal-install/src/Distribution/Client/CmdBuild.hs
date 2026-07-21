@@ -130,6 +130,7 @@ buildCommand =
                     (yesNoOpt showOrParseArgs)
                 ]
             )
+    , commandOptionGroups = []
     }
   where
     removeOptions =

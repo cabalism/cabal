@@ -105,6 +105,7 @@ configureCommand =
     , commandOptions =
         removeIgnoreProjectOption
           . nixStyleOptions (const [])
+    , commandOptionGroups = []
     }
 
 -- | To a first approximation, the @configure@ just runs the first phase of

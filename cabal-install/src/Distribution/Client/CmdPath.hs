@@ -123,6 +123,7 @@ pathCommand =
         "Usage: " <> pname <> " path [FLAGS]\n"
     , commandDefaultFlags = defaultNixStyleFlags defaultPathFlags
     , commandOptions = nixStyleOptions pathOptions
+    , commandOptionGroups = []
     }
 
 -------------------------------------------------------------------------------

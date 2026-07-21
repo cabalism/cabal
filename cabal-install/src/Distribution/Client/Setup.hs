@@ -468,6 +468,7 @@ globalCommand commands =
     , commandNotes = Nothing
     , commandDefaultFlags = mempty
     , commandOptions = args
+    , commandOptionGroups = []
     }
   where
     args :: ShowOrParseArgs -> [OptionField GlobalFlags]
@@ -934,6 +935,7 @@ configureExCommand =
             snd
             setSnd
             (configureExOptions showOrParseArgs ConstraintSourceCommandlineFlag)
+    , commandOptionGroups = []
     }
   where
     setFst a (_, b) = (a, b)
@@ -1299,6 +1301,7 @@ testCommand =
               get2
               set2
               (commandOptions parent showOrParseArgs)
+    , commandOptionGroups = []
     }
   where
     get1 (a, _) = a
@@ -1347,6 +1350,7 @@ benchmarkCommand =
               get2
               set2
               (commandOptions parent showOrParseArgs)
+    , commandOptionGroups = []
     }
   where
     get1 (a, _) = a
@@ -1505,6 +1509,7 @@ fetchCommand =
             (\v flags -> flags{fetchAllowBootLibInstalls = v})
             fetchOnlyConstrained
             (\v flags -> flags{fetchOnlyConstrained = v})
+    , commandOptionGroups = []
     }
 
 -- ------------------------------------------------------------
@@ -1627,6 +1632,7 @@ freezeCommand =
             (\v flags -> flags{freezeAllowBootLibInstalls = v})
             freezeOnlyConstrained
             (\v flags -> flags{freezeOnlyConstrained = v})
+    , commandOptionGroups = []
     }
 
 -- ------------------------------------------------------------
@@ -1652,6 +1658,7 @@ genBoundsCommand =
     , commandOptions = \_ ->
         [ optionVerbosity freezeVerbosity (\v flags -> flags{freezeVerbosity = v})
         ]
+    , commandOptionGroups = []
     }
 
 -- ------------------------------------------------------------
@@ -1688,6 +1695,7 @@ checkCommand =
     , commandUsage = usageFlags "check"
     , commandDefaultFlags = defaultCheckFlags
     , commandOptions = checkOptions'
+    , commandOptionGroups = []
     }
 
 checkOptions' :: ShowOrParseArgs -> [OptionField CheckFlags]
@@ -1746,6 +1754,7 @@ formatCommand =
     , commandUsage = usageAlternatives "format" ["[FILE]"]
     , commandDefaultFlags = toFlag normal
     , commandOptions = \_ -> []
+    , commandOptionGroups = []
     }
 
 manpageCommand :: CommandUI ManpageFlags
@@ -1759,6 +1768,7 @@ manpageCommand =
     , commandUsage = usageFlags "man"
     , commandDefaultFlags = defaultManpageFlags
     , commandOptions = manpageOptions
+    , commandOptionGroups = []
     }
 
 runCommand :: CommandUI BuildFlags
@@ -1792,6 +1802,7 @@ runCommand =
           ["[FLAGS] [EXECUTABLE] [-- EXECUTABLE_FLAGS]"]
     , commandDefaultFlags = mempty
     , commandOptions = commandOptions parent
+    , commandOptionGroups = []
     }
   where
     parent = Cabal.buildCommand defaultProgramDb
@@ -1876,6 +1887,7 @@ reportCommand =
             (\v flags -> flags{reportRepoName = v})
             (reqArg' "REPOSITORY" (toFlag . RepoName) (flagToList . fmap unRepoName))
         ]
+    , commandOptionGroups = []
     }
 
 -- ------------------------------------------------------------
@@ -1998,6 +2010,7 @@ getCommand =
             (\v flags -> flags{getRepoName = v})
             (reqArg' "REPOSITORY" (toFlag . RepoName) (flagToList . fmap unRepoName))
         ]
+    , commandOptionGroups = []
     }
 
 -- | List of lines describing command @get@.
@@ -2092,6 +2105,7 @@ listCommand =
           ]
     , commandDefaultFlags = defaultListFlags
     , commandOptions = const listOptions
+    , commandOptionGroups = []
     }
 
 listOptions :: [OptionField ListFlags]
@@ -2193,6 +2207,7 @@ infoCommand =
             (\v flags -> flags{infoPackageDBs = v})
             (reqArg' "DB" readPackageDbList showPackageDbList)
         ]
+    , commandOptionGroups = []
     }
 
 -- ------------------------------------------------------------
@@ -2408,6 +2423,7 @@ installCommand =
           ++ liftOptions get4 set4 (haddockOptions showOrParseArgs)
           ++ liftOptions get5 set5 (testOptions showOrParseArgs)
           ++ liftOptions get6 set6 (benchmarkOptions showOrParseArgs)
+    , commandOptionGroups = []
     }
   where
     get1 (a, _, _, _, _, _) = a
@@ -2964,6 +2980,7 @@ uploadCommand =
             (\v flags -> flags{uploadRepoName = v})
             (reqArg' "REPOSITORY" (toFlag . RepoName) (flagToList . fmap unRepoName))
         ]
+    , commandOptionGroups = []
     }
 
 -- ------------------------------------------------------------
@@ -2992,6 +3009,7 @@ initCommand =
         "Usage: " ++ pname ++ " init [PROJECT ROOT] [FLAGS]\n"
     , commandDefaultFlags = IT.defaultInitFlags
     , commandOptions = initOptions
+    , commandOptionGroups = []
     }
 
 initOptions :: ShowOrParseArgs -> [OptionField IT.InitFlags]
@@ -3444,6 +3462,7 @@ actAsSetupCommand =
                 (map prettyShow . flagToList)
             )
         ]
+    , commandOptionGroups = []
     }
 
 -- ------------------------------------------------------------
@@ -3514,6 +3533,7 @@ userConfigCommand =
             )
             (reqArg' "CONFIGLINE" (Flag . (: [])) (fromMaybe [] . flagToMaybe))
         ]
+    , commandOptionGroups = []
     }
 
 -- ------------------------------------------------------------

@@ -322,6 +322,7 @@ installCommand =
           ++ " v2-install ./pkgfoo\n"
           ++ "    Install the package in the ./pkgfoo directory\n"
     , commandOptions = \x -> filter notInstallDirOpt $ nixStyleOptions clientInstallOptions x
+    , commandOptionGroups = []
     , commandDefaultFlags = defaultNixStyleFlags defaultClientInstallFlags
     }
   where

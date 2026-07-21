@@ -200,6 +200,7 @@ haddockCommand =
             ParseArgs
             haddockProgramArgs
             (\v flags -> flags{haddockProgramArgs = v})
+    , commandOptionGroups = []
     }
   where
     progDb =
@@ -489,6 +490,7 @@ haddockProjectCommand =
             ParseArgs
             haddockProjectProgramArgs
             (\v flags -> flags{haddockProjectProgramArgs = v})
+    , commandOptionGroups = []
     }
   where
     progDb =

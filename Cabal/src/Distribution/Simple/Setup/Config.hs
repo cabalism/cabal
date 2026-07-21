@@ -407,6 +407,7 @@ configureCommand progDb =
             showOrParseArgs
             configProgramArgs
             (\v fs -> fs{configProgramArgs = v})
+    , commandOptionGroups = []
     }
 
 -- | Inverse to 'dispModSubstEntry'.

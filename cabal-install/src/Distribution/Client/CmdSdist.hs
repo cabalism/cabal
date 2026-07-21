@@ -167,6 +167,7 @@ sdistCommand =
     , commandOptions = \showOrParseArgs ->
         map (liftOptionL _1) (projectFlagsOptions showOrParseArgs)
           ++ map (liftOptionL _2) (sdistOptions showOrParseArgs)
+    , commandOptionGroups = []
     }
 
 -------------------------------------------------------------------------------

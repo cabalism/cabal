@@ -111,6 +111,7 @@ testCommand =
           ++ "    Run the test-suite built with code coverage (including local libs used)\n"
     , commandDefaultFlags = defaultNixStyleFlags ()
     , commandOptions = nixStyleOptions (const [])
+    , commandOptionGroups = []
     }
 
 -- | The @test@ command is very much like @build@. It brings the install plan
