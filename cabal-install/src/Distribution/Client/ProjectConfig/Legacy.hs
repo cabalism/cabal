@@ -7,16 +7,7 @@
 -- | Project configuration, implementation in terms of legacy types.
 module Distribution.Client.ProjectConfig.Legacy
   ( -- * Skeletons
-    ProjectConfigSkeleton
-  , instantiateProjectConfigSkeletonFetchingCompiler
-  , instantiateProjectConfigSkeletonWithCompiler
-  , singletonProjectConfigSkeleton
-
-    -- * Parsing
-  , parseLegacyProjectConfig
-
-    -- * Legacy Configuration
-  , LegacyProjectConfig
+    instantiateProjectConfigSkeletonFetchingCompiler
   , showLegacyProjectConfig
 
     -- * Conversions
@@ -179,7 +170,6 @@ import Distribution.Utils.Path hiding
   , (</>)
   )
 
-import qualified Data.ByteString.Char8 as BS
 import qualified Data.Map as Map
 import Network.URI (URI (..), nullURIAuth)
 import Text.PrettyPrint (Doc, ($+$))
@@ -188,9 +178,6 @@ import qualified Text.PrettyPrint as Disp
 ------------------------------------------------------------------
 -- Handle extended project config files with conditionals and imports.
 --
-
-singletonProjectConfigSkeleton :: ProjectConfig -> ProjectConfigSkeleton
-singletonProjectConfigSkeleton x = CondNode (mempty, x) mempty
 
 instantiateProjectConfigSkeletonFetchingCompiler :: Monad m => m (OS, Arch, Compiler) -> FlagAssignment -> ProjectConfigSkeleton -> m (ProjectConfig, Maybe Compiler)
 instantiateProjectConfigSkeletonFetchingCompiler fetch flags skel
@@ -1082,18 +1069,6 @@ convertToLegacyPerPackageConfig PackageConfig{..} =
 ------------------------------------------------
 -- Parsing and showing the project config file
 --
-
-parseLegacyProjectConfigFields :: ProjectConfigPath -> [ParseUtils.Field] -> ParseResult LegacyProjectConfig
-parseLegacyProjectConfigFields (ConstraintSourceProjectConfig -> constraintSrc) =
-  parseFieldsAndSections
-    (legacyProjectConfigFieldDescrs constraintSrc)
-    legacyPackageConfigSectionDescrs
-    legacyPackageConfigFGSectionDescrs
-    mempty
-
-parseLegacyProjectConfig :: FilePath -> BS.ByteString -> ParseResult LegacyProjectConfig
-parseLegacyProjectConfig rootConfig bs =
-  parseLegacyProjectConfigFields (ProjectConfigPath $ rootConfig :| []) =<< ParseUtils.readFields bs
 
 showLegacyProjectConfig :: LegacyProjectConfig -> String
 showLegacyProjectConfig config =

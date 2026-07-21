@@ -9,6 +9,7 @@ module Distribution.Client.ProjectConfig.Import
   ( -- * Parsing skeleton
     ProjectConfigSkeleton
   , projectSkeletonImports
+  , singletonProjectConfigSkeleton
   , fetchImport
 
     -- * Messages
@@ -49,6 +50,9 @@ type ProjectConfigSkeleton = CondTree ConfVar ([(Maybe URI, ProjectConfigPath)],
 
 projectSkeletonImports :: ProjectConfigSkeleton -> [(Maybe URI, ProjectConfigPath)]
 projectSkeletonImports = fst . view traverseCondTreeA
+
+singletonProjectConfigSkeleton :: ProjectConfig -> ProjectConfigSkeleton
+singletonProjectConfigSkeleton x = CondNode (mempty, x) mempty
 
 -- | Fetch a local file import or remote URL import and parse it.
 fetchImport
