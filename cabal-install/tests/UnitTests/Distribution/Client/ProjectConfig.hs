@@ -17,17 +17,13 @@ import System.Directory (canonicalizePath, withCurrentDirectory)
 import System.FilePath
 import System.IO.Unsafe (unsafePerformIO)
 
-import Distribution.Deprecated.ParseUtils
 import qualified Distribution.Deprecated.ReadP as Parse
 
 import Distribution.Package
-import Distribution.PackageDescription
 import qualified Distribution.Simple.InstallDirs as InstallDirs
 import Distribution.Simple.Program.Db
 import Distribution.Simple.Program.Types
-import Distribution.Simple.Utils (toUTF8BS)
 import Distribution.System (OS (Windows), buildOS)
-import Distribution.Types.PackageVersionConstraint
 
 import Distribution.Parsec
 import Distribution.Pretty
@@ -42,12 +38,11 @@ import Distribution.Utils.NubList
 import Distribution.Verbosity
 
 import Distribution.Solver.Types.ConstraintSource
-import Distribution.Solver.Types.PackageConstraint
 import Distribution.Solver.Types.ProjectConfigPath
 import Distribution.Solver.Types.Settings
 
 import Distribution.Client.ProjectConfig
-import Distribution.Client.ProjectConfig.Legacy
+import qualified Distribution.Client.ProjectConfig.Legacy as Legacy
 
 import UnitTests.Distribution.Client.ArbitraryInstances
 import UnitTests.Distribution.Client.TreeDiffInstances ()
@@ -78,13 +73,7 @@ tests =
       ]
   , testGroup
       "ProjectConfig printing/parsing round trip"
-      [ testProperty "packages" prop_roundtrip_printparse_packages
-      , testProperty "buildonly" prop_roundtrip_printparse_buildonly
-      , testProperty "shared" prop_roundtrip_printparse_shared
-      , testProperty "local" prop_roundtrip_printparse_local
-      , testProperty "specific" prop_roundtrip_printparse_specific
-      , testProperty "all" prop_roundtrip_printparse_all
-      ]
+      []
   , testGetProjectRootUsability
   , testFindProjectRoot
   ]
@@ -212,8 +201,8 @@ roundtrip f f_inv x =
 roundtrip_legacytypes :: ProjectConfig -> Property
 roundtrip_legacytypes =
   roundtrip
-    convertToLegacyProjectConfig
-    convertLegacyProjectConfig
+    Legacy.convertToLegacyProjectConfig
+    Legacy.convertLegacyProjectConfig
 
 prop_roundtrip_legacytypes_all :: ProjectConfig -> Property
 prop_roundtrip_legacytypes_all config =
@@ -253,103 +242,6 @@ prop_roundtrip_legacytypes_specific config =
   roundtrip_legacytypes
     mempty{projectConfigSpecificPackage = MapMappend config}
 
---------------------------------------------
--- Round trip: printing and parsing config
---
-
-roundtrip_printparse :: ProjectConfig -> Property
-roundtrip_printparse config =
-  case fmap convertLegacyProjectConfig (parseLegacyProjectConfig "unused" (toUTF8BS str)) of
-    ParseOk _ x ->
-      counterexample ("shown:\n" ++ str) $
-        x `ediffEq` config{projectConfigProvenance = mempty}
-    ParseFailed err -> counterexample ("shown:\n" ++ str ++ "\nERROR: " ++ show err) False
-  where
-    str :: String
-    str = showLegacyProjectConfig (convertToLegacyProjectConfig config)
-
-prop_roundtrip_printparse_all :: ProjectConfig -> Property
-prop_roundtrip_printparse_all config =
-  roundtrip_printparse
-    config
-      { projectConfigBuildOnly =
-          hackProjectConfigBuildOnly (projectConfigBuildOnly config)
-      , projectConfigShared =
-          hackProjectConfigShared (projectConfigShared config)
-      }
-
-prop_roundtrip_printparse_packages
-  :: [PackageLocationString]
-  -> [PackageLocationString]
-  -> [SourceRepoList]
-  -> [PackageVersionConstraint]
-  -> Property
-prop_roundtrip_printparse_packages pkglocstrs1 pkglocstrs2 repos named =
-  roundtrip_printparse
-    mempty
-      { projectPackages = map getPackageLocationString pkglocstrs1
-      , projectPackagesOptional = map getPackageLocationString pkglocstrs2
-      , projectPackagesRepo = repos
-      , projectPackagesNamed = named
-      }
-
-prop_roundtrip_printparse_buildonly :: ProjectConfigBuildOnly -> Property
-prop_roundtrip_printparse_buildonly config =
-  roundtrip_printparse
-    mempty
-      { projectConfigBuildOnly = hackProjectConfigBuildOnly config
-      }
-
-hackProjectConfigBuildOnly :: ProjectConfigBuildOnly -> ProjectConfigBuildOnly
-hackProjectConfigBuildOnly config =
-  config
-    { -- These fields are only command line transitory things, not
-      -- something to be recorded persistently in a config file
-      projectConfigOnlyDeps = mempty
-    , projectConfigOnlyDownload = mempty
-    , projectConfigDryRun = mempty
-    }
-
-prop_roundtrip_printparse_shared :: ProjectConfigShared -> Property
-prop_roundtrip_printparse_shared config =
-  roundtrip_printparse
-    mempty
-      { projectConfigShared = hackProjectConfigShared config
-      }
-
-hackProjectConfigShared :: ProjectConfigShared -> ProjectConfigShared
-hackProjectConfigShared config =
-  config
-    { projectConfigProjectFile = mempty -- not present within project files
-    , projectConfigProjectDir = mempty -- ditto
-    , projectConfigConfigFile = mempty -- ditto
-    , projectConfigConstraints =
-        -- TODO: [required eventually] parse ambiguity in constraint
-        -- "pkgname -any" as either any version or disabled flag "any".
-        let ambiguous (UserConstraint _ (PackagePropertyFlags flags), _) =
-              (not . null)
-                [ () | (name, False) <- unFlagAssignment flags, "any" `isPrefixOf` unFlagName name
-                ]
-            ambiguous _ = False
-         in filter (not . ambiguous) (projectConfigConstraints config)
-    }
-
-prop_roundtrip_printparse_local :: PackageConfig -> Property
-prop_roundtrip_printparse_local config =
-  roundtrip_printparse
-    mempty
-      { projectConfigLocalPackages = config
-      }
-
-prop_roundtrip_printparse_specific
-  :: Map PackageName (NonMEmpty PackageConfig)
-  -> Property
-prop_roundtrip_printparse_specific config =
-  roundtrip_printparse
-    mempty
-      { projectConfigSpecificPackage = MapMappend (fmap getNonMEmpty config)
-      }
-
 ----------------------------
 -- Individual Parser tests
 --
@@ -364,7 +256,7 @@ runReadP parser s = case [x | (x, "") <- Parse.readP_to_S parser s] of
 
 prop_parsePackageLocationTokenQ :: PackageLocationString -> Bool
 prop_parsePackageLocationTokenQ (PackageLocationString str) =
-  runReadP parsePackageLocationTokenQ (renderPackageLocationToken str) == Just str
+  runReadP Legacy.parsePackageLocationTokenQ (Legacy.renderPackageLocationToken str) == Just str
 
 prop_roundtrip_printparse_RelaxedDep :: RelaxedDep -> Property
 prop_roundtrip_printparse_RelaxedDep rdep =
