@@ -1,6 +1,5 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE ViewPatterns #-}
 #ifdef DEBUG_TRACETREE
 {-# OPTIONS_GHC -Wno-orphans #-}
 #endif
@@ -171,7 +170,7 @@ solve sc cinfo idx pkgConfigDB userPrefs userConstraints userGoals =
                               trace ("USER-CONSTRAINTS-NONE\n" ++ unlines [ show x | x <- S.toList userConstraintKeysAll]) $
                               trace ("USER-GOALS-NONE\n" ++ unlines [ show x | x <- S.toList userGoals]) $
                             trace "ONLY-CONSTRAINED-NONE" id) .
-                        (trace "PRUNE-PHASE-CALLED" $ id)
+                        (trace "PRUNE-PHASE-CALLED" id)
     buildPhase       = buildTree idx (independentGoals sc) (S.toList userGoals)
 
     userConstraintsEq = filterVersion isThisVersion userConstraints
