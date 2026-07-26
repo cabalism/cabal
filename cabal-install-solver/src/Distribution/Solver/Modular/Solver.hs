@@ -1,5 +1,6 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE ViewPatterns #-}
 #ifdef DEBUG_TRACETREE
 {-# OPTIONS_GHC -Wno-orphans #-}
 #endif
@@ -45,8 +46,10 @@ import Distribution.Solver.Modular.PSQ (PSQ)
 import Distribution.Solver.Modular.RetryLog
 import Distribution.Solver.Modular.Tree
 import qualified Distribution.Solver.Modular.PSQ as PSQ
+import Distribution.Solver.Types.PackageConstraint
 
 import Distribution.Simple.Setup (BooleanFlag(..))
+import Distribution.Types.Flag
 
 #ifdef DEBUG_TRACETREE
 import qualified Distribution.Solver.Modular.ConflictSet as CS
@@ -143,13 +146,45 @@ solve sc cinfo idx pkgConfigDB userPrefs userConstraints userGoals =
                        validateTree cinfo idx pkgConfigDB
     prunePhase       = (if asBool (avoidReinstalls sc) then P.avoidReinstalls (const True) else id) .
                        (let oc = onlyConstrained sc in oc & \case
-                          OnlyConstrainedEq -> P.onlyConstrained oc (`S.member` allExplicitEq)
-                          OnlyConstrainedAll -> P.onlyConstrained oc (`S.member` allExplicit)
-                          OnlyConstrainedNone -> id)
+                          OnlyConstrainedEq ->
+                              trace ("USER-CONSTRAINTS-KEY-EQ\n" ++ unlines [ show x | x <- S.toList userConstraintKeysEq]) $
+                              trace ("USER-CONSTRAINTS-EQ\n" ++
+                                unlines
+                                  [ showPackageConstraint x
+                                  | (_, lpcs) <- M.toList userConstraintsEq
+                                  , LabeledPackageConstraint x _ <- lpcs
+                                  ]) $
+                              trace ("USER-GOALS-EQ\n" ++ unlines [ show x | x <- S.toList userGoals]) $
+                              trace ("ONLY-CONSTRAINED-EQ " ++ show oc ++ "\n" ++ unlines [ show x | x <- S.toList allExplicitEq]) $
+                              P.onlyConstrained oc (`S.member` allExplicitEq)
+                          OnlyConstrainedAll ->
+                              trace ("USER-CONSTRAINTS-KEY-ANY\n" ++ unlines [ show x | x <- S.toList userConstraintKeysNotAny]) $
+                              trace ("USER-CONSTRAINTS-ANY\n" ++
+                               unlines
+                                [ showPackageConstraint x
+                                | (_, lpcs) <- M.toList userConstraintsNotAny
+                                , LabeledPackageConstraint x _ <- lpcs
+                                ]) $
+                              trace ("USER-GOALS-ALL\n" ++ unlines [ show x | x <- S.toList userGoals]) $
+                            trace ("ONLY-CONSTRAINED-ALL " ++ show oc ++ "\n" ++ unlines [ show x | x <- S.toList allExplicit]) $
+                            P.onlyConstrained oc (`S.member` allExplicit)
+                          OnlyConstrainedNone ->
+                              trace ("USER-CONSTRAINTS-NONE\n" ++ unlines [ show x | x <- S.toList userConstraintKeysAll]) $
+                              trace ("USER-GOALS-NONE\n" ++ unlines [ show x | x <- S.toList userGoals]) $
+                            trace "ONLY-CONSTRAINED-NONE" $
+                            id) .
+                        (trace "PRUNE-PHASE-CALLED" $ id)
     buildPhase       = buildTree idx (independentGoals sc) (S.toList userGoals)
 
-    allExplicitEq = M.keysSet (filterThisVersion userConstraints) `S.union` userGoals
-    allExplicit = M.keysSet userConstraints `S.union` userGoals
+    userConstraintsEq = filterVersion isThisVersion userConstraints
+    userConstraintKeysEq = M.keysSet userConstraintsEq
+    allExplicitEq = userConstraintKeysEq `S.union` userGoals
+
+    userConstraintKeysAll = M.keysSet userConstraints
+
+    userConstraintsNotAny = filterVersion isNotAnyVersion userConstraints
+    userConstraintKeysNotAny = M.keysSet userConstraintsNotAny
+    allExplicit = userConstraintKeysNotAny `S.union` userGoals
 
     -- When --reorder-goals is set, we use preferReallyEasyGoalChoices, which
     -- prefers (keeps) goals only if the have 0 or 1 enabled choice.
@@ -168,13 +203,23 @@ solve sc cinfo idx pkgConfigDB userPrefs userConstraints userGoals =
       | otherwise                = id {- P.firstGoal -}
 
 -- | Keep version ranges that normalise to equality version constraints (== v).
-filterThisVersion :: M.Map PN [LabeledPackageConstraint] -> M.Map PN [LabeledPackageConstraint]
-filterThisVersion = M.filter (not . null) . M.map (filter isThisVersion) where
+filterVersion :: (LabeledPackageConstraint -> Bool) -> M.Map PN [LabeledPackageConstraint] -> M.Map PN [LabeledPackageConstraint]
+filterVersion versionFilter = M.filter (not . null) . M.map (filter versionFilter)
+
+isThisVersion :: LabeledPackageConstraint -> Bool
+isThisVersion lpc
+  | LabeledPackageConstraint (PackageConstraint _ (PackagePropertyVersion vr)) _ <- lpc
+  , ThisVersionF _ <- projectVersionRange $ normalise vr = True
+  | otherwise = False
+  where
   normalise = fromVersionIntervals . toVersionIntervals
-  isThisVersion lpc
-    | LabeledPackageConstraint (PackageConstraint _ (PackagePropertyVersion vr)) _ <- lpc
-    , ThisVersionF _ <- projectVersionRange $ normalise vr = True
-    | otherwise = False
+
+-- TODO consider flags -none and -any
+isNotAnyVersion :: LabeledPackageConstraint -> Bool
+isNotAnyVersion lpc
+  | LabeledPackageConstraint (PackageConstraint _ (PackagePropertyVersion vr)) _ <- lpc = not (isAnyVersion vr)
+  | LabeledPackageConstraint (PackageConstraint _ (PackagePropertyFlags fs)) _ <- lpc = isNothing $ (mkFlagName "any") `lookupFlagAssignment` fs
+  | otherwise = False
 
 -- | Dump solver tree to a file (in debugging mode)
 --
