@@ -182,7 +182,7 @@ solve sc cinfo idx pkgConfigDB userPrefs userConstraints userGoals =
 
     userConstraintKeysAll = M.keysSet userConstraints
 
-    userConstraintsNotAny = filterVersion isNotAnyVersion userConstraints
+    userConstraintsNotAny = filterVersion isVersionConstrained userConstraints
     userConstraintKeysNotAny = M.keysSet userConstraintsNotAny
     allExplicit = userConstraintKeysNotAny `S.union` userGoals
 
@@ -202,23 +202,35 @@ solve sc cinfo idx pkgConfigDB userPrefs userConstraints userGoals =
       | asBool (reorderGoals sc) = P.preferReallyEasyGoalChoices
       | otherwise                = id {- P.firstGoal -}
 
--- | Keep version ranges that normalise to equality version constraints (== v).
+-- | Keep constraints that satisfy the predicate. In practice, we're only
+-- interested in the keys of the map, when checking that all packages are
+-- constrained.
 filterVersion :: (LabeledPackageConstraint -> Bool) -> M.Map PN [LabeledPackageConstraint] -> M.Map PN [LabeledPackageConstraint]
 filterVersion versionFilter = M.filter (not . null) . M.map (filter versionFilter)
 
+normalise :: VersionRange -> VersionRange
+normalise = fromVersionIntervals . toVersionIntervals
+
+-- | When normalised, does it have a version equality constraint (== v)?
 isThisVersion :: LabeledPackageConstraint -> Bool
 isThisVersion lpc
   | LabeledPackageConstraint (PackageConstraint _ (PackagePropertyVersion vr)) _ <- lpc
   , ThisVersionF _ <- projectVersionRange $ normalise vr = True
   | otherwise = False
-  where
-  normalise = fromVersionIntervals . toVersionIntervals
 
--- TODO consider flags -none and -any
-isNotAnyVersion :: LabeledPackageConstraint -> Bool
-isNotAnyVersion lpc
-  | LabeledPackageConstraint (PackageConstraint _ (PackagePropertyVersion vr)) _ <- lpc = not (isAnyVersion vr)
-  | LabeledPackageConstraint (PackageConstraint _ (PackagePropertyFlags fs)) _ <- lpc = isNothing $ (mkFlagName "any") `lookupFlagAssignment` fs
+-- | Unconstrained with the flag -any or version >0. Every other version, if it
+-- has one, is considered constrained.
+isVersionConstrained :: LabeledPackageConstraint -> Bool
+isVersionConstrained lpc
+  | LabeledPackageConstraint (PackageConstraint _ (PackagePropertyVersion vr)) _ <- lpc =
+    not (isAnyVersion $ normalise vr)
+  | LabeledPackageConstraint (PackageConstraint _ (PackagePropertyFlags fs)) _ <- lpc =
+    let hasNone = (mkFlagName "none") `lookupFlagAssignment` fs
+        hasAny = (mkFlagName "any") `lookupFlagAssignment` fs
+    in case (hasNone, hasAny) of
+         (Just _, _) -> True
+         (_, Just _) -> False
+         _ -> False
   | otherwise = False
 
 -- | Dump solver tree to a file (in debugging mode)
