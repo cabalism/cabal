@@ -26,7 +26,6 @@ import Distribution.Solver.Types.PackagePath
 import Distribution.Solver.Types.PackagePreferences
 import Distribution.Solver.Types.PkgConfigDb (PkgConfigDb)
 import Distribution.Solver.Types.LabeledPackageConstraint
-import Distribution.Solver.Types.PackageConstraint (PackageConstraint(..), PackageProperty(..))
 import Distribution.Solver.Types.Settings
 import Distribution.Solver.Types.Variable
 
@@ -171,8 +170,7 @@ solve sc cinfo idx pkgConfigDB userPrefs userConstraints userGoals =
                           OnlyConstrainedNone ->
                               trace ("USER-CONSTRAINTS-NONE\n" ++ unlines [ show x | x <- S.toList userConstraintKeysAll]) $
                               trace ("USER-GOALS-NONE\n" ++ unlines [ show x | x <- S.toList userGoals]) $
-                            trace "ONLY-CONSTRAINED-NONE" $
-                            id) .
+                            trace "ONLY-CONSTRAINED-NONE" id) .
                         (trace "PRUNE-PHASE-CALLED" $ id)
     buildPhase       = buildTree idx (independentGoals sc) (S.toList userGoals)
 
@@ -211,14 +209,16 @@ filterVersion versionFilter = M.filter (not . null) . M.map (filter versionFilte
 normalise :: VersionRange -> VersionRange
 normalise = fromVersionIntervals . toVersionIntervals
 
+-- | Checks for -any and -none flags in the flag assignment.
 isVersionConstrainedWithFlags :: FlagAssignment -> Bool
 isVersionConstrainedWithFlags fs =
+    trace ("FLAG-ASSIGNMENT: " ++ show (hasFlag "none", hasFlag "any")) $
     case (hasFlag "none", hasFlag "any") of
-      (Just _, _) -> True
-      (_, Just _) -> False
+      (Just False, _) -> True
+      (_, Just False) -> False
       _ -> False
   where
-    hasFlag flagName = (mkFlagName flagName) `lookupFlagAssignment` fs
+    hasFlag flagName = mkFlagName flagName `lookupFlagAssignment` fs
 
 -- | When normalised, does it have a version equality constraint (== v)?
 isThisVersion :: LabeledPackageConstraint -> Bool
