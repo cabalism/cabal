@@ -211,6 +211,15 @@ filterVersion versionFilter = M.filter (not . null) . M.map (filter versionFilte
 normalise :: VersionRange -> VersionRange
 normalise = fromVersionIntervals . toVersionIntervals
 
+isVersionConstrainedWithFlags :: FlagAssignment -> Bool
+isVersionConstrainedWithFlags fs =
+    case (hasFlag "none", hasFlag "any") of
+      (Just _, _) -> True
+      (_, Just _) -> False
+      _ -> False
+  where
+    hasFlag flagName = (mkFlagName flagName) `lookupFlagAssignment` fs
+
 -- | When normalised, does it have a version equality constraint (== v)?
 isThisVersion :: LabeledPackageConstraint -> Bool
 isThisVersion lpc
@@ -225,12 +234,7 @@ isVersionConstrained lpc
   | LabeledPackageConstraint (PackageConstraint _ (PackagePropertyVersion vr)) _ <- lpc =
     not (isAnyVersion $ normalise vr)
   | LabeledPackageConstraint (PackageConstraint _ (PackagePropertyFlags fs)) _ <- lpc =
-    let hasNone = (mkFlagName "none") `lookupFlagAssignment` fs
-        hasAny = (mkFlagName "any") `lookupFlagAssignment` fs
-    in case (hasNone, hasAny) of
-         (Just _, _) -> True
-         (_, Just _) -> False
-         _ -> False
+    isVersionConstrainedWithFlags fs
   | otherwise = False
 
 -- | Dump solver tree to a file (in debugging mode)
