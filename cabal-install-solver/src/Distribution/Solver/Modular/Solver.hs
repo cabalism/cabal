@@ -25,7 +25,6 @@ import Distribution.Solver.Types.PackagePath
 import Distribution.Solver.Types.PackagePreferences
 import Distribution.Solver.Types.PkgConfigDb (PkgConfigDb)
 import Distribution.Solver.Types.LabeledPackageConstraint
-import Distribution.Solver.Types.PackageConstraint (PackageConstraint(..), PackageProperty(..))
 import Distribution.Solver.Types.Settings
 import Distribution.Solver.Types.Variable
 
@@ -45,8 +44,10 @@ import Distribution.Solver.Modular.PSQ (PSQ)
 import Distribution.Solver.Modular.RetryLog
 import Distribution.Solver.Modular.Tree
 import qualified Distribution.Solver.Modular.PSQ as PSQ
+import Distribution.Solver.Types.PackageConstraint
 
 import Distribution.Simple.Setup (BooleanFlag(..))
+import Distribution.Types.Flag
 
 #ifdef DEBUG_TRACETREE
 import qualified Distribution.Solver.Modular.ConflictSet as CS
@@ -148,8 +149,13 @@ solve sc cinfo idx pkgConfigDB userPrefs userConstraints userGoals =
                           OnlyConstrainedNone -> id)
     buildPhase       = buildTree idx (independentGoals sc) (S.toList userGoals)
 
-    allExplicitEq = M.keysSet (filterThisVersion userConstraints) `S.union` userGoals
-    allExplicit = M.keysSet userConstraints `S.union` userGoals
+    userConstraintsEq = filterVersion isThisVersion userConstraints
+    userConstraintKeysEq = M.keysSet userConstraintsEq
+    allExplicitEq = userConstraintKeysEq `S.union` userGoals
+
+    userConstraintsNotAny = filterVersion isVersionConstrained userConstraints
+    userConstraintKeysNotAny = M.keysSet userConstraintsNotAny
+    allExplicit = userConstraintKeysNotAny `S.union` userGoals
 
     -- When --reorder-goals is set, we use preferReallyEasyGoalChoices, which
     -- prefers (keeps) goals only if the have 0 or 1 enabled choice.
@@ -167,14 +173,41 @@ solve sc cinfo idx pkgConfigDB userPrefs userConstraints userGoals =
       | asBool (reorderGoals sc) = P.preferReallyEasyGoalChoices
       | otherwise                = id {- P.firstGoal -}
 
--- | Keep version ranges that normalise to equality version constraints (== v).
-filterThisVersion :: M.Map PN [LabeledPackageConstraint] -> M.Map PN [LabeledPackageConstraint]
-filterThisVersion = M.filter (not . null) . M.map (filter isThisVersion) where
-  normalise = fromVersionIntervals . toVersionIntervals
-  isThisVersion lpc
-    | LabeledPackageConstraint (PackageConstraint _ (PackagePropertyVersion vr)) _ <- lpc
-    , ThisVersionF _ <- projectVersionRange $ normalise vr = True
-    | otherwise = False
+-- | Keep constraints that satisfy the predicate. In practice, we're only
+-- interested in the keys of the map, when checking that all packages are
+-- constrained.
+filterVersion :: (LabeledPackageConstraint -> Bool) -> M.Map PN [LabeledPackageConstraint] -> M.Map PN [LabeledPackageConstraint]
+filterVersion versionFilter = M.filter (not . null) . M.map (filter versionFilter)
+
+normalise :: VersionRange -> VersionRange
+normalise = fromVersionIntervals . toVersionIntervals
+
+-- | Checks for -any and -none flags in the flag assignment.
+isVersionConstrainedWithFlags :: FlagAssignment -> Bool
+isVersionConstrainedWithFlags fs =
+    case (hasFlag "none", hasFlag "any") of
+      (Just False, _) -> True
+      (_, Just False) -> False
+      _ -> False
+  where
+    hasFlag flagName = mkFlagName flagName `lookupFlagAssignment` fs
+
+-- | When normalised, does it have a version equality constraint (== v)?
+isThisVersion :: LabeledPackageConstraint -> Bool
+isThisVersion lpc
+  | LabeledPackageConstraint (PackageConstraint _ (PackagePropertyVersion vr)) _ <- lpc
+  , ThisVersionF _ <- projectVersionRange $ normalise vr = True
+  | otherwise = False
+
+-- | Unconstrained with the flag -any or version >0. Every other version, if it
+-- has one, is considered constrained.
+isVersionConstrained :: LabeledPackageConstraint -> Bool
+isVersionConstrained lpc
+  | LabeledPackageConstraint (PackageConstraint _ (PackagePropertyVersion vr)) _ <- lpc =
+    not (isAnyVersion $ normalise vr)
+  | LabeledPackageConstraint (PackageConstraint _ (PackagePropertyFlags fs)) _ <- lpc =
+    isVersionConstrainedWithFlags fs
+  | otherwise = False
 
 -- | Dump solver tree to a file (in debugging mode)
 --
