@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-'''
+"""
 Sphinx domain for documenting all things cabal
 
 The main reason to use this instead of adding object types to std domain
@@ -105,8 +105,7 @@ To be done:
   clutter.
   Can also be used to generate 'Whats new' reference page
 
-'''
-
+"""
 
 import re
 
@@ -127,6 +126,7 @@ from sphinx.roles import XRefRole
 from sphinx.util.docfields import Field, DocFieldTransformer
 from sphinx.util.nodes import make_refnode
 
+
 def parse_deprecated(txt):
     if txt is None:
         return True
@@ -135,24 +135,27 @@ def parse_deprecated(txt):
     except ValueError:
         return True
 
+
 def parse_flag(env, sig, signode):
     import re
+
     names = []
-    for i, flag in enumerate(sig.split(',')):
+    for i, flag in enumerate(sig.split(",")):
         flag = flag.strip()
-        sep = '='
-        parts = flag.split('=')
+        sep = "="
+        parts = flag.split("=")
         if len(parts) == 1:
-            sep=' '
+            sep = " "
             parts = flag.split()
-        if len(parts) == 0: continue
+        if len(parts) == 0:
+            continue
 
         name = parts[0]
         names.append(name)
-        sig = sep + ' '.join(parts[1:])
-        sig = re.sub(r'<([-a-zA-Z ]+)>', r'⟨\1⟩', sig)
+        sig = sep + " ".join(parts[1:])
+        sig = re.sub(r"<([-a-zA-Z ]+)>", r"⟨\1⟩", sig)
         if i > 0:
-            signode += addnodes.desc_name(', ', ', ')
+            signode += addnodes.desc_name(", ", ", ")
         signode += addnodes.desc_name(name, name)
         if len(sig) > 0:
             signode += addnodes.desc_addname(sig, sig)
@@ -161,17 +164,20 @@ def parse_flag(env, sig, signode):
 
 
 class Meta(object):
-    '''
+    """
     Meta data associated with object
-    '''
-    def __init__(self,
-                 since=None,
-                 deprecated=None,
-                 removed=None,
-                 synopsis=None,
-                 title=None,
-                 section=None,
-                 index=0):
+    """
+
+    def __init__(
+        self,
+        since=None,
+        deprecated=None,
+        removed=None,
+        synopsis=None,
+        title=None,
+        section=None,
+        index=0,
+    ):
         self.since = since
         self.deprecated = deprecated
         self.removed = removed
@@ -182,9 +188,9 @@ class Meta(object):
 
 
 def find_section_title(parent):
-    '''
+    """
     Find current section id and title if possible
-    '''
+    """
     while parent is not None:
         if isinstance(parent, nodes.section):
             break
@@ -193,8 +199,8 @@ def find_section_title(parent):
     if parent is None:
         return None
 
-    section_id = parent['ids'][0]
-    section_name = parent['names'][0]
+    section_id = parent["ids"][0]
+    section_name = parent["names"][0]
 
     for kid in parent:
         if isinstance(kid, nodes.title):
@@ -211,21 +217,22 @@ class CabalSection(Directive):
 
     Does not generate any output besides anchor.
     """
+
     has_content = False
     required_arguments = 1
     optional_arguments = 0
     final_argument_whitespace = True
     option_spec = {
-        'name': lambda x: x,
-        'deprecated': parse_deprecated,
-        'removed': Version,
-        'since' : Version,
-        'synopsis' : lambda x:x,
+        "name": lambda x: x,
+        "deprecated": parse_deprecated,
+        "removed": Version,
+        "since": Version,
+        "synopsis": lambda x: x,
     }
-    section_key = 'cabal:pkg-section'
-    target_prefix = 'pkg-section-'
-    indextemplate = ''
-    indextype = 'pair'
+    section_key = "cabal:pkg-section"
+    target_prefix = "pkg-section-"
+    indextemplate = ""
+    indextype = "pair"
 
     def get_index_entry(self, name):
         return self.indextemplate % name
@@ -234,25 +241,25 @@ class CabalSection(Directive):
         env = self.state.document.settings.env
         section = self.arguments[0].strip()
 
-        if ':' in self.name:
-            self.domain, self.objtype = self.name.split(':', 1)
+        if ":" in self.name:
+            self.domain, self.objtype = self.name.split(":", 1)
         else:
-            self.domain, self.objtype = '', self.name
+            self.domain, self.objtype = "", self.name
 
-        if section == 'None':
+        if section == "None":
             env.ref_context.pop(self.section_key, None)
             return []
 
         env.ref_context[self.section_key] = section
         targetname = self.target_prefix + section
-        node = nodes.target('', '', ids=[targetname])
+        node = nodes.target("", "", ids=[targetname])
         self.state.document.note_explicit_target(node)
 
         indexentry = self.get_index_entry(section)
 
         inode = addnodes.index(
-            entries = [
-                (self.indextype, indexentry, targetname, '', None)])
+            entries=[(self.indextype, indexentry, targetname, "", None)]
+        )
 
         # find title of parent section node
         title = find_section_title(self.state.parent)
@@ -260,17 +267,19 @@ class CabalSection(Directive):
         data_key = CabalDomain.types[self.objtype]
 
         # find how many sections in this document were added
-        num = env.domaindata['cabal']['index-num'].get(env.docname, 0)
-        env.domaindata['cabal']['index-num'][env.docname] = num + 1
+        num = env.domaindata["cabal"]["index-num"].get(env.docname, 0)
+        env.domaindata["cabal"]["index-num"][env.docname] = num + 1
 
-        meta = Meta(since=self.options.get('since'),
-                    deprecated=self.options.get('deprecated'),
-                    removed=self.options.get('removed'),
-                    synopsis=self.options.get('synopsis'),
-                    index = num,
-                    title = title)
+        meta = Meta(
+            since=self.options.get("since"),
+            deprecated=self.options.get("deprecated"),
+            removed=self.options.get("removed"),
+            synopsis=self.options.get("synopsis"),
+            index=num,
+            title=title,
+        )
 
-        store = env.domaindata['cabal'][data_key]
+        store = env.domaindata["cabal"][data_key]
         if not section in store:
             store[section] = env.docname, targetname, meta
 
@@ -279,97 +288,95 @@ class CabalSection(Directive):
 
 class CabalObject(ObjectDescription):
     option_spec = {
-        'noindex'   : directives.flag,
-        'deprecated': parse_deprecated,
-        'removed'   : Version,
-        'since'     : Version,
-        'synopsis'  : lambda x:x
+        "noindex": directives.flag,
+        "deprecated": parse_deprecated,
+        "removed": Version,
+        "since": Version,
+        "synopsis": lambda x: x,
     }
 
     # node attribute marking which section field belongs to
-    section_key = ''
+    section_key = ""
     # template for index, it is passed a field name as argument
     # used by default deg_index_entry method
-    indextemplate = ''
+    indextemplate = ""
 
     def get_meta(self):
-        '''
+        """
         Collect meta data for fields
 
         Reads optional arguments passed to directive and also
         tries to find current section title and adds it as section
-        '''
+        """
         env = self.state.document.settings.env
         # find title of current section, will group references page by it
-        num = env.domaindata['cabal']['index-num'].get(env.docname, 0)
-        env.domaindata['cabal']['index-num'][env.docname] = num + 1
+        num = env.domaindata["cabal"]["index-num"].get(env.docname, 0)
+        env.domaindata["cabal"]["index-num"][env.docname] = num + 1
 
         title = find_section_title(self.state.parent)
-        return Meta(since=self.options.get('since'),
-                    deprecated=self.options.get('deprecated'),
-                    removed=self.options.get('removed'),
-                    title=title,
-                    index = num,
-                    synopsis=self.options.get('synopsis'))
+        return Meta(
+            since=self.options.get("since"),
+            deprecated=self.options.get("deprecated"),
+            removed=self.options.get("removed"),
+            title=title,
+            index=num,
+            synopsis=self.options.get("synopsis"),
+        )
 
     def get_env_key(self, env, name):
-        '''
+        """
         Should return a key used to reference this field and key in domain
         data to store this object
-        '''
+        """
         section = self.env.ref_context.get(self.section_key)
         store = CabalDomain.types[self.objtype]
         return (section, name), store
 
     def get_index_entry(self, env, name):
-        '''
+        """
         Should return index entry and anchor
 
         By default uses indextemplate attribute to generate name and
         index entry by joining directive name, section and field name
-        '''
+        """
         section = self.env.ref_context.get(self.section_key)
 
         if section is not None:
             parts = (self.objtype, section, name)
-            indexentry = self.indextemplate % (section + ':' + name)
+            indexentry = self.indextemplate % (section + ":" + name)
         else:
             parts = (self.objtype, name)
             indexentry = self.indextemplate % name
 
-        targetname = '-'.join(parts)
+        targetname = "-".join(parts)
         return indexentry, targetname
 
-
     def add_target_and_index(self, name, sig, signode):
-        '''
+        """
         As in sphinx.directive.ObjectDescription
 
         By default adds 'pair' index as returned by get_index_entry and
         stores object data into domain data store as returned by get_env_data
-        '''
+        """
         env = self.state.document.settings.env
 
         indexentry, targetname = self.get_index_entry(self, name)
 
-        signode['ids'].append(targetname)
+        signode["ids"].append(targetname)
         self.state.document.note_explicit_target(signode)
 
-        inode = addnodes.index(
-            entries=[('pair', indexentry, targetname, '', None)])
+        inode = addnodes.index(entries=[("pair", indexentry, targetname, "", None)])
         signode.insert(0, inode)
 
         key, store = self.get_env_key(env, name)
-        env.domaindata['cabal'][store][key] = env.docname, targetname, self.cabal_meta
+        env.domaindata["cabal"][store][key] = env.docname, targetname, self.cabal_meta
 
     def run(self):
         self.cabal_meta = self.get_meta()
         result = super(CabalObject, self).run()
 
-        if self.cabal_meta.since is not None \
-           or self.cabal_meta.deprecated is not None:
-
-            #find content part of description
+        if self.cabal_meta.since is not None or self.cabal_meta.deprecated is not None:
+            # find content part of description
             for item in result:
                 if isinstance(item, addnodes.desc):
                     desc = item
@@ -391,27 +398,26 @@ class CabalObject(ObjectDescription):
                     field_list = item
                     break
             else:
-                field_list = nodes.field_list('')
+                field_list = nodes.field_list("")
                 contents.insert(0, field_list)
 
-
             if self.cabal_meta.since is not None:
-                #docutils horror
-                field = nodes.field('')
-                field_name = nodes.field_name('Since', 'Since')
-                since = 'Cabal ' + str(self.cabal_meta.since)
+                # docutils horror
+                field = nodes.field("")
+                field_name = nodes.field_name("Since", "Since")
+                since = "Cabal " + str(self.cabal_meta.since)
                 field_body = nodes.field_body(since, nodes.paragraph(since, since))
                 field += field_name
                 field += field_body
                 field_list.insert(0, field)
 
             if self.cabal_meta.deprecated is not None:
-                field = nodes.field('')
-                field_name = nodes.field_name('Deprecated', 'Deprecated')
+                field = nodes.field("")
+                field_name = nodes.field_name("Deprecated", "Deprecated")
                 if isinstance(self.cabal_meta.deprecated, Version):
-                    since = 'Cabal ' + str(self.cabal_meta.deprecated)
+                    since = "Cabal " + str(self.cabal_meta.deprecated)
                 else:
-                    since = ''
+                    since = ""
 
                 field_body = nodes.field_body(since, nodes.paragraph(since, since))
                 field += field_name
@@ -419,12 +425,12 @@ class CabalObject(ObjectDescription):
                 field_list.insert(0, field)
 
             if self.cabal_meta.removed is not None:
-                field = nodes.field('')
-                field_name = nodes.field_name('Removed', 'Removed')
+                field = nodes.field("")
+                field_name = nodes.field_name("Removed", "Removed")
                 if isinstance(self.cabal_meta.removed, Version):
-                    since = 'Cabal ' + str(self.cabal_meta.removed)
+                    since = "Cabal " + str(self.cabal_meta.removed)
                 else:
-                    since = ''
+                    since = ""
 
                 field_body = nodes.field_body(since, nodes.paragraph(since, since))
                 field += field_name
@@ -432,27 +438,29 @@ class CabalObject(ObjectDescription):
                 field_list.insert(0, field)
         return result
 
+
 class CabalPackageSection(CabalObject):
     """
     Cabal section in package.cabal file
     """
-    section_key = 'cabal:pkg-section'
-    indextemplate = '%s; package.cabal section'
+
+    section_key = "cabal:pkg-section"
+    indextemplate = "%s; package.cabal section"
 
     def handle_signature(self, sig, signode):
-        '''
+        """
         As in sphinx.directives.ObjectDescription
 
         By default make an object description from name and adding
         either deprecated or since as annotation.
-        '''
+        """
         env = self.state.document.settings.env
 
         sig = sig.strip()
-        parts = sig.split(' ',1)
+        parts = sig.split(" ", 1)
         name = parts[0]
         signode += addnodes.desc_name(name, name)
-        signode += addnodes.desc_addname(' ', ' ')
+        signode += addnodes.desc_addname(" ", " ")
         if len(parts) > 1:
             rest = parts[1].strip()
             signode += addnodes.desc_annotation(rest, rest)
@@ -465,44 +473,45 @@ class CabalPackageSection(CabalObject):
 
     def run(self):
         env = self.state.document.settings.env
-        section = self.arguments[0].strip().split(' ',1)[0]
-        if section == 'None':
-            env.ref_context.pop('cabal:pkg-section', None)
+        section = self.arguments[0].strip().split(" ", 1)[0]
+        if section == "None":
+            env.ref_context.pop("cabal:pkg-section", None)
             return []
-        env.ref_context['cabal:pkg-section'] = section
+        env.ref_context["cabal:pkg-section"] = section
         return super(CabalPackageSection, self).run()
 
 
 class CabalField(CabalObject):
-    '''
+    """
     Base for fields in *.cabal files
-    '''
+    """
+
     option_spec = {
-        'noindex'   : directives.flag,
-        'deprecated': parse_deprecated,
-        'removed'   : Version,
-        'since'     : Version,
-        'synopsis'  : lambda x:x
+        "noindex": directives.flag,
+        "deprecated": parse_deprecated,
+        "removed": Version,
+        "since": Version,
+        "synopsis": lambda x: x,
     }
 
     doc_field_types = [
-        Field('default', label='Default value', names=['default'], has_arg=False)
+        Field("default", label="Default value", names=["default"], has_arg=False)
     ]
 
     def handle_signature(self, sig, signode):
-        '''
+        """
         As in sphinx.directives.ObjectDescription
 
         By default make an object description from name and adding
         either deprecated or since as annotation.
-        '''
+        """
         env = self.state.document.settings.env
 
         sig = sig.strip()
-        parts = sig.split(':',1)
+        parts = sig.split(":", 1)
         name = parts[0]
         signode += addnodes.desc_name(name, name)
-        signode += addnodes.desc_addname(': ', ': ')
+        signode += addnodes.desc_addname(": ", ": ")
 
         if len(parts) > 1:
             rest = parts[1].strip()
@@ -510,24 +519,29 @@ class CabalField(CabalObject):
 
         return name
 
+
 class CabalPackageField(CabalField):
-    '''
+    """
     Describes section in package.cabal file
-    '''
-    section_key = 'cabal:pkg-section'
-    indextemplate = '%s; package.cabal field'
+    """
+
+    section_key = "cabal:pkg-section"
+    indextemplate = "%s; package.cabal field"
+
 
 class CabalFieldXRef(XRefRole):
-    '''
+    """
     Cross ref node for all kinds of fields
 
     Gets section_key entry from context and stores it on node, so it can
     later be used by CabalDomain.resolve_xref to find target for reference to
     this
-    '''
-    section_key = 'cabal:pkg-section'
+    """
+
+    section_key = "cabal:pkg-section"
+
     def process_link(self, env, refnode, has_explicit_title, title, target):
-        parts = target.split(':',1)
+        parts = target.split(":", 1)
         if len(parts) == 2:
             section, target = parts
             section = section.strip()
@@ -538,38 +552,43 @@ class CabalFieldXRef(XRefRole):
 
         return title, target
 
+
 #
 # Directives for config files.
 #
 
+
 class CabalPackageFieldXRef(CabalFieldXRef):
-    '''
+    """
     Role referencing cabal.project section
-    '''
-    section_key = 'cabal:pkg-section'
+    """
+
+    section_key = "cabal:pkg-section"
+
 
 class CabalConfigSection(CabalObject):
     """
     Marks section in package.cabal file
     """
-    indextemplate = '%s; cabal.project section'
-    section_key = 'cabal:cfg-section'
-    target_prefix = 'cfg-section-'
+
+    indextemplate = "%s; cabal.project section"
+    section_key = "cabal:cfg-section"
+    target_prefix = "cfg-section-"
 
     def handle_signature(self, sig, signode):
-        '''
+        """
         As in sphinx.directives.ObjectDescription
 
         By default make an object description from name and adding
         either deprecated or since as annotation.
-        '''
+        """
         env = self.state.document.settings.env
 
         sig = sig.strip()
-        parts = sig.split(' ',1)
+        parts = sig.split(" ", 1)
         name = parts[0]
         signode += addnodes.desc_name(name, name)
-        signode += addnodes.desc_addname(' ', ' ')
+        signode += addnodes.desc_addname(" ", " ")
         if len(parts) > 1:
             rest = parts[1].strip()
             signode += addnodes.desc_annotation(rest, rest)
@@ -582,19 +601,21 @@ class CabalConfigSection(CabalObject):
 
     def run(self):
         env = self.state.document.settings.env
-        section = self.arguments[0].strip().split(' ',1)[0]
-        if section == 'None':
-            env.ref_context.pop('cabal:cfg-section', None)
+        section = self.arguments[0].strip().split(" ", 1)[0]
+        if section == "None":
+            env.ref_context.pop("cabal:cfg-section", None)
             return []
-        env.ref_context['cabal:cfg-section'] = section
+        env.ref_context["cabal:cfg-section"] = section
         return super(CabalConfigSection, self).run()
 
+
 class ConfigField(CabalField):
-    section_key = 'cabal:cfg-section'
-    indextemplate = '%s ; cabal project option'
+    section_key = "cabal:cfg-section"
+    indextemplate = "%s ; cabal project option"
+
     def handle_signature(self, sig, signode):
         sig = sig.strip()
-        if sig.startswith('-'):
+        if sig.startswith("-"):
             name = parse_flag(self, sig, signode)
         else:
             name = super(ConfigField, self).handle_signature(sig, signode)
@@ -602,36 +623,38 @@ class ConfigField(CabalField):
         return name
 
     def get_index_entry(self, env, name):
-        if name.startswith('-'):
+        if name.startswith("-"):
             section = self.env.ref_context.get(self.section_key)
             if section is not None:
-                parts = ('cfg-flag', section, name)
-                indexname = section + ':' + name
+                parts = ("cfg-flag", section, name)
+                indexname = section + ":" + name
             else:
-                parts = ('cfg-flag', name)
+                parts = ("cfg-flag", name)
                 indexname = name
-            indexentry = name + '; cabal project option'
-            targetname = '-'.join(parts)
+            indexentry = name + "; cabal project option"
+            targetname = "-".join(parts)
             return indexentry, targetname
         else:
-            return super(ConfigField,self).get_index_entry(env, name)
+            return super(ConfigField, self).get_index_entry(env, name)
 
     def get_env_key(self, env, name):
         section = self.env.ref_context.get(self.section_key)
-        if name.startswith('-'):
-            return (section, name), 'cfg-flags'
-        return (section, name), 'cfg-fields'
+        if name.startswith("-"):
+            return (section, name), "cfg-flags"
+        return (section, name), "cfg-fields"
+
 
 class CabalConfigFieldXRef(CabalFieldXRef):
-    section_key = 'cabal:cfg-section'
+    section_key = "cabal:cfg-section"
 
 
 #
 # Cabal domain
 #
 
+
 class ConfigFieldIndex(Index):
-    name = 'syntax-quicklinks'
+    name = "syntax-quicklinks"
     localname = "Cabal Syntax Quicklinks"
     shortname = "Quicklinks"
 
@@ -644,9 +667,10 @@ class ConfigFieldIndex(Index):
             self.meta = meta
 
     def _gather_data(self, obj_types):
-        '''
+        """
         Gather objects and return [(title, [Entry])]
-        '''
+        """
+
         def massage(typ, datum):
             name, (doc, anchor, meta) = datum
             return self.Entry(typ, name, doc, anchor, meta)
@@ -654,8 +678,7 @@ class ConfigFieldIndex(Index):
         fields = []
         for typ in obj_types:
             store = CabalDomain.types[typ]
-            fields += [massage(typ, x)
-                      for x in self.domain.data[store].items()]
+            fields += [massage(typ, x) for x in self.domain.data[store].items()]
 
         fields.sort(key=lambda x: (x.doc, x.meta.index))
 
@@ -675,9 +698,8 @@ class ConfigFieldIndex(Index):
 
         return result
 
-
     def generate(self, docnames=None):
-        '''
+        """
         Try to group entries such that if entry has a section then put it
         into same group.
 
@@ -690,34 +712,36 @@ class ConfigFieldIndex(Index):
 
         TODO: Check how to extract section numbers from (document,doc_section)
               and add it as annotation to titles
-        '''
+        """
 
         # (title, section store, fields store)
-        entries = [('cabal.project fields', 'cfg-section', 'cfg-field'),
-                   ('cabal project flags', 'cfg-section', 'cfg-flag'),
-                   ('package.cabal fields', 'pkg-section', 'pkg-field')]
+        entries = [
+            ("cabal.project fields", "cfg-section", "cfg-field"),
+            ("cabal project flags", "cfg-section", "cfg-flag"),
+            ("package.cabal fields", "pkg-section", "pkg-field"),
+        ]
 
         result = []
         for label, section_key, key in entries:
-
             data = self._gather_data([section_key, key])
 
             references = []
             for section, entries in data:
                 if section is None:
-                    elem_type = 0 # Normal entry
+                    elem_type = 0  # Normal entry
                 else:
-                    elem_type = 2 # sub_entry
+                    elem_type = 2  # sub_entry
 
                 assert len(entries) != 0
                 docname = entries[0].doc
                 if section is not None:
                     section_title, section_anchor = section
                     references.append(
-                        (section_title, 1, docname, section_anchor, '', '', ''))
+                        (section_title, 1, docname, section_anchor, "", "", "")
+                    )
 
                 for entry in entries:
-                    #todo deal with if
+                    # todo deal with if
                     if isinstance(entry.name, tuple):
                         name = entry.name[1]
                     else:
@@ -725,27 +749,26 @@ class ConfigFieldIndex(Index):
 
                     meta = entry.meta
                     extra = render_meta(meta)
-                    descr = meta.synopsis if meta.synopsis is not None else ''
-                    field = (name, elem_type, docname,
-                             entry.anchor, extra, '', descr)
+                    descr = meta.synopsis if meta.synopsis is not None else ""
+                    field = (name, elem_type, docname, entry.anchor, extra, "", descr)
                     references.append(field)
             result.append((label, references))
 
         return result, False
 
+
 def make_data_keys(typ, target, node):
-    '''
+    """
     Returns a list of keys to search for targets of this type
     in domain data.
 
     Used for resolving references
-    '''
-    if typ == 'pkg-field':
-        section = node.get('cabal:pkg-section')
-        return [(section, target),
-                (None, target)]
-    elif typ in ('cfg-field', 'cfg-flag'):
-        section = node.get('cabal:cfg-section')
+    """
+    if typ == "pkg-field":
+        section = node.get("cabal:pkg-section")
+        return [(section, target), (None, target)]
+    elif typ in ("cfg-field", "cfg-flag"):
+        section = node.get("cabal:cfg-section")
         return [(section, target), (None, target)]
     else:
         return [target]
@@ -753,48 +776,52 @@ def make_data_keys(typ, target, node):
 
 def render_deprecated(deprecated):
     if isinstance(deprecated, Version):
-        return 'deprecated since: '+str(deprecated)
+        return "deprecated since: " + str(deprecated)
     else:
-        return 'deprecated'
+        return "deprecated"
+
 
 def render_removed(deprecated, removed):
     if isinstance(deprecated, Version):
-        return 'removed in: ' + str(removed) + '; deprecated since: '+str(deprecated)
+        return "removed in: " + str(removed) + "; deprecated since: " + str(deprecated)
     else:
-        return 'removed in: ' + str(removed)
+        return "removed in: " + str(removed)
+
 
 def render_meta(meta):
-    '''
+    """
     Render meta as short text
 
     Will render either deprecated or since info
-    '''
+    """
     if meta.removed is not None:
         return render_removed(meta.deprecated, meta.removed)
     if meta.deprecated is not None:
         return render_deprecated(meta.deprecated)
     elif meta.since is not None:
-        return 'since version: ' + str(meta.since)
+        return "since version: " + str(meta.since)
     else:
-        return ''
+        return ""
+
 
 def render_meta_title(meta):
-    '''
+    """
     Render meta as suitable to use in titles
-    '''
+    """
     rendered = render_meta(meta)
-    if rendered != '':
-        return '(' + rendered + ')'
-    return ''
+    if rendered != "":
+        return "(" + rendered + ")"
+    return ""
+
 
 def make_title(typ, key, meta):
-    '''
+    """
     Render title of an object (section, field or flag)
-    '''
-    if typ == 'pkg-section':
+    """
+    if typ == "pkg-section":
         return "package.cabal " + key + " section " + render_meta_title(meta)
 
-    elif typ == 'pkg-field':
+    elif typ == "pkg-field":
         section, name = key
         if section is not None:
             base = "package.cabal " + section + " section " + name + ": field"
@@ -803,92 +830,99 @@ def make_title(typ, key, meta):
 
         return base + render_meta_title(meta)
 
-    elif typ == 'cfg-section':
+    elif typ == "cfg-section":
         return "cabal.project " + key + " section " + render_meta_title(meta)
 
-    elif typ == 'cfg-field':
+    elif typ == "cfg-field":
         section, name = key
         return "cabal.project " + name + " field " + render_meta_title(meta)
 
-    elif typ == 'cfg-flag':
+    elif typ == "cfg-flag":
         section, name = key
         return "cabal flag " + name + " " + render_meta_title(meta)
 
     else:
         raise ValueError("Unknown type: " + typ)
 
+
 def make_full_name(typ, key, meta):
-    '''
+    """
     Return an anchor name for object type
-    '''
-    if typ == 'pkg-section':
-        return 'pkg-section-' + key
+    """
+    if typ == "pkg-section":
+        return "pkg-section-" + key
 
-    elif typ == 'cfg-section':
-        return 'cfg-section-' + key
+    elif typ == "cfg-section":
+        return "cfg-section-" + key
 
-    elif typ == 'pkg-field':
+    elif typ == "pkg-field":
         section, name = key
         if section is not None:
-            return '-'.join(('pkg-field',section, name))
+            return "-".join(("pkg-field", section, name))
         else:
-            return 'pkg-field-' + name
+            return "pkg-field-" + name
 
-    elif typ == 'cfg-field':
-        return 'cfg-field-' + key
+    elif typ == "cfg-field":
+        return "cfg-field-" + key
 
     else:
-        raise ValueError('Unknown object type: ' + typ)
+        raise ValueError("Unknown object type: " + typ)
+
 
 class CabalDomain(Domain):
-    '''
+    """
     Sphinx domain for cabal
 
     needs Domain.merge_doc for parallel building, just union all dicts
-    '''
-    name = 'cabal'
-    label = 'Cabal'
+    """
+
+    name = "cabal"
+    label = "Cabal"
     object_types = {
-        'pkg-section': ObjType(_('pkg-section'), 'pkg-section'),
-        'pkg-field'  : ObjType(_('pkg-field')  , 'pkg-field'  ),
-        'cfg-section': ObjType(_('cfg-section'), 'cfg-section'),
-        'cfg-field'  : ObjType(_('cfg-field')  , 'cfg-field' ),
+        "pkg-section": ObjType(_("pkg-section"), "pkg-section"),
+        "pkg-field": ObjType(_("pkg-field"), "pkg-field"),
+        "cfg-section": ObjType(_("cfg-section"), "cfg-section"),
+        "cfg-field": ObjType(_("cfg-field"), "cfg-field"),
     }
     directives = {
-        'pkg-section': CabalPackageSection,
-        'pkg-field'  : CabalPackageField,
-        'cfg-section': CabalConfigSection,
-        'cfg-field'  : ConfigField,
+        "pkg-section": CabalPackageSection,
+        "pkg-field": CabalPackageField,
+        "cfg-section": CabalConfigSection,
+        "cfg-field": ConfigField,
     }
     roles = {
-        'pkg-section': XRefRole(warn_dangling=True),
-        'pkg-field'  : CabalPackageFieldXRef(warn_dangling=True),
-        'cfg-section': XRefRole(warn_dangling=True),
-        'cfg-field'  : CabalConfigFieldXRef(warn_dangling=True),
-        'cfg-flag'   : CabalConfigFieldXRef(warn_dangling=True),
+        "pkg-section": XRefRole(warn_dangling=True),
+        "pkg-field": CabalPackageFieldXRef(warn_dangling=True),
+        "cfg-section": XRefRole(warn_dangling=True),
+        "cfg-field": CabalConfigFieldXRef(warn_dangling=True),
+        "cfg-flag": CabalConfigFieldXRef(warn_dangling=True),
     }
     initial_data = {
-        'pkg-sections': {},
-        'pkg-fields'  : {},
-        'cfg-sections': {},
-        'index-num'   : {}, #per document number of objects
-                            # used to order references page
-        'cfg-fields'  : {},
-        'cfg-flags'   : {},
+        "pkg-sections": {},
+        "pkg-fields": {},
+        "cfg-sections": {},
+        "index-num": {},  # per document number of objects
+        # used to order references page
+        "cfg-fields": {},
+        "cfg-flags": {},
     }
-    indices = [
-        ConfigFieldIndex
-    ]
+    indices = [ConfigFieldIndex]
     types = {
-        'pkg-section': 'pkg-sections',
-        'pkg-field'  : 'pkg-fields',
-        'cfg-section': 'cfg-sections',
-        'cfg-field'  : 'cfg-fields',
-        'cfg-flag'   : 'cfg-flags',
+        "pkg-section": "pkg-sections",
+        "pkg-field": "pkg-fields",
+        "cfg-section": "cfg-sections",
+        "cfg-field": "cfg-fields",
+        "cfg-flag": "cfg-flags",
     }
+
     def clear_doc(self, docname):
-        for k in ['pkg-sections', 'pkg-fields', 'cfg-sections',
-                  'cfg-fields', 'cfg-flags']:
+        for k in [
+            "pkg-sections",
+            "pkg-fields",
+            "cfg-sections",
+            "cfg-fields",
+            "cfg-flags",
+        ]:
             to_del = []
             for name, (fn, _, _) in self.data[k].items():
                 if fn == docname:
@@ -896,17 +930,17 @@ class CabalDomain(Domain):
             for name in to_del:
                 del self.data[k][name]
         try:
-            del self.data['index-num'][docname]
+            del self.data["index-num"][docname]
         except KeyError:
             pass
 
     def resolve_xref(self, env, fromdocname, builder, type, target, node, contnode):
         objtypes = self.objtypes_for_role(type)
-        for typ, key in ((typ, key)
-                         for typ in objtypes
-                         for key in make_data_keys(typ, target, node)):
+        for typ, key in (
+            (typ, key) for typ in objtypes for key in make_data_keys(typ, target, node)
+        ):
             try:
-                data = env.domaindata['cabal'][self.types[typ]][key]
+                data = env.domaindata["cabal"][self.types[typ]][key]
             except KeyError:
                 continue
             doc, ref, meta = data
@@ -914,39 +948,43 @@ class CabalDomain(Domain):
             return make_refnode(builder, fromdocname, doc, ref, contnode, title)
 
     def get_objects(self):
-        '''
+        """
         Used for search functionality
-        '''
-        for typ in ['pkg-section', 'pkg-field',
-                    'cfg-section', 'cfg-field', 'cfg-flag']:
+        """
+        for typ in ["pkg-section", "pkg-field", "cfg-section", "cfg-field", "cfg-flag"]:
             key = self.types[typ]
             for name, (fn, target, meta) in self.data[key].items():
                 title = make_title(typ, name, meta)
                 yield title, title, typ, fn, target, 0
 
+
 class CabalLexer(lexer.RegexLexer):
-    '''
+    """
     Basic cabal lexer, does not try to be smart
-    '''
-    name = 'Cabal'
-    aliases = ['cabal']
-    filenames = ['.cabal']
+    """
+
+    name = "Cabal"
+    aliases = ["cabal"]
+    filenames = [".cabal"]
     flags = re.MULTILINE
 
     tokens = {
-      'root' : [
-          (r'^(\s*)(--.*)$', lexer.bygroups(token.Whitespace, token.Comment.Single)),
-          # key: value
-          (r'^(\s*)([\w\-_]+)(:)',
-           lexer.bygroups(token.Whitespace, token.Keyword, token.Punctuation)),
-          (r'^([\w\-_]+)', token.Keyword), # library, executable, flag etc.
-          (r'[^\S\n]+', token.Text),
-          (r'&&|\|\||==|<=|\^>=|>=|<|>', token.Operator),
-          (r',|:|{|}', token.Punctuation),
-          (r'.', token.Text)
-      ],
+        "root": [
+            (r"^(\s*)(--.*)$", lexer.bygroups(token.Whitespace, token.Comment.Single)),
+            # key: value
+            (
+                r"^(\s*)([\w\-_]+)(:)",
+                lexer.bygroups(token.Whitespace, token.Keyword, token.Punctuation),
+            ),
+            (r"^([\w\-_]+)", token.Keyword),  # library, executable, flag etc.
+            (r"[^\S\n]+", token.Text),
+            (r"&&|\|\||==|<=|\^>=|>=|<|>", token.Operator),
+            (r",|:|{|}", token.Punctuation),
+            (r".", token.Text),
+        ],
     }
+
 
 def setup(app):
     app.add_domain(CabalDomain)
-    app.add_lexer('cabal', CabalLexer)
+    app.add_lexer("cabal", CabalLexer)
