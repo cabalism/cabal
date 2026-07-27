@@ -142,9 +142,10 @@ def parse_flag(env, sig, signode):
         sep = '='
         parts = flag.split('=')
         if len(parts) == 1:
-            sep=' '
+            sep = ' '
             parts = flag.split()
-        if len(parts) == 0: continue
+        if len(parts) == 0:
+            continue
 
         name = parts[0]
         names.append(name)
@@ -618,7 +619,7 @@ class ConfigField(CabalField):
             targetname = '-'.join(parts)
             return indexentry, targetname
         else:
-            return super(ConfigField,self).get_index_entry(env, name)
+            return super(ConfigField, self).get_index_entry(env, name)
 
     def get_env_key(self, env, name):
         section = self.env.ref_context.get(self.section_key)
