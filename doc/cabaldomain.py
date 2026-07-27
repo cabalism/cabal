@@ -136,7 +136,6 @@ def parse_deprecated(txt):
         return True
 
 def parse_flag(env, sig, signode):
-    import re
     names = []
     for i, flag in enumerate(sig.split(',')):
         flag = flag.strip()
@@ -200,7 +199,6 @@ def find_section_title(parent):
         if isinstance(kid, nodes.title):
             return kid.astext(), section_id
 
-    print(section_name, section_id)
     return section_name, section_id
 
 
@@ -592,7 +590,15 @@ class CabalConfigSection(CabalObject):
 class ConfigField(CabalField):
     section_key = 'cabal:cfg-section'
     indextemplate = '%s ; cabal project option'
+
     def handle_signature(self, sig, signode):
+        '''
+        Parse cabal.project options.
+
+        Leading `-` indicates command-line flags (possibly comma-separated),
+        which are rendered and indexed as `cfg-flag`; everything else is a
+        regular `cfg-field`.
+        '''
         sig = sig.strip()
         if sig.startswith('-'):
             name = parse_flag(self, sig, signode)
@@ -606,10 +612,8 @@ class ConfigField(CabalField):
             section = self.env.ref_context.get(self.section_key)
             if section is not None:
                 parts = ('cfg-flag', section, name)
-                indexname = section + ':' + name
             else:
                 parts = ('cfg-flag', name)
-                indexname = name
             indexentry = name + '; cabal project option'
             targetname = '-'.join(parts)
             return indexentry, targetname
