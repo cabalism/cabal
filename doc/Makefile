@@ -28,6 +28,19 @@ $(USERGUIDE_STAMP) : *.rst
 	&& uv sync \
 	&& uv run sphinx-build $(SPHINX_FLAGS) . $(SPHINX_HTML_OUTDIR)
 
+# Python style
+##############################################################################
+
+.PHONY: style-py
+style-py:
+	uv sync \
+	&& uv run ruff format conf.py cabaldomain.py
+
+.PHONY: style-py-check
+style-py-check:
+	uv sync \
+	&& uv run ruff format --check conf.py cabaldomain.py
+
 # Requirements
 ##############################################################################
 
