@@ -8,7 +8,6 @@ module Distribution.Types.DumpBuildInfo
 
 import Distribution.Compat.Prelude (Binary, Generic, NFData, Structured)
 import Distribution.Parsec (CabalParsing, Parsec (..))
-import Distribution.Simple.Flag (NoFlagValue (..))
 
 data DumpBuildInfo
   = NoDumpBuildInfo
@@ -18,10 +17,6 @@ data DumpBuildInfo
 instance Binary DumpBuildInfo
 instance NFData DumpBuildInfo
 instance Structured DumpBuildInfo
-
-instance NoFlagValue DumpBuildInfo where
-  noFlagValue :: DumpBuildInfo
-  noFlagValue = NoDumpBuildInfo
 
 instance Parsec DumpBuildInfo where
   parsec :: CabalParsing m => m DumpBuildInfo
