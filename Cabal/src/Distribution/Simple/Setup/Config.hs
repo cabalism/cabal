@@ -574,14 +574,14 @@ configureOptions showOrParseArgs =
           (\v flags -> flags{configOptimization = v})
           [ optArg'
               "n"
-              (Flag . maybe noFlagValue fromString)
+              (Flag . maybe NormalOptimisation fromString)
               ( \case
                   NoFlag -> []
                   Flag flag -> [Just $ O.toString flag]
               )
               "O"
               ["enable-optimization", "enable-optimisation"]
-              (printf "Build with optimization (n is %s--%s, default is %s)" (O.toString minBound) (O.toString maxBound) (O.toString noFlagValue))
+              (printf "Build with optimization (n is %s--%s, default is %s)" (O.toString minBound) (O.toString maxBound) (O.toString NormalOptimisation))
           , noArg
               (Flag NoOptimisation)
               []

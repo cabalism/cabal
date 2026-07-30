@@ -15,7 +15,6 @@ import Distribution.Parsec (CabalParsing, Parsec (..))
 import Prelude ()
 
 import Data.Bool (bool)
-import Distribution.Simple.Flag (NoFlagValue (..))
 
 -- | Some compilers support optimising. Some have different levels.
 -- For compilers that do not the level is just capped to the level
@@ -29,10 +28,6 @@ data OptimisationLevel
 instance Binary OptimisationLevel
 instance NFData OptimisationLevel
 instance Structured OptimisationLevel
-
-instance NoFlagValue OptimisationLevel where
-  noFlagValue :: OptimisationLevel
-  noFlagValue = NormalOptimisation
 
 instance Parsec OptimisationLevel where
   parsec :: CabalParsing m => m OptimisationLevel
