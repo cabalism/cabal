@@ -594,14 +594,14 @@ configureOptions showOrParseArgs =
           (\v flags -> flags{configDebugInfo = v})
           [ optArg'
               "n"
-              (Flag . maybe noFlagValue fromString)
+              (Flag . maybe NoDebugInfo fromString)
               ( \case
                   NoFlag -> []
                   Flag flag -> [Just $ D.toString flag]
               )
               "g"
               ["enable-debug-info"]
-              (printf "Emit debug info (n is  %s--%s, default is %s)" (D.toString minBound) (D.toString maxBound) (D.toString noFlagValue))
+              (printf "Emit debug info (n is  %s--%s, default is %s)" (D.toString minBound) (D.toString maxBound) (D.toString NoDebugInfo))
           , noArg
               (Flag NoDebugInfo)
               []

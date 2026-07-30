@@ -15,7 +15,6 @@ import Distribution.Parsec (CabalParsing, Parsec (..))
 import Prelude ()
 
 import Data.Bool (bool)
-import Distribution.Simple.Flag (NoFlagValue (..))
 
 -- | Some compilers support emitting debug info. Some have different
 -- levels.  For compilers that do not the level is just capped to the
@@ -30,10 +29,6 @@ data DebugInfoLevel
 instance Binary DebugInfoLevel
 instance NFData DebugInfoLevel
 instance Structured DebugInfoLevel
-
-instance NoFlagValue DebugInfoLevel where
-  noFlagValue :: DebugInfoLevel
-  noFlagValue = NoDebugInfo
 
 instance Parsec DebugInfoLevel where
   parsec :: CabalParsing m => m DebugInfoLevel
