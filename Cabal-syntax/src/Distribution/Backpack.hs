@@ -180,10 +180,7 @@ instance Pretty OpenModule where
 instance Parsec OpenModule where
   parsec = parsecModuleVar <|> parsecOpenModule
     where
-      parsecOpenModule = do
-        uid <- parsec
-        _ <- P.char ':'
-        OpenModule uid <$> parsec
+      parsecOpenModule = OpenModule <$> parsec <* P.char ':' <*> parsec
 
       parsecModuleVar = do
         _ <- P.char '<'
