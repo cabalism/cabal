@@ -112,9 +112,7 @@ instance Parsec LicenseExpression where
     where
       expr = compoundOr
 
-      simple = do
-        s <- parsec
-        ELicense s <$> exception
+      simple = ELicense <$> parsec <*> exception
 
       exception = P.optional $ P.try (spaces1 *> P.string "WITH" *> spaces1) *> parsec
 
