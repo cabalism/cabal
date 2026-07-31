@@ -32,10 +32,7 @@ instance Pretty Module where
     pretty uid <<>> Disp.text ":" <<>> pretty mod_name
 
 instance Parsec Module where
-  parsec = do
-    uid <- parsec
-    _ <- P.char ':'
-    Module uid <$> parsec
+  parsec = Module <$> parsec <* P.char ':' <*> parsec
 
 instance NFData Module where
   rnf (Module uid mod_name) = rnf uid `seq` rnf mod_name
