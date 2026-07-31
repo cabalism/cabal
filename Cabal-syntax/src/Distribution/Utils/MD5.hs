@@ -54,9 +54,7 @@ binaryPutMD5 (Fingerprint a b) = do
 
 -- | @since 3.2.0.0
 binaryGetMD5 :: Get MD5
-binaryGetMD5 = do
-  a <- getWord64le
-  Fingerprint a <$> getWord64le
+binaryGetMD5 = Fingerprint <$> getWord64le <*> getWord64le
 
 -- |
 --
