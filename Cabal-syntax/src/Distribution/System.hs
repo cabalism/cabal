@@ -294,10 +294,7 @@ instance Parsec Platform where
   -- We could support that preferring variants 'OtherOS' or 'OtherArch'
   --
   -- For now we split into arch and os parts on the first dash.
-  parsec = do
-    arch <- parsecDashlessArch
-    _ <- P.char '-'
-    Platform arch <$> parsec
+  parsec = Platform <$> parsecDashlessArch <* P.char '-' <*> parsec
     where
       parsecDashlessArch = classifyArch Strict <$> dashlessIdent
 
