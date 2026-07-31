@@ -181,12 +181,7 @@ instance Parsec OpenModule where
   parsec = parsecModuleVar <|> parsecOpenModule
     where
       parsecOpenModule = OpenModule <$> parsec <* P.char ':' <*> parsec
-
-      parsecModuleVar = do
-        _ <- P.char '<'
-        mod_name <- parsec
-        _ <- P.char '>'
-        return (OpenModuleVar mod_name)
+      parsecModuleVar = OpenModuleVar <$ P.char '<' <*> parsec <* P.char '>'
 
 -- | Get the set of holes ('ModuleVar') embedded in a 'Module'.
 openModuleFreeHoles :: OpenModule -> Set ModuleName
