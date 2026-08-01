@@ -44,7 +44,9 @@ import Distribution.Client.Setup
   )
 import Distribution.Simple.Command
   ( CommandUI (..)
+  , ShowOrParseArgs (..)
   , option
+  , sectionHeader
   , usageAlternatives
   )
 import Distribution.Simple.Flag (Flag, fromFlag, toFlag)
@@ -103,14 +105,26 @@ buildCommand =
         removeIgnoreProjectOption
           . nixStyleOptions
             ( \showOrParseArgs ->
-                [ option
-                    []
-                    ["only-configure"]
-                    "Instead of performing a full build just run the configure step"
-                    buildOnlyConfigure
-                    (\v flags -> flags{buildOnlyConfigure = v})
-                    (yesNoOpt showOrParseArgs)
-                ]
+                case showOrParseArgs of
+                  ShowArgs ->
+                    [ sectionHeader "Build command options"
+                    , option
+                        []
+                        ["only-configure"]
+                        "Instead of performing a full build just run the configure step"
+                        buildOnlyConfigure
+                        (\v flags -> flags{buildOnlyConfigure = v})
+                        (yesNoOpt showOrParseArgs)
+                    ]
+                  ParseArgs ->
+                    [ option
+                        []
+                        ["only-configure"]
+                        "Instead of performing a full build just run the configure step"
+                        buildOnlyConfigure
+                        (\v flags -> flags{buildOnlyConfigure = v})
+                        (yesNoOpt showOrParseArgs)
+                    ]
             )
     }
 
