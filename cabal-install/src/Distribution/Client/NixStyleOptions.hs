@@ -15,8 +15,9 @@ import Prelude ()
 
 import Distribution.Simple.Command
   ( OptionField
-  , ShowOrParseArgs
+  , ShowOrParseArgs (..)
   , optionFieldName
+  , sectionHeader
   )
 import Distribution.Simple.Setup
   ( BenchmarkFlags (benchmarkCommonFlags)
@@ -62,63 +63,78 @@ nixStyleOptions
   -> ShowOrParseArgs
   -> [OptionField (NixStyleFlags a)]
 nixStyleOptions commandOptions showOrParseArgs =
-  liftOptions
-    configFlags
-    set1
-    -- Note: [Hidden Flags]
-    -- We reuse the configure options from v1 commands which on their turn
-    -- reuse the ones from Cabal) but we hide some of them in v2 commands.
-    ( filter
-        ( maybe True
-            ( `notElem`
-                [ "cabal-file"
-                , "constraint"
-                , "dependency"
-                , "promised-dependency"
-                , "exact-configuration"
-                ]
-            )
-            . optionFieldName
-        )
-        $ configureOptions showOrParseArgs
-    )
-    ++ liftOptions
-      configExFlags
-      set2
-      ( configureExOptions
-          showOrParseArgs
-          ConstraintSourceCommandlineFlag
-      )
-    ++ liftOptions
-      installFlags
-      set3
-      -- hide "target-package-db" and "symlink-bindir" flags from the
-      -- install options.
-      -- "symlink-bindir" is obsoleted by "installdir" in ClientInstallFlags
-      ( filter
-          ( maybe True
-              (`notElem` ["target-package-db", "symlink-bindir"])
-              . optionFieldName
-          )
-          $ installOptions showOrParseArgs
-      )
-    ++ liftOptions
-      haddockFlags
-      set4
-      -- hide "verbose" and "builddir" flags from the
-      -- haddock options.
-      ( filter
-          ( maybe True
-              (`notElem` ["v", "verbose", "builddir"])
-              . optionFieldName
-          )
-          $ haddockOptions showOrParseArgs
-      )
-    ++ liftOptions testFlags set5 (testOptions showOrParseArgs)
-    ++ liftOptions benchmarkFlags set6 (benchmarkOptions showOrParseArgs)
-    ++ liftOptions projectFlags set7 (projectFlagsOptions showOrParseArgs)
-    ++ liftOptions extraFlags set8 (commandOptions showOrParseArgs)
+  case showOrParseArgs of
+    ShowArgs ->
+      sharedOptions
+        ++ [sectionHeader "Project options"]
+        ++ projectOptions
+        ++ extraOptions
+    ParseArgs ->
+      sharedOptions
+        ++ projectOptions
+        ++ extraOptions
   where
+    sharedOptions =
+      liftOptions
+        configFlags
+        set1
+        -- Note: [Hidden Flags]
+        -- We reuse the configure options from v1 commands which on their turn
+        -- reuse the ones from Cabal) but we hide some of them in v2 commands.
+        ( filter
+            ( maybe True
+                ( `notElem`
+                    [ "cabal-file"
+                    , "constraint"
+                    , "dependency"
+                    , "promised-dependency"
+                    , "exact-configuration"
+                    ]
+                )
+                . optionFieldName
+            )
+            $ configureOptions showOrParseArgs
+        )
+        ++ liftOptions
+          configExFlags
+          set2
+          ( configureExOptions
+              showOrParseArgs
+              ConstraintSourceCommandlineFlag
+          )
+        ++ liftOptions
+          installFlags
+          set3
+          -- hide "target-package-db" and "symlink-bindir" flags from the
+          -- install options.
+          -- "symlink-bindir" is obsoleted by "installdir" in ClientInstallFlags
+          ( filter
+              ( maybe True
+                  (`notElem` ["target-package-db", "symlink-bindir"])
+                  . optionFieldName
+              )
+              $ installOptions showOrParseArgs
+          )
+        ++ liftOptions
+          haddockFlags
+          set4
+          -- hide "verbose" and "builddir" flags from the
+          -- haddock options.
+          ( filter
+              ( maybe True
+                  (`notElem` ["v", "verbose", "builddir"])
+                  . optionFieldName
+              )
+              $ haddockOptions showOrParseArgs
+          )
+        ++ liftOptions testFlags set5 (testOptions showOrParseArgs)
+        ++ liftOptions benchmarkFlags set6 (benchmarkOptions showOrParseArgs)
+
+    projectOptions =
+      liftOptions projectFlags set7 (projectFlagsOptions showOrParseArgs)
+
+    extraOptions =
+      liftOptions extraFlags set8 (commandOptions showOrParseArgs)
     set1 x flags = flags{configFlags = x}
     set2 x flags = flags{configExFlags = x}
     set3 x flags = flags{installFlags = x}
