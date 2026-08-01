@@ -16,10 +16,11 @@ import Prelude ()
 import Distribution.ReadE (ReadE (..), succeedReadE)
 import Distribution.Simple.Command
   ( MkOptDescr
-  , OptionField (optionName)
+  , OptionField
   , ShowOrParseArgs (..)
   , boolOpt'
   , option
+  , optionFieldName
   , reqArg
   )
 import Distribution.Simple.Setup
@@ -122,7 +123,8 @@ projectFileParserPrinter NoFlag = []
 -- "ignore-project" flag, provide this utility to remove the flag
 -- parsing from the help message.
 removeIgnoreProjectOption :: [OptionField a] -> [OptionField a]
-removeIgnoreProjectOption = filter (\o -> optionName o /= "ignore-project")
+removeIgnoreProjectOption =
+  filter (maybe True (/= "ignore-project") . optionFieldName)
 
 yesNoOpt :: ShowOrParseArgs -> MkOptDescr (b -> Flag Bool) (Flag Bool -> b -> b) b
 yesNoOpt ShowArgs sf lf = trueArg sf lf

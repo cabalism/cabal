@@ -53,6 +53,12 @@ module Distribution.Simple.Command
     -- ** Constructing Option Fields
   , option
   , multiOption
+  , sectionHeader
+
+    -- ** Inspecting Option Fields
+  , optionFieldName
+  , optionFieldDescrs
+  , isSectionHeader
 
     -- ** Liftings & Projections
   , liftOption
@@ -120,10 +126,12 @@ type Description = String
 --   the value either via command line flags or a configuration file.
 --   An individual OptionField models such a field, and we usually
 --   build a list of options associated to a configuration data type.
-data OptionField a = OptionField
-  { optionName :: Name
-  , optionDescr :: [OptDescr a]
-  }
+data OptionField a
+  = OptionField
+      { optionName :: Name
+      , optionDescr :: [OptDescr a]
+      }
+  | SectionHeader String
 
 -- | An OptionField takes one or more OptDescrs, describing the command line
 -- interface for the field.
@@ -204,6 +212,25 @@ multiOption
   --  applied to flags and description.
   -> OptionField a
 multiOption n get set args = OptionField n [arg get set | arg <- args]
+
+-- | A section title for grouping options in command help output.
+sectionHeader :: String -> OptionField a
+sectionHeader = SectionHeader
+
+-- | Total accessor for the option name.
+optionFieldName :: OptionField a -> Maybe Name
+optionFieldName (OptionField n _) = Just n
+optionFieldName SectionHeader{} = Nothing
+
+-- | Total accessor for option descriptions.
+optionFieldDescrs :: OptionField a -> [OptDescr a]
+optionFieldDescrs (OptionField _ ds) = ds
+optionFieldDescrs SectionHeader{} = []
+
+-- | Check if an option field is a help section marker.
+isSectionHeader :: OptionField a -> Bool
+isSectionHeader SectionHeader{} = True
+isSectionHeader _ = False
 
 type MkOptDescr get set a =
   SFlags
@@ -372,6 +399,7 @@ viewAsGetOpt (OptionField _n aa) = concatMap optDescrToGetOpt aa
       [ GetOpt.Option sfT lfT (GetOpt.NoArg (set True)) ("Enable " ++ d)
       , GetOpt.Option sfF lfF (GetOpt.NoArg (set False)) ("Disable " ++ d)
       ]
+viewAsGetOpt SectionHeader{} = []
 
 getCurrentChoice :: OptDescr a -> a -> [String]
 getCurrentChoice (ChoiceOpt alts) a =
@@ -380,7 +408,10 @@ getCurrentChoice _ _ = error "Command.getChoice: expected a Choice OptDescr"
 
 liftOption :: (b -> a) -> (a -> (b -> b)) -> OptionField a -> OptionField b
 liftOption get' set' opt =
-  opt{optionDescr = liftOptDescr get' set' `map` optionDescr opt}
+  case opt of
+    OptionField n ds ->
+      OptionField n (liftOptDescr get' set' `map` ds)
+    SectionHeader t -> SectionHeader t
 
 -- | @since 3.4.0.0
 liftOptionL :: ALens' b a -> OptionField a -> OptionField b
@@ -412,7 +443,7 @@ liftSet get' set' set x = set' (set $ get' x) x
 commandShowOptions :: CommandUI flags -> flags -> [String]
 commandShowOptions command v =
   concat
-    [ showOptDescr v od | o <- commandOptions command ParseArgs, od <- optionDescr o
+    [ showOptDescr v od | o <- commandOptions command ParseArgs, od <- optionFieldDescrs o
     ]
   where
     maybePrefix [] = []
@@ -462,20 +493,69 @@ commandHelp command pname =
           Just desc -> '\n' : desc pname
        )
     ++ "\n"
-    ++ ( if cname == ""
-          then "Global flags:"
-          else "Flags for " ++ cname ++ ":"
-       )
-    ++ ( GetOpt.usageInfo ""
-          . addCommonFlags ShowArgs
-          $ commandGetOpts ShowArgs command
-       )
+    ++ flagsHelp
     ++ ( case commandNotes command of
           Nothing -> ""
           Just notes -> '\n' : notes pname
        )
   where
     cname = commandName command
+    title
+      | cname == "" = "Global flags:"
+      | otherwise = "Flags for " ++ cname ++ ":"
+
+    optionFields = commandOptions command ShowArgs
+
+    flagsHelp
+      | any isSectionHeader optionFields =
+          title ++ "\n" ++ groupedFlagsHelp optionFields
+      | otherwise =
+          title
+            ++ ( GetOpt.usageInfo ""
+                  . addCommonFlags ShowArgs
+                  $ commandGetOpts ShowArgs command
+               )
+
+    groupedFlagsHelp :: [OptionField flags] -> String
+    groupedFlagsHelp opts =
+      let (groups, currentTitle, currentOpts) =
+            List.foldl'
+              (\(accGroups, mbTitle, accOpts) opt ->
+                  case opt of
+                    SectionHeader t ->
+                      ( appendGroup accGroups mbTitle accOpts
+                      , Just t
+                      , []
+                      )
+                    OptionField{} ->
+                      (accGroups, mbTitle, accOpts ++ viewAsGetOpt opt)
+              )
+              ([], Nothing, [])
+              opts
+          userGroups = appendGroup groups currentTitle currentOpts
+          renderedUserGroups =
+            [ renderGroup mbGroupTitle groupOpts
+            | (mbGroupTitle, groupOpts) <- userGroups
+            , not (null groupOpts)
+            ]
+          renderedCommonGroup =
+            if null (commonFlags ShowArgs)
+              then []
+              else [renderGroup (Just "Common flags") (commonFlags ShowArgs)]
+       in intercalate "\n" (renderedUserGroups ++ renderedCommonGroup)
+
+    appendGroup
+      :: [(Maybe String, [GetOpt.OptDescr a])]
+      -> Maybe String
+      -> [GetOpt.OptDescr a]
+      -> [(Maybe String, [GetOpt.OptDescr a])]
+    appendGroup acc _ [] = acc
+    appendGroup acc mbGroupTitle groupOpts = acc ++ [(mbGroupTitle, groupOpts)]
+
+    renderGroup :: Maybe String -> [GetOpt.OptDescr a] -> String
+    renderGroup mbGroupTitle groupOpts =
+      maybe "" (\t -> t ++ ":\n") mbGroupTitle
+        ++ GetOpt.usageInfo "" groupOpts
 
 -- | Default "usage" documentation text for commands.
 usageDefault :: String -> String -> String

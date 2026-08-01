@@ -16,6 +16,8 @@ import Distribution.Deprecated.ParseUtils (FieldDescr (..), runE, syntaxError)
 -- | to view as a FieldDescr, we sort the list of interfaces (Req > Bool >
 -- Choice > Opt) and consider only the first one.
 viewAsFieldDescr :: OptionField a -> FieldDescr a
+viewAsFieldDescr SectionHeader{} =
+  error "Distribution.command.viewAsFieldDescr: cannot convert SectionHeader"
 viewAsFieldDescr (OptionField _n []) =
   error "Distribution.command.viewAsFieldDescr: unexpected"
 viewAsFieldDescr (OptionField n (d : dd)) = FieldDescr n get set

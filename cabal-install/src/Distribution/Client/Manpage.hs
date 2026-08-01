@@ -200,7 +200,7 @@ commandDetailsLines pname (CommandSpec ui _ NormalCommand) =
 commandDetailsLines _ (CommandSpec _ _ HiddenCommand) = []
 
 optionsLines :: CommandUI flags -> [String]
-optionsLines command = concatMap optionLines (concatMap optionDescr (commandOptions command ParseArgs))
+optionsLines command = concatMap optionLines (concatMap optionFieldDescrs (commandOptions command ParseArgs))
 
 data ArgumentRequired = Optional | Required
 type OptionArg = (ArgumentRequired, ArgPlaceHolder)

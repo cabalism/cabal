@@ -153,6 +153,7 @@ withCommonSetupOptions getCommon setCommon showOrParseArgs opts =
   where
     fmapOptionField (OptionField nm descr) =
       OptionField nm (map (fmapOptDescr getCommon setCommon) descr)
+    fmapOptionField (SectionHeader title) = SectionHeader title
 
 --------------------------------------------------------------------------------
 

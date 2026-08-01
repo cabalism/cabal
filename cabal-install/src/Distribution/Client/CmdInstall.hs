@@ -119,7 +119,7 @@ import Distribution.Simple.BuildPaths
   )
 import Distribution.Simple.Command
   ( CommandUI (..)
-  , optionName
+  , optionFieldName
   , usageAlternatives
   )
 import Distribution.Simple.Compiler
@@ -326,8 +326,8 @@ installCommand =
     }
   where
     -- install doesn't take installDirs flags, since it always installs into the store in a fixed way.
-    notInstallDirOpt x = optionName x `notElem` installDirOptNames
-    installDirOptNames = map optionName installDirsOptions
+    notInstallDirOpt x = maybe True (`notElem` installDirOptNames) (optionFieldName x)
+    installDirOptNames = mapMaybe optionFieldName installDirsOptions
 
 -- | The @install@ command actually serves four different needs. It installs:
 -- * exes:

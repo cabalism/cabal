@@ -120,8 +120,9 @@ copyCommand =
     , commandOptions = \case
         ShowArgs ->
           filter
-            ( (`notElem` ["target-package-db"])
-                . optionName
+            ( maybe True
+                (`notElem` ["target-package-db"])
+                . optionFieldName
             )
             $ copyOptions ShowArgs
         ParseArgs -> copyOptions ParseArgs

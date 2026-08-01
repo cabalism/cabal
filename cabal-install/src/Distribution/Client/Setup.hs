@@ -933,8 +933,9 @@ configureExCommand =
           fst
           setFst
           ( filter
-              ( (`notElem` ["constraint", "dependency", "promised-dependency", "exact-configuration"])
-                  . optionName
+              ( maybe True
+                  (`notElem` ["constraint", "dependency", "promised-dependency", "exact-configuration"])
+                  . optionFieldName
               )
               $ configureOptions showOrParseArgs
           )
@@ -2390,14 +2391,15 @@ installCommand =
           -- hide "constraint", "dependency", "promised-dependency" and
           -- "exact-configuration" from the configure options.
           ( filter
-              ( ( `notElem`
-                    [ "constraint"
-                    , "dependency"
-                    , "promised-dependency"
-                    , "exact-configuration"
-                    ]
-                )
-                  . optionName
+              ( maybe True
+                  ( `notElem`
+                      [ "constraint"
+                      , "dependency"
+                      , "promised-dependency"
+                      , "exact-configuration"
+                      ]
+                  )
+                  . optionFieldName
               )
               $ configureOptions showOrParseArgs
           )
@@ -2408,8 +2410,9 @@ installCommand =
             -- hide "target-package-db" flag from the
             -- install options.
             ( filter
-                ( (`notElem` ["target-package-db"])
-                    . optionName
+                ( maybe True
+                    (`notElem` ["target-package-db"])
+                    . optionFieldName
                 )
                 $ installOptions showOrParseArgs
             )
@@ -2483,15 +2486,14 @@ filterHaddockFlags flags cabalLibVersion
 
 haddockOptions :: ShowOrParseArgs -> [OptionField HaddockFlags]
 haddockOptions showOrParseArgs =
-  [ opt
-    { optionName = "haddock-" ++ name
-    , optionDescr =
-        [ fmapOptFlags (\(_, lflags) -> ([], map ("haddock-" ++) lflags)) descr
-        | descr <- optionDescr opt
-        ]
-    }
-  | opt <- commandOptions Cabal.haddockCommand showOrParseArgs
-  , let name = optionName opt
+  [ OptionField
+      { optionName = "haddock-" ++ name
+      , optionDescr =
+          [ fmapOptFlags (\(_, lflags) -> ([], map ("haddock-" ++) lflags)) descr
+          | descr <- descrs
+          ]
+      }
+  | OptionField name descrs <- commandOptions Cabal.haddockCommand showOrParseArgs
   , name
       `elem` [ "hoogle"
              , "html"
@@ -2517,15 +2519,14 @@ haddockOptions showOrParseArgs =
 
 testOptions :: ShowOrParseArgs -> [OptionField TestFlags]
 testOptions showOrParseArgs =
-  [ opt
-    { optionName = prefixTest name
-    , optionDescr =
-        [ fmapOptFlags (\(_, lflags) -> ([], map prefixTest lflags)) descr
-        | descr <- optionDescr opt
-        ]
-    }
-  | opt <- commandOptions Cabal.testCommand showOrParseArgs
-  , let name = optionName opt
+  [ OptionField
+      { optionName = prefixTest name
+      , optionDescr =
+          [ fmapOptFlags (\(_, lflags) -> ([], map prefixTest lflags)) descr
+          | descr <- descrs
+          ]
+      }
+  | OptionField name descrs <- commandOptions Cabal.testCommand showOrParseArgs
   , name
       `elem` [ "log"
              , "machine-log"
@@ -2547,15 +2548,14 @@ testOptions showOrParseArgs =
 -- Not to be confused with the @benchmarkOptions@ field of the `BenchmarkFlags` record!
 benchmarkOptions :: ShowOrParseArgs -> [OptionField BenchmarkFlags]
 benchmarkOptions showOrParseArgs =
-  [ opt
-    { optionName = prefixBenchmark name
-    , optionDescr =
-        [ fmapOptFlags (\(_, lflags) -> ([], map prefixBenchmark lflags)) descr
-        | descr <- optionDescr opt
-        ]
-    }
-  | opt <- commandOptions Cabal.benchmarkCommand showOrParseArgs
-  , let name = optionName opt
+  [ OptionField
+      { optionName = prefixBenchmark name
+      , optionDescr =
+          [ fmapOptFlags (\(_, lflags) -> ([], map prefixBenchmark lflags)) descr
+          | descr <- descrs
+          ]
+      }
+  | OptionField name descrs <- commandOptions Cabal.benchmarkCommand showOrParseArgs
   , name `elem` ["benchmark-options", "benchmark-option"]
   ]
   where

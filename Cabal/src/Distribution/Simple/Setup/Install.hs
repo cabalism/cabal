@@ -117,8 +117,9 @@ installCommand =
           $ case showOrParseArgs of
             ShowArgs ->
               filter
-                ( (`notElem` ["target-package-db"])
-                    . optionName
+                ( maybe True
+                    (`notElem` ["target-package-db"])
+                    . optionFieldName
                 )
                 installOptions
             ParseArgs -> installOptions

@@ -13,7 +13,11 @@ module Distribution.Client.NixStyleOptions
 import Distribution.Client.Compat.Prelude
 import Prelude ()
 
-import Distribution.Simple.Command (OptionField (..), ShowOrParseArgs)
+import Distribution.Simple.Command
+  ( OptionField
+  , ShowOrParseArgs
+  , optionFieldName
+  )
 import Distribution.Simple.Setup
   ( BenchmarkFlags (benchmarkCommonFlags)
   , CommonSetupFlags (..)
@@ -65,15 +69,16 @@ nixStyleOptions commandOptions showOrParseArgs =
     -- We reuse the configure options from v1 commands which on their turn
     -- reuse the ones from Cabal) but we hide some of them in v2 commands.
     ( filter
-        ( ( `notElem`
-              [ "cabal-file"
-              , "constraint"
-              , "dependency"
-              , "promised-dependency"
-              , "exact-configuration"
-              ]
-          )
-            . optionName
+        ( maybe True
+            ( `notElem`
+                [ "cabal-file"
+                , "constraint"
+                , "dependency"
+                , "promised-dependency"
+                , "exact-configuration"
+                ]
+            )
+            . optionFieldName
         )
         $ configureOptions showOrParseArgs
     )
@@ -91,8 +96,9 @@ nixStyleOptions commandOptions showOrParseArgs =
       -- install options.
       -- "symlink-bindir" is obsoleted by "installdir" in ClientInstallFlags
       ( filter
-          ( (`notElem` ["target-package-db", "symlink-bindir"])
-              . optionName
+          ( maybe True
+              (`notElem` ["target-package-db", "symlink-bindir"])
+              . optionFieldName
           )
           $ installOptions showOrParseArgs
       )
@@ -102,8 +108,9 @@ nixStyleOptions commandOptions showOrParseArgs =
       -- hide "verbose" and "builddir" flags from the
       -- haddock options.
       ( filter
-          ( (`notElem` ["v", "verbose", "builddir"])
-              . optionName
+          ( maybe True
+              (`notElem` ["v", "verbose", "builddir"])
+              . optionFieldName
           )
           $ haddockOptions showOrParseArgs
       )
