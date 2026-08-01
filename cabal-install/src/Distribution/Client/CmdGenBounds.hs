@@ -74,7 +74,7 @@ genBoundsCommand =
           ++ "    Generate bounds for the package in the ./pkgfoo directory\n"
     , commandDefaultFlags = defaultNixStyleFlags defaultGenBoundsFlags
     , commandOptions =
-        removeIgnoreProjectOption
+        filter removeIgnoreProjectOption
           . nixStyleOptions (const [])
     , commandOptionGroups = []
     }

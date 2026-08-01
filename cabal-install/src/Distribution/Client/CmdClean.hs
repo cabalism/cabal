@@ -130,7 +130,7 @@ cleanCommand =
     , commandOptions = \showOrParseArgs ->
         map
           (liftOptionL _1)
-          (removeIgnoreProjectOption (projectFlagsOptions showOrParseArgs))
+          (filter removeIgnoreProjectOption (projectFlagsOptions showOrParseArgs))
           ++ map (liftOptionL _2) (cleanOptions showOrParseArgs)
     , commandOptionGroups = []
     }

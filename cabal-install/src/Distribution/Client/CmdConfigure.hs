@@ -103,7 +103,7 @@ configureCommand =
           ++ "    project configuration works, use 'cabal build'.\n"
     , commandDefaultFlags = defaultNixStyleFlags ()
     , commandOptions =
-        removeIgnoreProjectOption
+        filter removeIgnoreProjectOption
           . nixStyleOptions (const [])
     , commandOptionGroups = []
     }

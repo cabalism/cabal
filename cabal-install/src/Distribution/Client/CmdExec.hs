@@ -134,7 +134,7 @@ execCommand =
             ++ " ghc-specific flags requested."
     , commandNotes = Nothing
     , commandOptions =
-        removeIgnoreProjectOption
+        filter removeIgnoreProjectOption
           . nixStyleOptions (const [])
     , commandOptionGroups = []
     , commandDefaultFlags = defaultNixStyleFlags ()

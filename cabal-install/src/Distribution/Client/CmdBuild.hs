@@ -134,25 +134,25 @@ buildCommand =
     }
   where
     removeOptions =
-      removeUnsupportedOptions
-        . removeInstallOptions
-        . removeIrrelevantOptions
-        . removeHaddockOptions
-        . removeTestOptions
-        . removeBenchOptions
-        . removeProfilingOptions
-        . removeSolvingOptions
-        . removeExeOptions
-        . removeLibOptions
-        . removeCoverageOptions
-        . removeOutputOptions
-        . removeConfigureOptions
-        . removePhaseOptions
-        . removeCompilerOptions
-        . removeLoggingOptions
-        . removeIncludeOptions
-        . removeProgOptions
-        . removeIgnoreProjectOption
+      filter removeUnsupportedOptions
+        . filter removeInstallOptions
+        . filter removeIrrelevantOptions
+        . filter removeHaddockOptions
+        . filter removeTestOptions
+        . filter removeBenchOptions
+        . filter removeProfilingOptions
+        . filter removeSolvingOptions
+        . filter removeExeOptions
+        . filter removeLibOptions
+        . filter removeCoverageOptions
+        . filter removeOutputOptions
+        . filter removeConfigureOptions
+        . filter removePhaseOptions
+        . filter removeCompilerOptions
+        . filter removeLoggingOptions
+        . filter removeIncludeOptions
+        . filter removeProgOptions
+        . filter removeIgnoreProjectOption
 
 data BuildFlags = BuildFlags
   { buildOnlyConfigure :: Flag Bool

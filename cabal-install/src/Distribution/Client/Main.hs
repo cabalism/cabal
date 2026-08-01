@@ -195,19 +195,6 @@ import qualified Distribution.Simple as Simple
 import Distribution.Simple.Build
   ( startInterpreter
   )
-import Distribution.Simple.Command
-  ( Command
-  , CommandParse (..)
-  , CommandSpec (..)
-  , CommandType (..)
-  , CommandUI (..)
-  , commandAddAction
-  , commandFromSpec
-  , commandShowOptions
-  , commandsRunWithFallback
-  , defaultCommandFallback
-  , hiddenCommand
-  )
 import Distribution.Simple.Compiler (PackageDBStack, interpretPackageDBStack)
 import Distribution.Simple.Configure
   ( ConfigStateFileError (..)

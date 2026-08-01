@@ -186,12 +186,11 @@ cfgVerbosity v flags =
   mkVerbosity defaultVerbosityHandles $
     fromFlagOrDefault v (setupVerbosity . configCommonFlags $ configFlags flags)
 
-removeUnsupportedOptions :: [OptionField a] -> [OptionField a]
-removeUnsupportedOptions = filter (\(optionName -> o) -> not ("root-cmd" == o || "allow-boot-library-installs" == o))
+removeUnsupportedOptions :: OptionField a -> Bool
+removeUnsupportedOptions = (\(optionName -> o) -> not ("root-cmd" == o || "allow-boot-library-installs" == o))
 
-removeInstallOptions :: [OptionField a] -> [OptionField a]
+removeInstallOptions :: OptionField a -> Bool
 removeInstallOptions =
-  filter
     ( \(optionName -> o) ->
         not
           ( "dir" `isSuffixOf` o
@@ -209,12 +208,11 @@ removeInstallOptions =
           )
     )
 
-removeIrrelevantOptions :: [OptionField a] -> [OptionField a]
-removeIrrelevantOptions = filter (\(optionName -> o) -> not ("per-component" `isSuffixOf` o))
+removeIrrelevantOptions :: OptionField a -> Bool
+removeIrrelevantOptions = (\(optionName -> o) -> not ("per-component" `isSuffixOf` o))
 
-removeHaddockOptions :: [OptionField a] -> [OptionField a]
+removeHaddockOptions :: OptionField a -> Bool
 removeHaddockOptions =
-  filter
     ( \(optionName -> o) ->
         not
           ( "haddock" `isPrefixOf` o
@@ -223,18 +221,17 @@ removeHaddockOptions =
           )
     )
 
-removeTestOptions :: [OptionField a] -> [OptionField a]
-removeTestOptions = filter (\(optionName -> o) -> not ("test" `isPrefixOf` o))
+removeTestOptions :: OptionField a -> Bool
+removeTestOptions = (\(optionName -> o) -> not ("test" `isPrefixOf` o))
 
-removeBenchOptions :: [OptionField a] -> [OptionField a]
-removeBenchOptions = filter (\(optionName -> o) -> not ("bench" `isPrefixOf` o))
+removeBenchOptions :: OptionField a -> Bool
+removeBenchOptions = (\(optionName -> o) -> not ("bench" `isPrefixOf` o))
 
-removeProfilingOptions :: [OptionField a] -> [OptionField a]
-removeProfilingOptions = filter (\(optionName -> o) -> not ("profiling" `isInfixOf` o))
+removeProfilingOptions :: OptionField a -> Bool
+removeProfilingOptions = (\(optionName -> o) -> not ("profiling" `isInfixOf` o))
 
-removeSolvingOptions :: [OptionField a] -> [OptionField a]
+removeSolvingOptions :: OptionField a -> Bool
 removeSolvingOptions =
-  filter
     ( \(optionName -> o) ->
         not
           ( "max-backjumps" == o
@@ -257,10 +254,9 @@ removeSolvingOptions =
           )
     )
 
-removeExeOptions :: [OptionField a] -> [OptionField a]
+removeExeOptions :: OptionField a -> Bool
 removeExeOptions =
-  filter
-    ( \(optionName -> o) ->
+  ( \(optionName -> o) ->
         not
           ( "executable" `isInfixOf` o
               || "split" `isInfixOf` o
@@ -268,10 +264,9 @@ removeExeOptions =
           )
     )
 
-removeLibOptions :: [OptionField a] -> [OptionField a]
+removeLibOptions :: OptionField a -> Bool
 removeLibOptions =
-  filter
-    ( \(optionName -> o) ->
+  ( \(optionName -> o) ->
         not
           ( "vanilla" `isSuffixOf` o
               || "shared" `isSuffixOf` o
@@ -281,20 +276,18 @@ removeLibOptions =
           )
     )
 
-removeCoverageOptions :: [OptionField a] -> [OptionField a]
+removeCoverageOptions :: OptionField a -> Bool
 removeCoverageOptions =
-  filter
-    ( \(optionName -> o) ->
+  ( \(optionName -> o) ->
         not
           ( "coverage" `isSuffixOf` o
               || "coverage" `isPrefixOf` o
           )
     )
 
-removeOutputOptions :: [OptionField a] -> [OptionField a]
+removeOutputOptions :: OptionField a -> Bool
 removeOutputOptions =
-  filter
-    ( \(optionName -> o) ->
+  ( \(optionName -> o) ->
         not
           ( "build-info" `isSuffixOf` o
               || "debug-info" `isSuffixOf` o
@@ -304,10 +297,9 @@ removeOutputOptions =
           )
     )
 
-removeConfigureOptions :: [OptionField a] -> [OptionField a]
+removeConfigureOptions :: OptionField a -> Bool
 removeConfigureOptions =
-  filter
-    ( \(optionName -> o) ->
+  ( \(optionName -> o) ->
         not
           ( "append" `isSuffixOf` o
               || "backup" `isSuffixOf` o
@@ -315,10 +307,9 @@ removeConfigureOptions =
           )
     )
 
-removePhaseOptions :: [OptionField a] -> [OptionField a]
+removePhaseOptions :: OptionField a -> Bool
 removePhaseOptions =
-  filter
-    ( \(optionName -> o) ->
+  ( \(optionName -> o) ->
         not
           ( "only-configure" == o
               || "only-download" == o
@@ -326,10 +317,9 @@ removePhaseOptions =
           )
     )
 
-removeCompilerOptions :: [OptionField a] -> [OptionField a]
+removeCompilerOptions :: OptionField a -> Bool
 removeCompilerOptions =
-  filter
-    ( \(optionName -> o) ->
+  ( \(optionName -> o) ->
         not
           ( "ghc" == o -- TODO: Check
               || "ghcjs" == o -- TODO: Check
@@ -344,10 +334,9 @@ removeCompilerOptions =
           )
     )
 
-removeLoggingOptions :: [OptionField a] -> [OptionField a]
+removeLoggingOptions :: OptionField a -> Bool
 removeLoggingOptions =
-  filter
-    ( \(optionName -> o) ->
+  ( \(optionName -> o) ->
         not
           ( "verbose" == o
               || "keep-temp-files" == o
@@ -359,10 +348,9 @@ removeLoggingOptions =
           )
     )
 
-removeIncludeOptions :: [OptionField a] -> [OptionField a]
+removeIncludeOptions :: OptionField a -> Bool
 removeIncludeOptions =
-  filter
-    ( \(optionName -> o) ->
+  ( \(optionName -> o) ->
         not
           ( "extra-include-dirs" == o
               || "extra-lib-dirs" == o
@@ -372,10 +360,9 @@ removeIncludeOptions =
           )
     )
 
-removeProgOptions :: [OptionField a] -> [OptionField a]
+removeProgOptions :: OptionField a -> Bool
 removeProgOptions =
-  filter
-    ( \(optionName -> o) ->
+  ( \(optionName -> o) ->
         not
           ( "with-PROG" == o
               || "PROG-option" `isPrefixOf` o
