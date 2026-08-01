@@ -141,36 +141,47 @@ buildOptions
   -> ShowOrParseArgs
   -> [OptionField BuildFlags]
 buildOptions progDb showOrParseArgs =
-  withCommonSetupOptions
-    buildCommonFlags
-    (\c f -> f{buildCommonFlags = c})
-    showOrParseArgs
-    [ optionNumJobs
-        buildNumJobs
-        (\v flags -> flags{buildNumJobs = v})
-    , option
-        []
-        ["semaphore"]
-        "Use the specified semaphore identifier so GHC can compile components in parallel"
-        buildUseSemaphore
-        (\v flags -> flags{buildUseSemaphore = v})
-        (reqArg' "SEMAPHORE" Flag flagToList)
-    ]
-    ++ programDbPaths
-      progDb
-      showOrParseArgs
-      buildProgramPaths
-      (\v flags -> flags{buildProgramPaths = v})
-    ++ programDbOption
-      progDb
-      showOrParseArgs
-      buildProgramArgs
-      (\v fs -> fs{buildProgramArgs = v})
-    ++ programDbOptions
-      progDb
-      showOrParseArgs
-      buildProgramArgs
-      (\v flags -> flags{buildProgramArgs = v})
+  case showOrParseArgs of
+    ShowArgs ->
+      [sectionHeader "Build flags"]
+        ++ commonAndBuildOptions
+        ++ [sectionHeader "Program flags"]
+        ++ programOptions
+    ParseArgs -> commonAndBuildOptions ++ programOptions
+  where
+    commonAndBuildOptions =
+      withCommonSetupOptions
+        buildCommonFlags
+        (\c f -> f{buildCommonFlags = c})
+        showOrParseArgs
+        [ optionNumJobs
+            buildNumJobs
+            (\v flags -> flags{buildNumJobs = v})
+        , option
+            []
+            ["semaphore"]
+            "Use the specified semaphore identifier so GHC can compile components in parallel"
+            buildUseSemaphore
+            (\v flags -> flags{buildUseSemaphore = v})
+            (reqArg' "SEMAPHORE" Flag flagToList)
+        ]
+
+    programOptions =
+      programDbPaths
+        progDb
+        showOrParseArgs
+        buildProgramPaths
+        (\v flags -> flags{buildProgramPaths = v})
+        ++ programDbOption
+          progDb
+          showOrParseArgs
+          buildProgramArgs
+          (\v fs -> fs{buildProgramArgs = v})
+        ++ programDbOptions
+          progDb
+          showOrParseArgs
+          buildProgramArgs
+          (\v flags -> flags{buildProgramArgs = v})
 
 emptyBuildFlags :: BuildFlags
 emptyBuildFlags = mempty
