@@ -470,20 +470,45 @@ commandHelp command pname =
           Just desc -> '\n' : desc pname
        )
     ++ "\n"
-    ++ ( if cname == ""
-          then "Global flags:"
-          else "Flags for " ++ cname ++ ":"
-       )
-    ++ ( GetOpt.usageInfo ""
-          . addCommonFlags ShowArgs
-          $ commandGetOpts ShowArgs command
-       )
+    ++ topLevelFlagsSection
+    ++ groupedFlagsSections
     ++ ( case commandNotes command of
           Nothing -> ""
           Just notes -> '\n' : notes pname
        )
   where
     cname = commandName command
+
+    ungroupedOptionFields =
+      if null (commandOptionGroups command)
+        then commandOptions command ShowArgs
+        else
+          let groupedNames = concatMap (map optionName . snd) (commandOptionGroups command)
+           in filter (\opt -> optionName opt `notElem` groupedNames) (commandOptions command ShowArgs)
+
+    topLevelFlagsSection :: String
+    topLevelFlagsSection =
+      ( if cname == ""
+          then "Global flags:"
+          else "Flags for " ++ cname ++ ":"
+      )
+        ++ ( GetOpt.usageInfo ""
+              . addCommonFlags ShowArgs
+              $ concatMap viewAsGetOpt ungroupedOptionFields
+           )
+
+    groupedFlagsSections :: String
+    groupedFlagsSections =
+      concatMap renderGroup (commandOptionGroups command)
+
+    renderGroup :: (String, [OptionField flags]) -> String
+    renderGroup (groupName, fields)
+      | null fields = ""
+      | otherwise =
+          "\n"
+            ++ groupName
+            ++ ":"
+            ++ GetOpt.usageInfo "" (concatMap viewAsGetOpt fields)
 
 -- | Default "usage" documentation text for commands.
 usageDefault :: String -> String -> String

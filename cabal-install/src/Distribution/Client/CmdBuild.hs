@@ -62,6 +62,8 @@ import Distribution.Client.Setup
   )
 import Distribution.Simple.Command
   ( CommandUI (..)
+  , OptionField
+  , ShowOrParseArgs (ShowArgs)
   , option
   , usageAlternatives
   )
@@ -117,42 +119,70 @@ buildCommand =
           ++ "    Build the component in profiling mode "
           ++ "(including dependencies as needed)\n"
     , commandDefaultFlags = (defaultNixStyleFlags defaultBuildFlags) :: NixStyleFlags BuildFlags
-    , commandOptions =
-        removeOptions
-          . nixStyleOptions
-            ( \showOrParseArgs ->
-                [ option
-                    []
-                    ["only-configure"]
-                    "Instead of performing a full build just run the configure step"
-                    buildOnlyConfigure
-                    (\v flags -> flags{buildOnlyConfigure = v})
-                    (yesNoOpt showOrParseArgs)
-                ]
-            )
-    , commandOptionGroups = []
+    , commandOptions = allBuildOptions
+    , commandOptionGroups = buildOptionGroups (allBuildOptions ShowArgs)
     }
   where
-    removeOptions =
-      filter removeUnsupportedOptions
-        . filter removeInstallOptions
-        . filter removeIrrelevantOptions
-        . filter removeHaddockOptions
-        . filter removeTestOptions
-        . filter removeBenchOptions
-        . filter removeProfilingOptions
-        . filter removeSolvingOptions
-        . filter removeExeOptions
-        . filter removeLibOptions
-        . filter removeCoverageOptions
-        . filter removeOutputOptions
-        . filter removeConfigureOptions
-        . filter removePhaseOptions
-        . filter removeCompilerOptions
-        . filter removeLoggingOptions
-        . filter removeIncludeOptions
-        . filter removeProgOptions
-        . filter removeIgnoreProjectOption
+    allBuildOptions =
+      filter removeIgnoreProjectOption
+        . nixStyleOptions
+          ( \showOrParseArgs ->
+              [ option
+                  []
+                  ["only-configure"]
+                  "Instead of performing a full build just run the configure step"
+                  buildOnlyConfigure
+                  (\v flags -> flags{buildOnlyConfigure = v})
+                  (yesNoOpt showOrParseArgs)
+              ]
+          )
+
+    buildOptionGroups :: [OptionField (NixStyleFlags BuildFlags)] -> [(String, [OptionField (NixStyleFlags BuildFlags)])]
+    buildOptionGroups opts0 =
+      [ ("Unsupported options", unsupported)
+      , ("Install layout options", install)
+      , ("Irrelevant options", irrelevant)
+      , ("Haddock options", haddock)
+      , ("Test options", test)
+      , ("Benchmark options", bench)
+      , ("Profiling options", profiling)
+      , ("Dependency solving options", solving)
+      , ("Executable build options", exe)
+      , ("Library build options", lib)
+      , ("Coverage options", coverage)
+      , ("Output and artifact options", output)
+      , ("Configure-phase options", configure)
+      , ("Build phase control options", phase)
+      , ("Compiler and parallelism options", compiler)
+      , ("Logging and reporting options", logging)
+      , ("Include and linker path options", includePaths)
+      , ("Program override options", prog)
+      ]
+      where
+        (unsupported, opts1) = splitBy removeUnsupportedOptions opts0
+        (install, opts2) = splitBy removeInstallOptions opts1
+        (irrelevant, opts3) = splitBy removeIrrelevantOptions opts2
+        (haddock, opts4) = splitBy removeHaddockOptions opts3
+        (test, opts5) = splitBy removeTestOptions opts4
+        (bench, opts6) = splitBy removeBenchOptions opts5
+        (profiling, opts7) = splitBy removeProfilingOptions opts6
+        (solving, opts8) = splitBy removeSolvingOptions opts7
+        (exe, opts9) = splitBy removeExeOptions opts8
+        (lib, opts10) = splitBy removeLibOptions opts9
+        (coverage, opts11) = splitBy removeCoverageOptions opts10
+        (output, opts12) = splitBy removeOutputOptions opts11
+        (configure, opts13) = splitBy removeConfigureOptions opts12
+        (phase, opts14) = splitBy removePhaseOptions opts13
+        (compiler, opts15) = splitBy removeCompilerOptions opts14
+        (logging, opts16) = splitBy removeLoggingOptions opts15
+        (includePaths, opts17) = splitBy removeIncludeOptions opts16
+        (prog, _opts18) = splitBy removeProgOptions opts17
+
+    splitBy
+      :: (OptionField (NixStyleFlags BuildFlags) -> Bool)
+      -> [OptionField (NixStyleFlags BuildFlags)]
+      -> ([OptionField (NixStyleFlags BuildFlags)], [OptionField (NixStyleFlags BuildFlags)])
+    splitBy keepPred = partition (not . keepPred)
 
 data BuildFlags = BuildFlags
   { buildOnlyConfigure :: Flag Bool
