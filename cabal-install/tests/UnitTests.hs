@@ -3,6 +3,7 @@ module Main (main) where
 import Test.Tasty
 
 import qualified UnitTests.Distribution.Client.BuildReport
+import qualified UnitTests.Distribution.Client.CmdBuildOptionsCommandUI
 import qualified UnitTests.Distribution.Client.Configure
 import qualified UnitTests.Distribution.Client.FetchUtils
 import qualified UnitTests.Distribution.Client.GZipUtils
@@ -35,6 +36,9 @@ main = do
       [ testGroup
           "UnitTests.Distribution.Client.BuildReport"
           UnitTests.Distribution.Client.BuildReport.tests
+      , testGroup
+          "UnitTests.Distribution.Client.CmdBuildOptionsCommandUI"
+          UnitTests.Distribution.Client.CmdBuildOptionsCommandUI.tests
       , testGroup
           "UnitTests.Distribution.Client.Configure"
           UnitTests.Distribution.Client.Configure.tests
