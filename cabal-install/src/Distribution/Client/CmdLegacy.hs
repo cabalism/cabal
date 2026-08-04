@@ -11,7 +11,7 @@ import Prelude ()
 import Distribution.Client.NixStyleOptions
     ( NixStyleFlags(..) )
 import Distribution.Client.ProjectConfig
-    ( ProjectConfig(..), ProjectConfigBuildOnly(..), ProjectConfigShared(..), withProjectOrGlobalConfig )
+    ( ProjectConfig(..), ProjectConfigBuildOnly(..), ProjectConfigShared(..), withProjectOrGlobalConfig, withGlobalConfig)
 import Distribution.Client.ProjectOrchestration
     ( CurrentCommand(..), ProjectBaseContext(..), commandLineFlagsToProjectConfig, establishProjectBaseContext )
 import Distribution.Client.ProjectFlags
@@ -36,7 +36,8 @@ import Distribution.Verbosity
   ( VerbosityFlags
   , defaultVerbosityHandles
   , mkVerbosity
-    ( normal, silent )
+  , normal
+  , silent
   )
 
 import Control.Exception
@@ -205,12 +206,25 @@ newCmdWithVerbosity cmd action = newCmd cmd $ \flags args globals -> do
       ignoreProject    = flagIgnoreProject . projectFlags $ flags
       cliConfig        = commandLineFlagsToProjectConfig globals flags mempty
       globalConfigFlag = projectConfigConfigFile . projectConfigShared $ cliConfig
-      with = do
-        ctx <- establishProjectBaseContext silent cliConfig OtherCommand
+      mkVerbosity' = mkVerbosity defaultVerbosityHandles
+      silent' :: Verbosity = mkVerbosity' silent
+      cfgFlags :: Setup.ConfigFlags = configFlags flags
+      commonFlags :: Setup.CommonSetupFlags = Setup.configCommonFlags cfgFlags
+      withProject = do
+        ctx <- establishProjectBaseContext silent' cliConfig OtherCommand
         let projectVerbosity = projectConfigVerbosity . projectConfigBuildOnly . projectConfig $ ctx
-        return flags{ configFlags = (configFlags flags){ Client.configVerbosity = projectVerbosity <> flagVerbosity } }
-      without globalConfig = do
+        let effectiveVerbosity = projectVerbosity <> flagVerbosity
+        let commonFlags' = commonFlags{ Setup.setupVerbosity = effectiveVerbosity }
+        let cfgFlags' = cfgFlags{Setup.configCommonFlags = commonFlags'}
+        return flags{configFlags = cfgFlags'}
+      withGlobal globalConfig = do
         let globalVerbosity = projectConfigVerbosity . projectConfigBuildOnly $ globalConfig
-        return flags{ configFlags = (configFlags flags){ Client.configVerbosity = globalVerbosity <> flagVerbosity } }
-  flags' <- withProjectOrGlobalConfig silent ignoreProject globalConfigFlag with without
+        let effectiveVerbosity = globalVerbosity <> flagVerbosity
+        let commonFlags' = commonFlags{ Setup.setupVerbosity = effectiveVerbosity }
+        let cfgFlags' = cfgFlags{Setup.configCommonFlags = commonFlags'}
+        return flags{configFlags = cfgFlags'}
+  flags' <- withProjectOrGlobalConfig
+    ignoreProject
+    withProject
+    (withGlobalConfig silent' globalConfigFlag withGlobal)
   action flags' args globals
