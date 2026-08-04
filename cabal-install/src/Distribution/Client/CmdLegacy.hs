@@ -2,20 +2,30 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# OPTIONS_GHC -Wno-redundant-constraints #-}
 
-module Distribution.Client.CmdLegacy ( legacyCmd, legacyWrapperCmd, newCmd, newCmdWithVerbosity ) where
+module Distribution.Client.CmdLegacy (legacyCmd, legacyWrapperCmd, newCmd, newCmdWithVerbosity) where
 
 import Distribution.Client.Compat.Prelude
 import Prelude ()
 
-
 import Distribution.Client.NixStyleOptions
-    ( NixStyleFlags(..) )
+  ( NixStyleFlags (..)
+  )
 import Distribution.Client.ProjectConfig
-    ( ProjectConfig(..), ProjectConfigBuildOnly(..), ProjectConfigShared(..), withProjectOrGlobalConfig, withGlobalConfig)
-import Distribution.Client.ProjectOrchestration
-    ( CurrentCommand(..), ProjectBaseContext(..), commandLineFlagsToProjectConfig, establishProjectBaseContext )
+  ( ProjectConfig (..)
+  , ProjectConfigBuildOnly (..)
+  , ProjectConfigShared (..)
+  , withGlobalConfig
+  , withProjectOrGlobalConfig
+  )
 import Distribution.Client.ProjectFlags
-    ( flagIgnoreProject )
+  ( flagIgnoreProject
+  )
+import Distribution.Client.ProjectOrchestration
+  ( CurrentCommand (..)
+  , ProjectBaseContext (..)
+  , commandLineFlagsToProjectConfig
+  , establishProjectBaseContext
+  )
 import Distribution.Client.Sandbox
   ( findSavedDistPref
   , loadConfigOrSandboxConfig
@@ -202,9 +212,9 @@ newCmd origUi@CommandUI{..} action = [cmd defaultUi, cmd newUi, cmd origUi]
 -- | Create a CommandSpec for a new-style command with the config verbosity.
 newCmdWithVerbosity :: CommandUI (NixStyleFlags a) -> (NixStyleFlags a -> [String] -> Client.GlobalFlags -> IO action) -> [CommandSpec (Client.GlobalFlags -> IO action)]
 newCmdWithVerbosity cmd action = newCmd cmd $ \flags args globals -> do
-  let flagVerbosity    = Client.configVerbosity . configFlags $ flags
-      ignoreProject    = flagIgnoreProject . projectFlags $ flags
-      cliConfig        = commandLineFlagsToProjectConfig globals flags mempty
+  let flagVerbosity = Client.configVerbosity . configFlags $ flags
+      ignoreProject = flagIgnoreProject . projectFlags $ flags
+      cliConfig = commandLineFlagsToProjectConfig globals flags mempty
       globalConfigFlag = projectConfigConfigFile . projectConfigShared $ cliConfig
       mkVerbosity' = mkVerbosity defaultVerbosityHandles
       silent' :: Verbosity = mkVerbosity' silent
@@ -214,17 +224,18 @@ newCmdWithVerbosity cmd action = newCmd cmd $ \flags args globals -> do
         ctx <- establishProjectBaseContext silent' cliConfig OtherCommand
         let projectVerbosity = projectConfigVerbosity . projectConfigBuildOnly . projectConfig $ ctx
         let effectiveVerbosity = projectVerbosity <> flagVerbosity
-        let commonFlags' = commonFlags{ Setup.setupVerbosity = effectiveVerbosity }
+        let commonFlags' = commonFlags{Setup.setupVerbosity = effectiveVerbosity}
         let cfgFlags' = cfgFlags{Setup.configCommonFlags = commonFlags'}
         return flags{configFlags = cfgFlags'}
       withGlobal globalConfig = do
         let globalVerbosity = projectConfigVerbosity . projectConfigBuildOnly $ globalConfig
         let effectiveVerbosity = globalVerbosity <> flagVerbosity
-        let commonFlags' = commonFlags{ Setup.setupVerbosity = effectiveVerbosity }
+        let commonFlags' = commonFlags{Setup.setupVerbosity = effectiveVerbosity}
         let cfgFlags' = cfgFlags{Setup.configCommonFlags = commonFlags'}
         return flags{configFlags = cfgFlags'}
-  flags' <- withProjectOrGlobalConfig
-    ignoreProject
-    withProject
-    (withGlobalConfig silent' globalConfigFlag withGlobal)
+  flags' <-
+    withProjectOrGlobalConfig
+      ignoreProject
+      withProject
+      (withGlobalConfig silent' globalConfigFlag withGlobal)
   action flags' args globals
