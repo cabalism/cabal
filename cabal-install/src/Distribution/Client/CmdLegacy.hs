@@ -2,7 +2,12 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# OPTIONS_GHC -Wno-redundant-constraints #-}
 
-module Distribution.Client.CmdLegacy (legacyCmd, legacyWrapperCmd, newCmd, newCmdWithVerbosity) where
+module Distribution.Client.CmdLegacy
+  ( legacyCmd
+  , legacyWrapperCmd
+  , newCmd
+  , resolveVerbosity
+  ) where
 
 import Distribution.Client.Compat.Prelude
 import Prelude ()
@@ -209,9 +214,8 @@ newCmd origUi@CommandUI{..} action = [cmd defaultUi, cmd newUi, cmd origUi]
         , commandNotes = (defaultMsg .) <$> commandNotes
         }
 
--- | Create a CommandSpec for a new-style command with the config verbosity.
-newCmdWithVerbosity :: CommandUI (NixStyleFlags a) -> (NixStyleFlags a -> [String] -> Client.GlobalFlags -> IO action) -> [CommandSpec (Client.GlobalFlags -> IO action)]
-newCmdWithVerbosity cmd action = newCmd cmd $ \flags args globals -> do
+resolveVerbosity :: NixStyleFlags a -> Client.GlobalFlags -> IO (NixStyleFlags a)
+resolveVerbosity flags globals = do
   let flagVerbosity = Client.configVerbosity $ configFlags flags
       ignoreProject = flagIgnoreProject $ projectFlags flags
       cliConfig = commandLineFlagsToProjectConfig globals flags mempty
@@ -236,10 +240,7 @@ newCmdWithVerbosity cmd action = newCmd cmd $ \flags args globals -> do
         let globalVerbosity = getVerbosity globalConfig
         applyVerbosity globalVerbosity
 
-  flags' <-
-    withProjectOrGlobalConfig
-      ignoreProject
-      withProject
-      (withGlobalConfig silent' globalConfigFlag withGlobal)
-
-  action flags' args globals
+  withProjectOrGlobalConfig
+    ignoreProject
+    withProject
+    (withGlobalConfig silent' globalConfigFlag withGlobal)

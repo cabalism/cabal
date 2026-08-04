@@ -454,6 +454,12 @@ mainWorker args = do
           | cabalGitInfo == cabalInstallGitInfo = "(in-tree)"
           | otherwise = cabalGitInfo
 
+    actionWithVerbosity action flags args' globals = do
+      flags' <- resolveVerbosity flags globals
+      action flags' args' globals
+
+    newCmd' ui action = newCmd ui (actionWithVerbosity action)
+
     commands = map commandFromSpec commandSpecs
     commandSpecs =
       [ regularCmd listCommand listAction
@@ -474,25 +480,30 @@ mainWorker args = do
       , regularCmd CmdListBin.listbinCommand CmdListBin.listbinAction
       ]
         ++ concat
-          [ newCmd CmdConfigure.configureCommand CmdConfigure.configureAction
-          , newCmd CmdUpdate.updateCommand CmdUpdate.updateAction
-          , newCmd CmdBuild.buildCommand CmdBuild.buildAction
-          , newCmd CmdRepl.replCommand CmdRepl.replAction
-          , newCmd CmdFreeze.freezeCommand CmdFreeze.freezeAction
-          , newCmd CmdHaddock.haddockCommand CmdHaddock.haddockAction
-          , newCmd
+          -- The newCmd' commands are CommandUI (NixStyleFlags ()). Those that
+          -- are not, the newCmd ones, have their types listed below.
+          [ newCmd' CmdConfigure.configureCommand CmdConfigure.configureAction
+          , newCmd' CmdUpdate.updateCommand CmdUpdate.updateAction
+          , newCmd' CmdBuild.buildCommand CmdBuild.buildAction
+          , newCmd' CmdRepl.replCommand CmdRepl.replAction
+          , newCmd' CmdFreeze.freezeCommand CmdFreeze.freezeAction
+          , newCmd' CmdHaddock.haddockCommand CmdHaddock.haddockAction
+          , -- CommandUI HaddockProjectFlags
+            newCmd
               CmdHaddockProject.haddockProjectCommand
               CmdHaddockProject.haddockProjectAction
-          , newCmd CmdInstall.installCommand CmdInstall.installAction
-          , newCmd CmdRun.runCommand CmdRun.runAction
-          , newCmd CmdTest.testCommand CmdTest.testAction
-          , newCmd CmdBench.benchCommand CmdBench.benchAction
-          , newCmd CmdExec.execCommand CmdExec.execAction
-          , newCmd CmdClean.cleanCommand CmdClean.cleanAction
-          , newCmd CmdSdist.sdistCommand CmdSdist.sdistAction
-          , newCmd CmdTarget.targetCommand CmdTarget.targetAction
-          , newCmd CmdGenBounds.genBoundsCommand CmdGenBounds.genBoundsAction
-          , newCmd CmdOutdated.outdatedCommand CmdOutdated.outdatedAction
+          , newCmd' CmdInstall.installCommand CmdInstall.installAction
+          , newCmd' CmdRun.runCommand CmdRun.runAction
+          , newCmd' CmdTest.testCommand CmdTest.testAction
+          , newCmd' CmdBench.benchCommand CmdBench.benchAction
+          , newCmd' CmdExec.execCommand CmdExec.execAction
+          , -- CommandUI (ProjectFlags, CleanFlags)
+            newCmd CmdClean.cleanCommand CmdClean.cleanAction
+          , -- CommandUI (ProjectFlags, SdistFlags)
+            newCmd CmdSdist.sdistCommand CmdSdist.sdistAction
+          , newCmd' CmdTarget.targetCommand CmdTarget.targetAction
+          , newCmd' CmdGenBounds.genBoundsCommand CmdGenBounds.genBoundsAction
+          , newCmd' CmdOutdated.outdatedCommand CmdOutdated.outdatedAction
           , legacyCmd configureExCommand configureAction
           , legacyCmd genBoundsCommand genBoundsAction
           , legacyCmd buildCommand buildAction
