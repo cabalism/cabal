@@ -307,9 +307,10 @@ withContextAndSelectors verbosity noTargets kind flags@NixStyleFlags{..} targetS
   withTemporaryTempDirectory $ \mkTmpDir -> do
     (tc, ctx) <-
       withProjectOrGlobalConfig
+        verbosity
         ignoreProject
         withProject
-        (withGlobalConfig verbosity globalConfigFlag $ withoutProject mkTmpDir)
+        (\v -> withGlobalConfig v globalConfigFlag $ withoutProject mkTmpDir)
 
     (tc', ctx', sels) <- case targetStrings of
       -- Only script targets may end with ':'.
@@ -349,8 +350,8 @@ withContextAndSelectors verbosity noTargets kind flags@NixStyleFlags{..} targetS
     globalConfigFlag = projectConfigConfigFile (projectConfigShared cliConfig)
     defaultTarget = [TargetPackage TargetExplicitNamed [fakePackageId] Nothing]
 
-    withProject = do
-      ctx <- establishProjectBaseContext verbosity cliConfig cmd
+    withProject verbosity' = do
+      ctx <- establishProjectBaseContext verbosity' cliConfig cmd
       return (ProjectContext, ctx)
     withoutProject mkTmpDir globalConfig = do
       distDirLayout <- establishDummyDistDirLayout verbosity (globalConfig <> cliConfig) =<< mkTmpDir

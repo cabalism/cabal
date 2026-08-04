@@ -455,8 +455,7 @@ mainWorker args = do
           | otherwise = cabalGitInfo
 
     actionWithVerbosity action flags args' globals = do
-      flags' <- resolveVerbosity flags globals
-      action flags' args' globals
+      action flags args' globals
 
     newCmd' ui action = newCmd ui (actionWithVerbosity action)
 

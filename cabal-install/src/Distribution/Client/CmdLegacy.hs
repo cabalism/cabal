@@ -214,8 +214,8 @@ newCmd origUi@CommandUI{..} action = [cmd defaultUi, cmd newUi, cmd origUi]
         , commandNotes = (defaultMsg .) <$> commandNotes
         }
 
-resolveVerbosity :: NixStyleFlags a -> Client.GlobalFlags -> IO (NixStyleFlags a)
-resolveVerbosity flags globals = do
+resolveVerbosity :: Verbosity -> NixStyleFlags a -> Client.GlobalFlags -> IO (NixStyleFlags a)
+resolveVerbosity verbosity' flags globals = do
   let flagVerbosity = Client.configVerbosity $ configFlags flags
       ignoreProject = flagIgnoreProject $ projectFlags flags
       cliConfig = commandLineFlagsToProjectConfig globals flags mempty
@@ -241,6 +241,7 @@ resolveVerbosity flags globals = do
         applyVerbosity globalVerbosity
 
   withProjectOrGlobalConfig
+    verbosity'
     ignoreProject
-    withProject
-    (withGlobalConfig silent' globalConfigFlag withGlobal)
+    (\_ -> withProject)
+    (\_ -> withGlobalConfig silent' globalConfigFlag withGlobal)

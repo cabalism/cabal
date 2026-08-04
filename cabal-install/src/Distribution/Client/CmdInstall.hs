@@ -370,20 +370,20 @@ installAction flags@NixStyleFlags{extraFlags, configFlags, installFlags, project
 
   (pkgSpecs, uris, targetSelectors, config) <-
     let
-      with = do
+      with verbosity' = do
         (pkgSpecs, targetSelectors, baseConfig) <-
-          withProject verbosity cliConfig normalisedTargetStrings installLibs
+          withProject verbosity' cliConfig normalisedTargetStrings installLibs
         -- No URIs in this case, see note above
         return (pkgSpecs, [], targetSelectors, baseConfig)
 
-      without =
-        withGlobalConfig verbosity globalConfigFlag $ \globalConfig ->
-          withoutProject verbosity (globalConfig <> cliConfig) normalisedTargetStrings
+      without verbosity' =
+        withGlobalConfig verbosity' globalConfigFlag $ \globalConfig ->
+          withoutProject verbosity' (globalConfig <> cliConfig) normalisedTargetStrings
      in
       -- If there's no targets it does not make sense to not be in a project.
       if null targetStrings
-        then with
-        else withProjectOrGlobalConfig ignoreProject with without
+        then with verbosity
+        else withProjectOrGlobalConfig verbosity ignoreProject with without
 
   -- NOTE: CmdInstall and project local packages.
   --

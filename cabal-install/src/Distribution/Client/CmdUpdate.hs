@@ -152,9 +152,10 @@ updateAction flags@NixStyleFlags{..} extraArgs globalFlags = do
 
   projectConfig <-
     withProjectOrGlobalConfig
+      verbosity
       ignoreProject
-      (projectConfig <$> establishProjectBaseContext verbosity cliConfig OtherCommand)
-      (withGlobalConfig verbosity globalConfigFlag $ \globalConfig -> return $ globalConfig <> cliConfig)
+      (\v -> projectConfig <$> establishProjectBaseContext v cliConfig OtherCommand)
+      (\v -> withGlobalConfig v globalConfigFlag $ \globalConfig -> return $ globalConfig <> cliConfig)
 
   projectConfigWithSolverRepoContext
     verbosity

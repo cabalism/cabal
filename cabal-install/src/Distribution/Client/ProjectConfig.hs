@@ -700,17 +700,18 @@ withGlobalConfig verbosity gcf with = do
   with globalConfig
 
 withProjectOrGlobalConfig
-  :: Flag Bool
+  :: Verbosity
+  -> Flag Bool
   -- ^ whether to ignore local project (--ignore-project flag)
-  -> IO a
+  -> (Verbosity -> IO a)
   -- ^ continuation with project
-  -> IO a
+  -> (Verbosity -> IO a)
   -- ^ continuation without project
   -> IO a
-withProjectOrGlobalConfig (Flag True) _with without = do
-  without
-withProjectOrGlobalConfig _ignorePrj with without =
-  withProjectOrGlobalConfig' with without
+withProjectOrGlobalConfig verbosity (Flag True) _with without = do
+  without verbosity
+withProjectOrGlobalConfig verbosity _ignorePrj with without =
+  withProjectOrGlobalConfig' (with verbosity) (without verbosity)
 
 withProjectOrGlobalConfig'
   :: IO a

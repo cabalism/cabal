@@ -230,10 +230,10 @@ sdistOptions showOrParseArgs =
 sdistAction :: (ProjectFlags, SdistFlags) -> [String] -> GlobalFlags -> IO ()
 sdistAction (pf@ProjectFlags{..}, SdistFlags{..}) targetStrings globalFlags = do
   (baseCtx, distDirLayout) <-
-    withProjectOrGlobalConfig
+    withProjectOrGlobalConfig verbosity
       flagIgnoreProject
-      withProject
-      (withGlobalConfig verbosity globalConfigFlag withoutProject)
+      (\_ -> withProject)
+      (\v -> withGlobalConfig v globalConfigFlag withoutProject)
 
   let localPkgs = localPackages baseCtx
 
