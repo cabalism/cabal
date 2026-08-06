@@ -1,25 +1,47 @@
 {{B}}{{FG_GOLD}}HADDOCK CONTROL PANEL{{RST}} {{FG_SLATE}}•{{RST}} {{FG_SILVER}}neon mode engaged{{RST}}
+{{DIM}}Generate API docs, cross-links, indexes, and publish-ready output from one place.{{RST}}
 {{HR}}
 {{FG_GREEN}}Core switch{{RST}}: {{B}}{{FG_LIME}}--[enable|disable]-documentation{{RST}}
+{{DIM}}Turn docs on/off globally for the build plan. Useful for fast local builds vs CI/doc jobs.{{RST}}
 {{FG_STEEL}}Index{{RST}}: {{FG_SILVER}}--doc-index-file=TEMPLATE{{RST}} {{DIM}}(template cannot use $pkgid){{RST}}
+{{DIM}}Use a central index template when you want multiple package docs to appear under one umbrella page.{{RST}}
 {{HR}}
 {{FG_VIOLET}}Generators{{RST}}
-  {{FG_PINK}}•{{RST}} --haddock-hoogle            {{DIM}}→ hoogle database{{RST}}
-  {{FG_PINK}}•{{RST}} --haddock-html              {{DIM}}→ HTML docs (default){{RST}}
-  {{FG_PINK}}•{{RST}} --haddock-html-location=URL {{DIM}}→ prerequisite doc links{{RST}}
-  {{FG_PINK}}•{{RST}} --haddock-for-hackage       {{DIM}}→ hackage upload profile{{RST}}
+  {{FG_PINK}}•{{RST}} --haddock-hoogle            {{DIM}}→ build a Hoogle database for symbol/name search across docs{{RST}}
+  {{FG_PINK}}•{{RST}} --haddock-html              {{DIM}}→ produce HTML docs (default style output){{RST}}
+  {{FG_PINK}}•{{RST}} --haddock-html-location=URL {{DIM}}→ link dependencies to already-hosted docs{{RST}}
+  {{FG_PINK}}•{{RST}} --haddock-for-hackage       {{DIM}}→ convenience bundle for Hackage-friendly docs{{RST}}
+{{DIM}}If you are publishing docs remotely, these four options usually form your baseline toolkit.{{RST}}
 {{HR}}
 {{FG_ORANGE}}Target matrix{{RST}}
-  {{FG_GOLD}}exe{{RST}}: --haddock-executables     {{FG_GOLD}}test{{RST}}: --haddock-tests     {{FG_GOLD}}bench{{RST}}: --haddock-benchmarks
-  {{FG_GOLD}}all{{RST}}: --haddock-all             {{FG_GOLD}}internal{{RST}}: --haddock-internal
+  {{FG_GOLD}}exe{{RST}}: --haddock-executables     {{DIM}}document executable entrypoints / exposed modules{{RST}}
+  {{FG_GOLD}}test{{RST}}: --haddock-tests          {{DIM}}document test-suite code for internal team discoverability{{RST}}
+  {{FG_GOLD}}bench{{RST}}: --haddock-benchmarks    {{DIM}}document benchmark internals and harness assumptions{{RST}}
+  {{FG_GOLD}}all{{RST}}: --haddock-all             {{DIM}}run haddock for every target category in this package{{RST}}
+  {{FG_GOLD}}internal{{RST}}: --haddock-internal   {{DIM}}include hidden/internal modules and private symbols{{RST}}
+{{DIM}}Tip: prefer explicit subsets locally; reserve --haddock-all for release/CI consistency checks.{{RST}}
 {{HR}}
 {{FG_GREEN}}Styling + source map{{RST}}
   --haddock-css=PATH
+  {{DIM}}Apply a custom CSS theme to generated docs. Great for internal branding/readability tweaks.{{RST}}
   --haddock-hyperlink-source, --haddock-hyperlink-sources, --haddock-hyperlinked-source
+  {{DIM}}Enable source-code hyperlinks from API declarations to implementation lines.{{RST}}
   --haddock-quickjump
+  {{DIM}}Generate interactive jump index for instant navigation in large modules/packages.{{RST}}
   --haddock-hscolour-css=PATH
+  {{DIM}}Style syntax-highlighted source pages produced via HsColour integration.{{RST}}
 {{HR}}
 {{FG_VIOLET}}Remote wiring{{RST}}
   --haddock-contents-location=URL
+  {{DIM}}Bake an external contents page URL into docs (handy when docs are split across hosts).{{RST}}
   --haddock-base-url=URL
+  {{DIM}}Set base URL for static assets so pages resolve correctly behind proxies/CDNs/subpaths.{{RST}}
   --haddock-use-unicode
+  {{DIM}}Pass unicode rendering through to Haddock for nicer symbols/operators in generated pages.{{RST}}
+{{HR}}
+{{FG_STEEL}}Quick recipes{{RST}}
+  {{FG_PINK}}•{{RST}} {{B}}Local fast pass{{RST}}: --disable-documentation
+  {{FG_PINK}}•{{RST}} {{B}}Developer docs{{RST}}: --enable-documentation --haddock-html --haddock-quickjump --haddock-hyperlinked-source
+  {{FG_PINK}}•{{RST}} {{B}}Release docs{{RST}}: --enable-documentation --haddock-for-hackage --haddock-all
+  {{FG_PINK}}•{{RST}} {{B}}Internal deep docs{{RST}}: --enable-documentation --haddock-internal --haddock-tests --haddock-benchmarks
+{{DIM}}Legend: bullets are capabilities, dim lines are practical guidance, and this panel is intentionally extra.{{RST}}
