@@ -28,7 +28,7 @@ import Distribution.Client.Compat.Prelude
 import Prelude ()
 
 import Data.Char (isLower)
-import Data.List (mapAccumL, stripPrefix)
+import Data.List (findIndex, isInfixOf, mapAccumL, sortOn, stripPrefix, tails)
 import Data.Monoid (Endo (..))
 import qualified Data.Text as T
 import qualified System.Console.GetOpt as GetOpt
@@ -155,20 +155,24 @@ renderOptionRows colorizeWarning maxFlagColumnWidth descColumn helpOutputWidth o
 
     renderOption isFirstInGroup opt =
       let (flagColumn, description) = getOptToColumns opt
-          (capitalizedDescription, wasAutoCapitalized) = capitalizeDescription description
-          wrappedDescription = wrapDescription descriptionWidth capitalizedDescription
-          displayDescription =
-            if wasAutoCapitalized
-              then colorizeFirstAlpha wrappedDescription
-              else wrappedDescription
+          (descriptionItems, warning) =
+            case specialCaseTestShowDetailsDescriptions flagColumn description of
+              Just descriptions -> (map (wrapDescription descriptionWidth) descriptions, [])
+              Nothing ->
+                let (capitalizedDescription, wasAutoCapitalized) = capitalizeDescription description
+                    wrappedDescription = wrapDescription descriptionWidth capitalizedDescription
+                    displayDescription =
+                      if wasAutoCapitalized
+                        then colorizeFirstAlpha wrappedDescription
+                        else wrappedDescription
+                 in ([displayDescription], ["Auto-capitalized help text for " <> flagColumn | wasAutoCapitalized])
           isStacked = length flagColumn > maxFlagColumnWidth
           spacer = if isStacked && not isFirstInGroup then "\n" else ""
-          warning = ["Auto-capitalized help text for " <> flagColumn | wasAutoCapitalized]
           renderedRow =
             spacer
               <> if isStacked
-                then renderStacked flagColumn displayDescription
-                else renderInline flagColumn displayDescription
+                then renderStacked flagColumn descriptionItems
+                else renderInline flagColumn descriptionItems
        in (renderedRow, warning)
 
     colorizeFirstAlpha :: [String] -> [String]
@@ -188,27 +192,45 @@ renderOptionRows colorizeWarning maxFlagColumnWidth descColumn helpOutputWidth o
               | isAlpha ch = Just (reverse acc <> colorizeWarning [ch] <> cs)
               | otherwise = scan (ch : acc) cs
 
-    renderInline flagColumn descriptionLines =
+    renderInline flagColumn descriptionItems =
       let padding = max 1 (descColumn - length flagColumn)
-       in case descriptionLines of
+       in case descriptionItems of
             [] -> "  " <> flagColumn <> "\n"
-            firstLineText : continuation ->
-              let firstLine = "  " <> flagColumn <> replicate padding ' ' <> descriptionMarker <> firstLineText <> "\n"
-                  continuationLines = [descriptionIndent <> markerPadding <> line <> "\n" | line <- continuation]
-               in firstLine <> concat continuationLines
+            firstItem : restItems ->
+              renderFirstInlineItem flagColumn padding firstItem
+                <> concatMap renderContinuationItem restItems
 
-    renderStacked flagColumn descriptionLines =
-      case descriptionLines of
+    renderStacked flagColumn descriptionItems =
+      case descriptionItems of
         [] -> "  " <> flagColumn <> "\n"
-        firstLineText : continuation ->
+        firstItem : restItems ->
           "  "
             <> flagColumn
             <> "\n"
-            <> descriptionIndent
-            <> descriptionMarker
-            <> firstLineText
-            <> "\n"
-            <> concat [descriptionIndent <> markerPadding <> line <> "\n" | line <- continuation]
+            <> renderIndentedItem descriptionMarker firstItem
+            <> concatMap (renderIndentedItem descriptionMarker) restItems
+
+    renderFirstInlineItem flagColumn padding = \case
+      [] -> "  " <> flagColumn <> replicate padding ' ' <> descriptionMarker <> "\n"
+      firstLineText : continuation ->
+        "  "
+          <> flagColumn
+          <> replicate padding ' '
+          <> descriptionMarker
+          <> firstLineText
+          <> "\n"
+          <> concat [descriptionIndent <> markerPadding <> line <> "\n" | line <- continuation]
+
+    renderContinuationItem = renderIndentedItem descriptionMarker
+
+    renderIndentedItem marker = \case
+      [] -> descriptionIndent <> marker <> "\n"
+      firstLineText : continuation ->
+        descriptionIndent
+          <> marker
+          <> firstLineText
+          <> "\n"
+          <> concat [descriptionIndent <> markerPadding <> line <> "\n" | line <- continuation]
 
 wrapDescription :: Int -> String -> [String]
 wrapDescription width description =
@@ -238,6 +260,47 @@ capitalizeDescription = go []
             then (reverse acc <> (toUpper ch : rest), True)
             else (reverse acc <> (ch : rest), False)
       | otherwise = go (ch : acc) rest
+
+specialCaseTestShowDetailsDescriptions :: String -> String -> Maybe [String]
+specialCaseTestShowDetailsDescriptions flagColumn description
+  | isTestShowDetailsFlag flagColumn =
+      case extractLabeledDescriptions description of
+        [] -> Nothing
+        descriptions -> Just descriptions
+  | otherwise = Nothing
+  where
+    isTestShowDetailsFlag flags =
+      "--test-show-details=FILTER" `isInfixOf` flags
+        || "--show-details=FILTER" `isInfixOf` flags
+
+extractLabeledDescriptions :: String -> [String]
+extractLabeledDescriptions description =
+  let labels = ["always", "never", "failures", "streaming", "direct"]
+      markers = [(label, "'" <> label <> "':") | label <- labels]
+      positions =
+        [ (position, marker)
+        | (_label, marker) <- markers
+        , Just position <- [findSubstring marker description]
+        ]
+      sorted = sortOn fst positions
+   in case sorted of
+        [] -> []
+        _ ->
+          let starts = map fst sorted
+              marked = zip sorted (drop 1 starts ++ [length description])
+           in
+            [ let body = trim (take (endPos - startPos - length marker) (drop (startPos + length marker) description))
+               in marker <> " " <> body
+            | (((startPos, marker), endPos)) <- marked
+            ]
+
+findSubstring :: String -> String -> Maybe Int
+findSubstring needle haystack
+  | null needle = Just 0
+  | otherwise = findIndex (isJust . stripPrefix needle) (tails haystack)
+
+trim :: String -> String
+trim = dropWhileEnd isSpace . dropWhile isSpace
 
 getOptToColumns :: GetOpt.OptDescr () -> (String, String)
 getOptToColumns (GetOpt.Option shortFlags longFlags argDescr description) =
