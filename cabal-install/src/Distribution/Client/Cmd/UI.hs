@@ -35,6 +35,8 @@ import Data.Monoid (Endo (..))
 import qualified Data.Text as T
 import Language.Haskell.TH.Syntax (makeRelativeToProject)
 import qualified System.Console.GetOpt as GetOpt
+import System.Environment (lookupEnv)
+import System.IO.Unsafe (unsafePerformIO)
 
 import Distribution.Client.NixStyleOptions
   ( NixStyleFlags (..)
@@ -492,22 +494,24 @@ renderVerbatimTemplate content =
       (T.pack content)
       replacements
   where
+    ansi replacement = if noColorEnabled then "" else replacement
+
     replacements =
-      [ ("{{RST}}", "\ESC[0m")
-      , ("{{B}}", "\ESC[1m")
-      , ("{{DIM}}", "\ESC[2m")
-      , ("{{I}}", "\ESC[3m")
-      , ("{{U}}", "\ESC[4m")
-      , ("{{FG_CYAN}}", "\ESC[38;5;45m")
-      , ("{{FG_GREEN}}", "\ESC[38;5;47m")
-      , ("{{FG_LIME}}", "\ESC[38;5;118m")
-      , ("{{FG_GOLD}}", "\ESC[38;5;220m")
-      , ("{{FG_ORANGE}}", "\ESC[38;5;208m")
-      , ("{{FG_PINK}}", "\ESC[38;5;213m")
-      , ("{{FG_VIOLET}}", "\ESC[38;5;141m")
-      , ("{{FG_STEEL}}", "\ESC[38;5;110m")
-      , ("{{FG_SILVER}}", "\ESC[38;5;250m")
-      , ("{{FG_SLATE}}", "\ESC[38;5;245m")
+      [ ("{{RST}}", ansi "\ESC[0m")
+      , ("{{B}}", ansi "\ESC[1m")
+      , ("{{DIM}}", ansi "\ESC[2m")
+      , ("{{I}}", ansi "\ESC[3m")
+      , ("{{U}}", ansi "\ESC[4m")
+      , ("{{FG_CYAN}}", ansi "\ESC[38;5;45m")
+      , ("{{FG_GREEN}}", ansi "\ESC[38;5;47m")
+      , ("{{FG_LIME}}", ansi "\ESC[38;5;118m")
+      , ("{{FG_GOLD}}", ansi "\ESC[38;5;220m")
+      , ("{{FG_ORANGE}}", ansi "\ESC[38;5;208m")
+      , ("{{FG_PINK}}", ansi "\ESC[38;5;213m")
+      , ("{{FG_VIOLET}}", ansi "\ESC[38;5;141m")
+      , ("{{FG_STEEL}}", ansi "\ESC[38;5;110m")
+      , ("{{FG_SILVER}}", ansi "\ESC[38;5;250m")
+      , ("{{FG_SLATE}}", ansi "\ESC[38;5;245m")
       ]
 
 haddockOptionsRenderedText :: String
@@ -515,10 +519,18 @@ haddockOptionsRenderedText =
   $(embedStringFile =<< makeRelativeToProject "src/Distribution/Client/Cmd/Verbatim/Haddock.txt")
 
 colorizeHeader :: String -> String
-colorizeHeader text = "\ESC[32m" <> text <> "\ESC[0m"
+colorizeHeader text
+  | noColorEnabled = text
+  | otherwise = "\ESC[32m" <> text <> "\ESC[0m"
 
 colorizeWarningHeader :: String -> String
-colorizeWarningHeader text = "\ESC[31m" <> text <> "\ESC[0m"
+colorizeWarningHeader text
+  | noColorEnabled = text
+  | otherwise = "\ESC[31m" <> text <> "\ESC[0m"
+
+noColorEnabled :: Bool
+noColorEnabled = unsafePerformIO $ isJust <$> lookupEnv "NO_COLOR"
+{-# NOINLINE noColorEnabled #-}
 
 colorizeUsageHeader :: String -> String
 colorizeUsageHeader = T.unpack . T.replace (T.pack "Usage:") (T.pack $ colorizeHeader "Usage:") . T.pack
