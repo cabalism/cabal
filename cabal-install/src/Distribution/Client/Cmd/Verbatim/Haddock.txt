@@ -1,0 +1,25 @@
+  --[enable|disable]-documentation
+                                  • Toggle building of documentation
+  --doc-index-file=TEMPLATE       • A central index of haddock API documentation (template cannot
+                                    use $pkgid)
+  --haddock-hoogle                • Generate a hoogle database
+  --haddock-html                  • Generate HTML documentation (the default)
+  --haddock-html-location=URL     • Location of HTML documentation for pre-requisite packages
+  --haddock-for-hackage           • Collection of flags to generate documentation suitable for
+                                    upload to hackage
+  --haddock-executables           • Run haddock for Executables targets
+  --haddock-tests                 • Run haddock for Test Suite targets
+  --haddock-benchmarks            • Run haddock for Benchmark targets
+  --haddock-all                   • Run haddock for all targets
+  --haddock-internal              • Run haddock for internal modules and include all symbols
+  --haddock-css=PATH              • Use PATH as the haddock stylesheet
+
+  --haddock-hyperlink-source, --haddock-hyperlink-sources, --haddock-hyperlinked-source
+                                  • Hyperlink the documentation to the source code
+  --haddock-quickjump             • Generate an index for interactive documentation navigation
+  --haddock-hscolour-css=PATH     • Use PATH as the HsColour stylesheet
+
+  --haddock-contents-location=URL
+                                  • Bake URL in as the location for the contents page
+  --haddock-base-url=URL          • Base URL for static files.
+  --haddock-use-unicode           • Pass --use-unicode option to haddock

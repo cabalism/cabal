@@ -1,4 +1,5 @@
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE TemplateHaskell #-}
 
 module Distribution.Client.Cmd.UI
   ( -- * Converting CommandUI options to optparse-applicative parsers
@@ -28,9 +29,11 @@ import Distribution.Client.Compat.Prelude
 import Prelude ()
 
 import Data.Char (isLower)
+import Data.FileEmbed (embedStringFile)
 import Data.List (mapAccumL, stripPrefix)
 import Data.Monoid (Endo (..))
 import qualified Data.Text as T
+import Language.Haskell.TH.Syntax (makeRelativeToProject)
 import qualified System.Console.GetOpt as GetOpt
 
 import Distribution.Client.NixStyleOptions
@@ -406,6 +409,7 @@ renderGroup :: Int -> Int -> Int -> (OptionGroupKey, [OptionField a]) -> (String
 renderGroup maxFlagColumnWidth descColumn helpOutputWidth (title, options)
   | null options = ("", [])
   | title == InstallLayoutOptions = renderInstallLayoutGroupCompact helpOutputWidth options
+  | title == HaddockOptions = renderHaddockOptionsGroup
   | otherwise =
       let (rows, warnings) =
             renderOptionRows
@@ -434,6 +438,19 @@ renderInstallLayoutGroupCompact helpOutputWidth options =
     compactFlags = ordNub flagColumns
     flagsLine = intercalate ", " compactFlags
     wrappedFlagLines = wrapDescription (max 40 (helpOutputWidth - 2)) flagsLine
+
+renderHaddockOptionsGroup :: (String, [String])
+renderHaddockOptionsGroup =
+  ( "\n"
+      <> colorizeHeader (show HaddockOptions <> ":")
+      <> "\n"
+      <> haddockOptionsRenderedText
+  , []
+  )
+
+haddockOptionsRenderedText :: String
+haddockOptionsRenderedText =
+  $(embedStringFile =<< makeRelativeToProject "src/Distribution/Client/Cmd/Verbatim/Haddock.txt")
 
 colorizeHeader :: String -> String
 colorizeHeader text = "\ESC[32m" <> text <> "\ESC[0m"

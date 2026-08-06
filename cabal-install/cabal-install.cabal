@@ -18,6 +18,7 @@ Category:           Distribution
 Build-type:         Simple
 Extra-Source-Files:
   bash-completion/cabal
+  src/Distribution/Client/Cmd/Verbatim/Haddock.txt
 extra-doc-files:
   README.md
   ChangeLog.md
@@ -253,6 +254,7 @@ library
       , edit-distance >= 0.2.2 && < 0.3
       , exceptions >= 0.10.4   && < 0.11
       , filepath   >= 1.4.0.0  && < 1.6
+      , file-embed >= 0.0.10   && < 0.1
       , hooks-exe ^>= 3.19
       , HTTP       >= 4000.1.5 && < 4000.6
       , mtl        >= 2.0      && < 2.4
@@ -273,6 +275,7 @@ library
       , regex-posix >= 0.96.0.0 && <0.97
       , safe-exceptions >= 0.1.7.0 && < 0.2
       , semaphore-compat >= 2.0.1 && < 2.1
+      , template-haskell >= 2.19 && < 2.25
 
     if flag(native-dns)
       if os(windows)
