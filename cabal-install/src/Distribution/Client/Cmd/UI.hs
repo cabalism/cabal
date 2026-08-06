@@ -444,9 +444,71 @@ renderHaddockOptionsGroup =
   ( "\n"
       <> colorizeHeader (show HaddockOptions <> ":")
       <> "\n"
-      <> haddockOptionsRenderedText
+      <> renderFramedVerbatim haddockOptionsRenderedText
   , []
   )
+
+renderFramedVerbatim :: String -> String
+renderFramedVerbatim content =
+  renderVerbatimTemplate . unlines $
+    [ topBorder
+    ]
+      ++ map renderLine rawLines
+      ++ [bottomBorder]
+  where
+    rawLines = lines content
+    width = maximum (0 : map visibleLength rawLines)
+
+    topBorder = "{{FG_CYAN}}╭" <> replicate (width + 2) '─' <> "╮{{RST}}"
+    middleBorder = "{{FG_CYAN}}├" <> replicate (width + 2) '─' <> "┤{{RST}}"
+    bottomBorder = "{{FG_CYAN}}╰" <> replicate (width + 2) '─' <> "╯{{RST}}"
+
+    renderLine "{{HR}}" = middleBorder
+    renderLine line =
+      "{{FG_CYAN}}│{{RST}} "
+        <> line
+        <> replicate (width - visibleLength line) ' '
+        <> " {{FG_CYAN}}│{{RST}}"
+
+visibleLength :: String -> Int
+visibleLength = length . stripTemplateTokens
+
+stripTemplateTokens :: String -> String
+stripTemplateTokens = go
+  where
+    go [] = []
+    go ('{' : '{' : xs) = go (dropToken xs)
+    go (x : xs) = x : go xs
+
+    dropToken [] = []
+    dropToken ('}' : '}' : xs) = xs
+    dropToken (_ : xs) = dropToken xs
+
+renderVerbatimTemplate :: String -> String
+renderVerbatimTemplate content =
+  T.unpack $
+    foldl'
+      (\acc (needle, replacement) -> T.replace (T.pack needle) (T.pack replacement) acc)
+      (T.pack content)
+      replacements
+  where
+    replacements =
+      [ ("{{RST}}", "\ESC[0m")
+      , ("{{B}}", "\ESC[1m")
+      , ("{{DIM}}", "\ESC[2m")
+      , ("{{I}}", "\ESC[3m")
+      , ("{{U}}", "\ESC[4m")
+      , ("{{FG_CYAN}}", "\ESC[38;5;45m")
+      , ("{{FG_GREEN}}", "\ESC[38;5;47m")
+      , ("{{FG_LIME}}", "\ESC[38;5;118m")
+      , ("{{FG_GOLD}}", "\ESC[38;5;220m")
+      , ("{{FG_ORANGE}}", "\ESC[38;5;208m")
+      , ("{{FG_PINK}}", "\ESC[38;5;213m")
+      , ("{{FG_VIOLET}}", "\ESC[38;5;141m")
+      , ("{{FG_STEEL}}", "\ESC[38;5;110m")
+      , ("{{FG_SILVER}}", "\ESC[38;5;250m")
+      , ("{{FG_SLATE}}", "\ESC[38;5;245m")
+      ]
 
 haddockOptionsRenderedText :: String
 haddockOptionsRenderedText =

@@ -1,25 +1,25 @@
-  --[enable|disable]-documentation
-                                  • Toggle building of documentation
-  --doc-index-file=TEMPLATE       • A central index of haddock API documentation (template cannot
-                                    use $pkgid)
-  --haddock-hoogle                • Generate a hoogle database
-  --haddock-html                  • Generate HTML documentation (the default)
-  --haddock-html-location=URL     • Location of HTML documentation for pre-requisite packages
-  --haddock-for-hackage           • Collection of flags to generate documentation suitable for
-                                    upload to hackage
-  --haddock-executables           • Run haddock for Executables targets
-  --haddock-tests                 • Run haddock for Test Suite targets
-  --haddock-benchmarks            • Run haddock for Benchmark targets
-  --haddock-all                   • Run haddock for all targets
-  --haddock-internal              • Run haddock for internal modules and include all symbols
-  --haddock-css=PATH              • Use PATH as the haddock stylesheet
-
+{{B}}{{FG_GOLD}}HADDOCK CONTROL PANEL{{RST}} {{FG_SLATE}}•{{RST}} {{FG_SILVER}}neon mode engaged{{RST}}
+{{HR}}
+{{FG_GREEN}}Core switch{{RST}}: {{B}}{{FG_LIME}}--[enable|disable]-documentation{{RST}}
+{{FG_STEEL}}Index{{RST}}: {{FG_SILVER}}--doc-index-file=TEMPLATE{{RST}} {{DIM}}(template cannot use $pkgid){{RST}}
+{{HR}}
+{{FG_VIOLET}}Generators{{RST}}
+  {{FG_PINK}}•{{RST}} --haddock-hoogle            {{DIM}}→ hoogle database{{RST}}
+  {{FG_PINK}}•{{RST}} --haddock-html              {{DIM}}→ HTML docs (default){{RST}}
+  {{FG_PINK}}•{{RST}} --haddock-html-location=URL {{DIM}}→ prerequisite doc links{{RST}}
+  {{FG_PINK}}•{{RST}} --haddock-for-hackage       {{DIM}}→ hackage upload profile{{RST}}
+{{HR}}
+{{FG_ORANGE}}Target matrix{{RST}}
+  {{FG_GOLD}}exe{{RST}}: --haddock-executables     {{FG_GOLD}}test{{RST}}: --haddock-tests     {{FG_GOLD}}bench{{RST}}: --haddock-benchmarks
+  {{FG_GOLD}}all{{RST}}: --haddock-all             {{FG_GOLD}}internal{{RST}}: --haddock-internal
+{{HR}}
+{{FG_GREEN}}Styling + source map{{RST}}
+  --haddock-css=PATH
   --haddock-hyperlink-source, --haddock-hyperlink-sources, --haddock-hyperlinked-source
-                                  • Hyperlink the documentation to the source code
-  --haddock-quickjump             • Generate an index for interactive documentation navigation
-  --haddock-hscolour-css=PATH     • Use PATH as the HsColour stylesheet
-
+  --haddock-quickjump
+  --haddock-hscolour-css=PATH
+{{HR}}
+{{FG_VIOLET}}Remote wiring{{RST}}
   --haddock-contents-location=URL
-                                  • Bake URL in as the location for the contents page
-  --haddock-base-url=URL          • Base URL for static files.
-  --haddock-use-unicode           • Pass --use-unicode option to haddock
+  --haddock-base-url=URL
+  --haddock-use-unicode
