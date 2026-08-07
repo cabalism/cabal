@@ -37,6 +37,7 @@ import Distribution.Compat.Prelude
 import Distribution.Types.Version
 import Prelude ()
 
+import Control.Applicative ((<**>))
 import Distribution.CabalSpecVersion
 import Distribution.Parsec
 import Distribution.Pretty
@@ -358,24 +359,26 @@ versionRangeParser digitParser csv = expr
   where
     expr =
       P.spaces *>
-      ( (\lhs maybeRhs -> maybe lhs (unionVersionRanges lhs) maybeRhs)
-          <$> term
+      ( term
           <* P.spaces
-          <*> ( ( Just
-                    <$> (P.string "||" *> checkOp *> P.spaces *> expr)
-                )
-                  <|> pure Nothing
-              )
+          <**> ( (maybe id unionVersionRanges)
+                   <$> ( ( Just
+                             <$> (P.string "||" *> checkOp *> P.spaces *> expr)
+                         )
+                           <|> pure Nothing
+                       )
+               )
       )
     term =
-      (\lhs maybeRhs -> maybe lhs (intersectVersionRanges lhs) maybeRhs)
-        <$> factor
+      factor
         <* P.spaces
-        <*> ( ( Just
-                  <$> (P.string "&&" *> checkOp *> P.spaces *> term)
-              )
-                <|> pure Nothing
-            )
+        <**> ( (maybe id intersectVersionRanges)
+                 <$> ( ( Just
+                           <$> (P.string "&&" *> checkOp *> P.spaces *> term)
+                       )
+                         <|> pure Nothing
+                     )
+             )
     factor = parens expr <|> prim
 
     prim = do
