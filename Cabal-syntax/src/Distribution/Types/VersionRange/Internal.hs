@@ -356,27 +356,26 @@ instance Parsec VersionRange where
 versionRangeParser :: forall m. CabalParsing m => m Int -> CabalSpecVersion -> m VersionRange
 versionRangeParser digitParser csv = expr
   where
-    expr = do
-      P.spaces
-      t <- term
-      P.spaces
-      do
-        _ <- P.string "||"
-        checkOp
-        P.spaces
-        e <- expr
-        return (unionVersionRanges t e)
-        <|> return t
-    term = do
-      f <- factor
-      P.spaces
-      do
-        _ <- P.string "&&"
-        checkOp
-        P.spaces
-        t <- term
-        return (intersectVersionRanges f t)
-        <|> return f
+    expr =
+      P.spaces *>
+      ( (\lhs maybeRhs -> maybe lhs (unionVersionRanges lhs) maybeRhs)
+          <$> term
+          <* P.spaces
+          <*> ( ( Just
+                    <$> (P.string "||" *> checkOp *> P.spaces *> expr)
+                )
+                  <|> pure Nothing
+              )
+      )
+    term =
+      (\lhs maybeRhs -> maybe lhs (intersectVersionRanges lhs) maybeRhs)
+        <$> factor
+        <* P.spaces
+        <*> ( ( Just
+                  <$> (P.string "&&" *> checkOp *> P.spaces *> term)
+              )
+                <|> pure Nothing
+            )
     factor = parens expr <|> prim
 
     prim = do
