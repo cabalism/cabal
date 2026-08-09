@@ -1,3 +1,5 @@
+{-# LANGUAGE CPP #-}
+
 -- |
 -- Module      :  Distribution.GetOpt
 -- Copyright   :  (c) Sven Panne 2002-2005
@@ -34,10 +36,11 @@ module Distribution.GetOpt
   ) where
 
 import Distribution.Compat.Prelude
-import Distribution.Simple.Utils (isInfixOf)
 import Prelude ()
 
-import System.IO (localeEncoding)
+import GHC.IO.Encoding (textEncodingName)
+import System.IO (hGetEncoding, stdout)
+import System.IO.Unsafe (unsafePerformIO)
 
 -- | What to do with options following non-options
 data ArgOrder a
@@ -131,8 +134,20 @@ usageInfo header optDescr = unlines (header : table)
     padTo n x = take n (x ++ repeat ' ')
 
     helpMarker
-      | "utf-8" `isInfixOf` (toLower <$> show localeEncoding) = "•"
-      | otherwise = "*"
+      | supportsUnicode = "•"
+      | otherwise = "#"
+
+{- FOURMOLU_DISABLE -}
+-- SEE: https://github.com/Bodigrim/tasty-bench/blob/e37e2925e0e760e089385d936f6666688af7f5ed/src/Test/Tasty/Bench.hs#L992-L999
+supportsUnicode :: Bool
+supportsUnicode = maybe False ((== "UTF") . take 3 . textEncodingName) enc
+#if defined(mingw32_HOST_OS)
+  && unsafePerformIO getConsoleOutputCP == 65001
+#endif
+  where
+    enc = unsafePerformIO (hGetEncoding stdout)
+{-# OPAQUE supportsUnicode #-}
+{- FOURMOLU_ENABLE -}
 
 zipDefault :: a -> b -> [a] -> [b] -> [(a, b)]
 zipDefault _ _ [] [] = []
