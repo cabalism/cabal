@@ -29,7 +29,6 @@ module Distribution.Client.ProjectConfig.Legacy
     -- * Internals
 
     -- | These functions are exposed just for tests.
-  , parsePackageLocationTokenQ
   , renderPackageLocationToken
   ) where
 
