@@ -44,6 +44,11 @@ flag legacy-comparison
   default: False
   manual: True
 
+flag quickcheck-doctests
+  description: QuickCheck doctests for the project
+  default: False
+  manual: True
+
 common warnings
     ghc-options:
       -Wall
@@ -271,6 +276,12 @@ library
       , regex-posix >= 0.96.0.0 && <0.97
       , safe-exceptions >= 0.1.7.0 && < 0.2
       , semaphore-compat >= 2.0.1 && < 2.1
+
+    --if flag(quickcheck-doctests)
+    build-depends: Cabal-QuickCheck, QuickCheck
+    hs-source-dirs: tests
+    other-modules:
+      UnitTests.Distribution.Client.ArbitraryInstances
 
     if flag(native-dns)
       if os(windows)
