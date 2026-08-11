@@ -165,7 +165,7 @@ doctest: ## Run doctests.
 	cd Cabal-described && $(DOCTEST)
 	cd Cabal && $(DOCTEST)
 	cd cabal-install-solver && $(DOCTEST)
-	cd cabal-install && $(DOCTEST)
+	cd cabal-install && $(DOCTEST) --flag +doctest
 
 # If we pin and periodically bump the version of doctest, we get more
 # reproducible testing. Initially we pinned to doctest-0.25.0 to avoid failures

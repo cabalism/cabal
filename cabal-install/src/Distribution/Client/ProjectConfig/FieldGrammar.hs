@@ -68,6 +68,8 @@ ignoredLens f s = s <$ f mempty
 --
 -- >>> getPackageLocationTokens <$> (simpleParsec "*/*.cabal ../{foo,bar}/" :: Maybe PackageLocationTokens)
 -- Just ["*/*.cabal","../{foo,bar}/"]
+--
+-- prop> \(PackageLocationString str) -> fmap (concat . getPackageLocationTokens) (simpleParsec (renderPackageLocationToken str) :: Maybe PackageLocationTokens) == Just str
 parsePackageLocationTokenQ :: CabalParsing m => m String
 parsePackageLocationTokenQ = parsecHaskellString <|> parsePackageLocationToken
   where
@@ -251,3 +253,5 @@ packageConfigPreferVersion =
 
 -- $setup
 -- >>> import Distribution.Parsec (simpleParsec)
+-- >>> import Distribution.Deprecated.ReadP (readP_to_S)
+-- >>> import UnitTests.Distribution.Client.ArbitraryInstances

@@ -44,8 +44,8 @@ flag legacy-comparison
   default: False
   manual: True
 
-flag quickcheck-doctests
-  description: QuickCheck doctests for the project
+flag doctest
+  description: Include modules needed for doctests
   default: False
   manual: True
 
@@ -277,11 +277,10 @@ library
       , safe-exceptions >= 0.1.7.0 && < 0.2
       , semaphore-compat >= 2.0.1 && < 2.1
 
-    --if flag(quickcheck-doctests)
-    build-depends: Cabal-QuickCheck, QuickCheck
-    hs-source-dirs: tests
-    other-modules:
-      UnitTests.Distribution.Client.ArbitraryInstances
+    if flag(doctest)
+      build-depends: Cabal-QuickCheck, QuickCheck
+      hs-source-dirs: tests
+      other-modules: UnitTests.Distribution.Client.ArbitraryInstances
 
     if flag(native-dns)
       if os(windows)

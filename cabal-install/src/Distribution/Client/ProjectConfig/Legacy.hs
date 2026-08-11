@@ -1309,7 +1309,6 @@ legacyProjectConfigFieldDescrs constraintSrc =
 -- [("*/*.cabal"," ../{foo,bar}/")]
 --
 -- prop> \(PackageLocationString str) -> runReadP parsePackageLocationTokenQ (renderPackageLocationToken str) == Just str
---
 parsePackageLocationTokenQ :: ReadP String
 parsePackageLocationTokenQ =
   parseHaskellString
@@ -2063,5 +2062,4 @@ showTokenQ x = showToken x
 
 -- $setup
 -- >>> import Distribution.Deprecated.ReadP (readP_to_S)
--- >>> import Test.QuickCheck
 -- >>> import UnitTests.Distribution.Client.ArbitraryInstances

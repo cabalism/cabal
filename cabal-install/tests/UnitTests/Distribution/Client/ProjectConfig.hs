@@ -57,8 +57,7 @@ tests =
            ]
   , testGroup
       "individual parser tests"
-      [ testProperty "package location" prop_parsePackageLocationTokenQ
-      , testProperty "RelaxedDep" prop_roundtrip_printparse_RelaxedDep
+      [ testProperty "RelaxedDep" prop_roundtrip_printparse_RelaxedDep
       , testProperty "RelaxDeps" prop_roundtrip_printparse_RelaxDeps
       , testProperty "RelaxDeps'" prop_roundtrip_printparse_RelaxDeps'
       ]
@@ -339,10 +338,6 @@ prop_roundtrip_printparse_specific config =
 ----------------------------
 -- Individual Parser tests
 --
-
-prop_parsePackageLocationTokenQ :: PackageLocationString -> Bool
-prop_parsePackageLocationTokenQ (PackageLocationString str) =
-  runReadP parsePackageLocationTokenQ (renderPackageLocationToken str) == Just str
 
 prop_roundtrip_printparse_RelaxedDep :: RelaxedDep -> Property
 prop_roundtrip_printparse_RelaxedDep rdep =
