@@ -108,20 +108,27 @@ usageInfo header optDescr = unlines (header : table)
       OptHelp{optNames, optHelp} <- options
       let wrappedHelp = wrapText descolWidth optHelp
       if length optNames >= maxOptNameWidth - 1
-        then [' ' : optNames] ++ renderColumns Nothing wrappedHelp
-        else renderColumns (Just optNames) wrappedHelp
+        then [' ' : optNames] ++ columns Nothing wrappedHelp
+        else columns (Just optNames) wrappedHelp
 
-    renderColumns :: Maybe String -> [String] -> [String]
-    renderColumns Nothing [] = []
-    renderColumns (Just "") [] = []
-    renderColumns (Just x) [] = [' ' : padTo maxOptNameWidth x]
-    renderColumns Nothing (y : ys') = renderLine helpMarker ("", y) : map (renderLine ' ') [("", y') | y' <- ys']
-    renderColumns (Just "") ys = renderColumns Nothing ys
-    renderColumns (Just x) (y : ys') = renderLine helpMarker (x, y) : map (renderLine ' ') [("", y') | y' <- ys']
+    -- Uses # as the help marker or herald. We're used to seeing it used to
+    -- start comments.
+    columns :: Maybe String -> [String] -> [String]
+    columns Nothing [] = []
+    columns (Just "") [] = []
+    columns (Just x) [] = [' ' : padTo maxOptNameWidth x]
+    columns Nothing (y : ys) = row (Just '#') ("", y) : rows ys
+    columns (Just "") ys = columns Nothing ys
+    columns (Just x) (y : ys) = row (Just '#') (x, y) : rows ys
 
-    -- This looks alright when rendered and is often used to start comments.
-    helpMarker = '#'
-    renderLine marker (name, y) = ' ' : padTo (maxOptNameWidth - 2) name ++ ' ' : marker : ' ' : y
+    rows ys = map (row Nothing) [("", y) | y <- ys]
+
+    row :: Maybe Char -> (String, String) -> String
+    row Nothing (name, y) = rowOption name ++ "   " ++ y
+    row (Just marker) (name, y) = rowOption name ++ ' ' : marker : ' ' : y
+
+    rowOption name = ' ' : padTo (maxOptNameWidth - 2) name
+
     padTo n x = take n (x ++ repeat ' ')
 
 -- | Pretty printing of short options.
