@@ -116,7 +116,7 @@ usageInfo header optDescr = unlines (header : table)
     columns :: Maybe String -> [String] -> [String]
     columns Nothing [] = []
     columns (Just "") [] = []
-    columns (Just x) [] = [' ' : padTo maxOptNameWidth x]
+    columns (Just x) [] = [' ' : x] -- When there is no help text, no padding is needed.
     columns Nothing (y : ys) = row (Just '#') ("", y) : rows ys
     columns (Just "") ys = columns Nothing ys
     columns (Just x) (y : ys) = row (Just '#') (x, y) : rows ys
