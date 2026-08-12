@@ -1,3 +1,5 @@
+{-# LANGUAGE ViewPatterns #-}
+
 -- |
 -- Module      :  Distribution.GetOpt
 -- Copyright   :  (c) Sven Panne 2002-2005
@@ -82,19 +84,20 @@ data OptHelp = OptHelp
   , optHelp :: String
   }
 
+-- | Flatten the short and long option names into a single string for display.
+flattenNames :: OptDescr a -> OptHelp
+flattenNames (Option sos los ad help) =
+  OptHelp
+    { optNames = intercalate ", " $ map (fmtShort ad) sos ++ map (fmtLong ad) (take 1 los)
+    , optHelp = help
+    }
+
 -- | Lays out the header followed with a formatted table of options.
 usageInfo :: String -> [OptDescr a] -> String
-usageInfo header optDescr = unlines (header : table)
+usageInfo header (map flattenNames -> options) = unlines (header : table)
   where
     (nameWidth, helpWidth) = let w = 30 in (w, 80 - (w + 3))
     indent = ' '
-    options = map flattenNames optDescr
-
-    flattenNames (Option sos los ad help) =
-      OptHelp
-        { optNames = intercalate ", " $ map (fmtShort ad) sos ++ map (fmtLong ad) (take 1 los)
-        , optHelp = help
-        }
 
     table = do
       OptHelp{optNames, optHelp} <- options
