@@ -82,21 +82,15 @@ data OptHelp = OptHelp
   , optHelp :: String
   }
 
--- | Return a string describing the usage of a command, derived from
--- the header (first argument) and the options described by the
--- second argument.
-usageInfo
-  :: String -- header
-  -> [OptDescr a] -- option descriptors
-  -> String -- nicely formatted description of options
+-- | Lays out the header followed with a formatted table of options.
+usageInfo :: String -> [OptDescr a] -> String
 usageInfo header optDescr = unlines (header : table)
   where
-    options = flip map optDescr $ \(Option sos los ad d) ->
+    options = map flattenNames optDescr
+
+    flattenNames (Option sos los ad d) =
       OptHelp
-        { optNames =
-            intercalate ", " $
-              map (fmtShort ad) sos
-                ++ map (fmtLong ad) (take 1 los)
+        { optNames = intercalate ", " $ map (fmtShort ad) sos ++ map (fmtLong ad) (take 1 los)
         , optHelp = d
         }
 
