@@ -102,11 +102,11 @@ usageInfo header optDescr = unlines (header : table)
       OptHelp{optNames, optHelp} <- options
       let wrappedHelp = wrapText helpWidth optHelp
       if length optNames >= nameWidth - 1
-        then columns optNames [] ++ columns "" wrappedHelp
-        else columns optNames wrappedHelp
+        then rows optNames [] ++ rows "" wrappedHelp
+        else rows optNames wrappedHelp
 
-    columns x [] = [indent : x]
-    columns x (y : ys) = markedRow x y : map unmarkedRow ys
+    rows x [] = [indent : x]
+    rows x (y : ys) = markedRow x y : map unmarkedRow ys
 
     markedRow name help = rowOption name ++ ' ' : '#' : ' ' : help
     unmarkedRow help = rowOption "" ++ "   " ++ help
