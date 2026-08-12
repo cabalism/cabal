@@ -94,8 +94,7 @@ usageInfo header optDescr = unlines (header : table)
         , optHelp = d
         }
 
-    maxOptNameWidth = 30
-    descolWidth = 80 - (maxOptNameWidth + 3)
+    (maxOptNameWidth, descolWidth) = let w = 30 in (w, 80 - (w + 3))
 
     table :: [String]
     table = do
