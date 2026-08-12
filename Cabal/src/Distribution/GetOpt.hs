@@ -108,27 +108,25 @@ usageInfo header optDescr = unlines (header : table)
       OptHelp{optNames, optHelp} <- options
       let wrappedHelp = wrapText descolWidth optHelp
       if length optNames >= maxOptNameWidth - 1
-        then
-          [" " ++ optNames]
-            ++ renderColumns [] wrappedHelp
+        then [' ' : optNames] ++ renderColumns [] wrappedHelp
         else renderColumns [optNames] wrappedHelp
 
     renderColumns :: [String] -> [String] -> [String]
     renderColumns xs [] = do
       x <- xs
-      return $ " " ++ padTo maxOptNameWidth x
+      return $ ' ' : padTo maxOptNameWidth x
     renderColumns xs ys =
       case zipDefault "" "" xs ys of
         [] -> []
-        (xy : xys) -> renderLine helpMarker xy : map (renderLine " ") xys
+        (xy : xys) -> renderLine helpMarker xy : map (renderLine ' ') xys
       where
         renderLine marker (x, y) =
-          " " ++ padTo (maxOptNameWidth - 2) x ++ " " ++ marker ++ " " ++ y
+          ' ' : padTo (maxOptNameWidth - 2) x ++ ' ' : marker : ' ' : y
 
     padTo n x = take n (x ++ repeat ' ')
 
     -- This looks alright when rendered and is often used to start comments.
-    helpMarker = "#"
+    helpMarker = '#'
 
 zipDefault :: a -> b -> [a] -> [b] -> [(a, b)]
 zipDefault _ _ [] [] = []
