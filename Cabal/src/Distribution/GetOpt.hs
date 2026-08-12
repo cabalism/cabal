@@ -104,13 +104,10 @@ usageInfo header optDescr = unlines (header : table)
         else columns optNames wrappedHelp
 
     columns x [] = [' ' : x] -- When there is no help text, no padding is needed.
-    columns x (y : ys) = markedRow (x, y) : unmarkedRows ys
+    columns x (y : ys) = markedRow x y : map unmarkedHelpOnlyRow ys
 
-    unmarkedRows ys = [unmarkedRow ("", y) | y <- ys]
-
-    -- Uses # as the help marker or herald.
-    markedRow (name, help) = rowOption name ++ ' ' : '#' : ' ' : help
-    unmarkedRow (name, help) = rowOption name ++ "   " ++ help
+    markedRow name help = rowOption name ++ ' ' : '#' : ' ' : help
+    unmarkedHelpOnlyRow help = rowOption "" ++ "   " ++ help
 
     rowOption name = ' ' : padTo (nameWidth - 2) name
 
