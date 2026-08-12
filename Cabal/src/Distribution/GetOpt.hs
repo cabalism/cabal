@@ -112,9 +112,7 @@ usageInfo header optDescr = unlines (header : table)
         else renderColumns [optNames] wrappedHelp
 
     renderColumns :: [String] -> [String] -> [String]
-    renderColumns xs [] = do
-      x <- xs
-      return $ ' ' : padTo maxOptNameWidth x
+    renderColumns xs [] = [' ' : padTo maxOptNameWidth x | x <- xs]
     renderColumns xs ys =
       case zipDefault "" "" xs ys of
         [] -> []
