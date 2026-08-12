@@ -102,7 +102,7 @@ usageInfo header optDescr = unlines (header : table)
       OptHelp{optNames, optHelp} <- options
       let wrappedHelp = wrapText helpWidth optHelp
       if length optNames >= nameWidth - 1
-        then [indent : optNames] ++ columns "" wrappedHelp
+        then columns optNames [] ++ columns "" wrappedHelp
         else columns optNames wrappedHelp
 
     columns x [] = [indent : x]
