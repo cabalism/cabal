@@ -96,20 +96,22 @@ usageInfo header optDescr = unlines (header : table)
 
     (nameWidth, helpWidth) = let w = 30 in (w, 80 - (w + 3))
 
+    indent = ' '
+
     table = do
       OptHelp{optNames, optHelp} <- options
       let wrappedHelp = wrapText helpWidth optHelp
       if length optNames >= nameWidth - 1
-        then [' ' : optNames] ++ columns "" wrappedHelp
+        then [indent : optNames] ++ columns "" wrappedHelp
         else columns optNames wrappedHelp
 
-    columns x [] = [' ' : x] -- When there is no help text, no padding is needed.
+    columns x [] = [indent : x] -- When there is no help text, no padding is needed.
     columns x (y : ys) = markedRow x y : map unmarkedHelpOnlyRow ys
 
     markedRow name help = rowOption name ++ ' ' : '#' : ' ' : help
     unmarkedHelpOnlyRow help = rowOption "" ++ "   " ++ help
 
-    rowOption name = ' ' : padTo (nameWidth - 2) name
+    rowOption name = indent : padTo (nameWidth - 2) name
 
     padTo n x = take n (x ++ repeat ' ')
 
