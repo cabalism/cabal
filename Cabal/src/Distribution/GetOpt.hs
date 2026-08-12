@@ -82,35 +82,27 @@ data OptHelp = OptHelp
   , optHelp :: String
   }
 
--- | Return a string describing the usage of a command, derived from
--- the header (first argument) and the options described by the
--- second argument.
-usageInfo
-  :: String -- header
-  -> [OptDescr a] -- option descriptors
-  -> String -- nicely formatted description of options
+-- | Lays out the header followed with a formatted table of options.
+usageInfo :: String -> [OptDescr a] -> String
 usageInfo header optDescr = unlines (header : table)
   where
     options :: [OptHelp]
     options = flip map optDescr $ \(Option sos los ad d) ->
       OptHelp
-        { optNames =
-            intercalate ", " $
-              map (fmtShort ad) sos
-                ++ map (fmtLong ad) (take 1 los)
+        { optNames = intercalate ", " $ map (fmtShort ad) sos ++ map (fmtLong ad) (take 1 los)
         , optHelp = d
         }
 
-    nameWidth = 30
-    helpWidth = 80 - (nameWidth + 3)
+    (nameWidth, helpWidth) = let w = 30 in (w, 80 - (w + 3))
 
     table :: [String]
     table = do
       OptHelp{optNames, optHelp} <- options
       let wrappedHelp = wrapText helpWidth optHelp
-      columns optNames $ if length optNames >= nameWidth - 1
-        then "" : wrappedHelp
-        else wrappedHelp
+      columns optNames $
+        if length optNames >= nameWidth - 1
+          then "" : wrappedHelp
+          else wrappedHelp
 
     -- Uses # as the help marker or herald. We're used to seeing it used to
     -- start comments.
