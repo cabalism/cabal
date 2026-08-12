@@ -105,16 +105,15 @@ usageInfo header optDescr = unlines (header : table)
           then "" : wrappedHelp
           else wrappedHelp
 
-    -- Uses # as the help marker or herald.
     columns :: String -> [String] -> [String]
     columns x [] = [' ' : x] -- When there is no help text, no padding is needed.
-    columns x (y : ys) = row (Just '#') (x, y) : unmarkedRows ys
+    columns x (y : ys) = markedRow (x, y) : unmarkedRows ys
 
-    unmarkedRows = fmap (row Nothing . ("",))
+    unmarkedRows = fmap (unmarkedRow . ("",))
 
-    row :: Maybe Char -> (String, String) -> String
-    row Nothing (name, help) = rowOption name ++ "   " ++ help
-    row (Just marker) (name, help) = rowOption name ++ ' ' : marker : ' ' : help
+    -- Uses # as the help marker or herald.
+    markedRow (name, help) = rowOption name ++ ' ' : '#' : ' ' : help
+    unmarkedRow (name, help) = rowOption name ++ "   " ++ help
 
     rowOption name = ' ' : padTo (nameWidth - 2) name
 
