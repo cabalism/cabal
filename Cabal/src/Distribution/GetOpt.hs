@@ -104,8 +104,7 @@ usageInfo header optDescr = unlines (header : table)
           then "" : wrappedHelp
           else wrappedHelp
 
-    -- Uses # as the help marker or herald. We're used to seeing it used to
-    -- start comments.
+    -- Uses # as the help marker or herald.
     columns :: String -> [String] -> [String]
     columns x [] = [' ' : x] -- When there is no help text, no padding is needed.
     columns x (y : ys) = row (Just '#') (x, y) : rows ys
