@@ -91,6 +91,7 @@ usageInfo
   -> String -- nicely formatted description of options
 usageInfo header optDescr = unlines (header : table)
   where
+    options :: [OptHelp]
     options = flip map optDescr $ \(Option sos los ad d) ->
       OptHelp
         { optNames =
@@ -100,14 +101,14 @@ usageInfo header optDescr = unlines (header : table)
         , optHelp = d
         }
 
-    maxOptNameWidth = 30
-    descolWidth = 80 - (maxOptNameWidth + 3)
+    nameWidth = 30
+    helpWidth = 80 - (nameWidth + 3)
 
     table :: [String]
     table = do
       OptHelp{optNames, optHelp} <- options
-      let wrappedHelp = wrapText descolWidth optHelp
-      columns optNames $ if length optNames >= maxOptNameWidth - 1
+      let wrappedHelp = wrapText helpWidth optHelp
+      columns optNames $ if length optNames >= nameWidth - 1
         then "" : wrappedHelp
         else wrappedHelp
 
@@ -123,7 +124,7 @@ usageInfo header optDescr = unlines (header : table)
     row Nothing (name, y) = rowOption name ++ "   " ++ y
     row (Just marker) (name, y) = rowOption name ++ ' ' : marker : ' ' : y
 
-    rowOption name = ' ' : padTo (maxOptNameWidth - 2) name
+    rowOption name = ' ' : padTo (nameWidth - 2) name
 
     padTo n x = take n (x ++ repeat ' ')
 
