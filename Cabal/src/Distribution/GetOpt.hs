@@ -107,19 +107,15 @@ usageInfo header optDescr = unlines (header : table)
     table = do
       OptHelp{optNames, optHelp} <- options
       let wrappedHelp = wrapText descolWidth optHelp
-      columns (Just optNames) $ if length optNames >= maxOptNameWidth - 1
+      columns optNames $ if length optNames >= maxOptNameWidth - 1
         then "" : wrappedHelp
         else wrappedHelp
 
     -- Uses # as the help marker or herald. We're used to seeing it used to
     -- start comments.
-    columns :: Maybe String -> [String] -> [String]
-    columns Nothing [] = []
-    columns (Just "") [] = []
-    columns (Just x) [] = [' ' : x] -- When there is no help text, no padding is needed.
-    columns Nothing (y : ys) = row (Just '#') ("", y) : rows ys
-    columns (Just "") ys = columns Nothing ys
-    columns (Just x) (y : ys) = row (Just '#') (x, y) : rows ys
+    columns :: String -> [String] -> [String]
+    columns x [] = [' ' : x] -- When there is no help text, no padding is needed.
+    columns x (y : ys) = row (Just '#') (x, y) : rows ys
 
     rows ys = map (row Nothing) [("", y) | y <- ys]
 
