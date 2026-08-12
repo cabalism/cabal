@@ -107,15 +107,11 @@ usageInfo header optDescr = unlines (header : table)
     columns Nothing [] = []
     columns (Just "") [] = []
     columns (Just x) [] = [' ' : x] -- When there is no help text, no padding is needed.
-    columns Nothing (y : ys) = row (Just '#') ("", y) : rows ys
+    columns Nothing (y : ys) = markedRow ("", y) : rows ys
     columns (Just "") ys = columns Nothing ys
-    columns (Just x) (y : ys) = row (Just '#') (x, y) : rows ys
+    columns (Just x) (y : ys) = markedRow (x, y) : rows ys
 
-    rows ys = map (row Nothing) [("", y) | y <- ys]
-
-    row :: Maybe Char -> (String, String) -> String
-    row Nothing = unmarkedRow
-    row (Just _) = markedRow
+    rows ys = map unmarkedRow [("", y) | y <- ys]
 
     -- Uses # as the help marker or herald.
     markedRow (name, help) = rowOption name ++ ' ' : '#' : ' ' : help
