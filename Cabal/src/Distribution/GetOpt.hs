@@ -86,17 +86,15 @@ data OptHelp = OptHelp
 usageInfo :: String -> [OptDescr a] -> String
 usageInfo header optDescr = unlines (header : table)
   where
+    (nameWidth, helpWidth) = let w = 30 in (w, 80 - (w + 3))
+    indent = ' '
     options = map flattenNames optDescr
 
-    flattenNames (Option sos los ad d) =
+    flattenNames (Option sos los ad help) =
       OptHelp
         { optNames = intercalate ", " $ map (fmtShort ad) sos ++ map (fmtLong ad) (take 1 los)
-        , optHelp = d
+        , optHelp = help
         }
-
-    (nameWidth, helpWidth) = let w = 30 in (w, 80 - (w + 3))
-
-    indent = ' '
 
     table = do
       OptHelp{optNames, optHelp} <- options
