@@ -94,13 +94,13 @@ usageInfo header optDescr = unlines (header : table)
         , optHelp = d
         }
 
-    (maxOptNameWidth, descolWidth) = let w = 30 in (w, 80 - (w + 3))
+    (nameWidth, helpWidth) = let w = 30 in (w, 80 - (w + 3))
 
     table :: [String]
     table = do
       OptHelp{optNames, optHelp} <- options
-      let wrappedHelp = wrapText descolWidth optHelp
-      if length optNames >= maxOptNameWidth - 1
+      let wrappedHelp = wrapText helpWidth optHelp
+      if length optNames >= nameWidth - 1
         then [' ' : optNames] ++ columns Nothing wrappedHelp
         else columns (Just optNames) wrappedHelp
 
@@ -120,7 +120,7 @@ usageInfo header optDescr = unlines (header : table)
     row Nothing (name, y) = rowOption name ++ "   " ++ y
     row (Just marker) (name, y) = rowOption name ++ ' ' : marker : ' ' : y
 
-    rowOption name = ' ' : padTo (maxOptNameWidth - 2) name
+    rowOption name = ' ' : padTo (nameWidth - 2) name
 
     padTo n x = take n (x ++ repeat ' ')
 
