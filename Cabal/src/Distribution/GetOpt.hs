@@ -108,13 +108,13 @@ usageInfo header optDescr = unlines (header : table)
     -- Uses # as the help marker or herald.
     columns :: String -> [String] -> [String]
     columns x [] = [' ' : x] -- When there is no help text, no padding is needed.
-    columns x (y : ys) = row (Just '#') (x, y) : rows ys
+    columns x (y : ys) = row (Just '#') (x, y) : unmarkedRows ys
 
-    rows ys = [row Nothing ("", y) | y <- ys]
+    unmarkedRows xs = [row Nothing ("", x) | x <- xs]
 
     row :: Maybe Char -> (String, String) -> String
-    row Nothing (name, y) = rowOption name ++ "   " ++ y
-    row (Just marker) (name, y) = rowOption name ++ ' ' : marker : ' ' : y
+    row Nothing (name, help) = rowOption name ++ "   " ++ help
+    row (Just marker) (name, help) = rowOption name ++ ' ' : marker : ' ' : help
 
     rowOption name = ' ' : padTo (nameWidth - 2) name
 
