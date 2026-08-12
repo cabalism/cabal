@@ -110,7 +110,7 @@ usageInfo header optDescr = unlines (header : table)
     columns x [] = [' ' : x] -- When there is no help text, no padding is needed.
     columns x (y : ys) = row (Just '#') (x, y) : rows ys
 
-    rows ys = map (row Nothing) [("", y) | y <- ys]
+    rows ys = [row Nothing ("", y) | y <- ys]
 
     row :: Maybe Char -> (String, String) -> String
     row Nothing (name, y) = rowOption name ++ "   " ++ y
