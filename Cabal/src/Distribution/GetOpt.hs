@@ -108,29 +108,21 @@ usageInfo header optDescr = unlines (header : table)
       OptHelp{optNames, optHelp} <- options
       let wrappedHelp = wrapText descolWidth optHelp
       if length optNames >= maxOptNameWidth - 1
-        then [' ' : optNames] ++ renderColumns [] wrappedHelp
-        else renderColumns [optNames] wrappedHelp
+        then [' ' : optNames] ++ renderColumns Nothing wrappedHelp
+        else renderColumns (Just optNames) wrappedHelp
 
-    renderColumns :: [String] -> [String] -> [String]
-    renderColumns xs [] = [' ' : padTo maxOptNameWidth x | x <- xs]
-    renderColumns xs ys =
-      case zipDefault "" "" xs ys of
-        [] -> []
-        (xy : xys) -> renderLine helpMarker xy : map (renderLine ' ') xys
-      where
-        renderLine marker (x, y) =
-          ' ' : padTo (maxOptNameWidth - 2) x ++ ' ' : marker : ' ' : y
-
-    padTo n x = take n (x ++ repeat ' ')
+    renderColumns :: Maybe String -> [String] -> [String]
+    renderColumns Nothing [] = []
+    renderColumns (Just "") [] = []
+    renderColumns (Just x) [] = [' ' : padTo maxOptNameWidth x]
+    renderColumns Nothing (y : ys') = renderLine helpMarker ("", y) : map (renderLine ' ') [("", y') | y' <- ys']
+    renderColumns (Just "") ys = renderColumns Nothing ys
+    renderColumns (Just x) (y : ys') = renderLine helpMarker (x, y) : map (renderLine ' ') [("", y') | y' <- ys']
 
     -- This looks alright when rendered and is often used to start comments.
     helpMarker = '#'
-
-zipDefault :: a -> b -> [a] -> [b] -> [(a, b)]
-zipDefault _ _ [] [] = []
-zipDefault _ bd (a : as) [] = (a, bd) : map (,bd) as
-zipDefault ad _ [] (b : bs) = (ad, b) : map (ad,) bs
-zipDefault ad bd (a : as) (b : bs) = (a, b) : zipDefault ad bd as bs
+    renderLine marker (name, y) = ' ' : padTo (maxOptNameWidth - 2) name ++ ' ' : marker : ' ' : y
+    padTo n x = take n (x ++ repeat ' ')
 
 -- | Pretty printing of short options.
 -- * With required arguments can be given as:
