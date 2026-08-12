@@ -96,7 +96,6 @@ usageInfo header optDescr = unlines (header : table)
 
     (nameWidth, helpWidth) = let w = 30 in (w, 80 - (w + 3))
 
-    table :: [String]
     table = do
       OptHelp{optNames, optHelp} <- options
       let wrappedHelp = wrapText helpWidth optHelp
@@ -104,8 +103,6 @@ usageInfo header optDescr = unlines (header : table)
         then [' ' : optNames] ++ columns Nothing wrappedHelp
         else columns (Just optNames) wrappedHelp
 
-    -- Uses # as the help marker or herald. We're used to seeing it used to
-    -- start comments.
     columns :: Maybe String -> [String] -> [String]
     columns Nothing [] = []
     columns (Just "") [] = []
