@@ -107,9 +107,9 @@ usageInfo header optDescr = unlines (header : table)
     table = do
       OptHelp{optNames, optHelp} <- options
       let wrappedHelp = wrapText descolWidth optHelp
-      if length optNames >= maxOptNameWidth - 1
-        then [' ' : optNames] ++ columns Nothing wrappedHelp
-        else columns (Just optNames) wrappedHelp
+      columns (Just optNames) $ if length optNames >= maxOptNameWidth - 1
+        then "" : wrappedHelp
+        else wrappedHelp
 
     -- Uses # as the help marker or herald. We're used to seeing it used to
     -- start comments.
