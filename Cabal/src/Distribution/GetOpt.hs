@@ -105,11 +105,11 @@ usageInfo header optDescr = unlines (header : table)
         then [indent : optNames] ++ columns "" wrappedHelp
         else columns optNames wrappedHelp
 
-    columns x [] = [indent : x] -- When there is no help text, no padding is needed.
-    columns x (y : ys) = markedRow x y : map unmarkedHelpOnlyRow ys
+    columns x [] = [indent : x]
+    columns x (y : ys) = markedRow x y : map unmarkedRow ys
 
     markedRow name help = rowOption name ++ ' ' : '#' : ' ' : help
-    unmarkedHelpOnlyRow help = rowOption "" ++ "   " ++ help
+    unmarkedRow help = rowOption "" ++ "   " ++ help
 
     rowOption name = indent : padTo (nameWidth - 2) name
 
