@@ -100,18 +100,13 @@ usageInfo header optDescr = unlines (header : table)
       OptHelp{optNames, optHelp} <- options
       let wrappedHelp = wrapText helpWidth optHelp
       if length optNames >= nameWidth - 1
-        then [' ' : optNames] ++ columns Nothing wrappedHelp
-        else columns (Just optNames) wrappedHelp
+        then [' ' : optNames] ++ columns "" wrappedHelp
+        else columns optNames wrappedHelp
 
-    columns :: Maybe String -> [String] -> [String]
-    columns Nothing [] = []
-    columns (Just "") [] = []
-    columns (Just x) [] = [' ' : x] -- When there is no help text, no padding is needed.
-    columns Nothing (y : ys) = markedRow ("", y) : rows ys
-    columns (Just "") ys = columns Nothing ys
-    columns (Just x) (y : ys) = markedRow (x, y) : rows ys
+    columns x [] = [' ' : x] -- When there is no help text, no padding is needed.
+    columns x (y : ys) = markedRow (x, y) : unmarkedRows ys
 
-    rows ys = [unmarkedRow ("", y) | y <- ys]
+    unmarkedRows ys = [unmarkedRow ("", y) | y <- ys]
 
     -- Uses # as the help marker or herald.
     markedRow (name, help) = rowOption name ++ ' ' : '#' : ' ' : help
