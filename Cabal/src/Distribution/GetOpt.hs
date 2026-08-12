@@ -111,7 +111,7 @@ usageInfo header optDescr = unlines (header : table)
     columns (Just "") ys = columns Nothing ys
     columns (Just x) (y : ys) = markedRow (x, y) : rows ys
 
-    rows ys = map unmarkedRow [("", y) | y <- ys]
+    rows ys = [unmarkedRow ("", y) | y <- ys]
 
     -- Uses # as the help marker or herald.
     markedRow (name, help) = rowOption name ++ ' ' : '#' : ' ' : help
