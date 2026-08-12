@@ -114,8 +114,12 @@ usageInfo header optDescr = unlines (header : table)
     rows ys = map (row Nothing) [("", y) | y <- ys]
 
     row :: Maybe Char -> (String, String) -> String
-    row Nothing (name, y) = rowOption name ++ "   " ++ y
-    row (Just marker) (name, y) = rowOption name ++ ' ' : marker : ' ' : y
+    row Nothing = unmarkedRow
+    row (Just _) = markedRow
+
+    -- Uses # as the help marker or herald.
+    markedRow (name, help) = rowOption name ++ ' ' : '#' : ' ' : help
+    unmarkedRow (name, help) = rowOption name ++ "   " ++ help
 
     rowOption name = ' ' : padTo (nameWidth - 2) name
 
