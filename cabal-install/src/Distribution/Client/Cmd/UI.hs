@@ -140,6 +140,11 @@ type ReplaceCommandAlias
   -> String -- ^ the command
   -> String -- ^ the command name with the prefix replaced
 
+-- | Given a v2- prefixed command name, returns a function for replacing that
+-- prefix with a new prefix.
+replaceCommandAlias :: String -> ReplaceCommandAlias
+replaceCommandAlias = replaceText
+
 -- SEE: generic-sop-lens.hs
 replaceText :: String -> String -> String -> String
 replaceText needle replacement = go
@@ -168,9 +173,6 @@ commandNames command =
   ]
   where
     name = commandName command
-
-replaceCommandAlias :: String -> ReplaceCommandAlias
-replaceCommandAlias = replaceText
 
 cmdSpec
   :: CommandUI flags
