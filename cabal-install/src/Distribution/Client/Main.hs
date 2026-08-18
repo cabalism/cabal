@@ -387,7 +387,7 @@ mainWorker args = do
 
     parseBuildOrInstallWithOptparse :: [String] -> Maybe (CommandParse (GlobalFlags, CommandParse Action))
     parseBuildOrInstallWithOptparse argv =
-      case commandParseArgs globalCmd True argv of
+      case commandParseArgs globalCmd True (normalizeNumJobsArgs argv) of
         CommandReadyToGo (mkGlobalFlags, cmdArgs0) -> do
           cmdName : cmdArgs <- pure cmdArgs0
           cmdParser <- parserForCommand cmdName
@@ -399,6 +399,20 @@ mainWorker args = do
           | name `elem` commandNames CmdBuild.buildCommand = Just CmdBuild.parseCommand
           | name `elem` commandNames CmdInstall.installCommand = Just CmdInstall.parseCommand
           | otherwise = Nothing
+
+    normalizeNumJobsArgs :: [String] -> [String]
+    normalizeNumJobsArgs [] = []
+    normalizeNumJobsArgs [arg]
+      | arg == "-j" = [arg <> "$ncpus"]
+      | arg == "--jobs" = [arg <> "=$ncpus"]
+    normalizeNumJobsArgs (arg : next : rest)
+      | arg == "-j" && beginsWithDash next = arg <> "$ncpus" : normalizeNumJobsArgs (next : rest)
+      | arg == "--jobs" && beginsWithDash next = arg <> "=$ncpus" : normalizeNumJobsArgs (next : rest)
+    normalizeNumJobsArgs (arg : rest) = arg : normalizeNumJobsArgs rest
+
+    beginsWithDash :: String -> Bool
+    beginsWithDash ('-' : _) = True
+    beginsWithDash _ = False
 
     delegateToExternal
       :: [Command Action]
