@@ -58,42 +58,41 @@ import GHC.Environment
   ( getFullArgs
   )
 
+description :: String
+description =
+  "Runs the specified benchmarks, first ensuring they are up to "
+    ++ "date.\n\n"
+    ++ "Any benchmark in any package in the project can be specified. "
+    ++ "A package can be specified in which case all the benchmarks in the "
+    ++ "package are run. The default is to run all the benchmarks in the "
+    ++ "package in the current directory.\n\n"
+    ++ "Dependencies are built or rebuilt as necessary. Additional "
+    ++ "configuration flags can be specified on the command line and these "
+    ++ "extend the project configuration from the 'cabal.project', "
+    ++ "'cabal.project.local' and other files."
+
+examples :: String -> String -> String
+examples pname invokedName =
+  unlines
+    [ "Examples:"
+    , "  " <> pname <> " " <> invokedName
+    , "    Run all the benchmarks in the package in the current directory"
+    , "  " <> pname <> " " <> invokedName <> " pkgname"
+    , "    Run all the benchmarks in the package named pkgname"
+    , "  " <> pname <> " " <> invokedName <> " cname"
+    , "    Run the benchmark named cname"
+    , "  " <> pname <> " " <> invokedName <> " cname -O2"
+    , "    Run the benchmark built with '-O2' (including local libs used)"
+    ]
+
 benchCommand :: CommandUI (NixStyleFlags ())
 benchCommand =
   CommandUI
     { commandName = "v2-bench"
     , commandSynopsis = "Run benchmarks."
     , commandUsage = usageAlternatives "v2-bench" ["[TARGETS] [FLAGS]"]
-    , commandDescription = Just $ \_ ->
-        wrapText $
-          "Runs the specified benchmarks, first ensuring they are up to "
-            ++ "date.\n\n"
-            ++ "Any benchmark in any package in the project can be specified. "
-            ++ "A package can be specified in which case all the benchmarks in the "
-            ++ "package are run. The default is to run all the benchmarks in the "
-            ++ "package in the current directory.\n\n"
-            ++ "Dependencies are built or rebuilt as necessary. Additional "
-            ++ "configuration flags can be specified on the command line and these "
-            ++ "extend the project configuration from the 'cabal.project', "
-            ++ "'cabal.project.local' and other files."
-    , commandNotes = Just $ \pname ->
-        "Examples:\n"
-          ++ "  "
-          ++ pname
-          ++ " v2-bench\n"
-          ++ "    Run all the benchmarks in the package in the current directory\n"
-          ++ "  "
-          ++ pname
-          ++ " v2-bench pkgname\n"
-          ++ "    Run all the benchmarks in the package named pkgname\n"
-          ++ "  "
-          ++ pname
-          ++ " v2-bench cname\n"
-          ++ "    Run the benchmark named cname\n"
-          ++ "  "
-          ++ pname
-          ++ " v2-bench cname -O2\n"
-          ++ "    Run the benchmark built with '-O2' (including local libs used)\n"
+    , commandDescription = Just $ \_ -> wrapText description
+    , commandNotes = Just $ \pname -> examples pname "v2-bench"
     , commandDefaultFlags = defaultNixStyleFlags ()
     , commandOptions = nixStyleOptions (const [])
     }

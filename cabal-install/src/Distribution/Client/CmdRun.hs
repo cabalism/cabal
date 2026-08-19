@@ -141,6 +141,39 @@ import System.FilePath
   , (</>)
   )
 
+description :: String -> String
+description pname =
+  "Runs the specified executable-like component (an executable, a test, "
+    ++ "or a benchmark), first ensuring it is up to date.\n\n"
+    ++ "Any executable-like component in any package in the project can be "
+    ++ "specified. A package can be specified if contains just one "
+    ++ "executable-like, preferring a single executable. The default is to "
+    ++ "use the package in the current directory if it contains just one "
+    ++ "executable-like.\n\n"
+    ++ "Extra arguments can be passed to the program, but use '--' to "
+    ++ "separate arguments for the program from arguments for "
+    ++ pname
+    ++ ". The executable is run in an environment where it can find its "
+    ++ "data files inplace in the build tree.\n\n"
+    ++ "Dependencies are built or rebuilt as necessary. Additional "
+    ++ "configuration flags can be specified on the command line and these "
+    ++ "extend the project configuration from the 'cabal.project', "
+    ++ "'cabal.project.local' and other files."
+
+examples :: String -> String -> String
+examples pname invokedName =
+  unlines
+    [ "Examples:"
+    , "  " <> pname <> " " <> invokedName
+    , "    Run the executable-like in the package in the current directory"
+    , "  " <> pname <> " " <> invokedName <> " foo-tool"
+    , "    Run the named executable-like (in any package in the project)"
+    , "  " <> pname <> " " <> invokedName <> " pkgfoo:foo-tool"
+    , "    Run the executable-like 'foo-tool' in the package 'pkgfoo'"
+    , "  " <> pname <> " " <> invokedName <> " foo -O2 -- dothing --fooflag"
+    , "    Build with '-O2' and run the program, passing it extra arguments."
+    ]
+
 runCommand :: CommandUI (NixStyleFlags ())
 runCommand =
   CommandUI
@@ -150,42 +183,8 @@ runCommand =
         usageAlternatives
           "v2-run"
           ["[TARGET] [FLAGS] [-- EXECUTABLE_FLAGS]"]
-    , commandDescription = Just $ \pname ->
-        wrapText $
-          "Runs the specified executable-like component (an executable, a test, "
-            ++ "or a benchmark), first ensuring it is up to date.\n\n"
-            ++ "Any executable-like component in any package in the project can be "
-            ++ "specified. A package can be specified if contains just one "
-            ++ "executable-like, preferring a single executable. The default is to "
-            ++ "use the package in the current directory if it contains just one "
-            ++ "executable-like.\n\n"
-            ++ "Extra arguments can be passed to the program, but use '--' to "
-            ++ "separate arguments for the program from arguments for "
-            ++ pname
-            ++ ". The executable is run in an environment where it can find its "
-            ++ "data files inplace in the build tree.\n\n"
-            ++ "Dependencies are built or rebuilt as necessary. Additional "
-            ++ "configuration flags can be specified on the command line and these "
-            ++ "extend the project configuration from the 'cabal.project', "
-            ++ "'cabal.project.local' and other files."
-    , commandNotes = Just $ \pname ->
-        "Examples:\n"
-          ++ "  "
-          ++ pname
-          ++ " v2-run\n"
-          ++ "    Run the executable-like in the package in the current directory\n"
-          ++ "  "
-          ++ pname
-          ++ " v2-run foo-tool\n"
-          ++ "    Run the named executable-like (in any package in the project)\n"
-          ++ "  "
-          ++ pname
-          ++ " v2-run pkgfoo:foo-tool\n"
-          ++ "    Run the executable-like 'foo-tool' in the package 'pkgfoo'\n"
-          ++ "  "
-          ++ pname
-          ++ " v2-run foo -O2 -- dothing --fooflag\n"
-          ++ "    Build with '-O2' and run the program, passing it extra arguments.\n"
+    , commandDescription = Just $ \pname -> wrapText (description pname)
+    , commandNotes = Just $ \pname -> examples pname "v2-run"
     , commandDefaultFlags = defaultNixStyleFlags ()
     , commandOptions = nixStyleOptions (const [])
     }

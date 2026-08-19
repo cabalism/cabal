@@ -152,6 +152,9 @@ import System.FilePath
 -- Command
 -------------------------------------------------------------------------------
 
+description :: String
+description = "Generates tarballs of project packages suitable for upload to Hackage."
+
 sdistCommand :: CommandUI (ProjectFlags, SdistFlags)
 sdistCommand =
   CommandUI
@@ -159,9 +162,7 @@ sdistCommand =
     , commandSynopsis = "Generate a source distribution file (.tar.gz)."
     , commandUsage = \pname ->
         "Usage: " ++ pname ++ " v2-sdist [FLAGS] [PACKAGES]\n"
-    , commandDescription = Just $ \_ ->
-        wrapText
-          "Generates tarballs of project packages suitable for upload to Hackage."
+    , commandDescription = Just $ \_ -> wrapText description
     , commandNotes = Nothing
     , commandDefaultFlags = (defaultProjectFlags, defaultSdistFlags)
     , commandOptions = \showOrParseArgs ->

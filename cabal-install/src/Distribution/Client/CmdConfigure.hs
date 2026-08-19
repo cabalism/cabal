@@ -62,45 +62,48 @@ import Distribution.Utils.NubList
   ( fromNubList
   )
 
+description :: String
+description =
+  "Adjust how the project is built by setting additional package flags "
+    ++ "and other flags.\n\n"
+    ++ "The configuration options are written to the 'cabal.project.local' "
+    ++ "file (or '$project_file.local', if '--project-file' is specified) "
+    ++ "which extends the configuration from the 'cabal.project' file "
+    ++ "(if any). This combination is used as the project configuration for "
+    ++ "all other commands (such as 'v2-build', 'v2-repl' etc) though it "
+    ++ "can be extended/overridden on a per-command basis.\n\n"
+    ++ "The v2-configure command also checks that the project configuration "
+    ++ "will work. In particular it checks that there is a consistent set of "
+    ++ "dependencies for the project as a whole.\n\n"
+    ++ "The 'cabal.project.local' file persists across 'v2-clean' but is "
+    ++ "overwritten on the next use of the 'v2-configure' command. The "
+    ++ "intention is that the 'cabal.project' file should be kept in source "
+    ++ "control but the 'cabal.project.local' should not.\n\n"
+    ++ "It is never necessary to use the 'v2-configure' command. It is "
+    ++ "merely a convenience in cases where you do not want to specify flags "
+    ++ "to 'v2-build' (and other commands) every time and yet do not want "
+    ++ "to alter the 'cabal.project' persistently."
+
+examples :: String -> String -> String
+examples pname invokedName =
+  unlines
+    [ "Examples:"
+    , "  " <> pname <> " " <> invokedName <> " --with-compiler ghc-7.10.3"
+    , "    Adjust the project configuration to use the given compiler"
+    , "    program and check the resulting configuration works."
+    , "  " <> pname <> " " <> invokedName
+    , "    Reset the local configuration to empty. To check that the"
+    , "    project configuration works, use 'cabal build'."
+    ]
+
 configureCommand :: CommandUI (NixStyleFlags ())
 configureCommand =
   CommandUI
     { commandName = "v2-configure"
     , commandSynopsis = "Add extra project configuration."
     , commandUsage = usageAlternatives "v2-configure" ["[FLAGS]"]
-    , commandDescription = Just $ \_ ->
-        wrapText $
-          "Adjust how the project is built by setting additional package flags "
-            ++ "and other flags.\n\n"
-            ++ "The configuration options are written to the 'cabal.project.local' "
-            ++ "file (or '$project_file.local', if '--project-file' is specified) "
-            ++ "which extends the configuration from the 'cabal.project' file "
-            ++ "(if any). This combination is used as the project configuration for "
-            ++ "all other commands (such as 'v2-build', 'v2-repl' etc) though it "
-            ++ "can be extended/overridden on a per-command basis.\n\n"
-            ++ "The v2-configure command also checks that the project configuration "
-            ++ "will work. In particular it checks that there is a consistent set of "
-            ++ "dependencies for the project as a whole.\n\n"
-            ++ "The 'cabal.project.local' file persists across 'v2-clean' but is "
-            ++ "overwritten on the next use of the 'v2-configure' command. The "
-            ++ "intention is that the 'cabal.project' file should be kept in source "
-            ++ "control but the 'cabal.project.local' should not.\n\n"
-            ++ "It is never necessary to use the 'v2-configure' command. It is "
-            ++ "merely a convenience in cases where you do not want to specify flags "
-            ++ "to 'v2-build' (and other commands) every time and yet do not want "
-            ++ "to alter the 'cabal.project' persistently."
-    , commandNotes = Just $ \pname ->
-        "Examples:\n"
-          ++ "  "
-          ++ pname
-          ++ " v2-configure --with-compiler ghc-7.10.3\n"
-          ++ "    Adjust the project configuration to use the given compiler\n"
-          ++ "    program and check the resulting configuration works.\n"
-          ++ "  "
-          ++ pname
-          ++ " v2-configure\n"
-          ++ "    Reset the local configuration to empty. To check that the\n"
-          ++ "    project configuration works, use 'cabal build'.\n"
+    , commandDescription = Just $ \_ -> wrapText description
+    , commandNotes = Just $ \pname -> examples pname "v2-configure"
     , commandDefaultFlags = defaultNixStyleFlags ()
     , commandOptions =
         removeIgnoreProjectOption

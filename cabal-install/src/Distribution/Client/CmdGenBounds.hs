@@ -21,7 +21,7 @@ import Distribution.Client.Types.ConfiguredId (confInstId)
 import Distribution.Client.Utils hiding (pvpize)
 import Distribution.InstalledPackageInfo (InstalledPackageInfo, installedComponentId)
 import Distribution.Package
-import Distribution.PackageDescription
+import Distribution.PackageDescription (BuildInfo, PackageDescription, getComponent, targetBuildDepends)
 import Distribution.Simple.Utils
 import Distribution.Version
 
@@ -48,6 +48,22 @@ data GenBoundsFlags = GenBoundsFlags {}
 defaultGenBoundsFlags :: GenBoundsFlags
 defaultGenBoundsFlags = GenBoundsFlags{}
 
+description :: String
+description = "Generate PVP-compliant dependency bounds for packages in the project."
+
+examples :: String -> String -> String
+examples pname invokedName =
+  unlines
+    [ "Examples:"
+    , "  " <> pname <> " " <> invokedName
+    , "    Generate bounds for the package in the current directory "
+        <> "or all packages in the project"
+    , "  " <> pname <> " " <> invokedName <> " pkgname"
+    , "    Generate bounds for the package named pkgname in the project"
+    , "  " <> pname <> " " <> invokedName <> " ./pkgfoo"
+    , "    Generate bounds for the package in the ./pkgfoo directory"
+    ]
+
 -- | The @gen-bounds@ command definition
 genBoundsCommand :: CommandUI (NixStyleFlags GenBoundsFlags)
 genBoundsCommand =
@@ -55,23 +71,8 @@ genBoundsCommand =
     { commandName = "v2-gen-bounds"
     , commandSynopsis = "Generate dependency bounds for packages in the project."
     , commandUsage = usageAlternatives "v2-gen-bounds" ["[TARGETS] [FLAGS]"]
-    , commandDescription = Just $ \_ ->
-        "Generate PVP-compliant dependency bounds for packages in the project."
-    , commandNotes = Just $ \pname ->
-        "Examples:\n"
-          ++ "  "
-          ++ pname
-          ++ " v2-gen-bounds\n"
-          ++ "    Generate bounds for the package in the current directory "
-          ++ "or all packages in the project\n"
-          ++ "  "
-          ++ pname
-          ++ " v2-gen-bounds pkgname\n"
-          ++ "    Generate bounds for the package named pkgname in the project\n"
-          ++ "  "
-          ++ pname
-          ++ " v2-gen-bounds ./pkgfoo\n"
-          ++ "    Generate bounds for the package in the ./pkgfoo directory\n"
+    , commandDescription = Just $ \_ -> description
+    , commandNotes = Just $ \pname -> examples pname "v2-gen-bounds"
     , commandDefaultFlags = defaultNixStyleFlags defaultGenBoundsFlags
     , commandOptions =
         removeIgnoreProjectOption

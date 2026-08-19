@@ -51,24 +51,14 @@ import qualified Text.PrettyPrint as Pretty
 -- Command
 -------------------------------------------------------------------------------
 
-targetCommand :: CommandUI (NixStyleFlags ())
-targetCommand =
-  CommandUI
-    { commandName = "v2-target"
-    , commandSynopsis = "Target a subset of all targets."
-    , commandUsage = usageAlternatives "v2-target" ["[TARGETS]"]
-    , commandDescription =
-        Just . const . render $
-          vcat
-            [ intro
-            , vcat $ punctuate (text "\n") [targetForms, ctypes, Pretty.empty]
-            , caution
-            , unique
-            ]
-    , commandNotes = Just $ \pname -> render (examples pname) ++ "\n"
-    , commandDefaultFlags = defaultNixStyleFlags ()
-    , commandOptions = nixStyleOptions (const [])
-    }
+description :: Doc
+description =
+  vcat
+    [ intro
+    , vcat $ punctuate (text "\n") [targetForms, ctypes, Pretty.empty]
+    , caution
+    , unique
+    ]
   where
     intro =
       text . wrapText $
@@ -119,29 +109,42 @@ targetCommand =
         \ set of 'cabal target all:exes' has one item then 'cabal list-bin all:exes' will \
         \ work too."
 
-    examples pname =
-      vcat
-        [ text "Examples" Pretty.<> colon
-        , nest 2 $
-            vcat
-              [ vcat
-                  [ text pname <+> text "v2-target all"
-                  , nest 2 $ text "Targets of the package in the current directory or all packages in the project"
-                  ]
-              , vcat
-                  [ text pname <+> text "v2-target pkgname"
-                  , nest 2 $ text "Targets of the package named pkgname in the project"
-                  ]
-              , vcat
-                  [ text pname <+> text "v2-target ./pkgfoo"
-                  , nest 2 $ text "Targets of the package in the ./pkgfoo directory"
-                  ]
-              , vcat
-                  [ text pname <+> text "v2-target cname"
-                  , nest 2 $ text "Targets of the component named cname in the project"
-                  ]
+examples :: String -> Doc
+examples pname =
+  vcat
+    [ text "Examples" Pretty.<> colon
+    , nest 2 $
+        vcat
+          [ vcat
+              [ text pname <+> text "v2-target all"
+              , nest 2 $ text "Targets of the package in the current directory or all packages in the project"
               ]
-        ]
+          , vcat
+              [ text pname <+> text "v2-target pkgname"
+              , nest 2 $ text "Targets of the package named pkgname in the project"
+              ]
+          , vcat
+              [ text pname <+> text "v2-target ./pkgfoo"
+              , nest 2 $ text "Targets of the package in the ./pkgfoo directory"
+              ]
+          , vcat
+              [ text pname <+> text "v2-target cname"
+              , nest 2 $ text "Targets of the component named cname in the project"
+              ]
+          ]
+    ]
+
+targetCommand :: CommandUI (NixStyleFlags ())
+targetCommand =
+  CommandUI
+    { commandName = "v2-target"
+    , commandSynopsis = "Target a subset of all targets."
+    , commandUsage = usageAlternatives "v2-target" ["[TARGETS]"]
+    , commandDescription = Just . const . render $ description
+    , commandNotes = Just $ \pname -> render (examples pname) ++ "\n"
+    , commandDefaultFlags = defaultNixStyleFlags ()
+    , commandOptions = nixStyleOptions (const [])
+    }
 
 -------------------------------------------------------------------------------
 -- Action

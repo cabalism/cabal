@@ -74,33 +74,37 @@ import qualified System.Exit (exitSuccess)
 
 newtype ClientHaddockFlags = ClientHaddockFlags {openInBrowser :: Flag Bool}
 
+description :: String
+description =
+  "Build Haddock documentation for the specified packages within the "
+    ++ "project.\n\n"
+    ++ "Any package in the project can be specified. If no package is "
+    ++ "specified, the default is to build the documentation for the package "
+    ++ "in the current directory. The default behaviour is to build "
+    ++ "documentation for the exposed modules of the library component (if "
+    ++ "any). This can be changed with the '--internal', '--executables', "
+    ++ "'--tests', '--benchmarks' or '--all' flags.\n\n"
+    ++ "Currently, documentation for dependencies is NOT built. This "
+    ++ "behavior may change in future.\n\n"
+    ++ "Additional configuration flags can be specified on the command line "
+    ++ "and these extend the project configuration from the 'cabal.project', "
+    ++ "'cabal.project.local' and other files."
+
+examples :: String -> String -> String
+examples pname invokedName =
+  unlines
+    [ "Examples:"
+    , "  " <> pname <> " " <> invokedName <> " pkgname" <> "    Build documentation for the package named pkgname"
+    ]
+
 haddockCommand :: CommandUI (NixStyleFlags ClientHaddockFlags)
 haddockCommand =
   CommandUI
     { commandName = "v2-haddock"
     , commandSynopsis = "Build Haddock documentation."
     , commandUsage = usageAlternatives "v2-haddock" ["[FLAGS] TARGET"]
-    , commandDescription = Just $ \_ ->
-        wrapText $
-          "Build Haddock documentation for the specified packages within the "
-            ++ "project.\n\n"
-            ++ "Any package in the project can be specified. If no package is "
-            ++ "specified, the default is to build the documentation for the package "
-            ++ "in the current directory. The default behaviour is to build "
-            ++ "documentation for the exposed modules of the library component (if "
-            ++ "any). This can be changed with the '--internal', '--executables', "
-            ++ "'--tests', '--benchmarks' or '--all' flags.\n\n"
-            ++ "Currently, documentation for dependencies is NOT built. This "
-            ++ "behavior may change in future.\n\n"
-            ++ "Additional configuration flags can be specified on the command line "
-            ++ "and these extend the project configuration from the 'cabal.project', "
-            ++ "'cabal.project.local' and other files."
-    , commandNotes = Just $ \pname ->
-        "Examples:\n"
-          ++ "  "
-          ++ pname
-          ++ " v2-haddock pkgname"
-          ++ "    Build documentation for the package named pkgname\n"
+    , commandDescription = Just $ \_ -> wrapText description
+    , commandNotes = Just $ \pname -> examples pname "v2-haddock"
     , commandOptions = nixStyleOptions haddockOptions
     , commandDefaultFlags = defaultNixStyleFlags (ClientHaddockFlags (Flag False))
     }

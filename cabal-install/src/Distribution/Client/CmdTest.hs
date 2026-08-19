@@ -71,44 +71,43 @@ import GHC.Environment
   ( getFullArgs
   )
 
+description :: String
+description =
+  "Runs the specified test-suites, first ensuring they are up to "
+    ++ "date.\n\n"
+    ++ "Any test-suite in any package in the project can be specified. "
+    ++ "A package can be specified in which case all the test-suites in the "
+    ++ "package are run. The default is to run all the test-suites in the "
+    ++ "package in the current directory.\n\n"
+    ++ "Dependencies are built or rebuilt as necessary. Additional "
+    ++ "configuration flags can be specified on the command line and these "
+    ++ "extend the project configuration from the 'cabal.project', "
+    ++ "'cabal.project.local' and other files.\n\n"
+    ++ "To pass command-line arguments to a test suite, see the "
+    ++ "v2-run command."
+
+examples :: String -> String -> String
+examples pname invokedName =
+  unlines
+    [ "Examples:"
+    , "  " <> pname <> " " <> invokedName
+    , "    Run all the test-suites in the package in the current directory"
+    , "  " <> pname <> " " <> invokedName <> " pkgname"
+    , "    Run all the test-suites in the package named pkgname"
+    , "  " <> pname <> " " <> invokedName <> " cname"
+    , "    Run the test-suite named cname"
+    , "  " <> pname <> " " <> invokedName <> " cname --enable-coverage"
+    , "    Run the test-suite built with code coverage (including local libs used)"
+    ]
+
 testCommand :: CommandUI (NixStyleFlags ())
 testCommand =
   CommandUI
     { commandName = "v2-test"
     , commandSynopsis = "Run test-suites."
     , commandUsage = usageAlternatives "v2-test" ["[TARGETS] [FLAGS]"]
-    , commandDescription = Just $ \_ ->
-        wrapText $
-          "Runs the specified test-suites, first ensuring they are up to "
-            ++ "date.\n\n"
-            ++ "Any test-suite in any package in the project can be specified. "
-            ++ "A package can be specified in which case all the test-suites in the "
-            ++ "package are run. The default is to run all the test-suites in the "
-            ++ "package in the current directory.\n\n"
-            ++ "Dependencies are built or rebuilt as necessary. Additional "
-            ++ "configuration flags can be specified on the command line and these "
-            ++ "extend the project configuration from the 'cabal.project', "
-            ++ "'cabal.project.local' and other files.\n\n"
-            ++ "To pass command-line arguments to a test suite, see the "
-            ++ "v2-run command."
-    , commandNotes = Just $ \pname ->
-        "Examples:\n"
-          ++ "  "
-          ++ pname
-          ++ " v2-test\n"
-          ++ "    Run all the test-suites in the package in the current directory\n"
-          ++ "  "
-          ++ pname
-          ++ " v2-test pkgname\n"
-          ++ "    Run all the test-suites in the package named pkgname\n"
-          ++ "  "
-          ++ pname
-          ++ " v2-test cname\n"
-          ++ "    Run the test-suite named cname\n"
-          ++ "  "
-          ++ pname
-          ++ " v2-test cname --enable-coverage\n"
-          ++ "    Run the test-suite built with code coverage (including local libs used)\n"
+    , commandDescription = Just $ \_ -> wrapText description
+    , commandNotes = Just $ \pname -> examples pname "v2-test"
     , commandDefaultFlags = defaultNixStyleFlags ()
     , commandOptions = nixStyleOptions (const [])
     }

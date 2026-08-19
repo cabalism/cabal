@@ -88,37 +88,34 @@ import Distribution.Verbosity
 -- Command
 -------------------------------------------------------------------------------
 
+description :: String
+description =
+  "Query for configuration and project information such as project GHC.\n"
+    <> "The output order of query keys is implementation defined and should not be relied on.\n"
+
+examples :: String -> String -> String
+examples pname invokedName =
+  unlines
+    [ "Examples:"
+    , "  " <> pname <> " " <> invokedName <> " --store-dir"
+    , "    Print the store-dir location of cabal."
+    , "  " <> pname <> " " <> invokedName <> " --output-format=json --compiler-info"
+    , "    Print compiler information in json format."
+    , "  " <> pname <> " " <> invokedName <> " --output-format=json --installdir --compiler-info"
+    , "    Print compiler information and installation directory in json format."
+    , "  " <> pname <> " " <> invokedName <> " --output-format=key-value --installdir"
+    , "    Print the installation directory, taking project information into account."
+    , "  " <> pname <> " " <> invokedName <> " -z --output-format=key-value --installdir"
+    , "    Print the installation directory, without taking project information into account."
+    ]
+
 pathCommand :: CommandUI (NixStyleFlags PathFlags)
 pathCommand =
   CommandUI
     { commandName = "path"
     , commandSynopsis = "Query for simple project information."
-    , commandDescription = Just $ \_ ->
-        wrapText $
-          "Query for configuration and project information such as project GHC.\n"
-            <> "The output order of query keys is implementation defined and should not be relied on.\n"
-    , commandNotes = Just $ \pname ->
-        "Examples:\n"
-          <> "  "
-          <> pname
-          <> " path --store-dir\n"
-          <> "    Print the store-dir location of cabal.\n"
-          <> "  "
-          <> pname
-          <> " path --output-format=json --compiler-info\n"
-          <> "    Print compiler information in json format.\n"
-          <> "  "
-          <> pname
-          <> " path --output-format=json --installdir --compiler-info\n"
-          <> "    Print compiler information and installation directory in json format.\n"
-          <> "  "
-          <> pname
-          <> " path --output-format=key-value --installdir\n"
-          <> "    Print the installation directory, taking project information into account.\n"
-          <> "  "
-          <> pname
-          <> " path -z --output-format=key-value --installdir\n"
-          <> "    Print the installation directory, without taking project information into account.\n"
+    , commandDescription = Just $ \_ -> wrapText description
+    , commandNotes = Just $ \pname -> examples pname "path"
     , commandUsage = \pname ->
         "Usage: " <> pname <> " path [FLAGS]\n"
     , commandDefaultFlags = defaultNixStyleFlags defaultPathFlags

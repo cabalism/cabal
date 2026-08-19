@@ -40,7 +40,7 @@ import Distribution.Client.Targets
   )
 import Distribution.Client.Types.SourcePackageDb as SourcePackageDb
 import qualified Distribution.Compat.CharParsing as P
-import Distribution.PackageDescription
+import Distribution.PackageDescription (GenericPackageDescription, getComponent, targetBuildDepends)
 import Distribution.PackageDescription.Configuration
 import Distribution.Solver.Types.PackageConstraint
   ( packageConstraintToDependency
@@ -90,15 +90,17 @@ import Distribution.Client.Errors
 -- Command
 -------------------------------------------------------------------------------
 
+description :: String
+description =
+  "Checks for outdated dependencies in the package description file "
+    ++ "or freeze file"
+
 outdatedCommand :: CommandUI (NixStyleFlags OutdatedFlags)
 outdatedCommand =
   CommandUI
     { commandName = "v2-outdated"
     , commandSynopsis = "Check for outdated dependencies."
-    , commandDescription = Just $ \_ ->
-        wrapText $
-          "Checks for outdated dependencies in the package description file "
-            ++ "or freeze file"
+    , commandDescription = Just $ \_ -> wrapText description
     , commandNotes = Nothing
     , commandUsage = usageAlternatives "v2-outdated" ["[FLAGS] [PACKAGES]"]
     , commandDefaultFlags = defaultNixStyleFlags defaultOutdatedFlags

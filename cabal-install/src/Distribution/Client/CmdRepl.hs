@@ -200,62 +200,54 @@ import System.FilePath
   )
 import Text.PrettyPrint hiding ((<>))
 
+description :: String
+description =
+  "Open an interactive session for a single component within the project "
+    ++ "or for multiple components at once if multi-repl is enabled.\n\n"
+    ++ "The available targets are the same as for the 'v2-build' command: "
+    ++ "individual components within packages in the project, including "
+    ++ "libraries, executables, test-suites or benchmarks. Packages can "
+    ++ "also be specified in which case the library component in the "
+    ++ "package will be used, or the (first listed) executable in the "
+    ++ "package if there is no library.\n\n"
+    ++ "Dependencies are built or rebuilt as necessary. Additional "
+    ++ "configuration flags can be specified on the command line and these "
+    ++ "extend the project configuration from the 'cabal.project', "
+    ++ "'cabal.project.local' and other files."
+
+examples :: String -> String -> String
+examples pname invokedName =
+  unlines
+    [ "Examples, open an interactive session:"
+    , "  " <> pname <> " " <> invokedName
+    , "    for the default component in the package in the current directory"
+    , "  " <> pname <> " " <> invokedName <> " pkgname"
+    , "    for the default component in the package named 'pkgname'"
+    , "  " <> pname <> " " <> invokedName <> " ./pkgfoo"
+    , "    for the default component in the package in the ./pkgfoo directory"
+    , "  " <> pname <> " " <> invokedName <> " cname"
+    , "    for the component named 'cname'"
+    , "  " <> pname <> " " <> invokedName <> " pkgname:cname"
+    , "    for the component 'cname' in the package 'pkgname'"
+    , ""
+    , "  " <> pname <> " " <> invokedName <> " --build-depends lens"
+    , "    add the latest version of the library 'lens' to the default component "
+        <> "(or no componentif there is no project present)"
+    , "  " <> pname <> " " <> invokedName <> " --build-depends \"lens >= 4.15 && < 4.18\""
+    , "    add a version (constrained between 4.15 and 4.18) of the library 'lens' "
+        <> "to the default component (or no component if there is no project present)"
+    , "  " <> pname <> " repl pkg:cabal-install-solver pkg:Cabal-syntax --enable-multi-repl"
+    , "    for default (in this case library) components in two packages"
+    ]
+
 replCommand :: CommandUI (NixStyleFlags ReplFlags)
 replCommand =
   Client.installCommand
     { commandName = "v2-repl"
     , commandSynopsis = "Open an interactive session for the given component."
     , commandUsage = usageAlternatives "v2-repl" ["[TARGET] [FLAGS]"]
-    , commandDescription = Just $ \_ ->
-        wrapText $
-          "Open an interactive session for a single component within the project "
-            ++ "or for multiple components at once if multi-repl is enabled.\n\n"
-            ++ "The available targets are the same as for the 'v2-build' command: "
-            ++ "individual components within packages in the project, including "
-            ++ "libraries, executables, test-suites or benchmarks. Packages can "
-            ++ "also be specified in which case the library component in the "
-            ++ "package will be used, or the (first listed) executable in the "
-            ++ "package if there is no library.\n\n"
-            ++ "Dependencies are built or rebuilt as necessary. Additional "
-            ++ "configuration flags can be specified on the command line and these "
-            ++ "extend the project configuration from the 'cabal.project', "
-            ++ "'cabal.project.local' and other files."
-    , commandNotes = Just $ \pname ->
-        "Examples, open an interactive session:\n"
-          ++ "  "
-          ++ pname
-          ++ " v2-repl\n"
-          ++ "    for the default component in the package in the current directory\n"
-          ++ "  "
-          ++ pname
-          ++ " v2-repl pkgname\n"
-          ++ "    for the default component in the package named 'pkgname'\n"
-          ++ "  "
-          ++ pname
-          ++ " v2-repl ./pkgfoo\n"
-          ++ "    for the default component in the package in the ./pkgfoo directory\n"
-          ++ "  "
-          ++ pname
-          ++ " v2-repl cname\n"
-          ++ "    for the component named 'cname'\n"
-          ++ "  "
-          ++ pname
-          ++ " v2-repl pkgname:cname\n"
-          ++ "    for the component 'cname' in the package 'pkgname'\n\n"
-          ++ "  "
-          ++ pname
-          ++ " v2-repl --build-depends lens\n"
-          ++ "    add the latest version of the library 'lens' to the default component "
-          ++ "(or no componentif there is no project present)\n"
-          ++ "  "
-          ++ pname
-          ++ " v2-repl --build-depends \"lens >= 4.15 && < 4.18\"\n"
-          ++ "    add a version (constrained between 4.15 and 4.18) of the library 'lens' "
-          ++ "to the default component (or no component if there is no project present)\n"
-          ++ "  "
-          ++ pname
-          ++ " repl pkg:cabal-install-solver pkg:Cabal-syntax --enable-multi-repl\n"
-          ++ "    for default (in this case library) components in two packages\n"
+    , commandDescription = Just $ \_ -> wrapText description
+    , commandNotes = Just $ \pname -> examples pname "v2-repl"
     , commandDefaultFlags = defaultNixStyleFlags defaultReplFlags
     , commandOptions = nixStyleOptions topReplOptions
     }

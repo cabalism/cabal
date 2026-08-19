@@ -76,43 +76,45 @@ import Distribution.Simple.Command
   , usageAlternatives
   )
 
+description :: String
+description =
+  "The project configuration is frozen so that it will be reproducible "
+    ++ "in future.\n\n"
+    ++ "The precise dependency configuration for the project is written to "
+    ++ "the 'cabal.project.freeze' file (or '$project_file.freeze' if "
+    ++ "'--project-file' is specified). This file extends the configuration "
+    ++ "from the 'cabal.project' file and thus is used as the project "
+    ++ "configuration for all other commands (such as 'v2-build', "
+    ++ "'v2-repl' etc).\n\n"
+    ++ "The freeze file can be kept in source control. To make small "
+    ++ "adjustments it may be edited manually, or to make bigger changes "
+    ++ "you may wish to delete the file and re-freeze. For more control, "
+    ++ "one approach is to try variations using 'v2-build --dry-run' with "
+    ++ "solver flags such as '--constraint=\"pkg < 1.2\"' and once you have "
+    ++ "a satisfactory solution to freeze it using the 'v2-freeze' command "
+    ++ "with the same set of flags."
+
+examples :: String -> String -> String
+examples pname invokedName =
+  unlines
+    [ "Examples:"
+    , "  " <> pname <> " " <> invokedName
+    , "    Freeze the configuration of the current project"
+    , ""
+    , "  " <> pname <> " v2-build --dry-run --constraint=\"aeson < 1\""
+    , "    Check what a solution with the given constraints would look like"
+    , "  " <> pname <> " " <> invokedName <> " --constraint=\"aeson < 1\""
+    , "    Freeze a solution using the given constraints"
+    ]
+
 freezeCommand :: CommandUI (NixStyleFlags ())
 freezeCommand =
   CommandUI
     { commandName = "v2-freeze"
     , commandSynopsis = "Freeze dependencies."
     , commandUsage = usageAlternatives "v2-freeze" ["[FLAGS]"]
-    , commandDescription = Just $ \_ ->
-        wrapText $
-          "The project configuration is frozen so that it will be reproducible "
-            ++ "in future.\n\n"
-            ++ "The precise dependency configuration for the project is written to "
-            ++ "the 'cabal.project.freeze' file (or '$project_file.freeze' if "
-            ++ "'--project-file' is specified). This file extends the configuration "
-            ++ "from the 'cabal.project' file and thus is used as the project "
-            ++ "configuration for all other commands (such as 'v2-build', "
-            ++ "'v2-repl' etc).\n\n"
-            ++ "The freeze file can be kept in source control. To make small "
-            ++ "adjustments it may be edited manually, or to make bigger changes "
-            ++ "you may wish to delete the file and re-freeze. For more control, "
-            ++ "one approach is to try variations using 'v2-build --dry-run' with "
-            ++ "solver flags such as '--constraint=\"pkg < 1.2\"' and once you have "
-            ++ "a satisfactory solution to freeze it using the 'v2-freeze' command "
-            ++ "with the same set of flags."
-    , commandNotes = Just $ \pname ->
-        "Examples:\n"
-          ++ "  "
-          ++ pname
-          ++ " v2-freeze\n"
-          ++ "    Freeze the configuration of the current project\n\n"
-          ++ "  "
-          ++ pname
-          ++ " v2-build --dry-run --constraint=\"aeson < 1\"\n"
-          ++ "    Check what a solution with the given constraints would look like\n"
-          ++ "  "
-          ++ pname
-          ++ " v2-freeze --constraint=\"aeson < 1\"\n"
-          ++ "    Freeze a solution using the given constraints\n"
+    , commandDescription = Just $ \_ -> wrapText description
+    , commandNotes = Just $ \pname -> examples pname "v2-freeze"
     , commandDefaultFlags = defaultNixStyleFlags ()
     , commandOptions = nixStyleOptions (const [])
     }

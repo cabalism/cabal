@@ -66,6 +66,9 @@ import qualified Distribution.Solver.Types.ComponentDeps as CD
 -- Command
 -------------------------------------------------------------------------------
 
+description :: String
+description = "List the path to a build product."
+
 listbinCommand :: CommandUI (NixStyleFlags ())
 listbinCommand =
   CommandUI
@@ -73,9 +76,7 @@ listbinCommand =
     , commandSynopsis = "List the path to a single executable."
     , commandUsage = \pname ->
         "Usage: " ++ pname ++ " list-bin [FLAGS] TARGET\n"
-    , commandDescription = Just $ \_ ->
-        wrapText
-          "List the path to a build product."
+    , commandDescription = Just $ \_ -> wrapText description
     , commandNotes = Nothing
     , commandDefaultFlags = defaultNixStyleFlags ()
     , commandOptions = nixStyleOptions (const [])

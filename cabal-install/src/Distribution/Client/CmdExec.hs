@@ -105,6 +105,27 @@ import qualified Data.Map as M
 import qualified Data.Set as S
 import Distribution.Client.Errors
 
+description :: String -> String
+description pname =
+  "During development it is often useful to run build tasks and perform"
+    ++ " one-off program executions to experiment with the behavior of build"
+    ++ " tools. It is convenient to run these tools in the same way "
+    ++ pname
+    ++ " itself would. The `"
+    ++ pname
+    ++ " v2-exec` command provides a way to"
+    ++ " do so.\n"
+    ++ "\n"
+    ++ "Compiler tools will be configured to see the same subset of the store"
+    ++ " that builds would see. The PATH is modified to make all executables in"
+    ++ " the dependency tree available (provided they have been built already)."
+    ++ " Commands are also rewritten in the way cabal itself would. For"
+    ++ " example, `"
+    ++ pname
+    ++ " v2-exec ghc` will consult the configuration"
+    ++ " to choose an appropriate version of ghc and to include any"
+    ++ " ghc-specific flags requested."
+
 execCommand :: CommandUI (NixStyleFlags ())
 execCommand =
   CommandUI
@@ -112,26 +133,7 @@ execCommand =
     , commandSynopsis = "Give a command access to the store."
     , commandUsage = \pname ->
         "Usage: " ++ pname ++ " v2-exec [FLAGS] [--] COMMAND [--] [ARGS]\n"
-    , commandDescription = Just $ \pname ->
-        wrapText $
-          "During development it is often useful to run build tasks and perform"
-            ++ " one-off program executions to experiment with the behavior of build"
-            ++ " tools. It is convenient to run these tools in the same way "
-            ++ pname
-            ++ " itself would. The `"
-            ++ pname
-            ++ " v2-exec` command provides a way to"
-            ++ " do so.\n"
-            ++ "\n"
-            ++ "Compiler tools will be configured to see the same subset of the store"
-            ++ " that builds would see. The PATH is modified to make all executables in"
-            ++ " the dependency tree available (provided they have been built already)."
-            ++ " Commands are also rewritten in the way cabal itself would. For"
-            ++ " example, `"
-            ++ pname
-            ++ " v2-exec ghc` will consult the configuration"
-            ++ " to choose an appropriate version of ghc and to include any"
-            ++ " ghc-specific flags requested."
+    , commandDescription = Just $ \pname -> wrapText (description pname)
     , commandNotes = Nothing
     , commandOptions =
         removeIgnoreProjectOption

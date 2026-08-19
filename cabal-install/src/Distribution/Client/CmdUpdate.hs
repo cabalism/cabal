@@ -92,41 +92,39 @@ import Distribution.Client.Errors
 import Distribution.Client.IndexUtils.Timestamp (Timestamp (NoTimestamp))
 import qualified Hackage.Security.Client as Sec
 
+description :: String
+description = "For all known remote repositories, download the package list."
+
+examples :: String -> String -> String
+examples pname invokedName =
+  unlines
+    [ "REPO has the format <repo-id>[,<index-state>] where index-state follows"
+    , "the same format and syntax that is supported by the --index-state flag."
+    , ""
+    , "Examples:"
+    , "  " <> pname <> " " <> invokedName
+    , "    Download the package list for all known remote repositories."
+    , ""
+    , "  " <> pname <> " " <> invokedName <> " hackage.haskell.org,@1474732068"
+    , "  " <> pname <> " " <> invokedName <> " hackage.haskell.org,2016-09-24T17:47:48Z"
+    , "  " <> pname <> " " <> invokedName <> " hackage.haskell.org,HEAD"
+    , "  " <> pname <> " " <> invokedName <> " hackage.haskell.org"
+    , "    Download hackage.haskell.org at a specific index state."
+    , ""
+    , "  " <> pname <> " " <> invokedName <> " hackage.haskell.org head.hackage"
+    , "    Download hackage.haskell.org and head.hackage"
+    , "    head.hackage must be a known repo-id. E.g. from"
+    , "    your cabal.project(.local) file."
+    ]
+
 updateCommand :: CommandUI (NixStyleFlags ())
 updateCommand =
   CommandUI
     { commandName = "v2-update"
     , commandSynopsis = "Updates list of known packages."
     , commandUsage = usageAlternatives "v2-update" ["[FLAGS] [REPOS]"]
-    , commandDescription = Just $ \_ ->
-        wrapText "For all known remote repositories, download the package list."
-    , commandNotes = Just $ \pname ->
-        "REPO has the format <repo-id>[,<index-state>] where index-state follows\n"
-          ++ "the same format and syntax that is supported by the --index-state flag.\n\n"
-          ++ "Examples:\n"
-          ++ "  "
-          ++ pname
-          ++ " v2-update\n"
-          ++ "    Download the package list for all known remote repositories.\n\n"
-          ++ "  "
-          ++ pname
-          ++ " v2-update hackage.haskell.org,@1474732068\n"
-          ++ "  "
-          ++ pname
-          ++ " v2-update hackage.haskell.org,2016-09-24T17:47:48Z\n"
-          ++ "  "
-          ++ pname
-          ++ " v2-update hackage.haskell.org,HEAD\n"
-          ++ "  "
-          ++ pname
-          ++ " v2-update hackage.haskell.org\n"
-          ++ "    Download hackage.haskell.org at a specific index state.\n\n"
-          ++ "  "
-          ++ pname
-          ++ " v2-update hackage.haskell.org head.hackage\n"
-          ++ "    Download hackage.haskell.org and head.hackage\n"
-          ++ "    head.hackage must be a known repo-id. E.g. from\n"
-          ++ "    your cabal.project(.local) file.\n"
+    , commandDescription = Just $ \_ -> wrapText description
+    , commandNotes = Just $ \pname -> examples pname "v2-update"
     , commandOptions = nixStyleOptions $ const []
     , commandDefaultFlags = defaultNixStyleFlags ()
     }

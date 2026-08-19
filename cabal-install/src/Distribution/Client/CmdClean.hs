@@ -114,17 +114,19 @@ defaultCleanFlags =
     , cleanDistDir = NoFlag
     }
 
+description :: String
+description =
+  "Removes all temporary files created during the building process "
+    ++ "(.hi, .o, preprocessed sources, etc.) and also empties out the "
+    ++ "local caches (by default).\n\n"
+
 cleanCommand :: CommandUI (ProjectFlags, CleanFlags)
 cleanCommand =
   CommandUI
     { commandName = "v2-clean"
     , commandSynopsis = "Clean the package store and remove temporary files."
     , commandUsage = usageAlternatives "v2-clean" ["[FLAGS]"]
-    , commandDescription = Just $ \_ ->
-        wrapText $
-          "Removes all temporary files created during the building process "
-            ++ "(.hi, .o, preprocessed sources, etc.) and also empties out the "
-            ++ "local caches (by default).\n\n"
+    , commandDescription = Just $ \_ -> wrapText description
     , commandNotes = Nothing
     , commandDefaultFlags = (defaultProjectFlags, defaultCleanFlags)
     , commandOptions = \showOrParseArgs ->
