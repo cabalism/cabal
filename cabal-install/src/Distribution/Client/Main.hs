@@ -402,6 +402,9 @@ mainWorker args = do
       , commandParserByName CmdBench.examples CmdBench.benchCommand CmdBench.benchAction
       , commandParserByName CmdGenBounds.examples CmdGenBounds.genBoundsCommand CmdGenBounds.genBoundsAction
       , commandParserByName CmdPath.examples CmdPath.pathCommand CmdPath.pathAction
+      , commandParserByName (const $ const "") CmdExec.execCommand CmdExec.execAction
+      , commandParserByName (const $ const "") CmdListBin.listbinCommand CmdListBin.listbinAction
+      , commandParserByName (const $ const "") CmdOutdated.outdatedCommand CmdOutdated.outdatedAction
       ]
 
     delegateToExternal
@@ -500,7 +503,6 @@ mainWorker args = do
       , hiddenCmd formatCommand formatAction
       , hiddenCmd actAsSetupCommand actAsSetupAction
       , hiddenCmd manpageCommand (manpageAction commandSpecs)
-      , regularCmd CmdListBin.listbinCommand CmdListBin.listbinAction
       ]
         ++ concat
           [ cmdSpec CmdConfigure.configureCommand CmdConfigure.configureAction
@@ -516,13 +518,14 @@ mainWorker args = do
           , cmdSpec CmdRun.runCommand CmdRun.runAction
           , cmdSpec CmdTest.testCommand CmdTest.testAction
           , cmdSpec CmdBench.benchCommand CmdBench.benchAction
-          , newCmd CmdExec.execCommand CmdExec.execAction
+          , cmdSpec CmdExec.execCommand CmdExec.execAction
           , newCmd CmdClean.cleanCommand CmdClean.cleanAction
           , newCmd CmdSdist.sdistCommand CmdSdist.sdistAction
           , newCmd CmdTarget.targetCommand CmdTarget.targetAction
           , cmdSpec CmdGenBounds.genBoundsCommand CmdGenBounds.genBoundsAction
           , cmdSpec CmdPath.pathCommand CmdPath.pathAction
-          , newCmd CmdOutdated.outdatedCommand CmdOutdated.outdatedAction
+          , cmdSpec CmdListBin.listbinCommand CmdListBin.listbinAction
+          , cmdSpec CmdOutdated.outdatedCommand CmdOutdated.outdatedAction
           , legacyCmd configureExCommand configureAction
           , legacyCmd genBoundsCommand genBoundsAction
           , legacyCmd buildCommand buildAction
