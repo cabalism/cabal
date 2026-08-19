@@ -8,6 +8,8 @@ module Distribution.Client.CmdRepl
     replCommand
   , replAction
   , ReplFlags (..)
+  , description
+  , examples
 
     -- * Internals exposed for testing
   , matchesMultipleProblem

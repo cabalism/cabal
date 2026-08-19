@@ -392,6 +392,16 @@ mainWorker args = do
     parsersByName =
       [ commandParserByName CmdBuild.examples CmdBuild.buildCommand CmdBuild.buildAction
       , commandParserByName CmdInstall.examples CmdInstall.installCommand CmdInstall.installAction
+      , commandParserByName CmdConfigure.examples CmdConfigure.configureCommand CmdConfigure.configureAction
+      , commandParserByName CmdUpdate.examples CmdUpdate.updateCommand CmdUpdate.updateAction
+      , commandParserByName CmdRepl.examples CmdRepl.replCommand CmdRepl.replAction
+      , commandParserByName CmdFreeze.examples CmdFreeze.freezeCommand CmdFreeze.freezeAction
+      , commandParserByName CmdHaddock.examples CmdHaddock.haddockCommand CmdHaddock.haddockAction
+      , commandParserByName CmdRun.examples CmdRun.runCommand CmdRun.runAction
+      , commandParserByName CmdTest.examples CmdTest.testCommand CmdTest.testAction
+      , commandParserByName CmdBench.examples CmdBench.benchCommand CmdBench.benchAction
+      , commandParserByName CmdGenBounds.examples CmdGenBounds.genBoundsCommand CmdGenBounds.genBoundsAction
+      , commandParserByName CmdPath.examples CmdPath.pathCommand CmdPath.pathAction
       ]
 
     delegateToExternal
@@ -486,7 +496,6 @@ mainWorker args = do
       , regularCmd reportCommand reportAction
       , regularCmd initCommand initAction
       , regularCmd userConfigCommand userConfigAction
-      , regularCmd CmdPath.pathCommand CmdPath.pathAction
       , wrapperCmd hscolourCommand hscolourCommonFlags
       , hiddenCmd formatCommand formatAction
       , hiddenCmd actAsSetupCommand actAsSetupAction
@@ -494,24 +503,25 @@ mainWorker args = do
       , regularCmd CmdListBin.listbinCommand CmdListBin.listbinAction
       ]
         ++ concat
-          [ newCmd CmdConfigure.configureCommand CmdConfigure.configureAction
-          , newCmd CmdUpdate.updateCommand CmdUpdate.updateAction
+          [ cmdSpec CmdConfigure.configureCommand CmdConfigure.configureAction
+          , cmdSpec CmdUpdate.updateCommand CmdUpdate.updateAction
           , cmdSpec CmdBuild.buildCommand CmdBuild.buildAction
-          , newCmd CmdRepl.replCommand CmdRepl.replAction
-          , newCmd CmdFreeze.freezeCommand CmdFreeze.freezeAction
-          , newCmd CmdHaddock.haddockCommand CmdHaddock.haddockAction
+          , cmdSpec CmdRepl.replCommand CmdRepl.replAction
+          , cmdSpec CmdFreeze.freezeCommand CmdFreeze.freezeAction
+          , cmdSpec CmdHaddock.haddockCommand CmdHaddock.haddockAction
           , newCmd
               CmdHaddockProject.haddockProjectCommand
               CmdHaddockProject.haddockProjectAction
           , cmdSpec CmdInstall.installCommand CmdInstall.installAction
-          , newCmd CmdRun.runCommand CmdRun.runAction
-          , newCmd CmdTest.testCommand CmdTest.testAction
-          , newCmd CmdBench.benchCommand CmdBench.benchAction
+          , cmdSpec CmdRun.runCommand CmdRun.runAction
+          , cmdSpec CmdTest.testCommand CmdTest.testAction
+          , cmdSpec CmdBench.benchCommand CmdBench.benchAction
           , newCmd CmdExec.execCommand CmdExec.execAction
           , newCmd CmdClean.cleanCommand CmdClean.cleanAction
           , newCmd CmdSdist.sdistCommand CmdSdist.sdistAction
           , newCmd CmdTarget.targetCommand CmdTarget.targetAction
-          , newCmd CmdGenBounds.genBoundsCommand CmdGenBounds.genBoundsAction
+          , cmdSpec CmdGenBounds.genBoundsCommand CmdGenBounds.genBoundsAction
+          , cmdSpec CmdPath.pathCommand CmdPath.pathAction
           , newCmd CmdOutdated.outdatedCommand CmdOutdated.outdatedAction
           , legacyCmd configureExCommand configureAction
           , legacyCmd genBoundsCommand genBoundsAction

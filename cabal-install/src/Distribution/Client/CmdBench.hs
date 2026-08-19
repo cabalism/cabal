@@ -3,6 +3,8 @@ module Distribution.Client.CmdBench
   ( -- * The @bench@ CLI and action
     benchCommand
   , benchAction
+  , description
+  , examples
 
     -- * Internals exposed for testing
   , componentNotBenchmarkProblem

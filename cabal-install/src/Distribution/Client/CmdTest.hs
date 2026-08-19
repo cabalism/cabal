@@ -6,6 +6,8 @@ module Distribution.Client.CmdTest
   ( -- * The @test@ CLI and action
     testCommand
   , testAction
+  , description
+  , examples
 
     -- * Internals exposed for testing
   , isSubComponentProblem

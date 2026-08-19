@@ -4,6 +4,8 @@ module Distribution.Client.CmdGenBounds
   , genBoundsAction
   , GenBoundsFlags (..)
   , defaultGenBoundsFlags
+  , description
+  , examples
   ) where
 
 import Distribution.Client.Compat.Prelude

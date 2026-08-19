@@ -4,6 +4,8 @@
 module Distribution.Client.CmdUpdate
   ( updateCommand
   , updateAction
+  , description
+  , examples
   ) where
 
 import Control.Exception

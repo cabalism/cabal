@@ -7,6 +7,8 @@ module Distribution.Client.CmdRun
   , runAction
   , handleShebang
   , validScript
+  , description
+  , examples
 
     -- * Internals exposed for testing
   , matchesMultipleProblem

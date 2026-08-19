@@ -5,6 +5,8 @@ module Distribution.Client.CmdConfigure
   ( configureCommand
   , configureAction
   , configureAction'
+  , description
+  , examples
   ) where
 
 import Distribution.Client.Compat.Prelude

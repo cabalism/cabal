@@ -11,6 +11,8 @@
 module Distribution.Client.CmdPath
   ( pathCommand
   , pathAction
+  , description
+  , examples
   ) where
 
 import Distribution.Client.Compat.Prelude

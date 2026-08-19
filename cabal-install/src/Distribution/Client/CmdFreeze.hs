@@ -4,6 +4,8 @@
 module Distribution.Client.CmdFreeze
   ( freezeCommand
   , freezeAction
+  , description
+  , examples
   ) where
 
 import Distribution.Client.Compat.Prelude
