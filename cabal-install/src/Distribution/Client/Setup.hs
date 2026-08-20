@@ -239,9 +239,7 @@ import Control.Exception
   ( assert
   )
 import Data.Functor (($>))
-import Data.List
-  ( deleteFirstsBy
-  )
+import Data.List (deleteFirstsBy, stripPrefix)
 import System.FilePath
   ( (</>)
   )
@@ -362,9 +360,22 @@ globalCommand commands =
           align str = str ++ replicate (maxlen - length str) ' '
           startGroup n = " [" ++ n ++ "]"
           par = ""
+
+          -- Commands added with Cmd.UI.cmdSpec are only registered under their
+          -- bare name, resolving their @v2-@/@new-@ aliases at parse time
+          -- rather than as separate commands. Such aliases are absent from
+          -- 'cmdDescs', so fall back to the bare command's description when
+          -- listing the alias.
+          dropCmdPrefix n
+            | Just rest <- stripPrefix "v2-" n = rest
+            | Just rest <- stripPrefix "new-" n = rest
+            | otherwise = n
+
           addCmd n = case lookup n cmdDescs of
-            Nothing -> ""
             Just d -> "  " ++ align n ++ "    " ++ d
+            Nothing -> case lookup (dropCmdPrefix n) cmdDescs of
+              Just d -> "  " ++ align n ++ "    " ++ d
+              Nothing -> ""
          in
           "Commands:\n"
             ++ unlines
