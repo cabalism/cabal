@@ -151,7 +151,7 @@ parseCommand
   -> [String]
   -> CommandParse action
 parseCommand examples cmdui action invokedName cmdArgs =
-  case execParserPure defaultPrefs pInfo cmdArgs of
+  case execParserPure defaultPrefs pInfo (normalizeOptArgs optArgShorts cmdArgs) of
     Success parsed ->
       if parsedListOptions parsed
         then CommandList (cmdListOptions cmdui)
@@ -166,8 +166,10 @@ parseCommand examples cmdui action invokedName cmdArgs =
     CompletionInvoked _ ->
       CommandErrors ["Shell completion is not supported by this parser path."]
   where
+    fields = commandOptions cmdui ParseArgs
     pInfo = parserInfo invokedName examples flagParsers cmdui
-    flagParsers = cmdOptionParsers (commandOptions cmdui ParseArgs)
+    flagParsers = cmdOptionParsers fields
+    optArgShorts = optArgShortNames fields
 
 -- | A parser for one or more command names.
 data NamedCommandParser action = NamedCommandParser
@@ -259,13 +261,29 @@ optDescrParser = \case
           (O.eitherReader (runReadE reader))
           (optionMods optFlags <> O.metavar placeHolder <> O.help desc)
     ]
-  OptArg desc optFlags placeHolder reader (_defaultText, defaultFn) _show ->
+  OptArg desc optFlags@(_shortFlags, longFlags) placeHolder reader (_defaultText, defaultFn) _show ->
+    -- An /optional-argument/ option (GetOpt's 'OptArg'), such as
+    -- @-j[NUM]@ / @--jobs[=NUM]@. optparse-applicative has no native support
+    -- for optional option arguments, so we model the two documented forms
+    -- explicitly:
+    --
+    --   * the bare form (@-j@ / @--jobs@) via 'O.flag'', yielding the default;
+    --   * the attached-value form (@--jobs=NUM@) via 'O.option' on the /long/
+    --     name only.
+    --
+    -- The attached /short/ form (@-j4@) is normalised to the long @=@ form by
+    -- 'normalizeOptArgs' before parsing. The space-separated form (@-j 4@) is
+    -- intentionally not supported: a token following a bare option is treated
+    -- as a positional argument, matching what the @--help@ output advertises.
     [ Endo
-        <$> ( O.option
-                (O.eitherReader (runReadE reader))
-                (optionMods optFlags <> O.metavar placeHolder <> O.help desc)
-                <|> O.flag' defaultFn (flagMods optFlags <> O.internal)
-            )
+        <$> asum
+          ( O.flag' defaultFn (flagMods optFlags <> O.internal)
+              : [ O.option
+                  (O.eitherReader (runReadE reader))
+                  (mconcat (map O.long longFlags) <> O.metavar placeHolder <> O.help desc <> O.internal)
+                | not (null longFlags)
+                ]
+          )
     ]
   ChoiceOpt choices ->
     [ Endo setFn
@@ -278,6 +296,39 @@ optDescrParser = \case
     , Endo (setFn False)
         <$ O.flag' () (flagMods falseFlags <> O.help desc)
     ]
+
+-- | Collect, for every /optional-argument/ option ('OptArg') that has a long
+-- name, the mapping from each of its short flags to its (first) long flag.
+-- Used by 'normalizeOptArgs' to rewrite the attached short form.
+optArgShortNames :: [OptionField flags] -> [(Char, String)]
+optArgShortNames = concatMap fieldShorts
+  where
+    fieldShorts (OptionField _ descrs) = concatMap descrShorts descrs
+    descrShorts = \case
+      OptArg _ (shortFlags, longFlags) _ _ _ _ ->
+        case longFlags of
+          (lng : _) -> [(c, lng) | c <- shortFlags]
+          [] -> []
+      _ -> []
+
+-- | Rewrite the attached short form of an optional-argument option (e.g.
+-- @-j4@) into the long @=@ form (@--jobs=4@), which optparse-applicative can
+-- parse. Bare options (@-j@), everything after a @--@ terminator, and any
+-- token whose leading short flag is not a known optional-argument option are
+-- left untouched.
+normalizeOptArgs :: [(Char, String)] -> [String] -> [String]
+normalizeOptArgs shortToLong = go
+  where
+    go [] = []
+    go ("--" : rest) = "--" : rest
+    go (tok : rest) = rewrite tok : go rest
+    rewrite tok = case tok of
+      ('-' : c : more)
+        | not (null more)
+        , c /= '-'
+        , Just lng <- lookup c shortToLong ->
+            "--" ++ lng ++ "=" ++ more
+      _ -> tok
 
 optionMods :: (String, [String]) -> O.Mod O.OptionFields a
 optionMods (shortFlags, longFlags) =
