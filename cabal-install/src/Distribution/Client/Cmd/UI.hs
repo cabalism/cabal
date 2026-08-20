@@ -490,18 +490,11 @@ helpText replaceAlias command invokedName pname =
     allOptions :: [GetOpt.OptDescr ()]
     allOptions = commonHelpOptions ++ concatMap optionFieldToGetOpt (commandOptions command ShowArgs)
 
+    maxFlagColumns :: Int
+    maxFlagColumns = maximum (0 : map (length . fst . getOptToColumns) allOptions)
+
     descColumn :: Int
-    descColumn =
-      min
-        maxFlagColumnWidth
-        ( maximum
-            ( 0
-                : map
-                  (length . fst . getOptToColumns)
-                  allOptions
-            )
-        )
-        + 2
+    descColumn = min maxFlagColumnWidth maxFlagColumns + 2
 
     (rows, _) =
       renderOptionRows
