@@ -1,4 +1,5 @@
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE MultiWayIf #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module Distribution.Client.Cmd.UI
@@ -311,7 +312,7 @@ optDescrToGetOpt = \case
 
 renderOptionRows :: Int -> Int -> Int -> [GetOpt.OptDescr ()] -> (String, [String])
 renderOptionRows maxFlagColumnWidth descColumn helpOutputWidth options =
-   (concatMap fst rendered, concatMap snd rendered)
+  (concatMap fst rendered, concatMap snd rendered)
   where
     indent = " "
     indentWidth = length indent
@@ -327,9 +328,10 @@ renderOptionRows maxFlagColumnWidth descColumn helpOutputWidth options =
       let (flagColumn, description) = getOptToColumns opt
           wrappedDescription = wrapDescription descriptionWidth description
           isStacked = length flagColumn > maxFlagColumnWidth + 1
-          renderedRow = if isStacked
-                then renderStacked flagColumn wrappedDescription
-                else renderInline flagColumn wrappedDescription
+          renderedRow =
+            if isStacked
+              then renderStacked flagColumn wrappedDescription
+              else renderInline flagColumn wrappedDescription
        in (renderedRow, [])
 
     renderInline flagColumn descriptionLines =
@@ -404,13 +406,23 @@ helpText replaceAlias command invokedName pname =
   commandSynopsis command
     <> "\n\n"
     <> replaceAlias invokedName (commandUsage command pname)
-    <> maybe "" (('\n' :) . ($ pname)) (commandDescription command)
+    <> maybe "" (('\n' :) . replaceOthers . replaceAlias invokedName . ($ pname)) (commandDescription command)
     <> "\n"
-    <> "Flags for " ++ invokedName ++ ":"
+    <> "Flags for "
+    <> invokedName
+    <> ":"
     <> "\n"
     <> rows
-    <> maybe "" (('\n' :) . replaceAlias invokedName . ($ pname)) (commandNotes command)
+    <> maybe "" (('\n' :) . replaceOthers . replaceAlias invokedName . ($ pname)) (commandNotes command)
   where
+    -- A command description may contain references to other v2-prefixed
+    -- commands, replace those too.
+    replaceOthers =
+      if
+          | "v2-" `isPrefixOf` invokedName -> id
+          | "new-" `isPrefixOf` invokedName -> affixVersionPrefix "new-"
+          | otherwise -> stripVersionPrefix
+
     commonHelpOptions :: [GetOpt.OptDescr ()]
     commonHelpOptions =
       [GetOpt.Option ['h'] ["help"] (GetOpt.NoArg ()) "Show this help text"]
