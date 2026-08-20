@@ -24,7 +24,9 @@ import Distribution.Client.Cmd.UI
   )
 import qualified Distribution.Client.CmdBuild as CmdBuild
 import Distribution.Client.NixStyleOptions (NixStyleFlags (..))
-import Distribution.Client.Setup (InstallFlags (..), globalCommand)
+import Distribution.Client.Setup (ConfigExFlags (..), InstallFlags (..), globalCommand)
+import Distribution.Client.Targets (UserConstraint, readUserConstraint)
+import Distribution.Solver.Types.ConstraintSource (ConstraintSource (ConstraintSourceCommandlineFlag))
 import Distribution.Simple.Command
   ( Command
   , CommandParse (..)
@@ -54,6 +56,8 @@ tests =
           agreementCases verbosity verbosityMatrix
       , testGroup "-f FLAGS or -fFLAGS, --flags=FLAGS" $
           agreementCases cabalFlags flagsMatrix
+      , testGroup "-c CONSTRAINT or -cCONSTRAINT, --constraint=CONSTRAINT" $
+          agreementCases constraints constraintsMatrix
       ]
   , testGroup
       "v2-build -j/--jobs parsed values"
@@ -146,6 +150,29 @@ tests =
       , testCase "invalid flag assignment is rejected" $
           isError (viaOptparse cabalFlags ["--flags=-"]) @? "expected a parse error"
       ]
+  , testGroup
+      "v2-build -c/--constraint parsed values"
+      [ testCase "absent leaves constraints empty" $
+          viaOptparse constraints [] @?= Ready [] []
+      , testCase "-c CONSTRAINT parses" $
+          viaOptparse constraints ["-c", "base>=0"]
+            @?= Ready [cmdlineConstraint "base>=0"] []
+      , testCase "-cCONSTRAINT parses" $
+          viaOptparse constraints ["-cbase>=0"]
+            @?= Ready [cmdlineConstraint "base>=0"] []
+      , testCase "--constraint=CONSTRAINT parses" $
+          viaOptparse constraints ["--constraint=base>=0"]
+            @?= Ready [cmdlineConstraint "base>=0"] []
+      , testCase "short form with target preserves target" $
+          viaOptparse constraints ["-cbase>=0", "all"]
+            @?= Ready [cmdlineConstraint "base>=0"] ["all"]
+      , testCase "separate arg form with target preserves target" $
+          viaOptparse constraints ["-c", "base>=0", "all"]
+            @?= Ready [cmdlineConstraint "base>=0"] ["all"]
+      , testCase "invalid constraint is rejected" $
+          isError (viaOptparse constraints ["--constraint=="])
+            @? "expected a parse error"
+      ]
   ]
 
 -- | Build agreement test cases: for each argument list, the optparse parser and
@@ -237,6 +264,21 @@ flagsMatrix =
   , ["--flags=-"]
   ]
 
+-- | The argument lists exercised by the @-c@ / @--constraint@ agreement tests.
+constraintsMatrix :: [[String]]
+constraintsMatrix =
+  [ []
+  , ["-c", "base>=0"]
+  , ["-cbase>=0"]
+  , ["--constraint=base>=0"]
+  , ["--constraint", "base>=0"]
+  , ["-cbase>=0", "all"]
+  , ["all", "-cbase>=0"]
+  , ["-c", "base>=0", "all"]
+  , ["--constraint=base>=0", "all"]
+  , ["--constraint=="]
+  ]
+
 -- | Extract the parsed @-j@ / @--jobs@ value.
 numJobs :: NixStyleFlags CmdBuild.BuildFlags -> Flag (Maybe Int)
 numJobs = installNumJobs . installFlags
@@ -252,6 +294,18 @@ verbosity = setupVerbosity . configCommonFlags . configFlags
 -- | Extract the parsed @-f@ / @--flags@ value.
 cabalFlags :: NixStyleFlags CmdBuild.BuildFlags -> FlagAssignment
 cabalFlags = configConfigurationsFlags . configFlags
+
+-- | Parse a user constraint and tag it as originating from a command-line
+-- @--constraint@ flag.
+cmdlineConstraint :: String -> (UserConstraint, ConstraintSource)
+cmdlineConstraint str =
+  case readUserConstraint str of
+    Right c -> (c, ConstraintSourceCommandlineFlag)
+    Left err -> error $ "invalid test constraint " ++ show str ++ ": " ++ err
+
+-- | Extract the parsed @-c@ / @--constraint@ values.
+constraints :: NixStyleFlags CmdBuild.BuildFlags -> [(UserConstraint, ConstraintSource)]
+constraints = configExConstraints . configExFlags
 
 -- | A small, comparable summary of a parse outcome, capturing just the value of
 -- interest and the positional targets. This lets us compare the two parsers
