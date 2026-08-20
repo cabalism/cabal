@@ -405,16 +405,19 @@ helpText :: ReplaceCommandAlias -> CommandUI (NixStyleFlags a) -> String -> Stri
 helpText replaceAlias command invokedName pname =
   commandSynopsis command
     <> "\n\n"
-    <> replaceAlias invokedName (commandUsage command pname)
-    <> maybe "" (('\n' :) . replaceOthers . replaceAlias invokedName . ($ pname)) (commandDescription command)
+    <> replace (commandUsage command pname)
+    <> maybeReplace (commandDescription command)
     <> "\n"
     <> "Flags for "
     <> invokedName
     <> ":"
     <> "\n"
     <> rows
-    <> maybe "" (('\n' :) . replaceOthers . replaceAlias invokedName . ($ pname)) (commandNotes command)
+    <> maybeReplace (commandNotes command)
   where
+    replace = replaceOthers . replaceAlias invokedName
+    maybeReplace = maybe "" (('\n' :) . replace . ($ pname))
+
     -- A command description may contain references to other v2-prefixed
     -- commands, replace those too.
     replaceOthers =
