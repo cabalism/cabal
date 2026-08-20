@@ -39,6 +39,7 @@ import Distribution.Simple.Setup
   , pattern Flag
   , pattern NoFlag
   )
+import Distribution.Types.Flag (FlagAssignment, mkFlagAssignment, mkFlagName)
 import Distribution.Verbosity (VerbosityFlags, deafening, normal, silent, verbose)
 
 tests :: [TestTree]
@@ -51,6 +52,8 @@ tests =
           agreementCases optimisation optMatrix
       , testGroup "-v[n], --verbose[=n]" $
           agreementCases verbosity verbosityMatrix
+      , testGroup "-f FLAGS or -fFLAGS, --flags=FLAGS" $
+          agreementCases cabalFlags flagsMatrix
       ]
   , testGroup
       "v2-build -j/--jobs parsed values"
@@ -118,6 +121,30 @@ tests =
           viaOptparse verbosity ["--verbose"] @?= Ready (Flag verbose) []
       , testCase "--verbose=0 is silent" $
           viaOptparse verbosity ["--verbose=0"] @?= Ready (Flag silent) []
+      ]
+  , testGroup
+      "v2-build -f/--flags parsed values"
+      [ testCase "absent leaves flags empty" $
+          viaOptparse cabalFlags [] @?= Ready mempty []
+      , testCase "-f FLAGS parses" $
+          viaOptparse cabalFlags ["-f", "debug"]
+            @?= Ready (mkFlagAssignment [(mkFlagName "debug", True)]) []
+      , testCase "-fFLAGS parses" $
+          viaOptparse cabalFlags ["-fdebug"]
+            @?= Ready (mkFlagAssignment [(mkFlagName "debug", True)]) []
+      , testCase "--flags=FLAGS parses" $
+          viaOptparse cabalFlags ["--flags=debug"]
+            @?= Ready (mkFlagAssignment [(mkFlagName "debug", True)]) []
+      , testCase "quoted multi-flag payload parses" $
+          viaOptparse cabalFlags ["--flags=debug -usebytestrings"]
+            @?= Ready
+              (mkFlagAssignment [(mkFlagName "debug", True), (mkFlagName "usebytestrings", False)])
+              []
+      , testCase "attached short form with target preserves target" $
+          viaOptparse cabalFlags ["-fdebug", "all"]
+            @?= Ready (mkFlagAssignment [(mkFlagName "debug", True)]) ["all"]
+      , testCase "invalid flag assignment is rejected" $
+          isError (viaOptparse cabalFlags ["--flags=-"]) @? "expected a parse error"
       ]
   ]
 
@@ -194,6 +221,22 @@ verbosityMatrix =
   , ["--verbose", "all"]
   ]
 
+-- | The argument lists exercised by the @-f@ / @--flags@ agreement tests.
+flagsMatrix :: [[String]]
+flagsMatrix =
+  [ []
+  , ["-f", "debug"]
+  , ["-fdebug"]
+  , ["--flags=debug"]
+  , ["--flags", "debug"]
+  , ["-f", "debug -usebytestrings"]
+  , ["--flags=debug -usebytestrings"]
+  , ["-fdebug", "all"]
+  , ["all", "-fdebug"]
+  , ["--flags=debug", "all"]
+  , ["--flags=-"]
+  ]
+
 -- | Extract the parsed @-j@ / @--jobs@ value.
 numJobs :: NixStyleFlags CmdBuild.BuildFlags -> Flag (Maybe Int)
 numJobs = installNumJobs . installFlags
@@ -205,6 +248,10 @@ optimisation = configOptimization . configFlags
 -- | Extract the parsed @-v@ / @--verbose@ value.
 verbosity :: NixStyleFlags CmdBuild.BuildFlags -> Flag VerbosityFlags
 verbosity = setupVerbosity . configCommonFlags . configFlags
+
+-- | Extract the parsed @-f@ / @--flags@ value.
+cabalFlags :: NixStyleFlags CmdBuild.BuildFlags -> FlagAssignment
+cabalFlags = configConfigurationsFlags . configFlags
 
 -- | A small, comparable summary of a parse outcome, capturing just the value of
 -- interest and the positional targets. This lets us compare the two parsers
