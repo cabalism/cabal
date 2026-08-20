@@ -311,11 +311,25 @@ optArgShortNames = concatMap fieldShorts
           [] -> []
       _ -> []
 
--- | Rewrite the attached short form of an optional-argument option (e.g.
--- @-j4@) into the long @=@ form (@--jobs=4@), which optparse-applicative can
--- parse. Bare options (@-j@), everything after a @--@ terminator, and any
--- token whose leading short flag is not a known optional-argument option are
--- left untouched.
+-- | Rewrite the attached short form of an optional-argument option into the
+-- long @=@ form (@--jobs=4@), which optparse-applicative can parse.
+--
+-- >>> normalizeOptArgs [('j', "jobs")] ["-j4"]
+-- ["--jobs=4"]
+--
+-- Bare options are left untouched:
+--
+-- >>> normalizeOptArgs [('j', "jobs")] ["-j"]
+-- ["-j"]
+--
+--
+-- Everything after a @--@ terminator, and any token whose leading short flag is
+-- not a known optional-argument option are left untouched:
+--
+-- >>> normalizeOptArgs [('j', "jobs")] ["-j4", "--", "-j5"]
+-- ["--jobs=4","--","-j5"]
+-- >>> normalizeOptArgs [('j', "jobs")] ["-x4"]
+-- ["-x4"]
 normalizeOptArgs :: [(Char, String)] -> [String] -> [String]
 normalizeOptArgs shortToLong = go
   where
