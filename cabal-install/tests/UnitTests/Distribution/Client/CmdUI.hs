@@ -7,8 +7,9 @@
 -- The optparse-applicative migration reuses the same 'OptionField' definitions
 -- as the legacy GetOpt-based parser, so the two parsers should agree on how
 -- command-line arguments map to flags. These tests exercise both parsers
--- in-process and compare their results, using the @-j@ / @--jobs@
--- optional-argument option (@-j[NUM]@, @--jobs[=NUM]@) as the archetype.
+-- in-process and compare their results, using the optional-argument options
+-- @-j@ / @--jobs@ (@-j[NUM]@, @--jobs[=NUM]@) and @-O@ / @--enable-optimization@
+-- (@-O[n]@, @--enable-optimization[=n]@) as the archetypes.
 module UnitTests.Distribution.Client.CmdUI
   ( tests
   ) where
@@ -29,46 +30,87 @@ import Distribution.Simple.Command
   , CommandUI (..)
   , commandParseArgs
   )
-import Distribution.Simple.Setup (Flag, pattern Flag, pattern NoFlag)
+import Distribution.Simple.Compiler (OptimisationLevel (..))
+import Distribution.Simple.Setup
+  ( ConfigFlags (..)
+  , Flag
+  , pattern Flag
+  , pattern NoFlag
+  )
 
 tests :: [TestTree]
 tests =
   [ testGroup
-      "GetOpt and optparse parsers agree (v2-build -j/--jobs)"
-      [ testGroup "-j[NUM], --jobs[=NUM]"
-        [ testCase (unwords ("build" : args)) $
-          viaOptparse args @?= viaGetOpt args
-        | args <- argMatrix
-        ]
+      "GetOpt and optparse parsers agree (v2-build)"
+      [ testGroup "-j[NUM], --jobs[=NUM]" $
+          agreementCases numJobs jobsMatrix
+      , testGroup "-O[n], --enable-optimization[=n]" $
+          agreementCases optimisation optMatrix
       ]
   , testGroup
       "v2-build -j/--jobs parsed values"
       [ testCase "absent leaves numJobs unset" $
-          viaOptparse [] @?= Ready NoFlag []
+          viaOptparse numJobs [] @?= Ready NoFlag []
       , testCase "bare -j means $ncpus (Flag Nothing)" $
-          viaOptparse ["-j"] @?= Ready (Flag Nothing) []
+          viaOptparse numJobs ["-j"] @?= Ready (Flag Nothing) []
       , testCase "-j does not consume a following target" $
-          viaOptparse ["-j", "all"] @?= Ready (Flag Nothing) ["all"]
+          viaOptparse numJobs ["-j", "all"] @?= Ready (Flag Nothing) ["all"]
       , testCase "-j4 sets Flag (Just 4)" $
-          viaOptparse ["-j4"] @?= Ready (Flag (Just 4)) []
+          viaOptparse numJobs ["-j4"] @?= Ready (Flag (Just 4)) []
       , testCase "-j4 with a target" $
-          viaOptparse ["-j4", "all"] @?= Ready (Flag (Just 4)) ["all"]
+          viaOptparse numJobs ["-j4", "all"] @?= Ready (Flag (Just 4)) ["all"]
       , testCase "--jobs means $ncpus (Flag Nothing)" $
-          viaOptparse ["--jobs"] @?= Ready (Flag Nothing) []
+          viaOptparse numJobs ["--jobs"] @?= Ready (Flag Nothing) []
       , testCase "--jobs=4 sets Flag (Just 4)" $
-          viaOptparse ["--jobs=4"] @?= Ready (Flag (Just 4)) []
+          viaOptparse numJobs ["--jobs=4"] @?= Ready (Flag (Just 4)) []
       , testCase "--jobs=$ncpus means Flag Nothing" $
-          viaOptparse ["--jobs=$ncpus"] @?= Ready (Flag Nothing) []
+          viaOptparse numJobs ["--jobs=$ncpus"] @?= Ready (Flag Nothing) []
       , testCase "--jobs=0 is rejected" $
-          isError (viaOptparse ["--jobs=0"]) @? "expected a parse error"
+          isError (viaOptparse numJobs ["--jobs=0"]) @? "expected a parse error"
       , testCase "-j0 is rejected" $
-          isError (viaOptparse ["-j0"]) @? "expected a parse error"
+          isError (viaOptparse numJobs ["-j0"]) @? "expected a parse error"
+      ]
+  , testGroup
+      "v2-build -O/--enable-optimization parsed values"
+      [ testCase "absent leaves optimization unset" $
+          viaOptparse optimisation [] @?= Ready NoFlag []
+      , testCase "bare -O means normal optimisation" $
+          viaOptparse optimisation ["-O"] @?= Ready (Flag NormalOptimisation) []
+      , testCase "-O does not consume a following target" $
+          viaOptparse optimisation ["-O", "all"] @?= Ready (Flag NormalOptimisation) ["all"]
+      , testCase "-O0 disables optimisation" $
+          viaOptparse optimisation ["-O0"] @?= Ready (Flag NoOptimisation) []
+      , testCase "-O2 sets maximum optimisation" $
+          viaOptparse optimisation ["-O2"] @?= Ready (Flag MaximumOptimisation) []
+      , testCase "-O2 with a target" $
+          viaOptparse optimisation ["-O2", "all"] @?= Ready (Flag MaximumOptimisation) ["all"]
+      , testCase "--enable-optimization means normal optimisation" $
+          viaOptparse optimisation ["--enable-optimization"] @?= Ready (Flag NormalOptimisation) []
+      , testCase "--enable-optimization=0 disables optimisation" $
+          viaOptparse optimisation ["--enable-optimization=0"] @?= Ready (Flag NoOptimisation) []
+      , testCase "--enable-optimization=2 sets maximum optimisation" $
+          viaOptparse optimisation ["--enable-optimization=2"] @?= Ready (Flag MaximumOptimisation) []
+      , testCase "--disable-optimization disables optimisation" $
+          viaOptparse optimisation ["--disable-optimization"] @?= Ready (Flag NoOptimisation) []
       ]
   ]
 
--- | The set of argument lists exercised by the agreement tests.
-argMatrix :: [[String]]
-argMatrix =
+-- | Build agreement test cases: for each argument list, the optparse parser and
+-- the legacy GetOpt parser must produce the same summary.
+agreementCases
+  :: (Eq a, Show a)
+  => (NixStyleFlags CmdBuild.BuildFlags -> a)
+  -> [[String]]
+  -> [TestTree]
+agreementCases extract matrix =
+  [ testCase (unwords ("build" : args)) $
+      viaOptparse extract args @?= viaGetOpt extract args
+  | args <- matrix
+  ]
+
+-- | The argument lists exercised by the @-j@ / @--jobs@ agreement tests.
+jobsMatrix :: [[String]]
+jobsMatrix =
   [ []
   , ["-j"]
   , ["-j4"]
@@ -85,33 +127,66 @@ argMatrix =
   , ["-j0"]
   ]
 
--- | A small, comparable summary of a parse outcome, capturing just the parsed
--- @-j@ / @--jobs@ value and the positional targets. This lets us compare the
--- two parsers (and use '@?=') without needing 'Eq'/'Show' on the full flag
--- records.
-data ParseSummary
-  = Ready (Flag (Maybe Int)) [String]
+-- | The argument lists exercised by the @-O@ / @--enable-optimization@
+-- agreement tests.
+optMatrix :: [[String]]
+optMatrix =
+  [ []
+  , ["-O"]
+  , ["-O0"]
+  , ["-O1"]
+  , ["-O2"]
+  , ["-O", "2"]
+  , ["-O", "all"]
+  , ["all", "-O"]
+  , ["-O2", "all"]
+  , ["all", "-O2"]
+  , ["--enable-optimization"]
+  , ["--enable-optimization=0"]
+  , ["--enable-optimization=2"]
+  , ["--enable-optimization", "all"]
+  , ["--disable-optimization"]
+  ]
+
+-- | Extract the parsed @-j@ / @--jobs@ value.
+numJobs :: NixStyleFlags CmdBuild.BuildFlags -> Flag (Maybe Int)
+numJobs = installNumJobs . installFlags
+
+-- | Extract the parsed @-O@ / @--enable-optimization@ value.
+optimisation :: NixStyleFlags CmdBuild.BuildFlags -> Flag OptimisationLevel
+optimisation = configOptimization . configFlags
+
+-- | A small, comparable summary of a parse outcome, capturing just the value of
+-- interest and the positional targets. This lets us compare the two parsers
+-- (and use '@?=') without needing 'Eq'/'Show' on the full flag records.
+data ParseSummary a
+  = Ready a [String]
   | Help
   | List
   | Err
   deriving (Eq, Show)
 
-isError :: ParseSummary -> Bool
+isError :: ParseSummary a -> Bool
 isError Err = True
 isError _ = False
 
-summarise :: CommandParse (NixStyleFlags CmdBuild.BuildFlags, [String]) -> ParseSummary
-summarise = \case
-  CommandReadyToGo (flags, targets) ->
-    Ready (installNumJobs (installFlags flags)) targets
+summarise
+  :: (NixStyleFlags CmdBuild.BuildFlags -> a)
+  -> CommandParse (NixStyleFlags CmdBuild.BuildFlags, [String])
+  -> ParseSummary a
+summarise extract = \case
+  CommandReadyToGo (flags, targets) -> Ready (extract flags) targets
   CommandHelp _ -> Help
   CommandList _ -> List
   CommandErrors _ -> Err
 
 -- | Parse @cabal build@ arguments via the legacy GetOpt-based parser.
-viaGetOpt :: [String] -> ParseSummary
-viaGetOpt args =
-  summarise $
+viaGetOpt
+  :: (NixStyleFlags CmdBuild.BuildFlags -> a)
+  -> [String]
+  -> ParseSummary a
+viaGetOpt extract args =
+  summarise extract $
     case commandParseArgs CmdBuild.buildCommand False args of
       CommandReadyToGo (mkFlags, targets) ->
         CommandReadyToGo (mkFlags (commandDefaultFlags CmdBuild.buildCommand), targets)
@@ -123,9 +198,12 @@ viaGetOpt args =
 -- exercising the same dispatch path as @Main@. The command action is replaced
 -- with a tuple constructor so we can inspect the parsed flags and targets
 -- directly instead of running the command.
-viaOptparse :: [String] -> ParseSummary
-viaOptparse args =
-  summarise $
+viaOptparse
+  :: (NixStyleFlags CmdBuild.BuildFlags -> a)
+  -> [String]
+  -> ParseSummary a
+viaOptparse extract args =
+  summarise extract $
     case parseCommandWithOptparseMany (globalCommand noCommands) [buildParser] ("build" : args) of
       Just (CommandReadyToGo (_globalFlags, inner)) -> inner
       Just (CommandErrors errs) -> CommandErrors errs
