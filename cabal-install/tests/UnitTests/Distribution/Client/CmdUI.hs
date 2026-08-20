@@ -35,9 +35,11 @@ tests :: [TestTree]
 tests =
   [ testGroup
       "GetOpt and optparse parsers agree (v2-build -j/--jobs)"
-      [ testCase (unwords ("build" : args)) $
-        viaOptparse args @?= viaGetOpt args
-      | args <- argMatrix
+      [ testGroup "-j[NUM], --jobs[=NUM]"
+        [ testCase (unwords ("build" : args)) $
+          viaOptparse args @?= viaGetOpt args
+        | args <- argMatrix
+        ]
       ]
   , testGroup
       "v2-build -j/--jobs parsed values"
