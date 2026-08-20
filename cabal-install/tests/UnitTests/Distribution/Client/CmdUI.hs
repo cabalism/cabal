@@ -8,8 +8,9 @@
 -- as the legacy GetOpt-based parser, so the two parsers should agree on how
 -- command-line arguments map to flags. These tests exercise both parsers
 -- in-process and compare their results, using the optional-argument options
--- @-j@ / @--jobs@ (@-j[NUM]@, @--jobs[=NUM]@) and @-O@ / @--enable-optimization@
--- (@-O[n]@, @--enable-optimization[=n]@) as the archetypes.
+-- @-j@ / @--jobs@ (@-j[NUM]@, @--jobs[=NUM]@), @-O@ / @--enable-optimization@
+-- (@-O[n]@, @--enable-optimization[=n]@) and @-v@ / @--verbose@
+-- (@-v[n]@, @--verbose[=n]@) as the archetypes.
 module UnitTests.Distribution.Client.CmdUI
   ( tests
   ) where
@@ -32,11 +33,13 @@ import Distribution.Simple.Command
   )
 import Distribution.Simple.Compiler (OptimisationLevel (..))
 import Distribution.Simple.Setup
-  ( ConfigFlags (..)
+  ( CommonSetupFlags (..)
+  , ConfigFlags (..)
   , Flag
   , pattern Flag
   , pattern NoFlag
   )
+import Distribution.Verbosity (VerbosityFlags, deafening, normal, silent, verbose)
 
 tests :: [TestTree]
 tests =
@@ -46,6 +49,8 @@ tests =
           agreementCases numJobs jobsMatrix
       , testGroup "-O[n], --enable-optimization[=n]" $
           agreementCases optimisation optMatrix
+      , testGroup "-v[n], --verbose[=n]" $
+          agreementCases verbosity verbosityMatrix
       ]
   , testGroup
       "v2-build -j/--jobs parsed values"
@@ -92,6 +97,27 @@ tests =
           viaOptparse optimisation ["--enable-optimization=2"] @?= Ready (Flag MaximumOptimisation) []
       , testCase "--disable-optimization disables optimisation" $
           viaOptparse optimisation ["--disable-optimization"] @?= Ready (Flag NoOptimisation) []
+      ]
+  , testGroup
+      "v2-build -v/--verbose parsed values"
+      [ testCase "absent leaves verbosity unset" $
+          viaOptparse verbosity [] @?= Ready NoFlag []
+      , testCase "bare -v means verbose (level 2)" $
+          viaOptparse verbosity ["-v"] @?= Ready (Flag verbose) []
+      , testCase "-v does not consume a following target" $
+          viaOptparse verbosity ["-v", "all"] @?= Ready (Flag verbose) ["all"]
+      , testCase "-v0 is silent" $
+          viaOptparse verbosity ["-v0"] @?= Ready (Flag silent) []
+      , testCase "-v1 is normal" $
+          viaOptparse verbosity ["-v1"] @?= Ready (Flag normal) []
+      , testCase "-v2 is verbose" $
+          viaOptparse verbosity ["-v2"] @?= Ready (Flag verbose) []
+      , testCase "-v3 is deafening" $
+          viaOptparse verbosity ["-v3"] @?= Ready (Flag deafening) []
+      , testCase "--verbose means verbose" $
+          viaOptparse verbosity ["--verbose"] @?= Ready (Flag verbose) []
+      , testCase "--verbose=0 is silent" $
+          viaOptparse verbosity ["--verbose=0"] @?= Ready (Flag silent) []
       ]
   ]
 
@@ -148,6 +174,26 @@ optMatrix =
   , ["--disable-optimization"]
   ]
 
+-- | The argument lists exercised by the @-v@ / @--verbose@ agreement tests.
+verbosityMatrix :: [[String]]
+verbosityMatrix =
+  [ []
+  , ["-v"]
+  , ["-v0"]
+  , ["-v1"]
+  , ["-v2"]
+  , ["-v3"]
+  , ["-v", "2"]
+  , ["-v", "all"]
+  , ["all", "-v"]
+  , ["-v2", "all"]
+  , ["all", "-v2"]
+  , ["--verbose"]
+  , ["--verbose=0"]
+  , ["--verbose=2"]
+  , ["--verbose", "all"]
+  ]
+
 -- | Extract the parsed @-j@ / @--jobs@ value.
 numJobs :: NixStyleFlags CmdBuild.BuildFlags -> Flag (Maybe Int)
 numJobs = installNumJobs . installFlags
@@ -155,6 +201,10 @@ numJobs = installNumJobs . installFlags
 -- | Extract the parsed @-O@ / @--enable-optimization@ value.
 optimisation :: NixStyleFlags CmdBuild.BuildFlags -> Flag OptimisationLevel
 optimisation = configOptimization . configFlags
+
+-- | Extract the parsed @-v@ / @--verbose@ value.
+verbosity :: NixStyleFlags CmdBuild.BuildFlags -> Flag VerbosityFlags
+verbosity = setupVerbosity . configCommonFlags . configFlags
 
 -- | A small, comparable summary of a parse outcome, capturing just the value of
 -- interest and the positional targets. This lets us compare the two parsers
