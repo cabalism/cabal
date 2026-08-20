@@ -58,6 +58,8 @@ tests =
           agreementCases cabalFlags flagsMatrix
       , testGroup "-c CONSTRAINT or -cCONSTRAINT, --constraint=CONSTRAINT" $
           agreementCases constraints constraintsMatrix
+      , testGroup "-w PATH or -wPATH, --with-compiler=PATH" $
+          agreementCases compilerPath compilerMatrix
       ]
   , testGroup
       "v2-build -j/--jobs parsed values"
@@ -173,6 +175,23 @@ tests =
           isError (viaOptparse constraints ["--constraint=="])
             @? "expected a parse error"
       ]
+  , testGroup
+      "v2-build -w/--with-compiler parsed values"
+      [ testCase "absent leaves compiler path unset" $
+          viaOptparse compilerPath [] @?= Ready NoFlag []
+      , testCase "-w PATH parses" $
+          viaOptparse compilerPath ["-w", "ghc"] @?= Ready (Flag "ghc") []
+      , testCase "-wPATH parses" $
+          viaOptparse compilerPath ["-wghc"] @?= Ready (Flag "ghc") []
+      , testCase "--with-compiler=PATH parses" $
+          viaOptparse compilerPath ["--with-compiler=ghc"] @?= Ready (Flag "ghc") []
+      , testCase "short attached form with target preserves target" $
+          viaOptparse compilerPath ["-wghc", "all"] @?= Ready (Flag "ghc") ["all"]
+      , testCase "separate arg form with target preserves target" $
+          viaOptparse compilerPath ["-w", "ghc", "all"] @?= Ready (Flag "ghc") ["all"]
+      , testCase "missing compiler path is rejected" $
+          isError (viaOptparse compilerPath ["-w"]) @? "expected a parse error"
+      ]
   ]
 
 -- | Build agreement test cases: for each argument list, the optparse parser and
@@ -279,6 +298,22 @@ constraintsMatrix =
   , ["--constraint=="]
   ]
 
+-- | The argument lists exercised by the @-w@ / @--with-compiler@ agreement
+-- tests.
+compilerMatrix :: [[String]]
+compilerMatrix =
+  [ []
+  , ["-w", "ghc"]
+  , ["-wghc"]
+  , ["--with-compiler=ghc"]
+  , ["--with-compiler", "ghc"]
+  , ["-wghc", "all"]
+  , ["all", "-wghc"]
+  , ["-w", "ghc", "all"]
+  , ["--with-compiler=ghc", "all"]
+  , ["-w"]
+  ]
+
 -- | Extract the parsed @-j@ / @--jobs@ value.
 numJobs :: NixStyleFlags CmdBuild.BuildFlags -> Flag (Maybe Int)
 numJobs = installNumJobs . installFlags
@@ -306,6 +341,10 @@ cmdlineConstraint str =
 -- | Extract the parsed @-c@ / @--constraint@ values.
 constraints :: NixStyleFlags CmdBuild.BuildFlags -> [(UserConstraint, ConstraintSource)]
 constraints = configExConstraints . configExFlags
+
+-- | Extract the parsed @-w@ / @--with-compiler@ value.
+compilerPath :: NixStyleFlags CmdBuild.BuildFlags -> Flag FilePath
+compilerPath = configHcPath . configFlags
 
 -- | A small, comparable summary of a parse outcome, capturing just the value of
 -- interest and the positional targets. This lets us compare the two parsers
