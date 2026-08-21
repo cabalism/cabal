@@ -94,6 +94,8 @@ parserTests =
     , testCase "test haddock-all flag" testHaddockAll
     , testCase "test override haddock-all: True" testHaddockAllOverwriteTrue
     , testCase "test override haddock-all: False" testHaddockAllOverwriteFalse
+    , testCase "read debug-info boolean False" testDebugInfoBooleanFalse
+    , testCase "read debug-info boolean True" testDebugInfoBooleanTrue
     ]
 
 testPackages :: Assertion
@@ -550,6 +552,16 @@ testHaddockAllOverwriteFalse = do
   assertConfigEquals (Flag False) config legacy (packageConfigHaddockTestSuites . projectConfigLocalPackages . snd . condTreeData)
   assertConfigEquals (Flag False) config legacy (packageConfigHaddockBenchmarks . projectConfigLocalPackages . snd . condTreeData)
   assertConfigEquals (Flag False) config legacy (packageConfigHaddockForeignLibs . projectConfigLocalPackages . snd . condTreeData)
+
+testDebugInfoBooleanFalse :: Assertion
+testDebugInfoBooleanFalse = do
+  (config, legacy) <- readConfigDefault "debug-info-boolean-false"
+  assertConfigEquals (Flag NoDebugInfo) config legacy (packageConfigDebugInfo . projectConfigLocalPackages . snd . condTreeData)
+
+testDebugInfoBooleanTrue :: Assertion
+testDebugInfoBooleanTrue = do
+  (config, legacy) <- readConfigDefault "debug-info-boolean-true"
+  assertConfigEquals (Flag NormalDebugInfo) config legacy (packageConfigDebugInfo . projectConfigLocalPackages . snd . condTreeData)
 
 -------------------------------------------------------------------------------
 -- Test Utilities
