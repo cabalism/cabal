@@ -567,9 +567,10 @@ configureOptions showOrParseArgs =
           "optimization"
           configOptimization
           (\v flags -> flags{configOptimization = v})
-          [ optArgDef'
+          [ optArg
               "n"
-              (show NoOptimisation, Flag . flagToOptimisationLevel)
+              (ReadE (fmap Flag . readOptimisationLevel . Just))
+              (show NoOptimisation, Flag NormalOptimisation)
               ( \case
                   Flag NoOptimisation -> []
                   Flag NormalOptimisation -> [Nothing]
@@ -589,9 +590,10 @@ configureOptions showOrParseArgs =
           "debug-info"
           configDebugInfo
           (\v flags -> flags{configDebugInfo = v})
-          [ optArg'
+          [ optArg
               "n"
-              (Flag . flagToDebugInfoLevel)
+              (ReadE (fmap Flag . readDebugInfoLevel . Just))
+              ("", Flag NormalDebugInfo)
               ( \case
                   Flag NoDebugInfo -> []
                   Flag MinimalDebugInfo -> [Just "1"]

@@ -50,10 +50,12 @@ module Distribution.Simple.Compiler
 
     -- * Support for optimisation levels
   , OptimisationLevel (..)
+  , readOptimisationLevel
   , flagToOptimisationLevel
 
     -- * Support for debug info levels
   , DebugInfoLevel (..)
+  , readDebugInfoLevel
   , flagToDebugInfoLevel
 
     -- * Support for language extensions
@@ -324,19 +326,40 @@ parsecOptimisationLevel :: CabalParsing m => m OptimisationLevel
 parsecOptimisationLevel = boolParser <|> intParser
   where
     boolParser = bool NoOptimisation NormalOptimisation <$> parsec
-    intParser = intToOptimisationLevel <$> integral
+    intParser = do
+      i <- integral
+      either fail pure (intToOptimisationLevelEither i)
+
+readOptimisationLevel :: Maybe String -> Either String OptimisationLevel
+readOptimisationLevel Nothing = Right NormalOptimisation
+readOptimisationLevel (Just s)
+  | lowercase s == "false" = Right NoOptimisation
+  | lowercase s == "true" = Right NormalOptimisation
+  | otherwise = case reads s of
+      [(i, "")] -> intToOptimisationLevelEither i
+      _ ->
+        Left $
+          "Can't parse optimisation level "
+            ++ show s
+            ++ ". Expected false, true, or an integer "
+            ++ show minLevel
+            ++ ".."
+            ++ show maxLevel
+  where
+    minLevel = fromEnum (minBound :: OptimisationLevel)
+    maxLevel = fromEnum (maxBound :: OptimisationLevel)
 
 flagToOptimisationLevel :: Maybe String -> OptimisationLevel
-flagToOptimisationLevel Nothing = NormalOptimisation
-flagToOptimisationLevel (Just s) = case reads s of
-  [(i, "")] -> intToOptimisationLevel i
-  _ -> error $ "Can't parse optimisation level " ++ s
+flagToOptimisationLevel = either errorWithoutStackTrace id . readOptimisationLevel
 
 intToOptimisationLevel :: Int -> OptimisationLevel
-intToOptimisationLevel i
-  | i >= minLevel && i <= maxLevel = toEnum i
+intToOptimisationLevel = either errorWithoutStackTrace id . intToOptimisationLevelEither
+
+intToOptimisationLevelEither :: Int -> Either String OptimisationLevel
+intToOptimisationLevelEither i
+  | i >= minLevel && i <= maxLevel = Right (toEnum i)
   | otherwise =
-      error $
+      Left $
         "Bad optimisation level: "
           ++ show i
           ++ ". Valid values are "
@@ -374,19 +397,40 @@ parsecDebugInfoLevel :: CabalParsing m => m DebugInfoLevel
 parsecDebugInfoLevel = boolParser <|> intParser
   where
     boolParser = bool NoDebugInfo NormalDebugInfo <$> parsec
-    intParser = intToDebugInfoLevel <$> integral
+    intParser = do
+      i <- integral
+      either fail pure (intToDebugInfoLevelEither i)
+
+readDebugInfoLevel :: Maybe String -> Either String DebugInfoLevel
+readDebugInfoLevel Nothing = Right NormalDebugInfo
+readDebugInfoLevel (Just s)
+  | lowercase s == "false" = Right NoDebugInfo
+  | lowercase s == "true" = Right NormalDebugInfo
+  | otherwise = case reads s of
+      [(i, "")] -> intToDebugInfoLevelEither i
+      _ ->
+        Left $
+          "Can't parse debug info level "
+            ++ show s
+            ++ ". Expected false, true, or an integer "
+            ++ show minLevel
+            ++ ".."
+            ++ show maxLevel
+  where
+    minLevel = fromEnum (minBound :: DebugInfoLevel)
+    maxLevel = fromEnum (maxBound :: DebugInfoLevel)
 
 flagToDebugInfoLevel :: Maybe String -> DebugInfoLevel
-flagToDebugInfoLevel Nothing = NormalDebugInfo
-flagToDebugInfoLevel (Just s) = case reads s of
-  [(i, "")] -> intToDebugInfoLevel i
-  _ -> error $ "Can't parse debug info level " ++ s
+flagToDebugInfoLevel = either errorWithoutStackTrace id . readDebugInfoLevel
 
 intToDebugInfoLevel :: Int -> DebugInfoLevel
-intToDebugInfoLevel i
-  | i >= minLevel && i <= maxLevel = toEnum i
+intToDebugInfoLevel = either errorWithoutStackTrace id . intToDebugInfoLevelEither
+
+intToDebugInfoLevelEither :: Int -> Either String DebugInfoLevel
+intToDebugInfoLevelEither i
+  | i >= minLevel && i <= maxLevel = Right (toEnum i)
   | otherwise =
-      error $
+      Left $
         "Bad debug info level: "
           ++ show i
           ++ ". Valid values are "
