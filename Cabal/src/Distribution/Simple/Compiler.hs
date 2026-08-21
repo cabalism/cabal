@@ -332,20 +332,23 @@ flagToOptimisationLevel (Just s) = case reads s of
   [(i, "")] -> intToOptimisationLevel i
   _ -> error $ "Can't parse optimisation level " ++ s
 
-intToOptimisationLevel :: Int -> OptimisationLevel
-intToOptimisationLevel i
+intToLevel :: (Bounded a, Enum a) => String -> Int -> a
+intToLevel typeName i
   | i >= minLevel && i <= maxLevel = toEnum i
   | otherwise =
       error $
-        "Bad optimisation level: "
+        "Bad " ++ typeName ++ ": "
           ++ show i
           ++ ". Valid values are "
           ++ show minLevel
           ++ ".."
           ++ show maxLevel
   where
-    minLevel = fromEnum (minBound :: OptimisationLevel)
-    maxLevel = fromEnum (maxBound :: OptimisationLevel)
+    minLevel = fromEnum (minBound :: a)
+    maxLevel = fromEnum (maxBound :: a)
+
+intToOptimisationLevel :: Int -> OptimisationLevel
+intToOptimisationLevel = intToLevel "optimisation level"
 
 -- ------------------------------------------------------------
 
@@ -383,19 +386,7 @@ flagToDebugInfoLevel (Just s) = case reads s of
   _ -> error $ "Can't parse debug info level " ++ s
 
 intToDebugInfoLevel :: Int -> DebugInfoLevel
-intToDebugInfoLevel i
-  | i >= minLevel && i <= maxLevel = toEnum i
-  | otherwise =
-      error $
-        "Bad debug info level: "
-          ++ show i
-          ++ ". Valid values are "
-          ++ show minLevel
-          ++ ".."
-          ++ show maxLevel
-  where
-    minLevel = fromEnum (minBound :: DebugInfoLevel)
-    maxLevel = fromEnum (maxBound :: DebugInfoLevel)
+intToDebugInfoLevel = intToLevel "debug info level"
 
 -- ------------------------------------------------------------
 
