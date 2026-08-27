@@ -96,7 +96,6 @@ import Prelude ()
 
 import Distribution.Client.Types.AllowNewer (AllowNewer (..), AllowOlder (..), RelaxDeps (..))
 import Distribution.Client.Types.Credentials (Password (..), Token (..), Username (..))
-import Distribution.Client.Types.Repo (LocalRepo (..), RemoteRepo (..))
 import Distribution.Client.Types.RepoName
 import Distribution.Client.Types.WriteGhcEnvironmentFilesPolicy
 
@@ -134,6 +133,7 @@ import Distribution.Client.GlobalFlags
   ( GlobalFlags (..)
   , RepoContext (..)
   , defaultGlobalFlags
+  , globalFlagsOptions
   , withRepoContext
   )
 import Distribution.Client.ManpageFlags (ManpageFlags, defaultManpageFlags, manpageOptions)
@@ -476,123 +476,8 @@ globalCommand commands =
             ++ " update\n"
     , commandNotes = Nothing
     , commandDefaultFlags = mempty
-    , commandOptions = args
+    , commandOptions = globalFlagsOptions
     }
-  where
-    args :: ShowOrParseArgs -> [OptionField GlobalFlags]
-    args ShowArgs = argsShown
-    args ParseArgs = argsShown ++ argsNotShown
-
-    -- arguments we want to show in the help
-    argsShown :: [OptionField GlobalFlags]
-    argsShown =
-      [ option
-          ['V']
-          ["version"]
-          "Print version information"
-          globalVersion
-          (\v flags -> flags{globalVersion = v})
-          trueArg
-      , option
-          []
-          ["full-version"]
-          "Print full version information with git revision (if available) and compiler"
-          globalFullVersion
-          (\v flags -> flags{globalFullVersion = v})
-          trueArg
-      , option
-          []
-          ["numeric-version"]
-          "Print just the version number"
-          globalNumericVersion
-          (\v flags -> flags{globalNumericVersion = v})
-          trueArg
-      , option
-          []
-          ["config-file"]
-          "Set an alternate location for the config file"
-          globalConfigFile
-          (\v flags -> flags{globalConfigFile = v})
-          (reqArgFlag "FILE")
-      , option
-          []
-          ["ignore-expiry"]
-          "Ignore expiry dates on signed metadata (use only in exceptional circumstances)"
-          globalIgnoreExpiry
-          (\v flags -> flags{globalIgnoreExpiry = v})
-          trueArg
-      , option
-          []
-          ["http-transport"]
-          "Set a transport for http(s) requests. Accepts 'curl', 'wget', 'powershell', and 'plain-http'. (default: 'curl')"
-          globalHttpTransport
-          (\v flags -> flags{globalHttpTransport = v})
-          (reqArgFlag "HttpTransport")
-      , option
-          []
-          ["store-dir", "storedir"]
-          "The location of the build store"
-          globalStoreDir
-          (\v flags -> flags{globalStoreDir = v})
-          (reqArgFlag "DIR")
-      , option
-          []
-          ["active-repositories"]
-          "The active package repositories (set to ':none' to disable all repositories)"
-          globalActiveRepos
-          (\v flags -> flags{globalActiveRepos = v})
-          ( reqArg
-              "REPOS"
-              ( parsecToReadE
-                  (\err -> "Error parsing active-repositories: " ++ err)
-                  (toFlag `fmap` parsec)
-              )
-              (map prettyShow . flagToList)
-          )
-      ]
-
-    -- arguments we don't want shown in the help
-    -- the remote repo flags are not useful compared to the more general "active-repositories" flag.
-    -- the global logs directory was only used in v1, while in v2 we have specific project config logs dirs
-    -- default-user-config is support for a relatively obscure workflow for v1-freeze.
-    argsNotShown :: [OptionField GlobalFlags]
-    argsNotShown =
-      [ option
-          []
-          ["remote-repo"]
-          "The name and url for a remote repository"
-          globalRemoteRepos
-          (\v flags -> flags{globalRemoteRepos = v})
-          (reqArg' "NAME:URL" (toNubList . maybeToList . readRemoteRepo) (map showRemoteRepo . fromNubList))
-      , option
-          []
-          ["local-no-index-repo"]
-          "The name and a path for a local no-index repository"
-          globalLocalNoIndexRepos
-          (\v flags -> flags{globalLocalNoIndexRepos = v})
-          (reqArg' "NAME:PATH" (toNubList . maybeToList . readLocalRepo) (map showLocalRepo . fromNubList))
-      , option
-          []
-          ["remote-repo-cache"]
-          "The location where downloads from all remote repos are cached"
-          globalCacheDir
-          (\v flags -> flags{globalCacheDir = v})
-          (reqArgFlag "DIR")
-      , option
-          []
-          ["logs-dir", "logsdir"]
-          "The location to put log files"
-          globalLogsDir
-          (\v flags -> flags{globalLogsDir = v})
-          (reqArgFlag "DIR")
-      , option
-          []
-          ["default-user-config"]
-          "Set a location for a cabal.config file for projects without their own cabal.config freeze file."
-          globalConstraintsFile
-          (\v flags -> flags{globalConstraintsFile = v})
-          (reqArgFlag "FILE")
-      ]
 
 -- ------------------------------------------------------------
 
@@ -3730,24 +3615,6 @@ usagePackages name pname =
 usageFlags :: String -> String -> String
 usageFlags name pname =
   "Usage: " ++ pname ++ " " ++ name ++ " [FLAGS]\n"
-
--- ------------------------------------------------------------
-
--- * Repo helpers
-
--- ------------------------------------------------------------
-
-showRemoteRepo :: RemoteRepo -> String
-showRemoteRepo = prettyShow
-
-readRemoteRepo :: String -> Maybe RemoteRepo
-readRemoteRepo = simpleParsec
-
-showLocalRepo :: LocalRepo -> String
-showLocalRepo = prettyShow
-
-readLocalRepo :: String -> Maybe LocalRepo
-readLocalRepo = simpleParsec
 
 -- ------------------------------------------------------------
 

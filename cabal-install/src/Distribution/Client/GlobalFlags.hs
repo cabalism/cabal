@@ -4,6 +4,7 @@
 
 module Distribution.Client.GlobalFlags
   ( GlobalFlags (..)
+  , globalFlagsOptions
   , defaultGlobalFlags
   , RepoContext (..)
   , withRepoContext
@@ -24,11 +25,27 @@ import Distribution.Client.Types
   , localRepoCacheKey
   , unRepoName
   )
-import Distribution.Simple.Setup
+import Distribution.Simple.Command
+  ( ArgPlaceHolder
+  , CommandUI (..)
+  , MkOptDescr
+  , OptionField
+  , ShowOrParseArgs (..)
+  , commandShowOptions
+  , option
+  , reqArg
+  , reqArg'
+  )
+import Distribution.Simple.Flag
   ( Flag
+  , flagToList
   , flagToMaybe
   , fromFlag
+  , toFlag
   , pattern Flag
+  )
+import Distribution.Simple.Setup
+  ( trueArg
   )
 import Distribution.Simple.Utils
   ( info
@@ -37,6 +54,7 @@ import Distribution.Simple.Utils
 import Distribution.Utils.NubList
   ( NubList
   , fromNubList
+  , toNubList
   )
 
 import Distribution.Client.IndexUtils.ActiveRepos
@@ -49,6 +67,10 @@ import Control.Concurrent
   , newMVar
   )
 import qualified Data.Map as Map
+import Distribution.ReadE
+  ( parsecToReadE
+  , succeedReadE
+  )
 import Network.URI
   ( URI
   , uriPath
@@ -67,6 +89,7 @@ import qualified Hackage.Security.Client.Repository.Local as Sec.Local
 import qualified Hackage.Security.Client.Repository.Remote as Sec.Remote
 import qualified Hackage.Security.Util.Path as Sec
 import qualified Hackage.Security.Util.Pretty as Sec
+import qualified Text.PrettyPrint as PP
 
 -- ------------------------------------------------------------
 
@@ -115,6 +138,154 @@ defaultGlobalFlags =
     , globalStoreDir = mempty
     , globalProgPathExtra = mempty
     }
+
+instance Pretty GlobalFlags where
+  pretty flags =
+    PP.text . unwords $
+      commandShowOptions
+        ( CommandUI
+            { commandName = ""
+            , commandSynopsis = ""
+            , commandUsage = const ""
+            , commandDescription = Nothing
+            , commandNotes = Nothing
+            , commandDefaultFlags = defaultGlobalFlags
+            , commandOptions = globalFlagsOptions
+            }
+        )
+        flags
+
+globalFlagsOptions :: ShowOrParseArgs -> [OptionField GlobalFlags]
+globalFlagsOptions showOrParseArgs =
+  case showOrParseArgs of
+    ShowArgs -> argsShown
+    ParseArgs -> argsShown ++ argsNotShown
+  where
+    -- arguments we want to show in the help
+    argsShown =
+      [ option
+          ['V']
+          ["version"]
+          "Print version information"
+          globalVersion
+          (\v flags' -> flags'{globalVersion = v})
+          trueArg
+      , option
+          []
+          ["full-version"]
+          "Print full version information with git revision (if available) and compiler"
+          globalFullVersion
+          (\v flags' -> flags'{globalFullVersion = v})
+          trueArg
+      , option
+          []
+          ["numeric-version"]
+          "Print just the version number"
+          globalNumericVersion
+          (\v flags' -> flags'{globalNumericVersion = v})
+          trueArg
+      , option
+          []
+          ["config-file"]
+          "Set an alternate location for the config file"
+          globalConfigFile
+          (\v flags' -> flags'{globalConfigFile = v})
+          (reqArgFlag "FILE")
+      , option
+          []
+          ["ignore-expiry"]
+          "Ignore expiry dates on signed metadata (use only in exceptional circumstances)"
+          globalIgnoreExpiry
+          (\v flags' -> flags'{globalIgnoreExpiry = v})
+          trueArg
+      , option
+          []
+          ["http-transport"]
+          "Set a transport for http(s) requests. Accepts 'curl', 'wget', 'powershell', and 'plain-http'. (default: 'curl')"
+          globalHttpTransport
+          (\v flags' -> flags'{globalHttpTransport = v})
+          (reqArgFlag "HttpTransport")
+      , option
+          []
+          ["store-dir", "storedir"]
+          "The location of the build store"
+          globalStoreDir
+          (\v flags' -> flags'{globalStoreDir = v})
+          (reqArgFlag "DIR")
+      , option
+          []
+          ["active-repositories"]
+          "The active package repositories (set to ':none' to disable all repositories)"
+          globalActiveRepos
+          (\v flags' -> flags'{globalActiveRepos = v})
+          ( reqArg
+              "REPOS"
+              ( parsecToReadE
+                  (\err -> "Error parsing active-repositories: " ++ err)
+                  (toFlag `fmap` parsec)
+              )
+              (map prettyShow . flagToList)
+          )
+      ]
+
+    -- arguments we don't want shown in the help
+    -- the remote repo flags are not useful compared to the more general "active-repositories" flag.
+    -- the global logs directory was only used in v1, while in v2 we have specific project config logs dirs
+    -- default-user-config is support for a relatively obscure workflow for v1-freeze.
+    argsNotShown =
+      [ option
+          []
+          ["remote-repo"]
+          "The name and url for a remote repository"
+          globalRemoteRepos
+          (\v flags' -> flags'{globalRemoteRepos = v})
+          (reqArg' "NAME:URL" (toNubList . maybeToList . readRemoteRepo) (map showRemoteRepo . fromNubList))
+      , option
+          []
+          ["local-no-index-repo"]
+          "The name and a path for a local no-index repository"
+          globalLocalNoIndexRepos
+          (\v flags' -> flags'{globalLocalNoIndexRepos = v})
+          (reqArg' "NAME:PATH" (toNubList . maybeToList . readLocalRepo) (map showLocalRepo . fromNubList))
+      , option
+          []
+          ["remote-repo-cache"]
+          "The location where downloads from all remote repos are cached"
+          globalCacheDir
+          (\v flags' -> flags'{globalCacheDir = v})
+          (reqArgFlag "DIR")
+      , option
+          []
+          ["logs-dir", "logsdir"]
+          "The location to put log files"
+          globalLogsDir
+          (\v flags' -> flags'{globalLogsDir = v})
+          (reqArgFlag "DIR")
+      , option
+          []
+          ["default-user-config"]
+          "Set a location for a cabal.config file for projects without their own cabal.config freeze file."
+          globalConstraintsFile
+          (\v flags' -> flags'{globalConstraintsFile = v})
+          (reqArgFlag "FILE")
+      ]
+
+reqArgFlag
+  :: ArgPlaceHolder
+  -> MkOptDescr (b -> Flag String) (Flag String -> b -> b) b
+reqArgFlag ad = reqArg ad (succeedReadE Flag) flagToList
+
+showRemoteRepo :: RemoteRepo -> String
+showRemoteRepo = prettyShow
+
+readRemoteRepo :: String -> Maybe RemoteRepo
+readRemoteRepo = simpleParsec
+
+showLocalRepo :: LocalRepo -> String
+showLocalRepo = prettyShow
+
+readLocalRepo :: String -> Maybe LocalRepo
+readLocalRepo = simpleParsec
 
 -- ------------------------------------------------------------
 
