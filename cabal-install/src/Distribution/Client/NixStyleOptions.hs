@@ -13,7 +13,12 @@ module Distribution.Client.NixStyleOptions
 import Distribution.Client.Compat.Prelude
 import Prelude ()
 
-import Distribution.Simple.Command (OptionField (..), ShowOrParseArgs)
+import Distribution.Simple.Command
+  ( CommandUI (..)
+  , OptionField (..)
+  , ShowOrParseArgs
+  , commandShowOptions
+  )
 import Distribution.Simple.Setup
   ( BenchmarkFlags (benchmarkCommonFlags)
   , CommonSetupFlags (..)
@@ -41,6 +46,7 @@ import Distribution.Client.Setup
   , testOptions
   )
 import Distribution.Verbosity (VerbosityFlags, defaultVerbosityHandles, mkVerbosity)
+import qualified Text.PrettyPrint as PP
 
 data NixStyleFlags a = NixStyleFlags
   { configFlags :: ConfigFlags
@@ -52,6 +58,22 @@ data NixStyleFlags a = NixStyleFlags
   , projectFlags :: ProjectFlags
   , extraFlags :: a
   }
+
+instance Pretty (NixStyleFlags a) where
+  pretty flags =
+    PP.text . unwords $
+      commandShowOptions
+        ( CommandUI
+            { commandName = ""
+            , commandSynopsis = ""
+            , commandUsage = const ""
+            , commandDescription = Nothing
+            , commandNotes = Nothing
+            , commandDefaultFlags = defaultNixStyleFlags (error "NixStyleOptions.Pretty: extraFlags default is not evaluated")
+            , commandOptions = nixStyleOptions (const [])
+            }
+        )
+        flags
 
 nixStyleOptions
   :: (ShowOrParseArgs -> [OptionField a])
