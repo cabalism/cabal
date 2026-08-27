@@ -77,6 +77,7 @@ import Distribution.Simple.Setup
   , CopyFlags (..)
   , Flag
   , HaddockFlags (..)
+  , HaddockProjectFlags (..)
   , HaddockTarget (..)
   , HscolourFlags (..)
   , RegisterFlags (..)
@@ -154,6 +155,9 @@ import Distribution.Client.Init (initCmd)
 import Distribution.Client.Manpage (manpageCmd)
 import Distribution.Client.ManpageFlags (ManpageFlags (..))
 import Distribution.Client.Reconfigure (Check (..), reconfigure)
+import Distribution.Client.NixStyleOptions
+  ( NixStyleFlags (..)
+  )
 import Distribution.Client.Run (run, splitRunArgs)
 import Distribution.Client.Sandbox
   ( findSavedDistPref
@@ -254,6 +258,7 @@ import Distribution.Verbosity as Verbosity
   ( VerbosityFlags
   , defaultVerbosityHandles
   , mkVerbosity
+  , moreVerbose
   , normal
   , verbosityFlags
   , verbosityHandles
@@ -475,25 +480,29 @@ mainWorker args = do
       , regularCmd CmdListBin.listbinCommand CmdListBin.listbinAction
       ]
         ++ concat
-          [ newCmd CmdConfigure.configureCommand CmdConfigure.configureAction
-          , newCmd CmdUpdate.updateCommand CmdUpdate.updateAction
-          , newCmd CmdBuild.buildCommand CmdBuild.buildAction
-          , newCmd CmdRepl.replCommand CmdRepl.replAction
-          , newCmd CmdFreeze.freezeCommand CmdFreeze.freezeAction
-          , newCmd CmdHaddock.haddockCommand CmdHaddock.haddockAction
-          , newCmd
+          [ tracedNixStyleNewCmd CmdConfigure.configureCommand CmdConfigure.configureAction
+          , tracedNixStyleNewCmd CmdUpdate.updateCommand CmdUpdate.updateAction
+          , tracedNixStyleNewCmd CmdBuild.buildCommand CmdBuild.buildAction
+          , tracedNixStyleNewCmd CmdRepl.replCommand CmdRepl.replAction
+          , tracedNixStyleNewCmd CmdFreeze.freezeCommand CmdFreeze.freezeAction
+          , tracedNixStyleNewCmd CmdHaddock.haddockCommand CmdHaddock.haddockAction
+          , tracedNewCmdWith
+              (fromFlagOrDefault normal . setupVerbosity . haddockProjectCommonFlags)
               CmdHaddockProject.haddockProjectCommand
               CmdHaddockProject.haddockProjectAction
-          , newCmd CmdInstall.installCommand CmdInstall.installAction
-          , newCmd CmdRun.runCommand CmdRun.runAction
-          , newCmd CmdTest.testCommand CmdTest.testAction
-          , newCmd CmdBench.benchCommand CmdBench.benchAction
-          , newCmd CmdExec.execCommand CmdExec.execAction
-          , newCmd CmdClean.cleanCommand CmdClean.cleanAction
-          , newCmd CmdSdist.sdistCommand CmdSdist.sdistAction
-          , newCmd CmdTarget.targetCommand CmdTarget.targetAction
-          , newCmd CmdGenBounds.genBoundsCommand CmdGenBounds.genBoundsAction
-          , newCmd CmdOutdated.outdatedCommand CmdOutdated.outdatedAction
+          , tracedNixStyleNewCmd CmdInstall.installCommand CmdInstall.installAction
+          , tracedNixStyleNewCmd CmdRun.runCommand CmdRun.runAction
+          , tracedNixStyleNewCmd CmdTest.testCommand CmdTest.testAction
+          , tracedNixStyleNewCmd CmdBench.benchCommand CmdBench.benchAction
+          , tracedNixStyleNewCmd CmdExec.execCommand CmdExec.execAction
+          , tracedNewCmdWith
+              CmdClean.cleanVerbosityFlags
+              CmdClean.cleanCommand
+              CmdClean.cleanAction
+          , tracedNewCmdWith CmdSdist.sdistVerbosityFlags CmdSdist.sdistCommand CmdSdist.sdistAction
+          , tracedNixStyleNewCmd CmdTarget.targetCommand CmdTarget.targetAction
+          , tracedNixStyleNewCmd CmdGenBounds.genBoundsCommand CmdGenBounds.genBoundsAction
+          , tracedNixStyleNewCmd CmdOutdated.outdatedCommand CmdOutdated.outdatedAction
           , legacyCmd configureExCommand configureAction
           , legacyCmd genBoundsCommand genBoundsAction
           , legacyCmd buildCommand buildAction
@@ -530,6 +539,35 @@ hiddenCmd ui action =
     ui
     (\ui' -> hiddenCommand (commandAddAction ui' action))
     HiddenCommand
+
+tracedNixStyleNewCmd
+  :: Pretty globals
+  => CommandUI (NixStyleFlags a)
+  -> (NixStyleFlags a -> [String] -> globals -> IO action)
+  -> [CommandSpec (globals -> IO action)]
+tracedNixStyleNewCmd = tracedNewCmdWith nixStyleVerbosityFlags
+
+tracedNewCmdWith
+  :: Pretty globals
+  => (flags -> VerbosityFlags)
+  -> CommandUI flags
+  -> (flags -> [String] -> globals -> IO action)
+  -> [CommandSpec (globals -> IO action)]
+tracedNewCmdWith getVerbosityFlags ui action =
+  newCmd ui $ \flags extraArgs globalFlags -> do
+    let traceVerbosity =
+          mkVerbosity defaultVerbosityHandles $ moreVerbose (getVerbosityFlags flags)
+    info traceVerbosity $ "FLAGS: " ++ unwords (commandShowOptions ui flags)
+    info traceVerbosity $ "TARGET AND ARGS: " ++ show extraArgs
+    info traceVerbosity $ "GLOBAL FLAGS: " ++ show (pretty globalFlags)
+    action flags extraArgs globalFlags
+
+nixStyleVerbosityFlags :: NixStyleFlags a -> VerbosityFlags
+nixStyleVerbosityFlags =
+  fromFlagOrDefault normal
+    . setupVerbosity
+    . configCommonFlags
+    . configFlags
 
 wrapperCmd
   :: Monoid flags

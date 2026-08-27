@@ -7,6 +7,7 @@
 module Distribution.Client.CmdSdist
   ( sdistCommand
   , sdistAction
+  , sdistVerbosityFlags
   , packageToSdist
   , OutputFormat (..)
   ) where
@@ -190,6 +191,10 @@ defaultSdistFlags =
     , sdistNulSeparated = toFlag False
     , sdistOutputPath = mempty
     }
+
+sdistVerbosityFlags :: (ProjectFlags, SdistFlags) -> VerbosityFlags
+sdistVerbosityFlags (_, SdistFlags{sdistVerbosity}) =
+  fromFlagOrDefault normal sdistVerbosity
 
 sdistOptions :: ShowOrParseArgs -> [OptionField SdistFlags]
 sdistOptions showOrParseArgs =

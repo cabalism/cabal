@@ -170,7 +170,6 @@ newCmd :: CommandUI flags -> (flags -> [String] -> globals -> IO action) -> [Com
 newCmd origUi@CommandUI{..} action = [cmd defaultUi, cmd newUi, cmd origUi]
   where
     cmd ui = CommandSpec ui (`commandAddAction` action) NormalCommand
-
     newMsg = T.unpack . T.replace "v2-" "new-" . T.pack
     newUi =
       origUi

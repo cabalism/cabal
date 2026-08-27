@@ -2,7 +2,7 @@
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE RecordWildCards #-}
 
-module Distribution.Client.CmdClean (cleanCommand, cleanAction) where
+module Distribution.Client.CmdClean (cleanCommand, cleanAction, cleanVerbosityFlags) where
 
 import Distribution.Client.Compat.Prelude
 import Prelude ()
@@ -151,6 +151,10 @@ cleanOptions showOrParseArgs =
       (\sc flags -> flags{cleanSaveConfig = sc})
       falseArg
   ]
+
+cleanVerbosityFlags :: (ProjectFlags, CleanFlags) -> VerbosityFlags
+cleanVerbosityFlags (_, CleanFlags{cleanVerbosity}) =
+  fromFlagOrDefault normal cleanVerbosity
 
 cleanAction :: (ProjectFlags, CleanFlags) -> [String] -> GlobalFlags -> IO ()
 cleanAction (ProjectFlags{..}, CleanFlags{..}) extraArgs _ = do
