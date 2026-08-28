@@ -154,10 +154,10 @@ import Distribution.Client.Get (get)
 import Distribution.Client.Init (initCmd)
 import Distribution.Client.Manpage (manpageCmd)
 import Distribution.Client.ManpageFlags (ManpageFlags (..))
-import Distribution.Client.Reconfigure (Check (..), reconfigure)
 import Distribution.Client.NixStyleOptions
   ( NixStyleFlags (..)
   )
+import Distribution.Client.Reconfigure (Check (..), reconfigure)
 import Distribution.Client.Run (run, splitRunArgs)
 import Distribution.Client.Sandbox
   ( findSavedDistPref
@@ -269,6 +269,7 @@ import Distribution.Version
   , mkVersion
   , orLaterVersion
   )
+import qualified Text.PrettyPrint as PP
 
 import Control.Exception (AssertionFailed, assert, try)
 import Data.Monoid (Any (..))
@@ -558,9 +559,16 @@ tracedNewCmdWith getVerbosityFlags ui action =
   newCmd ui $ \flags extraArgs globalFlags -> do
     let vflags = moreVerbose $ getVerbosityFlags flags
     let info' = infoNoWrap $ mkVerbosity defaultVerbosityHandles vflags
-    info' $ "CMDLINE - FLAGS: " ++ unwords (commandShowOptions ui flags)
-    info' $ "CMDLINE - TARGET AND ARGS: " ++ show extraArgs
-    info' $ "CMDLINE - GLOBAL FLAGS: " ++ show (pretty globalFlags)
+        traceDoc =
+          PP.vcat
+            [ PP.text "Command Line"
+            , PP.nest 2 . PP.vcat $
+                [ PP.text "Flags:" PP.<+> PP.fsep (map PP.text (commandShowOptions ui flags))
+                , PP.text "Target and Args:" PP.<+> PP.text (show extraArgs)
+                , PP.text "Global Flags:" PP.<+> pretty globalFlags
+                ]
+            ]
+    info' (PP.render traceDoc)
     action flags extraArgs globalFlags
 
 nixStyleVerbosityFlags :: NixStyleFlags a -> VerbosityFlags
