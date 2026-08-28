@@ -561,12 +561,12 @@ tracedNewCmdWith getVerbosityFlags ui action =
           PP.vcat
             [ PP.text "Command Line"
             , PP.nest 2 . PP.vcat $
-                [ PP.text "Flags:"
+                [ PP.text "Global Flags:"
+                    PP.$+$ PP.nest 2 (PP.vcat (map PP.text (commandShowOptions (globalCommand []) globalFlags)))
+                , PP.text "Flags:"
                     PP.$+$ PP.nest 2 (PP.vcat (map PP.text (commandShowOptions ui flags)))
                 , PP.text "Target and Args:"
                     PP.$+$ PP.nest 2 (PP.vcat (map PP.text extraArgs))
-                , PP.text "Global Flags:"
-                    PP.$+$ PP.nest 2 (PP.vcat (map PP.text (commandShowOptions (globalCommand []) globalFlags)))
                 ]
             ]
     info' (PP.render traceDoc)
