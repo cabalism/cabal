@@ -567,7 +567,8 @@ tracedNewCmdWith getVerbosityFlags ui action =
                     PP.$+$ PP.nest 2 (PP.vcat (map PP.text (commandShowOptions ui flags)))
                 , PP.text "Target and Args:"
                     PP.$+$ PP.nest 2 (PP.vcat (map PP.text extraArgs))
-                , PP.text "Global Flags:" PP.<+> pretty globalFlags
+                , PP.text "Global Flags:"
+                    PP.$+$ PP.nest 2 (PP.vcat (map PP.text (words (PP.render (pretty globalFlags)))))
                 ]
             ]
     info' (PP.render traceDoc)
