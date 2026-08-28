@@ -240,6 +240,7 @@ import Distribution.Simple.Utils
   , dieWithException
   , findPackageDesc
   , info
+  , infoNoWrap
   , isUserException
   , notice
   , topHandler
@@ -555,11 +556,11 @@ tracedNewCmdWith
   -> [CommandSpec (globals -> IO action)]
 tracedNewCmdWith getVerbosityFlags ui action =
   newCmd ui $ \flags extraArgs globalFlags -> do
-    let traceVerbosity =
-          mkVerbosity defaultVerbosityHandles $ moreVerbose (getVerbosityFlags flags)
-    info traceVerbosity $ "FLAGS: " ++ unwords (commandShowOptions ui flags)
-    info traceVerbosity $ "TARGET AND ARGS: " ++ show extraArgs
-    info traceVerbosity $ "GLOBAL FLAGS: " ++ show (pretty globalFlags)
+    let vflags = moreVerbose $ getVerbosityFlags flags
+    let info' = infoNoWrap $ mkVerbosity defaultVerbosityHandles vflags
+    info' $ "CMDLINE - FLAGS: " ++ unwords (commandShowOptions ui flags)
+    info' $ "CMDLINE - TARGET AND ARGS: " ++ show extraArgs
+    info' $ "CMDLINE - GLOBAL FLAGS: " ++ show (pretty globalFlags)
     action flags extraArgs globalFlags
 
 nixStyleVerbosityFlags :: NixStyleFlags a -> VerbosityFlags
