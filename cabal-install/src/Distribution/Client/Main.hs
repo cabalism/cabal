@@ -543,18 +543,16 @@ hiddenCmd ui action =
     HiddenCommand
 
 tracedNixStyleNewCmd
-  :: Pretty globals
-  => CommandUI (NixStyleFlags a)
-  -> (NixStyleFlags a -> [String] -> globals -> IO action)
-  -> [CommandSpec (globals -> IO action)]
+  :: CommandUI (NixStyleFlags a)
+  -> (NixStyleFlags a -> [String] -> Action)
+  -> [CommandSpec Action]
 tracedNixStyleNewCmd = tracedNewCmdWith nixStyleVerbosityFlags
 
 tracedNewCmdWith
-  :: Pretty globals
-  => (flags -> VerbosityFlags)
+  :: (flags -> VerbosityFlags)
   -> CommandUI flags
-  -> (flags -> [String] -> globals -> IO action)
-  -> [CommandSpec (globals -> IO action)]
+  -> (flags -> [String] -> Action)
+  -> [CommandSpec Action]
 tracedNewCmdWith getVerbosityFlags ui action =
   newCmd ui $ \flags extraArgs globalFlags -> do
     let vflags = moreVerbose $ getVerbosityFlags flags
@@ -568,7 +566,7 @@ tracedNewCmdWith getVerbosityFlags ui action =
                 , PP.text "Target and Args:"
                     PP.$+$ PP.nest 2 (PP.vcat (map PP.text extraArgs))
                 , PP.text "Global Flags:"
-                    PP.$+$ PP.nest 2 (PP.vcat (map PP.text (words (PP.render (pretty globalFlags)))))
+                    PP.$+$ PP.nest 2 (PP.vcat (map PP.text (commandShowOptions (globalCommand []) globalFlags)))
                 ]
             ]
     info' (PP.render traceDoc)
