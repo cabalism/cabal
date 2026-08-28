@@ -27,11 +27,9 @@ import Distribution.Client.Types
   )
 import Distribution.Simple.Command
   ( ArgPlaceHolder
-  , CommandUI (..)
   , MkOptDescr
   , OptionField
   , ShowOrParseArgs (..)
-  , commandShowOptions
   , option
   , reqArg
   , reqArg'
@@ -89,7 +87,6 @@ import qualified Hackage.Security.Client.Repository.Local as Sec.Local
 import qualified Hackage.Security.Client.Repository.Remote as Sec.Remote
 import qualified Hackage.Security.Util.Path as Sec
 import qualified Hackage.Security.Util.Pretty as Sec
-import qualified Text.PrettyPrint as PP
 
 -- ------------------------------------------------------------
 
@@ -138,22 +135,6 @@ defaultGlobalFlags =
     , globalStoreDir = mempty
     , globalProgPathExtra = mempty
     }
-
-instance Pretty GlobalFlags where
-  pretty flags =
-    PP.text . unwords $
-      commandShowOptions
-        ( CommandUI
-            { commandName = ""
-            , commandSynopsis = ""
-            , commandUsage = const ""
-            , commandDescription = Nothing
-            , commandNotes = Nothing
-            , commandDefaultFlags = defaultGlobalFlags
-            , commandOptions = globalFlagsOptions
-            }
-        )
-        flags
 
 globalFlagsOptions :: ShowOrParseArgs -> [OptionField GlobalFlags]
 globalFlagsOptions showOrParseArgs =
