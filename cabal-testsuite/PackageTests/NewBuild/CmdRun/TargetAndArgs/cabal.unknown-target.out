@@ -1,0 +1,6 @@
+# cabal run
+Configuration is affected by cabal.project at '<GBLTMPDIR>'.
+There is only one component to run, solo. If 'baz' was meant as an argument to it rather than as a target, pass it after '--'.
+Resolving dependencies...
+Error: [Cabal-7070]
+Cannot run the package baz, it is not in this project (either directly or indirectly). If you want to add it to the project then edit the cabal.project file.

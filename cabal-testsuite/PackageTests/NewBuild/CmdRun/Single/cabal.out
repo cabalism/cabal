@@ -11,5 +11,6 @@ Building executable 'foo' for Single-1.0...
 # cabal v2-run
 # cabal v2-run
 # cabal v2-run
+There is only one component to run, foo. If 'bar' was meant as an argument to it rather than as a target, pass it after '--'.
 Error: [Cabal-7070]
 Cannot run the package bar, it is not in this project (either directly or indirectly). If you want to add it to the project then edit the cabal.project file.

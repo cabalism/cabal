@@ -9,35 +9,27 @@ module Distribution.Client.CmdTarget
 import Distribution.Client.Compat.Prelude
 import Prelude ()
 
-import qualified Data.Map as Map
 import Distribution.Client.CmdBuild (selectComponentTarget, selectPackageTargets)
-import Distribution.Client.CmdErrorMessages
-import Distribution.Client.InstallPlan
-import qualified Distribution.Client.InstallPlan as InstallPlan
 import Distribution.Client.NixStyleOptions
   ( NixStyleFlags (..)
   , defaultNixStyleFlags
   , nixStyleOptions
   )
-import Distribution.Client.ProjectOrchestration
-import Distribution.Client.ProjectPlanning
 import Distribution.Client.Setup
   ( ConfigFlags (..)
   , GlobalFlags
   )
-import Distribution.Client.TargetProblem
-  ( TargetProblem'
+import Distribution.Client.TargetForms
+  ( printTargetForms
+  , resolveTargetForms
   )
-import Distribution.Package
 import Distribution.Simple.Command
   ( CommandUI (..)
   , usageAlternatives
   )
 import Distribution.Simple.Flag (fromFlagOrDefault)
 import Distribution.Simple.Utils
-  ( noticeDoc
-  , safeHead
-  , wrapText
+  ( wrapText
   )
 import Distribution.Verbosity
   ( defaultVerbosityHandles
@@ -149,35 +141,14 @@ targetCommand =
 
 targetAction :: NixStyleFlags () -> [String] -> GlobalFlags -> IO ()
 targetAction flags@NixStyleFlags{..} ts globalFlags = do
-  ProjectBaseContext
-    { distDirLayout
-    , cabalDirLayout
-    , projectConfig
-    , localPackages
-    } <-
-    establishProjectBaseContext verbosity cliConfig OtherCommand
-
-  (_, elaboratedPlan, _, _, _) <-
-    rebuildInstallPlan
+  (targets, elaboratedPlan) <-
+    resolveTargetForms
       verbosity
-      distDirLayout
-      cabalDirLayout
-      projectConfig
-      localPackages
-      Nothing
-
-  targetSelectors <-
-    either (reportTargetSelectorProblems verbosity) return
-      =<< readTargetSelectors localPackages Nothing targetStrings
-
-  targets :: TargetsMap <-
-    either (reportBuildTargetProblems verbosity) return $
-      resolveTargetsFromSolver
-        selectPackageTargets
-        selectComponentTarget
-        elaboratedPlan
-        Nothing
-        targetSelectors
+      selectPackageTargets
+      selectComponentTarget
+      flags
+      globalFlags
+      targetStrings
 
   printTargetForms verbosity targetStrings targets elaboratedPlan
   where
@@ -185,42 +156,3 @@ targetAction flags@NixStyleFlags{..} ts globalFlags = do
       mkVerbosity defaultVerbosityHandles $
         fromFlagOrDefault normal (configVerbosity configFlags)
     targetStrings = if null ts then ["all"] else ts
-    cliConfig =
-      commandLineFlagsToProjectConfig
-        globalFlags
-        flags
-        mempty
-
-reportBuildTargetProblems :: Verbosity -> [TargetProblem'] -> IO a
-reportBuildTargetProblems verbosity = reportTargetProblems verbosity "target"
-
-printTargetForms :: Verbosity -> [String] -> TargetsMap -> ElaboratedInstallPlan -> IO ()
-printTargetForms verbosity targetStrings targets elaboratedPlan =
-  noticeDoc verbosity $
-    vcat
-      [ text "Fully qualified target forms" Pretty.<> colon
-      , nest 1 $ vcat [text "-" <+> text tf | tf <- targetForms]
-      , found
-      ]
-  where
-    found =
-      let n = length targets
-          t = if n == 1 then "target" else "targets"
-          query = intercalate ", " targetStrings
-       in text "Found" <+> int n <+> text t <+> text "matching" <+> text query Pretty.<> char '.'
-
-    localPkgs =
-      [x | Configured x@ElaboratedConfiguredPackage{elabLocalToProject = True} <- InstallPlan.toList elaboratedPlan]
-
-    targetForm ct x =
-      let pkgId@PackageIdentifier{pkgName = n} = elabPkgSourceId x
-       in render $ pretty n Pretty.<> colon Pretty.<> text (showComponentTarget pkgId ct)
-
-    targetForms =
-      sort $
-        catMaybes
-          [ targetForm ct <$> pkg
-          | (u :: UnitId, xs) <- Map.toAscList targets
-          , let pkg = safeHead $ filter ((== u) . elabUnitId) localPkgs
-          , (ct :: ComponentTarget, _) <- xs
-          ]

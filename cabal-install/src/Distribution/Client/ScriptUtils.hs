@@ -9,9 +9,12 @@ module Distribution.Client.ScriptUtils
   , getScriptCacheDirectory
   , ensureScriptCacheDirectory
   , withContextAndSelectors
+  , withContextAndSelectorsAndArgs
   , AcceptNoTargets (..)
   , TargetContext (..)
   , TargetsAction
+  , TargetsAndArgsAction
+  , TargetArgSplitter
   , updateContextAndWriteProjectFile
   , updateContextAndWriteProjectFile'
   , fakeProjectSourcePackage
@@ -281,6 +284,21 @@ data TargetContext
 -- | An action working with selected targets within a context.
 type TargetsAction targets a = TargetContext -> ProjectBaseContext -> targets -> IO a
 
+-- | An action working with selected targets and the arguments left over after
+-- the targets were taken off the command line.
+type TargetsAndArgsAction targets a =
+  TargetContext -> ProjectBaseContext -> targets -> [String] -> IO a
+
+-- | Separate target strings from the arguments they are mixed with, given the
+-- project's local packages.
+--
+-- Commands like @cabal run@ receive one list holding both, and can only tell
+-- them apart by asking whether a string names a target — which needs the
+-- project context. Running the splitter here means that context is established
+-- once rather than once for the split and again for the selectors.
+type TargetArgSplitter =
+  [PackageSpecifier UnresolvedSourcePackage] -> [String] -> IO ([String], [String])
+
 -- | Determine whether the targets represent regular targets or a script
 -- and return the proper context and target selectors.
 -- Die with an error message if selectors are valid as neither regular targets or as a script.
@@ -303,13 +321,49 @@ withContextAndSelectors
   -- ^ Current Command (usually for error reporting).
   -> TargetsAction [TargetSelector] b
   -> IO b
-withContextAndSelectors verbosity noTargets kind flags@NixStyleFlags{..} targetStrings globalFlags cmd act =
+withContextAndSelectors verbosity noTargets kind flags targetStrings globalFlags cmd act =
+  withContextAndSelectorsAndArgs
+    verbosity
+    noTargets
+    kind
+    flags
+    (\_ ts -> return (ts, []))
+    targetStrings
+    globalFlags
+    cmd
+    (\tc ctx sels _args -> act tc ctx sels)
+
+-- | 'withContextAndSelectors', but splitting the given strings into target
+-- strings and arguments once the project context is known.
+withContextAndSelectorsAndArgs
+  :: Verbosity
+  -> AcceptNoTargets
+  -- ^ What your command should do when no targets are found.
+  -> Maybe ComponentKind
+  -- ^ A target filter
+  -> NixStyleFlags a
+  -- ^ Command line flags
+  -> TargetArgSplitter
+  -- ^ How to tell the target strings from the arguments.
+  -> [String]
+  -- ^ Target strings mixed with arguments, or a script and its arguments.
+  -> GlobalFlags
+  -- ^ Global flags.
+  -> CurrentCommand
+  -- ^ Current Command (usually for error reporting).
+  -> TargetsAndArgsAction [TargetSelector] b
+  -> IO b
+withContextAndSelectorsAndArgs verbosity noTargets kind flags@NixStyleFlags{..} split targetsAndArgs globalFlags cmd act =
   withTemporaryTempDirectory $ \mkTmpDir -> do
     (tc, ctx) <-
       withProjectOrGlobalConfig
         ignoreProject
         withProject
         (withGlobalConfig verbosity globalConfigFlag $ withoutProject mkTmpDir)
+
+    -- The context is in hand but the script fallback below has not run yet, so
+    -- a script is still classified by the splitter, not by 'localPackages'.
+    (targetStrings, args) <- split (localPackages ctx) targetsAndArgs
 
     (tc', ctx', sels) <- case targetStrings of
       -- Only script targets may end with ':'.
@@ -342,7 +396,7 @@ withContextAndSelectors verbosity noTargets kind flags@NixStyleFlags{..} targetS
           Left err -> reportTargetSelectorProblems verbosity err
           Right sels -> return (tc, ctx, sels)
 
-    act tc' ctx' sels
+    act tc' ctx' sels args
   where
     ignoreProject = flagIgnoreProject projectFlags
     cliConfig = commandLineFlagsToProjectConfig globalFlags flags mempty

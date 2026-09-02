@@ -211,6 +211,7 @@ library
         Distribution.Client.SrcDist
         Distribution.Client.Store
         Distribution.Client.Tar
+        Distribution.Client.TargetForms
         Distribution.Client.TargetProblem
         Distribution.Client.TargetSelector
         Distribution.Client.Targets
@@ -330,6 +331,7 @@ test-suite unit-tests
     other-modules:
       UnitTests.Distribution.Client.ArbitraryInstances
       UnitTests.Distribution.Client.BuildReport
+      UnitTests.Distribution.Client.CmdRun
       UnitTests.Distribution.Client.Configure
       UnitTests.Distribution.Client.FetchUtils
       UnitTests.Distribution.Client.Get

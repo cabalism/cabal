@@ -1,0 +1,4 @@
+# cabal run
+Resolving dependencies...
+Error: [Cabal-7070]
+The run command is for running a single executable at once. The targets 'bar' and 'foo' refer to different executables.

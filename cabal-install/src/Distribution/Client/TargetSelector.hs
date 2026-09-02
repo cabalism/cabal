@@ -34,6 +34,17 @@ module Distribution.Client.TargetSelector
   , readTargetSelectorsWith
   , DirActions (..)
   , defaultDirActions
+
+    -- ** Incremental reading
+    -- | The pieces 'readTargetSelectorsWith' is built from, exposed so that a
+    -- caller probing many strings can build the 'KnownTargets' once and then
+    -- resolve each string against it, rather than paying for
+    -- 'getKnownTargets' on every string.
+  , KnownTargets
+  , getKnownTargets
+  , TargetStringFileStatus
+  , getTargetStringFileStatus
+  , resolveTargetSelector
   ) where
 
 import Distribution.Client.Compat.Prelude
