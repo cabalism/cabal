@@ -6,7 +6,7 @@
 module UnitTests.Distribution.Client.CmdRun (tests) where
 
 import Data.Functor.Identity (runIdentity)
-import Data.Maybe (isJust)
+import Data.Maybe (isJust, isNothing)
 
 import Distribution.Client.CmdRun
   ( ArgKind (..)
@@ -30,7 +30,7 @@ tests =
         [0 :: Int ..]
         classifyCases
   , testGroup "splitTargetAndArgs" $
-      map (\(name, c) -> testCase name c) splitCases
+      map (uncurry testCase) splitCases
   , testGroup
       "properties"
       [ testProperty "classification is total and order preserving" prop_classifyTotal
@@ -330,7 +330,7 @@ prop_boundaryRespected cl = case clSep cl of
 -- nothing and is exempt.
 prop_minimumOne :: CmdLine -> Property
 prop_minimumOne cl =
-  (not (isJust (clSep cl)) && leadingWord)
+  (isNothing (clSep cl) && leadingWord)
     ==> length targets >= 1
   where
     (targets, _) = cmdSplit cl
