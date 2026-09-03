@@ -573,22 +573,24 @@ splitClassifiedArgs sep classified =
     , taSeparator = sep
     }
   where
-    -- Where targets may be looked for. When something precedes the separator
-    -- the targets are among those; when nothing does, the whole list is fair
-    -- game, which is what keeps a target given only after @--@ reachable.
-    candidates = case sep of
+    targets = case sep of
+      -- Something precedes the separator, so the user has said where the
+      -- executable's arguments begin: everything before it is a target.
+      -- Only targets and flags belong there, and the option parser has
+      -- already taken the flags, so anything left that does not name a
+      -- target is reported as the unrecognised target it is.
       Just n | n > 0 -> take n classified
-      _ -> classified
-
-    resolved = takeWhile isTargetArg candidates
-
-    -- Without a separator the user has not signalled that arguments follow, so
-    -- the leading word is a target claim even when it does not resolve. It
-    -- then fails with the usual unrecognised-target error and its
-    -- suggestions. A leading flag claims nothing, so it is exempt.
-    targets = case (sep, resolved, classified) of
-      (Nothing, [], ca : _) | caKind ca /= ArgFlag -> [ca]
-      _ -> resolved
+      -- A separator with nothing before it. The target, if any, is still
+      -- among what follows, which is what keeps a target given only after
+      -- @--@ reachable.
+      Just _ -> takeWhile isTargetArg classified
+      -- No separator, so the user has not signalled that arguments follow.
+      -- The leading word is then a target claim even when it does not
+      -- resolve, and fails with the usual unrecognised-target error and its
+      -- suggestions. A leading flag claims nothing, so it is exempt.
+      Nothing -> case (takeWhile isTargetArg classified, classified) of
+        ([], ca : _) | caKind ca /= ArgFlag -> [ca]
+        (resolved, _) -> resolved
 
     args = drop (length targets) classified
 
@@ -636,22 +638,6 @@ reportClassification verbosity localPackages TargetAndArgs{..} = do
         ++ plural (listPlural namedButPassed) "it" "them"
         ++ " to silence this, or move the target to the front."
 
-  -- Something before an explicit '--' that does not name a target. Before this
-  -- became a resolved split it would have been reported as an unrecognised
-  -- target, so do not demote it silently.
-  unless (null demoted) $
-    warn verbosity $
-      renderListCommaAnd (map (\s -> "'" ++ s ++ "'") demoted)
-        ++ " "
-        ++ plural (listPlural demoted) "precedes" "precede"
-        ++ " '--' but "
-        ++ plural (listPlural demoted) "does" "do"
-        ++ " not name a target, so "
-        ++ plural (listPlural demoted) "it is" "they are"
-        ++ " being passed to the executable as "
-        ++ plural (listPlural demoted) "an argument" "arguments"
-        ++ "."
-
   -- About to fail: the leading word was kept as a target only because no '--'
   -- said otherwise. If there is exactly one thing we could have run, the user
   -- probably meant it as an argument.
@@ -675,16 +661,6 @@ reportClassification verbosity localPackages TargetAndArgs{..} = do
 
     namedButPassed =
       [caString ca | ca <- argSide, caBeforeSep ca, namesComponent ca]
-
-    -- The part of the candidate region that the target prefix did not reach.
-    demoted = case taSeparator of
-      Just n
-        | n > 0 ->
-            [ caString ca
-            | ca <- drop (length taTargets) (take n taClassified)
-            , caKind ca == ArgPlain
-            ]
-      _ -> []
 
     leadingIsPlain = case taClassified of
       ca : _ -> caKind ca == ArgPlain && not (null taTargets)

@@ -34,12 +34,11 @@ main = do
     assertOutputContains "names a component in this project" res
     assertOutputContains "foo args: [\"zzz\",\"bar\"]" res
 
-  -- A word before '--' that does not name a target used to be an error.
-  -- It is now an argument, which is worth saying out loud.
-  cabalTest' "demoted-before-sep" $ do
-    res <- cabal' "run" ["foo", "zzz", "--", "x"]
-    assertOutputContains "does not name a target" res
-    assertOutputContains "foo args: [\"zzz\",\"x\"]" res
+  -- Only targets and flags belong before '--'. A word there that names no
+  -- target is the unrecognised target it looks like, not a quiet argument.
+  cabalTest' "unknown-before-sep" $ do
+    res <- fails $ cabal' "run" ["foo", "zzz", "--", "x"]
+    assertOutputDoesNotContain "foo args:" res
 
   -- Without '--' a leading word is a target claim, so an unknown one still
   -- fails rather than quietly becoming an argument.

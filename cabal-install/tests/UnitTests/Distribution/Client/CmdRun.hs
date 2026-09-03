@@ -202,10 +202,11 @@ splitCases =
     ( "two targets before the separator"
     , split ["a", "b"] ["run", "a", "b", "--", "c"] ["a", "b", "c"] @?= (["a", "b"], ["c"])
     )
-  ,
-    ( "unrecognised word before the separator becomes an argument"
+  , -- Only targets and flags belong before the separator, so an unrecognised
+    -- word there stays a target and fails downstream as one.
+    ( "unrecognised word before the separator stays a target"
     , split ["foo"] ["run", "foo", "bar", "--", "x"] ["foo", "bar", "x"]
-        @?= (["foo"], ["bar", "x"])
+        @?= (["foo", "bar"], ["x"])
     )
   ]
 
@@ -271,13 +272,19 @@ prop_classifyTotal cl =
 -- | A flag is never taken as a target, even when the oracle would recognise
 -- the string, and even as the leading word that would otherwise be kept as a
 -- target claim.
+--
+-- Excludes the region before an explicit separator, where every string is a
+-- target string by the user's own placement. Flags cannot occur there in
+-- practice: the option parser consumes cabal's own flags before @--@.
 prop_flagsNeverTargets :: CmdLine -> Property
 prop_flagsNeverTargets cl =
-  counterexample (show classified) $
-    all (\ca -> tag ca /= F) (take (length targets) classified)
+  beforeSeparatorEmpty ==>
+    counterexample (show classified) $
+      all (\ca -> tag ca /= F) (take (length targets) classified)
   where
     classified = cmdClassify cl
     (targets, _) = cmdSplit cl
+    beforeSeparatorEmpty = clSep cl `elem` [Nothing, Just 0]
 
 -- | Moving the separator changes where things sit, never what they are.
 prop_classifyIgnoresSeparator :: CmdLine -> Property
@@ -308,12 +315,17 @@ prop_idempotent cl =
     (targets, args) = cmdSplit cl
     allResolved = all ((== T) . tag) (take (length targets) (cmdClassify cl))
 
--- | With a separator present nothing unresolved is taken as a target.
+-- | With a separator and nothing before it, only strings that resolve are
+-- taken as targets. (With something before it the user has placed the targets
+-- explicitly, so they are taken as given and left to fail as targets.)
 prop_targetsResolve :: CmdLine -> Property
-prop_targetsResolve cl =
-  isJust (clSep cl) ==>
+prop_targetsResolve cl0 =
+  counterexample (show cl) $
     all ((== T) . tag) (take (length targets) (cmdClassify cl))
   where
+    -- Built rather than filtered for: a generated separator lands on this one
+    -- position too rarely to keep enough cases.
+    cl = cl0{clSep = Just 0}
     (targets, _) = cmdSplit cl
 
 -- | When something precedes the separator, the targets are among those; the
