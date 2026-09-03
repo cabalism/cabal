@@ -284,10 +284,14 @@ data TargetContext
 -- | An action working with selected targets within a context.
 type TargetsAction targets a = TargetContext -> ProjectBaseContext -> targets -> IO a
 
--- | An action working with selected targets and the arguments left over after
--- the targets were taken off the command line.
+-- | An action working with selected targets and with the split they came
+-- from: the strings taken as targets, and the arguments left over.
+--
+-- The target strings are passed on as well as the selectors because they are
+-- not recoverable from them. Different spellings of one component resolve to
+-- the same selector, so only the strings can say what was actually typed.
 type TargetsAndArgsAction targets a =
-  TargetContext -> ProjectBaseContext -> targets -> [String] -> IO a
+  TargetContext -> ProjectBaseContext -> targets -> ([String], [String]) -> IO a
 
 -- | Separate target strings from the arguments they are mixed with, given the
 -- project's local packages.
@@ -331,7 +335,7 @@ withContextAndSelectors verbosity noTargets kind flags targetStrings globalFlags
     targetStrings
     globalFlags
     cmd
-    (\tc ctx sels _args -> act tc ctx sels)
+    (\tc ctx sels _split -> act tc ctx sels)
 
 -- | 'withContextAndSelectors', but splitting the given strings into target
 -- strings and arguments once the project context is known.
@@ -396,7 +400,7 @@ withContextAndSelectorsAndArgs verbosity noTargets kind flags@NixStyleFlags{..} 
           Left err -> reportTargetSelectorProblems verbosity err
           Right sels -> return (tc, ctx, sels)
 
-    act tc' ctx' sels args
+    act tc' ctx' sels (targetStrings, args)
   where
     ignoreProject = flagIgnoreProject projectFlags
     cliConfig = commandLineFlagsToProjectConfig globalFlags flags mempty

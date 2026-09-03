@@ -30,11 +30,6 @@ module Distribution.Client.CmdRun
 import Distribution.Client.Compat.Prelude hiding (toList)
 import Prelude ()
 
-import Data.IORef
-  ( newIORef
-  , readIORef
-  , writeIORef
-  )
 import qualified Data.Set as Set
 import Distribution.Client.CmdErrorMessages
   ( listPlural
@@ -233,18 +228,13 @@ runCommand =
 runAction :: NixStyleFlags () -> [String] -> GlobalFlags -> IO ()
 runAction flags targetAndArgs globalFlags = do
   fullArgs <- getFullArgs
-  -- The strings taken as targets, kept for 'reportRepeatedTargets'. Only the
-  -- splitter sees them, and only after the plan is built do we know whether
-  -- they all landed on one component.
-  targetStringsRef <- newIORef []
   let splitVerbosity = cfgVerbosity normal flags
       split localPackages ts = do
         oracle <- newTargetOracle defaultDirActions localPackages (Just ExeKind)
         r <- splitTargetAndArgs oracle fullArgs ts
         reportClassification splitVerbosity localPackages r
-        writeIORef targetStringsRef (taTargets r)
         return (taTargets r, taArgs r)
-  withContextAndSelectorsAndArgs splitVerbosity RejectNoTargets (Just ExeKind) flags split targetAndArgs globalFlags OtherCommand $ \targetCtx ctx targetSelectors args -> do
+  withContextAndSelectorsAndArgs splitVerbosity RejectNoTargets (Just ExeKind) flags split targetAndArgs globalFlags OtherCommand $ \targetCtx ctx targetSelectors (targetStrings, args) -> do
     (baseCtx, defaultVerbosity) <- case targetCtx of
       ProjectContext -> return (ctx, normal)
       GlobalContext -> return (ctx, normal)
@@ -290,7 +280,7 @@ runAction flags targetAndArgs globalFlags = do
         -- Several different targets that all name the same component, as in
         -- 'cabal run foo exe:foo'. That is not multiple targets, so it runs,
         -- but it is worth saying that the repetition had no effect.
-        reportRepeatedTargets verbosity =<< readIORef targetStringsRef
+        reportRepeatedTargets verbosity targetStrings
 
         let elaboratedPlan' =
               pruneInstallPlanToTargets
