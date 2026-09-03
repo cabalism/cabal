@@ -1,10 +1,19 @@
 # cabal run
 Configuration is affected by cabal.project at '<GBLTMPDIR>'.
-Warning: The target 'solo' was given more than once.
 Resolving dependencies...
+Warning: The target 'solo' was given more than once; it is run once.
 Build profile: -w ghc-<GHCVER> -O1
 In order, the following will be built:
  - single-1.0 (exe:solo) (first run)
 Configuring executable 'solo' for single-1.0...
 Preprocessing executable 'solo' for single-1.0...
 Building executable 'solo' for single-1.0...
+# cabal run
+Configuration is affected by cabal.project at '<GBLTMPDIR>'.
+Warning: The targets 'exe:solo' and 'solo' all name the same component, which is run once.
+# cabal run
+Configuration is affected by cabal.project at '<GBLTMPDIR>'.
+Warning: The targets 'single:exes' and 'solo' all name the same component, which is run once.
+# cabal run
+Configuration is affected by cabal.project at '<GBLTMPDIR>'.
+Warning: The targets 'single:exe:solo', 'single:exes' and 'solo' all name the same component, which is run once.

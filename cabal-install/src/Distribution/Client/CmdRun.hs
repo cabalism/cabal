@@ -30,7 +30,11 @@ module Distribution.Client.CmdRun
 import Distribution.Client.Compat.Prelude hiding (toList)
 import Prelude ()
 
-import qualified Data.Map as Map
+import Data.IORef
+  ( newIORef
+  , readIORef
+  , writeIORef
+  )
 import qualified Data.Set as Set
 import Distribution.Client.CmdErrorMessages
   ( listPlural
@@ -229,11 +233,16 @@ runCommand =
 runAction :: NixStyleFlags () -> [String] -> GlobalFlags -> IO ()
 runAction flags targetAndArgs globalFlags = do
   fullArgs <- getFullArgs
+  -- The strings taken as targets, kept for 'reportRepeatedTargets'. Only the
+  -- splitter sees them, and only after the plan is built do we know whether
+  -- they all landed on one component.
+  targetStringsRef <- newIORef []
   let splitVerbosity = cfgVerbosity normal flags
       split localPackages ts = do
         oracle <- newTargetOracle defaultDirActions localPackages (Just ExeKind)
         r <- splitTargetAndArgs oracle fullArgs ts
         reportClassification splitVerbosity localPackages r
+        writeIORef targetStringsRef (taTargets r)
         return (taTargets r, taArgs r)
   withContextAndSelectorsAndArgs splitVerbosity RejectNoTargets (Just ExeKind) flags split targetAndArgs globalFlags OtherCommand $ \targetCtx ctx targetSelectors args -> do
     (baseCtx, defaultVerbosity) <- case targetCtx of
@@ -281,7 +290,7 @@ runAction flags targetAndArgs globalFlags = do
         -- Several different targets that all name the same component, as in
         -- 'cabal run foo exe:foo'. That is not multiple targets, so it runs,
         -- but it is worth saying that the repetition had no effect.
-        reportRepeatedTargets verbosity targets
+        reportRepeatedTargets verbosity =<< readIORef targetStringsRef
 
         let elaboratedPlan' =
               pruneInstallPlanToTargets
@@ -593,25 +602,25 @@ splitClassifiedArgs sep classified =
 
     args = drop (length targets) classified
 
--- | Warn when more than one distinct target was given but they all name the
--- same component.
+-- | Warn when the same component was named by more than one target.
 --
--- 'distinctTargetComponents' is a set, so this already runs rather than
--- tripping the multiple-targets check; the repetition is simply reported.
--- Targets that are literally the same string are caught earlier, by
--- 'reportClassification', so they are not reported twice here.
-reportRepeatedTargets :: Verbosity -> TargetsMap -> IO ()
-reportRepeatedTargets verbosity targets =
-  case [sels | (_, cts) <- Map.toList targets, (_, sels) <- cts] of
-    [sels]
-      | shown@(_ : _ : _) <- sortNub (map showTargetSelector (toNubList sels)) ->
-          warn verbosity $
-            "The targets "
-              ++ renderListCommaAnd (map (\s -> "'" ++ s ++ "'") shown)
-              ++ " all refer to the same component, which is run once."
-    _ -> return ()
-  where
-    toNubList = foldr (:) []
+-- Called only once 'singleExeOrElse' has established that every target landed
+-- on one component, so any extra target string is by definition a repetition.
+-- Doing it here rather than at classification time is what keeps it to a
+-- single warning: 'solo' and 'single:exe:solo' resolve to the very same
+-- selector while 'single:exes' resolves to a different one that only collapses
+-- against them here, and neither half of that can see the other.
+reportRepeatedTargets :: Verbosity -> [String] -> IO ()
+reportRepeatedTargets verbosity targetStrings
+  | length targetStrings < 2 = return ()
+  | otherwise =
+      warn verbosity $ case sortNub targetStrings of
+        [one] ->
+          "The target '" ++ one ++ "' was given more than once; it is run once."
+        several ->
+          "The targets "
+            ++ renderListCommaAnd (map (\s -> "'" ++ s ++ "'") several)
+            ++ " all name the same component, which is run once."
 
 -- | Say out loud anything about the split that the user is unlikely to have
 -- intended. Nothing here changes the split; it only explains it.
@@ -653,18 +662,6 @@ reportClassification verbosity localPackages TargetAndArgs{..} = do
         ++ plural (listPlural demoted) "an argument" "arguments"
         ++ "."
 
-  -- Targets that resolved to the very same thing. Spelling them differently,
-  -- as in 'solo' and 'exe:solo', produces one selector, so this is the last
-  -- point at which the repetition is visible at all.
-  for_ repeatedGroups $ \strs ->
-    warn verbosity $ case sortNub strs of
-      [one] ->
-        "The target '" ++ one ++ "' was given more than once."
-      several ->
-        "The targets "
-          ++ renderListCommaAnd (map (\s -> "'" ++ s ++ "'") several)
-          ++ " name the same target, which is run once."
-
   -- About to fail: the leading word was kept as a target only because no '--'
   -- said otherwise. If there is exactly one thing we could have run, the user
   -- probably meant it as an argument.
@@ -698,15 +695,6 @@ reportClassification verbosity localPackages TargetAndArgs{..} = do
             , caKind ca == ArgPlain
             ]
       _ -> []
-
-    takenTargets = take (length taTargets) taClassified
-
-    repeatedGroups =
-      [ strs
-      | kind <- sortNub (map caKind takenTargets)
-      , let strs = [caString ca | ca <- takenTargets, caKind ca == kind]
-      , length strs > 1
-      ]
 
     leadingIsPlain = case taClassified of
       ca : _ -> caKind ca == ArgPlain && not (null taTargets)

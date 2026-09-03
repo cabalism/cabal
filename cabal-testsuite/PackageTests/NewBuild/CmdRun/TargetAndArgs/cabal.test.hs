@@ -59,25 +59,25 @@ main = do
     res <- cabal' "run" ["--enable-benchmarks", "--", "--flag"]
     assertOutputContains "only-bench args: [\"--flag\"]" res
 
-  -- The same string twice: caught from the command line alone, before
-  -- anything is resolved.
+  -- Every shape of repetition, each producing exactly one warning. 'solo' and
+  -- 'single:exe:solo' resolve to the very same selector; 'single:exes'
+  -- resolves to a different one that only collapses onto them once the plan is
+  -- built. One check after that point sees all of them.
   cabalTest' "repeated-target" $ withDirectory "single" $ do
     res <- cabal' "run" ["solo", "solo"]
-    assertOutputContains "given more than once" res
+    assertOutputContains "was given more than once" res
     assertOutputContains "solo args: []" res
 
-  -- Two spellings of one component. They resolve to the very same selector,
-  -- so the repetition is only visible from the command line itself.
-  cabalTest' "same-target-twice" $ withDirectory "single" $ do
     res <- cabal' "run" ["solo", "exe:solo"]
-    assertOutputContains "name the same target" res
+    assertOutputContains "all name the same component" res
     assertOutputContains "solo args: []" res
 
-  -- A component and a wildcard covering it. These are different selectors that
-  -- only collapse once resolved, so this is caught after the plan is built.
-  cabalTest' "wildcard-over-one-target" $ withDirectory "single" $ do
     res <- cabal' "run" ["solo", "single:exes"]
-    assertOutputContains "all refer to the same component" res
+    assertOutputContains "all name the same component" res
+    assertOutputContains "solo args: []" res
+
+    res <- cabal' "run" ["solo", "single:exes", "single:exe:solo"]
+    assertOutputContains "all name the same component" res
     assertOutputContains "solo args: []" res
 
   -- Two different components is still an error.
