@@ -1,14 +1,14 @@
--- | Tests for how @cabal run@ tells target strings from the arguments they
--- are mixed with.
+-- | Tests for how a command tells target strings from the arguments they are
+-- mixed with.
 --
 -- Everything here runs the split against a pure oracle recognising a fixed set
 -- of names, so no project, filesystem or install plan is involved.
-module UnitTests.Distribution.Client.CmdRun (tests) where
+module UnitTests.Distribution.Client.TargetArgs (tests) where
 
 import Data.Functor.Identity (runIdentity)
 import Data.Maybe (isJust, isNothing)
 
-import Distribution.Client.CmdRun
+import Distribution.Client.TargetArgs
   ( ArgKind (..)
   , ClassifiedArg (..)
   , TargetAndArgs (..)
@@ -157,6 +157,7 @@ splitCases =
         @?= (["cabal-install:parser-tests"], ["--dry-run", "cabal-install:parser-tests", "--dry-run"])
     )
   , -- https://github.com/haskell/cabal/issues/12231
+
     ( "target given only after the separator"
     , split
         ["saturn-test-suite"]
@@ -174,6 +175,7 @@ splitCases =
     )
   , -- A flag claims nothing, so it is exempt from that rule even though there
     -- is no separator to say arguments follow.
+
     ( "leading flag with no separator is not a target"
     , split ["foo"] ["run", "-"] ["-"] @?= ([], ["-"])
     )
@@ -204,6 +206,7 @@ splitCases =
     )
   , -- Only targets and flags belong before the separator, so an unrecognised
     -- word there stays a target and fails downstream as one.
+
     ( "unrecognised word before the separator stays a target"
     , split ["foo"] ["run", "foo", "bar", "--", "x"] ["foo", "bar", "x"]
         @?= (["foo", "bar"], ["x"])
@@ -342,8 +345,8 @@ prop_boundaryRespected cl = case clSep cl of
 -- nothing and is exempt.
 prop_minimumOne :: CmdLine -> Property
 prop_minimumOne cl =
-  (isNothing (clSep cl) && leadingWord)
-    ==> length targets >= 1
+  (isNothing (clSep cl) && leadingWord) ==>
+    length targets >= 1
   where
     (targets, _) = cmdSplit cl
     leadingWord = case cmdClassify cl of

@@ -32,19 +32,9 @@ module Distribution.Client.TargetSelector
 
     -- ** non-IO
   , readTargetSelectorsWith
+  , newTargetSelectorReader
   , DirActions (..)
   , defaultDirActions
-
-    -- ** Incremental reading
-    -- | The pieces 'readTargetSelectorsWith' is built from, exposed so that a
-    -- caller probing many strings can build the 'KnownTargets' once and then
-    -- resolve each string against it, rather than paying for
-    -- 'getKnownTargets' on every string.
-  , KnownTargets
-  , getKnownTargets
-  , TargetStringFileStatus
-  , getTargetStringFileStatus
-  , resolveTargetSelector
   ) where
 
 import Distribution.Client.Compat.Prelude
@@ -277,6 +267,34 @@ readTargetSelectorsWith dirActions@DirActions{} pkgs mfilter targetStrs =
         ([], btargets) -> return (Right btargets)
         (problems, _) -> return (Left problems)
     (strs, _) -> return (Left (map TargetSelectorUnrecognised strs))
+
+-- | A staged form of 'readTargetSelectorsWith', for callers that must ask
+-- about strings one at a time — deciding, say, which words of a command line
+-- are targets at all.
+--
+-- 'readTargetSelectorsWith' is the wrong shape for that in two ways. It is
+-- all-or-nothing, so one unrecognised word fails the whole batch and takes the
+-- per-string answers down with it. And it rebuilds the known-target index on
+-- every call, which walks every local package and flattens its description, so
+-- probing @n@ strings would pay for that @n@ times.
+--
+-- Building the index happens once here, when the returned function is made.
+-- Each string then costs one parse and one file status check.
+newTargetSelectorReader
+  :: Monad m
+  => DirActions m
+  -> [PackageSpecifier (SourcePackage (PackageLocation a))]
+  -> Maybe ComponentKindFilter
+  -- ^ Used when a selector is otherwise ambiguous, as in 'readTargetSelectors'.
+  -> m (String -> m (Either TargetSelectorProblem TargetSelector))
+newTargetSelectorReader dirActions@DirActions{} pkgs mfilter = do
+  knowntargets <- getKnownTargets dirActions pkgs
+  return $ \s -> case parseTargetString s of
+    -- The same answer 'readTargetSelectorsWith' gives an unparseable string.
+    Nothing -> return (Left (TargetSelectorUnrecognised s))
+    Just t -> do
+      t' <- getTargetStringFileStatus dirActions t
+      return (resolveTargetSelector knowntargets mfilter t')
 
 data DirActions m = DirActions
   { doesFileExist :: FilePath -> m Bool

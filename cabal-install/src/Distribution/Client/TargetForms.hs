@@ -3,26 +3,15 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 
 -- | Resolving @[TARGETS]@ into the fully-qualified target forms that
--- @cabal target@ reports, and a cheaper oracle for asking whether a single
--- string names a target at all.
+-- @cabal target@ reports.
 --
--- The expensive half ('resolveTargetForms') needs a full 'ElaboratedInstallPlan'
--- and so runs the solver. The cheap half ('newTargetOracle') needs only the
--- project's local packages, which is enough to answer \"is this a target?\" and
--- is therefore usable before a plan exists.
+-- This needs a full 'ElaboratedInstallPlan' and so runs the solver. To ask the
+-- cheaper question of whether a string names a target at all, which needs only
+-- the project's local packages and so works before a plan exists, see
+-- "Distribution.Client.TargetArgs".
 module Distribution.Client.TargetForms
-  ( -- * Full resolution
-    resolveTargetForms
+  ( resolveTargetForms
   , printTargetForms
-
-    -- * Probing individual strings
-  , TargetMatch (..)
-  , TargetOracle (..)
-  , newTargetOracle
-  , knownTargetOracle
-
-    -- * Diagnostics
-  , runnableComponents
   ) where
 
 import Distribution.Client.Compat.Prelude
@@ -45,23 +34,10 @@ import Distribution.Client.Setup
 import Distribution.Client.TargetProblem
   ( TargetProblem'
   )
-import Distribution.Client.TargetSelector
-  ( ComponentKindFilter
-  , DirActions (..)
-  , getKnownTargets
-  , getTargetStringFileStatus
-  , parseTargetString
-  , resolveTargetSelector
-  )
-import Distribution.Client.Types
-  ( PackageSpecifier
-  , UnresolvedSourcePackage
-  )
 import Distribution.Package
 import Distribution.Simple.Utils
   ( noticeDoc
   , safeHead
-  , sortNub
   )
 import Text.PrettyPrint
 import qualified Text.PrettyPrint as Pretty
@@ -157,113 +133,3 @@ printTargetForms verbosity targetStrings targets elaboratedPlan =
           , let pkg = safeHead $ filter ((== u) . elabUnitId) localPkgs
           , (ct :: ComponentTarget, _) <- xs
           ]
-
--------------------------------------------------------------------------------
--- Probing individual strings
--------------------------------------------------------------------------------
-
--- | What a single string turned out to be.
-data TargetMatch
-  = -- | It names something in the project.
-    MatchSelector TargetSelector
-  | -- | It does not name anything in the project but is an existing file, so
-    -- it may be a script. This is the same tie-break
-    -- 'Distribution.Client.ScriptUtils.withContextAndSelectors' applies.
-    MatchScript FilePath
-  deriving (Eq, Ord, Show)
-
--- | Probes one string at a time. Build it once per command with
--- 'newTargetOracle' and reuse it: the 'KnownTargets' it closes over is the
--- expensive part.
-newtype TargetOracle m = TargetOracle
-  { probeTarget :: String -> m (Maybe TargetMatch)
-  }
-
--- | Build an oracle over the project's local packages.
---
--- This is 'Distribution.Client.TargetSelector.readTargetSelectorsWith' taken
--- apart so that 'getKnownTargets' — which walks every local package and
--- flattens its description — happens once rather than once per string, and so
--- that a failure to resolve is reported per string instead of failing the
--- whole batch.
-newTargetOracle
-  :: Monad m
-  => DirActions m
-  -> [PackageSpecifier UnresolvedSourcePackage]
-  -> Maybe ComponentKindFilter
-  -- ^ Used only to disambiguate an otherwise ambiguous string.
-  -> m (TargetOracle m)
-newTargetOracle dirActions pkgs mfilter = do
-  knowntargets <- getKnownTargets dirActions pkgs
-  return . TargetOracle $ \s ->
-    case parseTargetString s of
-      Nothing -> asScript s
-      Just t -> do
-        t' <- getTargetStringFileStatus dirActions t
-        case resolveTargetSelector knowntargets mfilter t' of
-          Right selector | isLocalSelector selector -> return (Just (MatchSelector selector))
-          _ -> asScript s
-  where
-    asScript s = do
-      exists <- doesFileExist dirActions s
-      return $ if exists then Just (MatchScript s) else Nothing
-
--- | Did this selector actually match something in the project?
---
--- Resolution succeeds for any bare word, handing back a 'TargetPackageNamed'
--- that stands for \"a package by this name, from wherever\" and is only
--- checked later against the plan. That is the right answer for a command that
--- can reach beyond the project, but it is not what \"is this string a target?\"
--- means here: taking it as a yes would make every unrecognised word a target.
--- 'TargetComponentUnknown' is unverified in the same way.
-isLocalSelector :: TargetSelector -> Bool
-isLocalSelector selector = case selector of
-  TargetPackage{} -> True
-  TargetAllPackages{} -> True
-  TargetComponent{} -> True
-  TargetPackageNamed{} -> False
-  TargetComponentUnknown{} -> False
-
--- | An oracle recognising a fixed set of names, for doctests and tests.
-knownTargetOracle :: Applicative m => [String] -> TargetOracle m
-knownTargetOracle known = TargetOracle $ \s ->
-  pure $
-    if s `elem` known
-      then Just (MatchSelector (TargetPackageNamed (mkPackageName s) Nothing))
-      else Nothing
-
--------------------------------------------------------------------------------
--- Diagnostics
--------------------------------------------------------------------------------
-
--- | The executable-like components (executables, test suites and benchmarks)
--- that the given selectors reach, using only the local packages so that no
--- install plan is needed.
---
--- This is for enriching messages — naming the candidates when no target was
--- given, say. It deliberately plays no part in deciding whether a string is a
--- target: a package with two buildable executables is still a target, and
--- demoting it to an argument would replace a good \"matches multiple\" error
--- with a baffling one.
-runnableComponents
-  :: [PackageSpecifier UnresolvedSourcePackage]
-  -> [TargetSelector]
-  -> [ComponentName]
-runnableComponents pkgs selectors =
-  case resolveTargetsFromLocalPackages selectRunnable selectComponentTargetBasic pkgs selectors of
-    Left _ -> []
-    Right targets ->
-      sortNub
-        [ cname
-        | (_, cts) <- Map.toList targets
-        , (ComponentTarget cname _, _) <- cts
-        ]
-
-selectRunnable
-  :: forall k
-   . TargetSelector
-  -> [AvailableTarget k]
-  -> Either TargetProblem' [k]
-selectRunnable _ targets =
-  Right . selectBuildableTargets $
-    concatMap (`filterTargetsKind` targets) [ExeKind, TestKind, BenchKind]

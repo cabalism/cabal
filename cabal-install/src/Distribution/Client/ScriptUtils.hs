@@ -81,6 +81,9 @@ import Distribution.Client.RebuildMonad
 import Distribution.Client.Setup
   ( GlobalFlags (..)
   )
+import Distribution.Client.TargetArgs
+  ( TargetArgSplitter
+  )
 import Distribution.Client.TargetSelector
   ( TargetSelectorProblem (..)
   , TargetString (..)
@@ -292,16 +295,6 @@ type TargetsAction targets a = TargetContext -> ProjectBaseContext -> targets ->
 -- the same selector, so only the strings can say what was actually typed.
 type TargetsAndArgsAction targets a =
   TargetContext -> ProjectBaseContext -> targets -> ([String], [String]) -> IO a
-
--- | Separate target strings from the arguments they are mixed with, given the
--- project's local packages.
---
--- Commands like @cabal run@ receive one list holding both, and can only tell
--- them apart by asking whether a string names a target — which needs the
--- project context. Running the splitter here means that context is established
--- once rather than once for the split and again for the selectors.
-type TargetArgSplitter =
-  [PackageSpecifier UnresolvedSourcePackage] -> [String] -> IO ([String], [String])
 
 -- | Determine whether the targets represent regular targets or a script
 -- and return the proper context and target selectors.

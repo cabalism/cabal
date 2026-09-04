@@ -3,7 +3,6 @@ module Main (main) where
 import Test.Tasty
 
 import qualified UnitTests.Distribution.Client.BuildReport
-import qualified UnitTests.Distribution.Client.CmdRun
 import qualified UnitTests.Distribution.Client.Configure
 import qualified UnitTests.Distribution.Client.FetchUtils
 import qualified UnitTests.Distribution.Client.GZipUtils
@@ -20,6 +19,7 @@ import qualified UnitTests.Distribution.Client.ProjectConfig
 import qualified UnitTests.Distribution.Client.ProjectPlanning
 import qualified UnitTests.Distribution.Client.Store
 import qualified UnitTests.Distribution.Client.Tar
+import qualified UnitTests.Distribution.Client.TargetArgs
 import qualified UnitTests.Distribution.Client.Targets
 import qualified UnitTests.Distribution.Client.UserConfig
 import qualified UnitTests.Distribution.Solver.Modular.Builder
@@ -38,8 +38,8 @@ main = do
           "UnitTests.Distribution.Client.BuildReport"
           UnitTests.Distribution.Client.BuildReport.tests
       , testGroup
-          "UnitTests.Distribution.Client.CmdRun"
-          UnitTests.Distribution.Client.CmdRun.tests
+          "UnitTests.Distribution.Client.TargetArgs"
+          UnitTests.Distribution.Client.TargetArgs.tests
       , testGroup
           "UnitTests.Distribution.Client.Configure"
           UnitTests.Distribution.Client.Configure.tests
