@@ -28,10 +28,18 @@ against them.
 2. Build the dependencies with cabal and generate the buck2 view of them:
 
    ```
-   cabal build all --only-dependencies --enable-tests
+   cabal build cabal-install --only-dependencies --enable-tests
    python3 buck2/gen-haskell-prebuilt.py
    python3 project-buck2/fetch-inplace-deps.py
    ```
+
+   The target is `cabal-install` rather than `all`: with `all`, cabal
+   refuses `--only-dependencies` ("the package Cabal-syntax-3.19.0.0 is
+   required by a dependency of one of the other targets") because
+   hackage-security, a dependency, needs Cabal-syntax, a target. With
+   `cabal-install` as the only target, the other local packages are just
+   dependencies and get built in-place by cabal once, along with
+   hackage-security and every Hackage package the buck2 targets need.
 
    The first script writes `third-party/haskell/` (a `haskell_prebuilt_library`
    per store/global package, the GHC toolchain version, and the locations of
