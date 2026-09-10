@@ -1,0 +1,40 @@
+# buck2 build of the Cabal library (see Cabal/Cabal.cabal).
+#
+# Built without the git-rev flag (no GIT_REV / githash), as a Hackage release
+# of Cabal would be.
+load("//project-buck2:cabal.bzl", "cabal_library")
+
+cabal_library(
+    name = "Cabal",
+    srcs = dict(
+        [(f, f) for f in glob(["**/*.hs"])] +
+        [("Paths_Cabal.hs", "//Cabal:Paths_Cabal")],
+    ),
+    compiler_flags = [
+        "-XGHC2021",
+        "-XNoImportQualifiedPost",
+        # Cabal's cabal_macros.h defines this for every component; GHC does
+        # not. Distribution.Simple.Utils.cabalVersion reads Paths_Cabal only
+        # when it is defined, and otherwise reports version 3.0.
+        "-DCURRENT_PACKAGE_KEY=\"Cabal\"",
+    ],
+    deps = [
+        "//Cabal-syntax/src:Cabal-syntax",
+    ],
+    packages = [
+        "array",
+        "bytestring",
+        "containers",
+        "deepseq",
+        "directory",
+        "filepath",
+        "mtl",
+        "parsec",
+        "pretty",
+        "process",
+        "time",
+        "transformers",
+        "unix",
+    ],
+    visibility = ["PUBLIC"],
+)

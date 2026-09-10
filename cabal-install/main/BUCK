@@ -1,0 +1,18 @@
+# The cabal executable:
+#
+#   buck2 build //cabal-install/main:cabal
+#   buck2 run //cabal-install/main:cabal -- --version
+load("//project-buck2:cabal.bzl", "cabal_binary")
+
+cabal_binary(
+    name = "cabal",
+    srcs = ["Main.hs"],
+    compiler_flags = [
+        "-XGHC2021",
+        "-XNoImportQualifiedPost",
+    ],
+    deps = [
+        "//cabal-install/src:cabal-install",
+    ],
+    visibility = ["PUBLIC"],
+)

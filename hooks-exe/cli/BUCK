@@ -1,0 +1,20 @@
+# buck2 build of the hooks-exe library (see hooks-exe/hooks-exe.cabal).
+load("//project-buck2:cabal.bzl", "cabal_library")
+
+cabal_library(
+    name = "hooks-exe",
+    srcs = glob(["**/*.hs"]),
+    compiler_flags = [
+        "-XGHC2021",
+    ],
+    deps = [
+        "//Cabal-syntax/src:Cabal-syntax",
+        "//Cabal/src:Cabal",
+    ],
+    packages = [
+        "bytestring",
+        "filepath",
+        "process",
+    ],
+    visibility = ["PUBLIC"],
+)

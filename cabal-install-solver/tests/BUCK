@@ -1,0 +1,24 @@
+# The cabal-install-solver unit-tests test-suite:
+#
+#   buck2 test //cabal-install-solver/tests:unit-tests
+load("//project-buck2:cabal.bzl", "cabal_test")
+
+cabal_test(
+    name = "unit-tests",
+    srcs = dict(
+        [(f, f) for f in glob(["UnitTests/**/*.hs"])] +
+        [("Main.hs", "UnitTests.hs")],
+    ),
+    compiler_flags = [
+        "-XGHC2021",
+    ],
+    deps = [
+        "//Cabal-syntax/src:Cabal-syntax",
+        "//cabal-install-solver/src:cabal-install-solver",
+    ],
+    packages = [
+        "tasty",
+        "tasty-hunit",
+        "tasty-quickcheck",
+    ],
+)

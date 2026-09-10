@@ -1,0 +1,4 @@
+export_file(
+    name = "gen-paths-module.sh",
+    visibility = ["PUBLIC"],
+)
