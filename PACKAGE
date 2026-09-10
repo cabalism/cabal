@@ -1,0 +1,24 @@
+# Root PACKAGE file: installs the buck2 configuration-modifier machinery so
+# that build modes can be selected on the command line, e.g.
+#
+#   buck2 build //... -m opt
+#
+# The available modes (dev, opt, prof, asan) are the constraints declared in
+# buck2/constraints/BUCK; the short aliases are defined in project-buck2/cfg.bzl.
+
+load("@prelude//cfg/modifier/cfg_constructor.bzl", "cfg_constructor_post_constraint_analysis", "cfg_constructor_pre_constraint_analysis")
+load("@prelude//cfg/modifier/common.bzl", "MODIFIER_METADATA_KEY")
+load("@prelude//cfg/modifier/set_cfg_modifiers.bzl", "set_cfg_modifiers")
+load("//project-buck2:cfg.bzl", "BUILD_MODE_ALIASES", "DEFAULT_MODIFIERS")
+
+set_cfg_constructor(
+    stage0 = cfg_constructor_pre_constraint_analysis,
+    stage1 = cfg_constructor_post_constraint_analysis,
+    key = MODIFIER_METADATA_KEY,
+    aliases = BUILD_MODE_ALIASES,
+    extra_data = struct(),
+)
+
+set_cfg_modifiers(
+    cfg_modifiers = DEFAULT_MODIFIERS,
+)

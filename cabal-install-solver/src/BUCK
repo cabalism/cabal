@@ -1,0 +1,35 @@
+# buck2 build of the cabal-install-solver library
+# (see cabal-install-solver/cabal-install-solver.cabal).
+#
+# The debug-expensive-assertions and debug-tracetree flags are off, as in the
+# cabal build.
+load("//project-buck2:cabal.bzl", "cabal_library")
+
+cabal_library(
+    name = "cabal-install-solver",
+    srcs = dict(
+        [(f, f) for f in glob(["**/*.hs"])] +
+        [("Distribution/Client/Utils/Assertion.hs", "//cabal-install-solver/src-assertion:Assertion.hs")],
+    ),
+    compiler_flags = [
+        "-XGHC2021",
+    ],
+    deps = [
+        "//Cabal-syntax/src:Cabal-syntax",
+        "//Cabal/src:Cabal",
+    ],
+    packages = [
+        "array",
+        "bytestring",
+        "containers",
+        "directory",
+        "edit-distance",
+        "filepath",
+        "mtl",
+        "network-uri",
+        "pretty",
+        "text",
+        "transformers",
+    ],
+    visibility = ["PUBLIC"],
+)

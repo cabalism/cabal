@@ -1,0 +1,7 @@
+# Second hs-source-dir of cabal-install-solver; consumed by
+# cabal-install-solver/src/BUCK.
+export_file(
+    name = "Assertion.hs",
+    src = "Distribution/Client/Utils/Assertion.hs",
+    visibility = ["//cabal-install-solver/..."],
+)

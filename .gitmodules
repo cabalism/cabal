@@ -1,0 +1,3 @@
+[submodule "buck2"]
+	path = buck2
+	url = https://github.com/simonmar/haskell-buck2

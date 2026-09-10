@@ -1,0 +1,28 @@
+# buck2 build of the Cabal-syntax library (see Cabal-syntax/Cabal-syntax.cabal).
+load("//project-buck2:cabal.bzl", "cabal_library")
+
+cabal_library(
+    name = "Cabal-syntax",
+    # Distribution/Fields/Lexer.x is run through alex by buck2/haskell.bzl.
+    srcs = glob(["**/*.hs", "**/*.x"]),
+    compiler_flags = [
+        "-XGHC2021",
+        "-XNoImportQualifiedPost",
+    ],
+    packages = [
+        "array",
+        "binary",
+        "bytestring",
+        "containers",
+        "deepseq",
+        "directory",
+        "filepath",
+        "mtl",
+        "parsec",
+        "pretty",
+        "text",
+        "time",
+        "transformers",
+    ],
+    visibility = ["PUBLIC"],
+)

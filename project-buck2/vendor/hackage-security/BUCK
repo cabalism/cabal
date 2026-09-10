@@ -1,0 +1,63 @@
+# hackage-security depends on Cabal-syntax, so cabal builds it in-place
+# against this repository's Cabal-syntax rather than installing it in the
+# store, and buck2 has to build it from source as well. The source tree in
+# src/ is not checked in: project-buck2/fetch-inplace-deps.py copies it from
+# cabal's unpacked copy under dist-newstyle/src/.
+load("//project-buck2:cabal.bzl", "cabal_library", "relocated_srcs")
+
+cabal_library(
+    name = "hackage-security",
+    srcs = relocated_srcs("src", glob(["src/**/*.hs"])),
+    # default-language / default-extensions from hackage-security.cabal.
+    compiler_flags = [
+        "-XHaskell2010",
+        "-XDefaultSignatures",
+        "-XDeriveDataTypeable",
+        "-XDeriveFunctor",
+        "-XFlexibleContexts",
+        "-XFlexibleInstances",
+        "-XGADTs",
+        "-XGeneralizedNewtypeDeriving",
+        "-XKindSignatures",
+        "-XMultiParamTypeClasses",
+        "-XNamedFieldPuns",
+        "-XNoImplicitPrelude",
+        "-XNoMonomorphismRestriction",
+        "-XPatternSynonyms",
+        "-XRankNTypes",
+        "-XRecordWildCards",
+        "-XScopedTypeVariables",
+        "-XStandaloneDeriving",
+        "-XTupleSections",
+        "-XTypeFamilies",
+        "-XTypeOperators",
+        "-XViewPatterns",
+        # Third-party code: warnings are not ours to fix.
+        "-w",
+    ],
+    deps = [
+        "//Cabal-syntax/src:Cabal-syntax",
+    ],
+    packages = [
+        "base16-bytestring",
+        "base64-bytestring",
+        "bytestring",
+        "containers",
+        "cryptohash-sha256",
+        "directory",
+        "ed25519",
+        "filepath",
+        "ghc-prim",
+        "mtl",
+        "network",
+        "network-uri",
+        "parsec",
+        "pretty",
+        "tar",
+        "template-haskell",
+        "time",
+        "transformers",
+        "zlib",
+    ],
+    visibility = ["PUBLIC"],
+)

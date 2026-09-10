@@ -1,0 +1,29 @@
+# Buck2 build for the cabal repository, using the haskell-buck2 prelude
+# checked out as the `buck2/` git submodule. See project-buck2/README.md.
+
+[cells]
+  root = .
+  prelude = buck2/prelude
+  toolchains = buck2/toolchains
+  third-party = third-party
+  none = none
+
+[cell_aliases]
+  config = prelude
+  ovr_config = prelude
+  fbcode = none
+  fbsource = none
+  buck = none
+
+[parser]
+  target_platform_detector_spec = target:root//...->prelude//platforms:default \
+    target:prelude//...->prelude//platforms:default \
+    target:toolchains//...->prelude//platforms:default \
+    target:third-party//...->prelude//platforms:default
+
+[build]
+  execution_platforms = prelude//platforms:default
+
+[project]
+  # Cabal's own build output and other large, BUCK-free trees.
+  ignore = .git, dist-newstyle, dist-newstyle-*, dist-ai, _build, buck-out, haddocks

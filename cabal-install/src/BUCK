@@ -1,0 +1,58 @@
+# buck2 build of the cabal-install library (see cabal-install/cabal-install.cabal).
+#
+# Flags: native-dns on (resolv), git-rev and legacy-comparison off.
+load("//project-buck2:cabal.bzl", "cabal_library")
+
+cabal_library(
+    name = "cabal-install",
+    srcs = dict(
+        [(f, f) for f in glob(["**/*.hs"])] +
+        [("Paths_cabal_install.hs", "//cabal-install:Paths_cabal_install")],
+    ),
+    compiler_flags = [
+        "-XGHC2021",
+        "-XTypeOperators",
+        "-XNoImportQualifiedPost",
+    ],
+    deps = [
+        "//Cabal-syntax/src:Cabal-syntax",
+        "//Cabal/src:Cabal",
+        "//cabal-install-solver/src:cabal-install-solver",
+        "//hooks-exe/cli:hooks-exe",
+        "//project-buck2/vendor/hackage-security:hackage-security",
+    ],
+    packages = [
+        "HTTP",
+        "array",
+        "async",
+        "base16-bytestring",
+        "binary",
+        "bytestring",
+        "containers",
+        "cryptohash-sha256",
+        "directory",
+        "echo",
+        "edit-distance",
+        "exceptions",
+        "filepath",
+        "mtl",
+        "network-uri",
+        "open-browser",
+        "parsec",
+        "pretty",
+        "process",
+        "random",
+        "regex-base",
+        "regex-posix",
+        "resolv",
+        "safe-exceptions",
+        "semaphore-compat",
+        "stm",
+        "tar",
+        "text",
+        "time",
+        "unix",
+        "zlib",
+    ],
+    visibility = ["PUBLIC"],
+)
