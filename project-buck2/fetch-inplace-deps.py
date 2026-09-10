@@ -8,7 +8,7 @@ when it depends on a package from this repository: currently that is
 hackage-security, which depends on Cabal-syntax. buck2/gen-haskell-prebuilt.py
 can only reference store packages, so these are built from source instead.
 
-Run after `cabal build all --only-dependencies --enable-tests`, which
+Run after `cabal build cabal-install --only-dependencies --enable-tests`, which
 unpacks the sources under dist-newstyle/src/.
 """
 
@@ -25,7 +25,7 @@ VENDOR = os.path.join(ROOT, "project-buck2", "vendor")
 def main():
     if not os.path.exists(PLAN):
         print(f"ERROR: {PLAN} not found - run "
-              "'cabal build all --only-dependencies --enable-tests' first",
+              "'cabal build cabal-install --only-dependencies --enable-tests' first",
               file=sys.stderr)
         sys.exit(1)
     with open(PLAN) as f:
@@ -50,7 +50,7 @@ def main():
             continue
         if not os.path.isdir(src):
             print(f"ERROR: {src} not found - run "
-                  "'cabal build all --only-dependencies --enable-tests' first",
+                  "'cabal build cabal-install --only-dependencies --enable-tests' first",
                   file=sys.stderr)
             failed = True
             continue
