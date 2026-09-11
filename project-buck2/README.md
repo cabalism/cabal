@@ -105,8 +105,10 @@ stanza, so update both when adding a dependency; module lists come from
 Each package is one `ghc --make` action, so buck2's own incrementality is
 per package. Three things make edits cheap anyway: the compile action keeps
 its `-odir`/`-hidir` between runs so GHC's recompilation checker skips
-unchanged modules (see the patch above), GHC gets `-j`, and dev mode passes
-`-O0` (the submodule's toolchain would otherwise use `-O` in every mode).
+unchanged modules (see the patch above), GHC gets `-j` with a 64MB
+allocation area (`+RTS -A64m`, which cut a clean build from 26s to 20s), and
+dev mode passes `-O0` (the submodule's toolchain would otherwise use `-O` in
+every mode).
 Measured on a 24-core machine after a whitespace-only edit in
 `Cabal/src/Distribution/Simple/GHCJS.hs`: `buck2 build //...` went from
 87s to 3s, against 23s for `cabal build all --enable-tests`.
