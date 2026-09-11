@@ -500,4 +500,59 @@ data BuildTimeSettings = BuildTimeSettings
   }
   deriving (Generic)
 
-instance NFData BuildTimeSettings
+instance NFData BuildTimeSettings where
+  -- Written out rather than derived via 'Generic'. 'buildSettingLogFile' holds a
+  -- function, so the derived 'rnf' reaches for @instance NFData (a -> b)@, which
+  -- deepseq 1.5.2 deprecates -- rightly, since a function cannot be forced past
+  -- WHNF, so the derived instance was never doing anything useful for that field.
+  --
+  -- Matched positionally on purpose: adding a field to the record then makes this
+  -- a compile error, whereas field selectors or RecordWildCards would silently
+  -- leave the new field unforced. Order among the forced fields does not matter,
+  -- since they all get the same treatment; only 'logFile' is special.
+  rnf
+    ( BuildTimeSettings
+        dryRun
+        onlyDeps
+        onlyDownload
+        summaryFile
+        logFile
+        logVerbosity
+        buildReports
+        reportPlanningFailure
+        symlinkBinDir
+        numJobs
+        keepGoing
+        offlineMode
+        keepTempFiles
+        remoteRepos
+        localNoIndexRepos
+        cacheDir
+        httpTransport
+        ignoreExpiry
+        progPathExtra
+        haddockOpen
+        buildTimings
+      ) =
+    rnf dryRun
+      `seq` rnf onlyDeps
+      `seq` rnf onlyDownload
+      `seq` rnf summaryFile
+      `seq` rnf logVerbosity
+      `seq` rnf buildReports
+      `seq` rnf reportPlanningFailure
+      `seq` rnf symlinkBinDir
+      `seq` rnf numJobs
+      `seq` rnf keepGoing
+      `seq` rnf offlineMode
+      `seq` rnf keepTempFiles
+      `seq` rnf remoteRepos
+      `seq` rnf localNoIndexRepos
+      `seq` rnf cacheDir
+      `seq` rnf httpTransport
+      `seq` rnf ignoreExpiry
+      `seq` rnf progPathExtra
+      `seq` rnf haddockOpen
+      `seq` rnf buildTimings
+      -- a function can only be forced to WHNF
+      `seq` maybe () (\f -> f `seq` ()) logFile
