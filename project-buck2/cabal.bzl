@@ -19,6 +19,8 @@ load("//buck2:haskell.bzl", _haskell_binary = "haskell_binary", _haskell_library
 # project-cabal/ghc-options.config on top of each package's own ghc-options).
 COMMON_GHC_FLAGS = [
     "-hide-all-packages",
+    # Each package is one `ghc --make` action; let it use all cores.
+    "-j",
     "-fno-ignore-asserts",
     "-Wall",
     "-Wcompat",
@@ -33,6 +35,15 @@ COMMON_GHC_FLAGS = [
     "-Wno-pattern-namespace-specifier",
     "-Wno-incomplete-record-selectors",
 ]
+
+# The toolchain in buck2/toolchains/BUCK passes -O unconditionally; dev mode
+# is meant to be the fast-rebuild one, so switch optimisation off there. Later
+# flags win in GHC, and buck2/haskell.bzl adds -O again after these in opt
+# mode.
+_BUILD_MODE_FLAGS = select({
+    "root//buck2/constraints:opt": [],
+    "DEFAULT": ["-O0"],
+})
 
 # ---------------------------------------------------------------------------
 # Paths_<pkg>
@@ -63,7 +74,7 @@ def cabal_library(name, srcs = [], packages = [], deps = [], compiler_flags = []
         packages = packages,
         deps = deps,
         fb_haskell = False,
-        compiler_flags = COMMON_GHC_FLAGS + compiler_flags,
+        compiler_flags = COMMON_GHC_FLAGS + _BUILD_MODE_FLAGS + compiler_flags,
         **kwargs
     )
 
@@ -74,7 +85,7 @@ def cabal_binary(name, srcs = [], packages = [], deps = [], compiler_flags = [],
         packages = packages,
         deps = deps,
         fb_haskell = False,
-        compiler_flags = COMMON_GHC_FLAGS + compiler_flags,
+        compiler_flags = COMMON_GHC_FLAGS + _BUILD_MODE_FLAGS + compiler_flags,
         **kwargs
     )
 
@@ -87,7 +98,7 @@ def cabal_test(name, srcs = [], packages = [], deps = [], compiler_flags = [], *
         packages = packages,
         deps = deps,
         fb_haskell = False,
-        compiler_flags = COMMON_GHC_FLAGS + compiler_flags,
+        compiler_flags = COMMON_GHC_FLAGS + _BUILD_MODE_FLAGS + compiler_flags,
         **kwargs
     )
 
