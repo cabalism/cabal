@@ -50,9 +50,10 @@ project-cabal
 │   ├── install.config
 │   ├── integration-tests.config
 │   └── tests.config
-└── pkgs.config
+├── pkgs.config
+└── semaphore.config
 
-2 directories, 10 files
+2 directories, 11 files
 ```
 
 ## Package Groups
@@ -93,10 +94,17 @@ packages: cabal-dev-scripts
 
 Additional configuration is imported:
 
-| Project          | ghc-options | ghc-latest | constraints |
-|------------------|:---:        |:---:       |:---:        |
-| default          | ✓           | ✓          | ✓           |
-| libonly          | ✓           |            |             |
-| release          |             |            |             |
-| validate         | ✓           | ✓          | ✓           |
-| validate.libonly | ✓           |            | ✓           |
+| Project          | ghc-options | semaphore | ghc-latest | constraints |
+|------------------|:---:        |:---:      |:---:       |:---:        |
+| default          | ✓           | ✓         | ✓          | ✓           |
+| libonly          | ✓           |           |            |             |
+| release          |             |           |            |             |
+| validate         | ✓           | ✓         | ✓          | ✓           |
+| validate.libonly | ✓           | ✓         |            | ✓           |
+
+The `semaphore` config turns on GHC's semaphore-based parallelism, guarded by an
+`impl(ghc)` condition because older compilers do not speak the protocol version
+cabal uses and would warn on every build. Only projects that already import
+`ghc-options` import it, since those already contain a condition: using any
+conditional forces cabal to find a GHC, which makes commands like `update` and
+`sdist` require one where they otherwise would not.
