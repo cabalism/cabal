@@ -18,12 +18,15 @@ against them.
    ```
 
    The second command applies `project-buck2/patches/haskell-buck2.patch`,
-   two small fixes to the submodule that have not been upstreamed yet: the
-   dependency generator crashed on, and did not follow the dependencies of,
-   packages that cabal builds in-place; and the prelude exposed packages to
+   three small fixes to the submodule that have not been upstreamed yet:
+   the dependency generator crashed on, and did not follow the dependencies
+   of, packages that cabal builds in-place; the prelude exposed packages to
    GHC by name (`-package time`), which picked GHC's global `time-1.15`
    over the `time-1.14` in the cabal store that everything else was built
-   against. It now uses `-package-id`.
+   against, and now uses `-package-id`; and the compile action keeps its
+   previous outputs (`no_outputs_cleanup`, a TODO in the prelude for
+   hash-based GHC >= 9.4) so that `ghc --make` only recompiles changed
+   modules instead of the whole package.
 
 2. Build the dependencies with cabal and generate the buck2 view of them:
 
@@ -95,6 +98,17 @@ stanza, so update both when adding a dependency; module lists come from
   `legacy-comparison`. `native-dns` is on.
 * **alex.** `Distribution/Fields/Lexer.x` in Cabal-syntax is run through the
   `alex` that cabal built (see `third-party/haskell/tools.bzl`).
+
+## Incremental builds
+
+Each package is one `ghc --make` action, so buck2's own incrementality is
+per package. Three things make edits cheap anyway: the compile action keeps
+its `-odir`/`-hidir` between runs so GHC's recompilation checker skips
+unchanged modules (see the patch above), GHC gets `-j`, and dev mode passes
+`-O0` (the submodule's toolchain would otherwise use `-O` in every mode).
+Measured on a 24-core machine after a whitespace-only edit in
+`Cabal/src/Distribution/Simple/GHCJS.hs`: `buck2 build //...` went from
+87s to 3s, against 23s for `cabal build all --enable-tests`.
 
 ## Covered components
 
