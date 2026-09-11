@@ -11,6 +11,7 @@ import Distribution.ModuleName (ModuleName)
 import Distribution.Types.BuildInfo (BuildInfo)
 import Distribution.Types.Library (Library)
 import Distribution.Types.LibraryName (LibraryName)
+import Distribution.Types.LibraryStanza (LibraryStanza)
 import Distribution.Types.LibraryVisibility (LibraryVisibility)
 import Distribution.Types.ModuleReexport (ModuleReexport)
 
@@ -39,6 +40,10 @@ libExposed f s = fmap (\x -> s{T.libExposed = x}) (f (T.libExposed s))
 libVisibility :: Lens' Library LibraryVisibility
 libVisibility f s = fmap (\x -> s{T.libVisibility = x}) (f (T.libVisibility s))
 {-# INLINE libVisibility #-}
+
+libStanza :: Lens' Library LibraryStanza
+libStanza f s = fmap (\x -> s{T.libStanza = x}) (f (T.libStanza s))
+{-# INLINE libStanza #-}
 
 libBuildInfo :: Lens' Library BuildInfo
 libBuildInfo f s = fmap (\x -> s{T.libBuildInfo = x}) (f (T.libBuildInfo s))

@@ -319,6 +319,9 @@ executable cabal
 library testlib
     import: warnings, base-dep, cabal-dep, cabal-syntax-dep, cabal-install-solver-dep
     visibility: private
+    -- only requested when test-suites are, so its test-only dependencies stay
+    -- out of solves that set tests: False (such as cabal.bootstrap.project)
+    stanza: test
     default-language: GHC2021
     -- Disabling ImportQualifiedPost, otherwise fourmolu jumps ahead to apply it everywhere
     default-extensions: NoImportQualifiedPost

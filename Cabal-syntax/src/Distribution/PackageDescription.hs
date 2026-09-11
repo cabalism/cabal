@@ -21,6 +21,7 @@ module Distribution.PackageDescription
     -- ** Library
   , module Distribution.Types.Library
   , module Distribution.Types.LibraryName
+  , module Distribution.Types.LibraryStanza
   , module Distribution.Types.LibraryVisibility
 
     -- ** Executable
@@ -109,6 +110,7 @@ import Distribution.Types.IncludeRenaming
 import Distribution.Types.LegacyExeDependency
 import Distribution.Types.Library
 import Distribution.Types.LibraryName
+import Distribution.Types.LibraryStanza
 import Distribution.Types.LibraryVisibility
 import Distribution.Types.Mixin
 import Distribution.Types.ModuleReexport

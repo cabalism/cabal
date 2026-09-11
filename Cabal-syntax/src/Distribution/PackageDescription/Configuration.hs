@@ -362,14 +362,17 @@ overallDependencies enabled (TargetSet targets) = mconcat depss
         enabled
         (CLibName LMainLibName)
     removeDisabledSections (SubComp t c) =
-      -- Do NOT use componentName
-      componentNameRequested enabled $
-        case c of
+      -- a library may sit in an optional stanza, which the name alone cannot say
+      isNothing (libraryStanzaNotRequestedReason enabled c)
+        && componentNameRequested enabled
+        ( -- Do NOT use componentName
+          case c of
           CLib _ -> CLibName (LSubLibName t)
           CFLib _ -> CFLibName t
           CExe _ -> CExeName t
           CTest _ -> CTestName t
           CBench _ -> CBenchName t
+        )
     removeDisabledSections PDNull = True
 
 -- | Collect up the targets in a TargetSet of tagged targets, storing the

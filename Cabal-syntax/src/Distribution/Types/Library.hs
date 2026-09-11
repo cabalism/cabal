@@ -11,6 +11,7 @@ import Prelude ()
 import Distribution.ModuleName
 import Distribution.Types.BuildInfo
 import Distribution.Types.LibraryName
+import Distribution.Types.LibraryStanza
 import Distribution.Types.LibraryVisibility
 import Distribution.Types.ModuleReexport
 
@@ -26,6 +27,9 @@ data Library = Library
   -- ^ Is the lib to be exposed by default? (i.e. whether its modules available in GHCi for example)
   , libVisibility :: LibraryVisibility
   -- ^ Whether this multilib can be used as a dependency for other packages.
+  , libStanza :: LibraryStanza
+  -- ^ Which optional stanza, if any, this library belongs to. A library in an
+  -- optional stanza is requested only when that stanza is.
   , libBuildInfo :: BuildInfo
   }
   deriving (Generic, Show, Eq, Ord, Read, Data)
@@ -46,6 +50,7 @@ emptyLibrary =
     , signatures = mempty
     , libExposed = True
     , libVisibility = mempty
+    , libStanza = mempty
     , libBuildInfo = mempty
     }
 
@@ -68,6 +73,7 @@ instance Semigroup Library where
       , signatures = combine signatures
       , libExposed = libExposed a && libExposed b -- so False propagates
       , libVisibility = combine libVisibility
+      , libStanza = combine libStanza
       , libBuildInfo = combine libBuildInfo
       }
     where

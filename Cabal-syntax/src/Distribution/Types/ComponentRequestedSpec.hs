@@ -6,6 +6,7 @@ module Distribution.Types.ComponentRequestedSpec
   , componentNameRequested
   , componentEnabled
   , componentDisabledReason
+  , libraryStanzaNotRequestedReason
   ) where
 
 import Distribution.Compat.Prelude
@@ -13,6 +14,8 @@ import Prelude ()
 
 import Distribution.Types.Component -- TODO: maybe remove me?
 import Distribution.Types.ComponentName
+import Distribution.Types.Library (Library (..))
+import Distribution.Types.LibraryStanza
 
 import Distribution.Pretty (prettyShow)
 
@@ -99,7 +102,25 @@ componentDisabledReason
   -> Maybe ComponentDisabledReason
 componentDisabledReason enabled comp
   | not (componentBuildable comp) = Just DisabledComponent
+  | Just r <- libraryStanzaNotRequestedReason enabled comp = Just r
   | otherwise = componentNameNotRequestedReason enabled (componentName comp)
+
+-- | A library placed in an optional stanza is requested only when that stanza
+-- is. Unlike test-suites and benchmarks this cannot be decided from the
+-- component's name, so it needs the component itself.
+libraryStanzaNotRequestedReason
+  :: ComponentRequestedSpec
+  -> Component
+  -> Maybe ComponentDisabledReason
+libraryStanzaNotRequestedReason enabled (CLib lib) = case libStanza lib of
+  LibraryStanzaAlways -> Nothing
+  LibraryStanzaTest
+    | ComponentRequestedSpec{testsRequested = False} <- enabled -> Just DisabledAllTests
+    | otherwise -> Nothing
+  LibraryStanzaBench
+    | ComponentRequestedSpec{benchmarksRequested = False} <- enabled -> Just DisabledAllBenchmarks
+    | otherwise -> Nothing
+libraryStanzaNotRequestedReason _ _ = Nothing
 
 -- | Is this component name disabled, and if so, why?
 --

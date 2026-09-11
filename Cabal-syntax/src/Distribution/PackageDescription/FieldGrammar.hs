@@ -167,6 +167,7 @@ packageDescriptionFieldGrammar = do
 libraryFieldGrammar
   :: ( FieldGrammar c g
      , c (Identity LibraryVisibility)
+     , c (Identity LibraryStanza)
      , c (List CommaFSep (Identity ExeDependency) ExeDependency)
      , c (List CommaFSep (Identity LegacyExeDependency) LegacyExeDependency)
      , c (List CommaFSep (Identity PkgconfigDependency) PkgconfigDependency)
@@ -198,9 +199,21 @@ libraryFieldGrammar libName = do
       ^^^ availableSince CabalSpecV2_0 []
   libExposed <- booleanFieldDef "exposed" L.libExposed True
   libVisibility <- visibilityField
+  libStanza <- stanzaField
   libBuildInfo <- blurFieldGrammar L.libBuildInfo buildInfoFieldGrammar
   pure Library{..}
   where
+    -- only sublibraries may sit in an optional stanza; the main library is
+    -- always requested
+    stanzaField = case libName of
+      LMainLibName -> pure LibraryStanzaAlways
+      LSubLibName _ ->
+        -- PROTOTYPE: the shipped field should be gated
+        -- @^^^ availableSince CabalSpecV3_20 LibraryStanzaAlways@. That is
+        -- relaxed here only because the in-tree Cabal is 3.19, so no available
+        -- Cabal can satisfy a @cabal-version: 3.20@ package and cabal-install
+        -- itself could not then be built.
+        optionalFieldDef "stanza" L.libStanza LibraryStanzaAlways
     visibilityField = case libName of
       -- nameless/"main" libraries are public
       LMainLibName -> pure LibraryVisibilityPublic
