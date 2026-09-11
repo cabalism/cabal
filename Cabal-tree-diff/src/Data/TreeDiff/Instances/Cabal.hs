@@ -117,6 +117,7 @@ instance ToExpr LegacyExeDependency
 instance ToExpr LibVersionInfo
 instance ToExpr Library
 instance ToExpr LibraryName
+instance ToExpr LibraryStanza
 instance ToExpr LibraryVisibility
 instance ToExpr Mixin
 instance ToExpr ModuleName

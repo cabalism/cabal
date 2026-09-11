@@ -830,6 +830,7 @@ testSuiteLibV09AsLibAndExe
           , signatures = []
           , libExposed = True
           , libVisibility = LibraryVisibilityPrivate
+          , libStanza = LibraryStanzaAlways
           , libBuildInfo = bi
           }
       -- This is, like, the one place where we use a CTestName for a library.
