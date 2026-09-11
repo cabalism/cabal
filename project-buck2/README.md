@@ -15,19 +15,18 @@ against them.
 
    ```
    git submodule update --init buck2
-   sh project-buck2/apply-patches.sh
    ```
 
-   The second command applies `project-buck2/patches/haskell-buck2.patch`,
-   three small fixes to the submodule that have not been upstreamed yet:
-   the dependency generator crashed on, and did not follow the dependencies
-   of, packages that cabal builds in-place; the prelude exposed packages to
-   GHC by name (`-package time`), which picked GHC's global `time-1.15`
-   over the `time-1.14` in the cabal store that everything else was built
-   against, and now uses `-package-id`; and the compile action keeps its
-   previous outputs (`no_outputs_cleanup`, a TODO in the prelude for
-   hash-based GHC >= 9.4) so that `ghc --make` only recompiles changed
-   modules instead of the whole package.
+   The fork's `add/cabal-repo` branch carries three fixes on top of
+   upstream that this repository needs and that have not been upstreamed
+   yet: the dependency generator crashed on, and did not follow the
+   dependencies of, packages that cabal builds in-place; the prelude
+   exposed packages to GHC by name (`-package time`), which picked GHC's
+   global `time-1.15` over the `time-1.14` in the cabal store that
+   everything else was built against, and now uses `-package-id`; and the
+   compile action keeps its previous outputs (`no_outputs_cleanup`, a TODO
+   in the prelude for hash-based GHC >= 9.4) so that `ghc --make` only
+   recompiles changed modules instead of the whole package.
 
 2. Build the dependencies with cabal and generate the buck2 view of them:
 
@@ -70,7 +69,6 @@ against them.
 | `.buckconfig`, `PACKAGE` | Cells (root, `prelude`, `toolchains`, `third-party`) and the build-mode modifiers. |
 | `project-buck2/cabal.bzl` | `cabal_library`, `cabal_binary`, `cabal_test` and `cabal_paths_module`, thin wrappers over `buck2/haskell.bzl`. |
 | `project-buck2/cfg.bzl` | The `dev`/`opt`/`prof`/`asan` aliases for `-m`. |
-| `project-buck2/patches/`, `apply-patches.sh` | Local fixes to the submodule, see Setup. |
 | `project-buck2/fetch-inplace-deps.py`, `vendor/` | Hackage packages that cabal builds in-place, built from source. |
 | `*/src/BUCK`, `cabal-install/main/BUCK`, `*/tests/BUCK` | One target per Cabal component, in its `hs-source-dirs`. |
 | `Cabal/BUCK`, `cabal-install/BUCK` | The generated `Paths_Cabal` and `Paths_cabal_install` modules. |
@@ -105,7 +103,7 @@ stanza, so update both when adding a dependency; module lists come from
 Each package is one `ghc --make` action, so buck2's own incrementality is
 per package. Three things make edits cheap anyway: the compile action keeps
 its `-odir`/`-hidir` between runs so GHC's recompilation checker skips
-unchanged modules (see the patch above), GHC gets `-j` with a 64MB
+unchanged modules (see Setup), GHC gets `-j` with a 64MB
 allocation area (`+RTS -A64m`, which cut a clean build from 26s to 20s), and
 dev mode passes `-O0` (the submodule's toolchain would otherwise use `-O` in
 every mode).
