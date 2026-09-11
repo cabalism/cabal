@@ -19,8 +19,13 @@ load("//buck2:haskell.bzl", _haskell_binary = "haskell_binary", _haskell_library
 # project-cabal/ghc-options.config on top of each package's own ghc-options).
 COMMON_GHC_FLAGS = [
     "-hide-all-packages",
-    # Each package is one `ghc --make` action; let it use all cores.
+    # Each package is one `ghc --make` action; let it use all cores. GHC's
+    # parallel compile is GC-bound with the default 4MB allocation area: a
+    # 64MB one took a clean build of everything from 26s to 20s here.
     "-j",
+    "+RTS",
+    "-A64m",
+    "-RTS",
     "-fno-ignore-asserts",
     "-Wall",
     "-Wcompat",
