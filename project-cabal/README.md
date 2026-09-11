@@ -102,9 +102,13 @@ Additional configuration is imported:
 | validate         | ✓           | ✓         | ✓          | ✓           |
 | validate.libonly | ✓           | ✓         |            | ✓           |
 
-The `semaphore` config turns on GHC's semaphore-based parallelism, guarded by an
-`impl(ghc)` condition because older compilers do not speak the protocol version
-cabal uses and would warn on every build. Only projects that already import
-`ghc-options` import it, since those already contain a condition: using any
-conditional forces cabal to find a GHC, which makes commands like `update` and
-`sdist` require one where they otherwise would not.
+The `semaphore` config turns on GHC's semaphore-based parallelism, setting both
+`semaphore` and the `jobs` its token count comes from, since `jobs` defaults to 1
+and a one-token semaphore buys nothing. An explicit `-j` on the command line still
+wins, so CI passing `-j 2` is unaffected.
+
+Both are guarded by an `impl(ghc)` condition, because older compilers do not speak
+the protocol version cabal uses and would warn on every build. Only projects that
+already import `ghc-options` import it, since those already contain a condition:
+using any conditional forces cabal to find a GHC, which makes commands like
+`update` and `sdist` require one where they otherwise would not.
