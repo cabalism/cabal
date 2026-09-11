@@ -383,7 +383,28 @@ Job and concurrency options
     This semaphore is passed to GHC, which allows it to use any leftover parallelism
     that ``cabal-install`` is not using.
 
-    Requires ``ghc >= 9.8``.
+    Because the token count comes from ``jobs``, which :cfg-field:`defaults to 1 <jobs>`,
+    this option does nothing on its own: it creates a one-token semaphore. Set ``jobs``
+    (or pass ``-j``) as well to get any parallelism from it.
+
+    Requires a compiler that speaks the same semaphore protocol version as
+    ``cabal-install``, which since ``semaphore-compat-2.0.0`` is version 2. A compiler
+    reports the version it speaks in ``ghc --info``::
+
+        $ ghc --info | grep -i semaphore
+         ,("Semaphore version","2")
+
+    A compiler that does not report that field at all is assumed to speak version 1 and
+    is **not** compatible: ``cabal-install`` emits a version-mismatch warning and builds
+    without semaphore-based parallelism. GHC 9.8 through 9.14.1 report no field, so this
+    option is inert on them.
+
+    Because support therefore cannot be determined from the GHC version alone in a
+    forward-compatible way, a project that wants this on only where it works can guard it
+    with a :ref:`conditional <conditionals and imports>`, for example::
+
+        if impl(ghc > 9.14.1)
+          semaphore: True
 
     The command line variant of this field is ``--semaphore``.
 
