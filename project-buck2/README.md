@@ -1,7 +1,8 @@
 # Building cabal with buck2
 
 This directory, together with the `buck2/` git submodule
-([simonmar/haskell-buck2](https://github.com/simonmar/haskell-buck2)), lets
+([cabalism/haskell-buck2](https://github.com/cabalism/haskell-buck2), a fork
+of [simonmar/haskell-buck2](https://github.com/simonmar/haskell-buck2)), lets
 you use [Buck2](https://buck2.build/) for the edit-compile-test loop on the
 packages in this repository. Cabal is still needed: it solves and builds the
 Hackage dependencies, and buck2 only builds the code in this repository
