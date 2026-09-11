@@ -1,4 +1,5 @@
 import: project-cabal/ghc-options.config
+import: project-cabal/semaphore.config
 import: project-cabal/pkgs/cabal.config
 import: project-cabal/pkgs/tests.config
 import: project-cabal/pkgs/integration-tests.config
