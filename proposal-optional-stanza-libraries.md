@@ -178,7 +178,9 @@ stanza: always | test | bench
 ```
 
 - Default `always`, which is the current behaviour.
-- Accepted only on sublibraries. On the main library it is a parse error.
+- Accepted only on sublibraries. On the main library it is an unrecognised
+  field, warned about and ignored -- the same treatment `visibility:` already
+  gets there, so this is consistent rather than special.
 - Requires `cabal-version: 3.20` or later.
 - A library with `stanza: test` is requested iff test-suites are requested, and
   likewise for `bench`. Being *requested* is necessary but not sufficient for being
@@ -217,7 +219,25 @@ would be left with a missing dependency whenever the stanza is disabled. Either
 move the dependency into the test stanza too, or take the library out of it.
 ```
 
-Two notes on the rule as implemented:
+Three further rules accompany it.
+
+**A stanza-scoped library may not be `public`** (`public-stanza-library`, also
+`PackageBuildImpossible`). Whether a stanza is requested is part of *this*
+package's configuration, so a package depending on this one has no way to ask for
+it; such a library could never be satisfied from outside.
+
+**The `stanza` field may not be set inside a conditional**
+(`conditional-stanza`, `PackageBuildImpossible`). A component's stanza has to be
+known before conditions are resolved -- the solver reads it from the condition
+tree's root -- so a conditional setting would be quietly ignored. Rejecting it is
+better than silently taking the root value.
+
+**A stanza-scoped library that nothing in its stanza depends on is warned about**
+(`unused-stanza-library`, `PackageBuildWarning`, so not fatal). It would never be
+requested and so never built. A library in the same stanza counts as a user, not
+just a test-suite or benchmark.
+
+Two notes on the cross-stanza rule as implemented:
 
 - A component's own stanza is what it may depend on: a test-suite may depend on a
   `stanza: test` library, a benchmark on a `stanza: bench` one, and any component
@@ -360,7 +380,7 @@ alone decides.
 | `cabal-install/.../ProjectPlanning.hs` | `componentAvailableTargetStatus` asks the component; the two disabled statuses carry the stanza |
 | `cabal-install/.../TargetProblem.hs`, `ProjectOrchestration.hs`, `CmdErrorMessages.hs`, `CmdHaddock.hs` | stanza threaded to the renderers; messages name the stanza |
 | `cabal-install/tests/IntegrationTests2.hs` | fixtures updated with the stanza |
-| `Cabal/.../Check.hs`, `Check/Warning.hs` | the `cross-stanza-dependency` check |
+| `Cabal/.../Check.hs`, `Check/Warning.hs` | four checks: `cross-stanza-dependency`, `public-stanza-library`, `conditional-stanza`, `unused-stanza-library` |
 | `Cabal-tests/.../Utils/Structured.hs` | golden structure hashes for `GenericPackageDescription` and `LocalBuildInfo` |
 
 The solver change is the whole mechanism, and it is small:
@@ -393,10 +413,8 @@ part of the change rather than test churn to be papered over.
 
 ### Not implemented
 
-- Further `cabal check` rules, such as warning about a stanza-scoped
-  sublibrary that no component in that stanza depends on.
-- A conditional `stanza:` field is read from the condition tree's root and
-  otherwise ignored. It should probably be rejected outright.
+- Golden `cabal check` test cases for the four new findings, under
+  `Cabal-tests/tests/CheckTests.hs`.
 - Explicit-target behaviour (`cabal build pkg:lib:testlib` with tests disabled) is
   untested.
 - `optionalStanza` (`CmdErrorMessages.hs`) still answers from the component's
