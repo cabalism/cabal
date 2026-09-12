@@ -41,9 +41,9 @@ libVisibility :: Lens' Library LibraryVisibility
 libVisibility f s = fmap (\x -> s{T.libVisibility = x}) (f (T.libVisibility s))
 {-# INLINE libVisibility #-}
 
-libStanza :: Lens' Library LibraryStanza
-libStanza f s = fmap (\x -> s{T.libStanza = x}) (f (T.libStanza s))
-{-# INLINE libStanza #-}
+libStanzas :: Lens' Library [LibraryStanza]
+libStanzas f s = fmap (\x -> s{T.libStanzas = x}) (f (T.libStanzas s))
+{-# INLINE libStanzas #-}
 
 libBuildInfo :: Lens' Library BuildInfo
 libBuildInfo f s = fmap (\x -> s{T.libBuildInfo = x}) (f (T.libBuildInfo s))
