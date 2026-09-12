@@ -1,6 +1,25 @@
 # Libraries in optional stanzas
 
-## Problem
+## Summary
+
+A library component may declare that it belongs to one or more optional stanzas:
+
+```cabal
+library testlib
+  visibility: private
+  stanza: test, bench
+```
+
+Such a library is *requested* exactly when one of those stanzas is, in the same
+way a test-suite is requested only under `--enable-tests`. Its dependencies are
+therefore not resolved for builds that want neither the tests nor the benchmarks,
+which lets a package share helper modules between its test-suites without those
+helpers' dependencies reaching every build.
+
+A library naming no stanzas -- the default, and what omitting the field means --
+is always requested, exactly as today.
+
+## Motivation
 
 A package whose test-suites share helper modules has nowhere good to put them.
 
@@ -93,7 +112,7 @@ nothing keeps in sync: every project that builds the test-suites must set
 `Dependency on unbuildable package cabal-install`, which does not hint at the
 cause.
 
-## Proposal
+## Proposed Change
 
 Let a sublibrary declare that it belongs to an optional stanza:
 
@@ -113,103 +132,6 @@ library is always requested.
 
 This needs no new concept in the solver, which already models the optional
 stanzas as decision variables rather than inputs.
-
-## Why this shape
-
-`cabal-install`'s solver does not receive a `ComponentRequestedSpec`.
-`Distribution.Solver.Modular.IndexConversion.convGPD` converts a package's
-components with `os`, `arch` and the compiler only, and expresses the optional
-stanzas as a dependency constructor:
-
-```haskell
-data FlaggedDep qpn =
-    Flagged (FN qpn) FInfo (TrueFlaggedDeps qpn) (FalseFlaggedDeps qpn)
-  | Stanza  (SN qpn)       (TrueFlaggedDeps qpn)
-  | Simple (LDep qpn) Component
-```
-
-Test-suite dependencies are already emitted under `prefix (Stanza (SN pn TestStanzas))`.
-Placing a stanza-scoped sublibrary's dependencies in the same group is all the
-solver change amounts to.
-
-The alternative of adding a condition to the `.cabal` conditional language --
-`if tests()`, parallel to `if impl(ghc)` -- does not work as well:
-
-- `ConfVar` has four constructors (`OS`, `Arch`, `PackageFlag`, `Impl`) and is
-  shared with `cabal.project` parsing via `Distribution.Fields.ConfVar.parseConditionConfVar`.
-  A new constructor becomes syntactically valid in project files, where it is
-  meaningless and where unhandled `ConfVar`s currently reach a raw `error` call in
-  `Distribution.Client.ProjectConfig.Legacy`.
-- The natural spelling is negative (`if !tests() buildable: False`), but `Stanza`
-  carries only true-branch dependencies, unlike `Flagged`. Supporting it would mean
-  extending the solver's stanza representation with a false branch.
-
-Component scope is also the more honest model: "this component exists for the
-tests" is a property of the component, not a condition on its contents.
-
-A third option, raised alongside `test-only:` in #10900, is a new component
-*kind* -- a `test-library` or `testlib` stanza beside `library`. That has one
-real attraction: optionality would follow from the component's name again, so the
-name-keyed functions described above would keep working untouched, and none of
-the plumbing this proposal had to change would need changing.
-
-It costs more elsewhere, though. A component kind is part of a component's
-identity: `ComponentName`, the solver's `Component`, target syntax such as
-`pkg:lib:foo`, unit ids, the installed package database, Backpack, and every
-consumer that pattern-matches those. A field on `Library` reuses the existing
-library component wholesale and leaves all of that alone. The new kind would also
-need a sibling for benchmarks, and a third for a helper shared by both -- the
-same dead end a boolean reaches.
-
-## Naming
-
-The field is spelled `stanza:` throughout this document and in the prototype, but
-that spelling is provisional and probably wrong. It is recorded here so the
-question is settled deliberately rather than by inheritance from the prototype.
-
-**`stanza:` collides with an established meaning.** In user-facing documentation
-"stanza" already means *a group of fields*, and the project file documentation
-defines it that way outright: fields "live inside stanzas (groups of fields that
-apply to only part of a project)". The docs speak of the `library` stanza, the
-`source-repository-package` stanza, `common` stanzas, "a typical stanza for a
-foreign library". Under that reading, `stanza: test` written inside a
-`library testlib` stanza says "this group of fields is test", which is not the
-intended meaning at all.
-
-The term is also internal. `OptionalStanza` is a solver and `cabal-install` type;
-no user-facing document uses the phrase "optional stanza". The corresponding
-user-facing vocabulary is the project fields `tests:` and `benchmarks:` and the
-flags `--enable-tests` and `--disable-tests`.
-
-That suggests naming the field after what the user already types. Candidates:
-
-| spelling | reads as | notes |
-| --- | --- | --- |
-| `enabled-by: tests` | "this library is enabled by `tests`" | values match the `tests:`/`benchmarks:` project fields and `--enable-tests` exactly; the word "enabled" is, however, already load-bearing in Cabal, where *enabled* means buildable **and** requested |
-| `requested-by: tests` | "requested when `tests` are" | matches Cabal's own terminology precisely: `--enable-tests` is what *requests* a component, per `Distribution.Types.ComponentRequestedSpec` |
-| `optional: tests` | "optional, along with `tests`" | short, but says nothing about which stanza without reading the value |
-| `test-only: True` | "only for tests" | clearest at a glance, and what [#10900](https://github.com/haskell/cabal/issues/10900) converged on, but it is a boolean: it needs a second field for benchmarks and still cannot say "either" |
-| `scope: test` | "scoped to tests" | "scope" is overloaded in Cabal already (dependency scope, visibility) |
-| `stanza: test` | -- | collides as described above |
-
-`requested-by: tests` is the recommendation. It reuses the word Cabal's own
-documentation uses for exactly this state, it keeps *enabled* free for its
-existing meaning, and its values are the ones users already write in
-`cabal.project`.
-
-Two sub-questions go with it:
-
-- **Plural values.** `tests` and `benchmarks` match `--enable-tests` and the
-  project fields; `test` and `bench` match the internal constructors
-  (`TestStanzas`, `BenchStanzas`). The user-facing plural is preferable.
-- **The default.** The prototype spells it `always`, which reads oddly against a
-  `requested-by:` field. Omitting the field is the default in any case, so the
-  explicit form could simply be dropped, or spelled `requested-by: none`.
-
-Renaming is mechanical: the field name appears once in the field grammar, and the
-constructor names are internal to `Distribution.Types.LibraryStanza`.
-
-## Specification
 
 A new field on library components, spelled here as `stanza:` but see
 [Naming](#naming) -- `requested-by:` is the recommended spelling:
@@ -360,6 +282,187 @@ no check in `Cabal` reports that a list field was written empty, and
 `stanza:` as equivalent to omitting it is the behaviour consistent with the rest
 of the format.
 
+**Explicit targets.** `cabal build pkg:lib:testlib` with tests disabled should
+behave as `cabal build pkg:test:foo` does today, which is to fail with a specific
+explanation rather than silently enabling the stanza:
+
+```
+Error: [Cabal-7127]
+Cannot build the test suite 'unit-tests' because building test suites has been
+explicitly disabled in the configuration. ...
+```
+
+Reaching that required a change beyond the solver, because
+`componentAvailableTargetStatus` in `Distribution.Client.ProjectPlanning` asks
+`componentOptionalStanza` -- which answers from the component's *name* -- whether
+a component belongs to an optional stanza. For a library it answered "no", so the
+component was treated as always available, and asking for it with tests disabled
+produced an internal error rather than a diagnosis:
+
+```
+Error: [Cabal-7127]
+Internal error when trying to build the library 'testlib' from the package
+cabal-install-3.19.0.0. The package,component pair is not in the set of
+available targets for the project plan, which would suggest an inconsistency
+between readTargetSelectors and resolveTargets.
+```
+
+The fix is that a library must be asked, not its name. That function already
+receives the whole component, so it is a local change; the shared conversion
+`libraryStanzaToOptionalStanza` now lives beside `OptionalStanza`.
+
+That produced the right error class but the wrong noun -- "because building
+*libraries* has been explicitly disabled" -- because `renderTargetProblem`
+derived it with `renderComponentKind Plural (componentKind cname)`, which was
+only ever right while an optional component was always a test-suite or benchmark.
+Naming the stanza instead means carrying it, and the stanza is *not* known where
+the problem is constructed: `selectComponentTargetBasic` sees only the
+`AvailableTargetStatus`. So the two disabled statuses now carry it:
+
+```haskell
+    TargetDisabledByUser (Maybe OptionalStanza)
+  | TargetDisabledBySolver (Maybe OptionalStanza)
+```
+
+and `TargetOptionalStanzaDisabledByUser` / `...BySolver` carry it onward to the
+renderer. The result reads correctly for both kinds of component:
+
+```
+Cannot build the library 'testlib' because building test suites has been
+explicitly disabled in the configuration. ...
+
+Cannot build the test suite 'unit-tests' because building test suites has been
+explicitly disabled in the configuration. ...
+```
+
+The field is `Maybe` because `Distribution.Client.CmdHaddock` repurposes
+`TargetDisabledByUser` to mean "not requested by this target filter", where no
+stanza is involved; there the renderer falls back to the component kind, which is
+the existing wording. That repurposing is arguably worth its own status
+constructor, but that is out of scope here.
+
+The distinction is observable, and `IntegrationTests2` pins it. In the haddock
+target-problem fixture a benchmark that *was* buildable is rewritten by haddock's
+filter and so carries no stanza, while a test-suite already disabled by the solver
+keeps its `Just TestStanzas`:
+
+```haskell
+  [ AvailableTarget "p-0.1" (CBenchName "user-disabled")
+      -- haddock's own target filter, not a disabled stanza
+      (TargetDisabledByUser Nothing) True
+  , AvailableTarget "p-0.1" (CTestName "solver-disabled")
+      (TargetDisabledBySolver (Just TestStanzas)) True
+```
+
+Getting this wrong is caught by the suite, which is a useful property: it means
+the two meanings cannot quietly merge again.
+
+The general lesson is that the assumption "optionality is a property of the
+component's name" is encoded in several places, and each has to be revisited. The
+prototype does so for the solver, for planning, and for the two renderers -- the
+last of which also fixes the stanza named in `TargetProblemNoneEnabled`
+messages, which had the same defect.
+
+**`cabal check`.** The validation rule above is a new check. A stanza-scoped
+sublibrary that no test-suite depends on is dead weight and could warrant a
+warning.
+
+
+## Alternatives Considered
+
+`cabal-install`'s solver does not receive a `ComponentRequestedSpec`.
+`Distribution.Solver.Modular.IndexConversion.convGPD` converts a package's
+components with `os`, `arch` and the compiler only, and expresses the optional
+stanzas as a dependency constructor:
+
+```haskell
+data FlaggedDep qpn =
+    Flagged (FN qpn) FInfo (TrueFlaggedDeps qpn) (FalseFlaggedDeps qpn)
+  | Stanza  (SN qpn)       (TrueFlaggedDeps qpn)
+  | Simple (LDep qpn) Component
+```
+
+Test-suite dependencies are already emitted under `prefix (Stanza (SN pn TestStanzas))`.
+Placing a stanza-scoped sublibrary's dependencies in the same group is all the
+solver change amounts to.
+
+The alternative of adding a condition to the `.cabal` conditional language --
+`if tests()`, parallel to `if impl(ghc)` -- does not work as well:
+
+- `ConfVar` has four constructors (`OS`, `Arch`, `PackageFlag`, `Impl`) and is
+  shared with `cabal.project` parsing via `Distribution.Fields.ConfVar.parseConditionConfVar`.
+  A new constructor becomes syntactically valid in project files, where it is
+  meaningless and where unhandled `ConfVar`s currently reach a raw `error` call in
+  `Distribution.Client.ProjectConfig.Legacy`.
+- The natural spelling is negative (`if !tests() buildable: False`), but `Stanza`
+  carries only true-branch dependencies, unlike `Flagged`. Supporting it would mean
+  extending the solver's stanza representation with a false branch.
+
+Component scope is also the more honest model: "this component exists for the
+tests" is a property of the component, not a condition on its contents.
+
+A third option, raised alongside `test-only:` in #10900, is a new component
+*kind* -- a `test-library` or `testlib` stanza beside `library`. That has one
+real attraction: optionality would follow from the component's name again, so the
+name-keyed functions described above would keep working untouched, and none of
+the plumbing this proposal had to change would need changing.
+
+It costs more elsewhere, though. A component kind is part of a component's
+identity: `ComponentName`, the solver's `Component`, target syntax such as
+`pkg:lib:foo`, unit ids, the installed package database, Backpack, and every
+consumer that pattern-matches those. A field on `Library` reuses the existing
+library component wholesale and leaves all of that alone. The new kind would also
+need a sibling for benchmarks, and a third for a helper shared by both -- the
+same dead end a boolean reaches.
+
+### Naming
+
+The field is spelled `stanza:` throughout this document and in the prototype, but
+that spelling is provisional and probably wrong. It is recorded here so the
+question is settled deliberately rather than by inheritance from the prototype.
+
+**`stanza:` collides with an established meaning.** In user-facing documentation
+"stanza" already means *a group of fields*, and the project file documentation
+defines it that way outright: fields "live inside stanzas (groups of fields that
+apply to only part of a project)". The docs speak of the `library` stanza, the
+`source-repository-package` stanza, `common` stanzas, "a typical stanza for a
+foreign library". Under that reading, `stanza: test` written inside a
+`library testlib` stanza says "this group of fields is test", which is not the
+intended meaning at all.
+
+The term is also internal. `OptionalStanza` is a solver and `cabal-install` type;
+no user-facing document uses the phrase "optional stanza". The corresponding
+user-facing vocabulary is the project fields `tests:` and `benchmarks:` and the
+flags `--enable-tests` and `--disable-tests`.
+
+That suggests naming the field after what the user already types. Candidates:
+
+| spelling | reads as | notes |
+| --- | --- | --- |
+| `enabled-by: tests` | "this library is enabled by `tests`" | values match the `tests:`/`benchmarks:` project fields and `--enable-tests` exactly; the word "enabled" is, however, already load-bearing in Cabal, where *enabled* means buildable **and** requested |
+| `requested-by: tests` | "requested when `tests` are" | matches Cabal's own terminology precisely: `--enable-tests` is what *requests* a component, per `Distribution.Types.ComponentRequestedSpec` |
+| `optional: tests` | "optional, along with `tests`" | short, but says nothing about which stanza without reading the value |
+| `test-only: True` | "only for tests" | clearest at a glance, and what [#10900](https://github.com/haskell/cabal/issues/10900) converged on, but it is a boolean: it needs a second field for benchmarks and still cannot say "either" |
+| `scope: test` | "scoped to tests" | "scope" is overloaded in Cabal already (dependency scope, visibility) |
+| `stanza: test` | -- | collides as described above |
+
+`requested-by: tests` is the recommendation. It reuses the word Cabal's own
+documentation uses for exactly this state, it keeps *enabled* free for its
+existing meaning, and its values are the ones users already write in
+`cabal.project`.
+
+Two sub-questions go with it:
+
+- **Plural values.** `tests` and `benchmarks` match `--enable-tests` and the
+  project fields; `test` and `bench` match the internal constructors
+  (`TestStanzas`, `BenchStanzas`). The user-facing plural is preferable.
+- **The default.** The prototype spells it `always`, which reads oddly against a
+  `requested-by:` field. Omitting the field is the default in any case, so the
+  explicit form could simply be dropped, or spelled `requested-by: none`.
+
+Renaming is mechanical: the field name appears once in the field grammar, and the
+constructor names are internal to `Distribution.Types.LibraryStanza`.
+
 ## Relation to haskell/cabal#10900
 
 Issue [#10900](https://github.com/haskell/cabal/issues/10900) asks for the same
@@ -457,92 +560,7 @@ down". That matches what the flag experiment here found, and is worth citing as
 evidence that the workaround is not merely inconvenient but structurally unable
 to serve the multi-package case.
 
-## Interactions
-
-**Explicit targets.** `cabal build pkg:lib:testlib` with tests disabled should
-behave as `cabal build pkg:test:foo` does today, which is to fail with a specific
-explanation rather than silently enabling the stanza:
-
-```
-Error: [Cabal-7127]
-Cannot build the test suite 'unit-tests' because building test suites has been
-explicitly disabled in the configuration. ...
-```
-
-Reaching that required a change beyond the solver, because
-`componentAvailableTargetStatus` in `Distribution.Client.ProjectPlanning` asks
-`componentOptionalStanza` -- which answers from the component's *name* -- whether
-a component belongs to an optional stanza. For a library it answered "no", so the
-component was treated as always available, and asking for it with tests disabled
-produced an internal error rather than a diagnosis:
-
-```
-Error: [Cabal-7127]
-Internal error when trying to build the library 'testlib' from the package
-cabal-install-3.19.0.0. The package,component pair is not in the set of
-available targets for the project plan, which would suggest an inconsistency
-between readTargetSelectors and resolveTargets.
-```
-
-The fix is that a library must be asked, not its name. That function already
-receives the whole component, so it is a local change; the shared conversion
-`libraryStanzaToOptionalStanza` now lives beside `OptionalStanza`.
-
-That produced the right error class but the wrong noun -- "because building
-*libraries* has been explicitly disabled" -- because `renderTargetProblem`
-derived it with `renderComponentKind Plural (componentKind cname)`, which was
-only ever right while an optional component was always a test-suite or benchmark.
-Naming the stanza instead means carrying it, and the stanza is *not* known where
-the problem is constructed: `selectComponentTargetBasic` sees only the
-`AvailableTargetStatus`. So the two disabled statuses now carry it:
-
-```haskell
-    TargetDisabledByUser (Maybe OptionalStanza)
-  | TargetDisabledBySolver (Maybe OptionalStanza)
-```
-
-and `TargetOptionalStanzaDisabledByUser` / `...BySolver` carry it onward to the
-renderer. The result reads correctly for both kinds of component:
-
-```
-Cannot build the library 'testlib' because building test suites has been
-explicitly disabled in the configuration. ...
-
-Cannot build the test suite 'unit-tests' because building test suites has been
-explicitly disabled in the configuration. ...
-```
-
-The field is `Maybe` because `Distribution.Client.CmdHaddock` repurposes
-`TargetDisabledByUser` to mean "not requested by this target filter", where no
-stanza is involved; there the renderer falls back to the component kind, which is
-the existing wording. That repurposing is arguably worth its own status
-constructor, but that is out of scope here.
-
-The distinction is observable, and `IntegrationTests2` pins it. In the haddock
-target-problem fixture a benchmark that *was* buildable is rewritten by haddock's
-filter and so carries no stanza, while a test-suite already disabled by the solver
-keeps its `Just TestStanzas`:
-
-```haskell
-  [ AvailableTarget "p-0.1" (CBenchName "user-disabled")
-      -- haddock's own target filter, not a disabled stanza
-      (TargetDisabledByUser Nothing) True
-  , AvailableTarget "p-0.1" (CTestName "solver-disabled")
-      (TargetDisabledBySolver (Just TestStanzas)) True
-```
-
-Getting this wrong is caught by the suite, which is a useful property: it means
-the two meanings cannot quietly merge again.
-
-The general lesson is that the assumption "optionality is a property of the
-component's name" is encoded in several places, and each has to be revisited. The
-prototype does so for the solver, for planning, and for the two renderers -- the
-last of which also fixes the stanza named in `TargetProblemNoneEnabled`
-messages, which had the same defect.
-
-**`cabal check`.** The validation rule above is a new check. A stanza-scoped
-sublibrary that no test-suite depends on is dead weight and could warrant a
-warning.
+## Backwards Compatibility / Migration
 
 **Backwards compatibility.** The field is gated on `cabal-version: 3.20`, so
 older `cabal` reports an unsupported spec version rather than misreading the
@@ -571,7 +589,28 @@ should not be treated as a formality.
 **sdist and `flattenPackageDescription`.** Flattening takes all components, so
 source distributions are unaffected.
 
-## Prototype
+## Interested parties
+
+The request comes from the Haskell community rather than from `cabal`'s own
+needs: [#10900](https://github.com/haskell/cabal/issues/10900) was opened for the
+[ouroboros-consensus](https://github.com/IntersectMBO/ouroboros-consensus)
+project, which carries a set of `unstable-*-testlib` sublibraries and wants them
+neither versioned nor changelogged as public API, and needs to share them between
+test-suites in different packages. The participants in that issue are the
+parties most directly affected, and had converged on a narrower form of this
+change; they have not yet been contacted about this proposal.
+
+`cabal` itself is a second interested party: `cabal-install` has four test-suites
+sharing a source directory, and is the package the prototype uses as its subject.
+
+Anyone maintaining a package whose test-suites share helper modules is affected
+in the same way, which from a scan of Hackage is a common shape.
+
+## Implementation Notes
+
+A working prototype exists, and the author is willing to carry the change
+through. What it does and does not cover is set out below; the remaining work is
+the open questions rather than the mechanism.
 
 A working prototype accompanies this proposal, implemented against
 `cabal-install` 3.19 / GHC 9.14.1.20260728.
@@ -733,3 +772,35 @@ deserves its own status constructor, and documentation for the users' guide.
 - `CmdHaddock`'s reuse of `TargetDisabledByUser` for "not requested by this
   target filter" would be better as its own status constructor.
 - Parser round-trip tests, pretty-printer tests, documentation.
+
+## Open Questions
+
+- **The spelling of the field.** `stanza:` is used throughout the prototype and
+  is probably wrong; see [Naming](#naming), where `requested-by:` is recommended
+  and `test-only:` -- what #10900 converged on -- is discussed.
+- **Cross-package sharing.** Whether a stanza-scoped library may be `public`, and
+  what a dependency on such a library of a *non-local* package should mean. This
+  is the substantive disagreement with #10900 and is set out under
+  [Cross-package sharing is the unresolved conflict](#cross-package-sharing-is-the-unresolved-conflict).
+- **An empty `stanza:` field** is currently indistinguishable from an absent one
+  and so is not reported. Warning about it would mean typing the field as
+  `Maybe [LibraryStanza]`, and would be the first such check in `Cabal`.
+- **`CmdHaddock`'s reuse of `TargetDisabledByUser`** to mean "not requested by
+  this target filter" is why the status carries a `Maybe OptionalStanza` rather
+  than a stanza. It would be better as its own status constructor.
+- **Sequencing the `cabal-version` bump.** The field can only be used by
+  `cabal-install` itself once a released `Cabal` supports the spec version that
+  gates it.
+
+## References
+
+- [haskell/cabal#10900](https://github.com/haskell/cabal/issues/10900) -- "New
+  field on library: `test-only: Bool`", the request this proposal answers, and
+  the source of the `test-only:` and `test-library` alternatives.
+- [ouroboros-consensus](https://github.com/IntersectMBO/ouroboros-consensus) --
+  the `unstable-*-testlib` sublibraries that motivated that issue.
+- `Distribution.Types.ComponentRequestedSpec` -- the note on *buildable* versus
+  *requested* versus *enabled* components, which this proposal's semantics are
+  stated in terms of.
+- `doc/cabal-project-description-file.rst` -- the `tests:`, `benchmarks:` and
+  `semaphore:` fields, and the section on conditionals and imports.
