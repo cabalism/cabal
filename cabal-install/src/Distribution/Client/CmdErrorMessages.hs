@@ -426,7 +426,7 @@ renderTargetProblemNoneEnabled verb targetSelector targets =
             ]
             ++ " cannot be built because cabal does not currently support "
             ++ "building test suites or benchmarks of non-local dependencies"
-        (TargetBuildable () TargetNotRequestedByDefault, Just stanza) ->
+        (TargetBuildable () (TargetNotRequestedByDefault _), Just stanza) ->
           renderListCommaAnd
             [ "the " ++ showComponentName availableTargetComponentName
             | AvailableTarget{availableTargetComponentName} <- targets'
@@ -450,6 +450,7 @@ renderTargetProblemNoneEnabled verb targetSelector targets =
           -- the status carries the stanza; the component's name cannot say
           TargetDisabledByUser mst -> mst
           TargetDisabledBySolver mst -> mst
+          TargetBuildable _ (TargetNotRequestedByDefault mst) -> mst
           _ -> optionalStanza (availableTargetComponentName t)
       )
 
