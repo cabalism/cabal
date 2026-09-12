@@ -1201,9 +1201,28 @@ feature was added.
     :default: ``False``
 
     Force test suites to be enabled. For most users this should not be
-    needed, as we always attempt to solve for test suite dependencies,
-    even when this value is ``False``; furthermore, test suites are
+    needed, as we always attempt to solve for test suite dependencies
+    when the field is left unset; furthermore, test suites are
     automatically enabled if they are requested as a built target.
+
+    Note that leaving this field unset is not the same as setting it to
+    ``False``, even though ``False`` is the default:
+
+    - **Unset.** The solver is asked to *prefer* enabling the test suites of
+      local packages, so it tries to solve their dependencies and will use them
+      if it can. Those dependencies are part of the resulting plan and appear in
+      the output of ``cabal freeze``. The preference is weak, so if they
+      cannot be satisfied the solver produces a plan without the test suites
+      rather than failing.
+    - **Explicitly** ``tests: False`` **or** ``--disable-tests``. The test suites
+      are ruled out, and their dependencies are not solved for at all.
+    - **Explicitly** ``tests: True`` **or** ``--enable-tests``. The test suites
+      are required, so a dependency that cannot be satisfied is an error rather
+      than something to plan around.
+
+    So if the intent is to keep a test-only dependency out of the build plan
+    entirely -- when bootstrapping, say, or to avoid fetching it -- the field has
+    to be set to ``False`` rather than left at its default.
 
     The command line variant of this flag is ``--enable-tests`` and
     ``--disable-tests``.
@@ -1216,9 +1235,14 @@ feature was added.
     :default: ``False``
 
     Force benchmarks to be enabled. For most users this should not be
-    needed, as we always attempt to solve for benchmark dependencies,
-    even when this value is ``False``; furthermore, benchmarks are
+    needed, as we always attempt to solve for benchmark dependencies
+    when the field is left unset; furthermore, benchmarks are
     automatically enabled if they are requested as a built target.
+
+    As with :cfg-field:`tests`, leaving this field unset is not the same as
+    setting it to ``False``: unset asks the solver to prefer enabling the
+    benchmarks of local packages and so to solve their dependencies, while
+    ``False`` rules them out.
 
     The command line variant of this flag is ``--enable-benchmarks`` and
     ``--disable-benchmarks``.
