@@ -446,20 +446,29 @@ unusedStanzaLibraries pkg sublibs tests benchs =
   | (nm, t) <- sublibs
   , let stanza = libStanza (condTreeData t)
   , stanza /= LibraryStanzaAlways
-  , nm `notElem` usedBy nm stanza
+  , nm `notElem` live stanza
   ]
   where
-    -- components that are themselves in this stanza, excluding the library
-    -- being considered
-    usedBy self stanza =
+    stanzaOf nm = libStanza . condTreeData <$> lookup nm sublibs
+
+    subLibDeps nm = maybe [] (samePkgSubLibs pkg libBuildInfo) (lookup nm sublibs)
+
+    -- what the stanza's own components depend on directly: a stanza-scoped
+    -- library is only alive if a test-suite or benchmark reaches it
+    roots stanza =
       concat $
         [samePkgSubLibs pkg testBuildInfo t | stanza == LibraryStanzaTest, (_, t) <- tests]
           ++ [samePkgSubLibs pkg benchmarkBuildInfo t | stanza == LibraryStanzaBench, (_, t) <- benchs]
-          ++ [ samePkgSubLibs pkg libBuildInfo t
-             | (other, t) <- sublibs
-             , other /= self
-             , libStanza (condTreeData t) == stanza
-             ]
+
+    -- transitive closure through libraries in the same stanza, so a chain of
+    -- dead libraries is reported in full rather than one link at a time
+    live stanza = go [] (roots stanza)
+      where
+        go seen [] = seen
+        go seen (nm : rest)
+          | nm `elem` seen = go seen rest
+          | stanzaOf nm == Just stanza = go (nm : seen) (subLibDeps nm ++ rest)
+          | otherwise = go seen rest
 
 -- | Libraries whose @stanza@ field was set inside a conditional.
 --
