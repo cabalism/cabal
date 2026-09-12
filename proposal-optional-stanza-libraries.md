@@ -120,9 +120,58 @@ The alternative of adding a condition to the `.cabal` conditional language --
 Component scope is also the more honest model: "this component exists for the
 tests" is a property of the component, not a condition on its contents.
 
+## Naming
+
+The field is spelled `stanza:` throughout this document and in the prototype, but
+that spelling is provisional and probably wrong. It is recorded here so the
+question is settled deliberately rather than by inheritance from the prototype.
+
+**`stanza:` collides with an established meaning.** In user-facing documentation
+"stanza" already means *a group of fields*, and the project file documentation
+defines it that way outright: fields "live inside stanzas (groups of fields that
+apply to only part of a project)". The docs speak of the `library` stanza, the
+`source-repository-package` stanza, `common` stanzas, "a typical stanza for a
+foreign library". Under that reading, `stanza: test` written inside a
+`library testlib` stanza says "this group of fields is test", which is not the
+intended meaning at all.
+
+The term is also internal. `OptionalStanza` is a solver and `cabal-install` type;
+no user-facing document uses the phrase "optional stanza". The corresponding
+user-facing vocabulary is the project fields `tests:` and `benchmarks:` and the
+flags `--enable-tests` and `--disable-tests`.
+
+That suggests naming the field after what the user already types. Candidates:
+
+| spelling | reads as | notes |
+| --- | --- | --- |
+| `enabled-by: tests` | "this library is enabled by `tests`" | values match the `tests:`/`benchmarks:` project fields and `--enable-tests` exactly; the word "enabled" is, however, already load-bearing in Cabal, where *enabled* means buildable **and** requested |
+| `requested-by: tests` | "requested when `tests` are" | matches Cabal's own terminology precisely: `--enable-tests` is what *requests* a component, per `Distribution.Types.ComponentRequestedSpec` |
+| `optional: tests` | "optional, along with `tests`" | short, but says nothing about which stanza without reading the value |
+| `test-only: True` | "only for tests" | clearest at a glance, but needs a second field for benchmarks and does not generalise |
+| `scope: test` | "scoped to tests" | "scope" is overloaded in Cabal already (dependency scope, visibility) |
+| `stanza: test` | -- | collides as described above |
+
+`requested-by: tests` is the recommendation. It reuses the word Cabal's own
+documentation uses for exactly this state, it keeps *enabled* free for its
+existing meaning, and its values are the ones users already write in
+`cabal.project`.
+
+Two sub-questions go with it:
+
+- **Plural values.** `tests` and `benchmarks` match `--enable-tests` and the
+  project fields; `test` and `bench` match the internal constructors
+  (`TestStanzas`, `BenchStanzas`). The user-facing plural is preferable.
+- **The default.** The prototype spells it `always`, which reads oddly against a
+  `requested-by:` field. Omitting the field is the default in any case, so the
+  explicit form could simply be dropped, or spelled `requested-by: none`.
+
+Renaming is mechanical: the field name appears once in the field grammar, and the
+constructor names are internal to `Distribution.Types.LibraryStanza`.
+
 ## Specification
 
-A new field on library components:
+A new field on library components, spelled here as `stanza:` but see
+[Naming](#naming) -- `requested-by:` is the recommended spelling:
 
 ```
 stanza: always | test | bench
@@ -216,6 +265,9 @@ The solver change is the whole mechanism, and it is small:
 
 ### Deliberate deviations
 
+- **The field is spelled `stanza:`.** See [Naming](#naming); `requested-by:` is
+  the recommended spelling and the rename is mechanical. The prototype predates
+  that discussion.
 - **The `cabal-version` gate is relaxed.** The shipped field should carry
   `availableSince CabalSpecV3_20`. The prototype omits it because the in-tree
   `Cabal` is 3.19, so no available `Cabal` can satisfy a `cabal-version: 3.20`
