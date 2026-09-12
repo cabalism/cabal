@@ -405,6 +405,7 @@ alone decides.
 | `Cabal/.../Check.hs`, `Check/Warning.hs` | four checks: `cross-stanza-dependency`, `public-stanza-library`, `conditional-stanza`, `unused-stanza-library` |
 | `Cabal-tests/.../Utils/Structured.hs` | golden structure hashes for `GenericPackageDescription` and `LocalBuildInfo` |
 | `Cabal-tests/tests/CheckTests.hs`, `ParserTests/regressions/stanza-*.cabal`, `*.check` | golden cases for the four findings |
+| `Cabal-tests/tests/ParserTests.hs`, `stanza-roundtrip.cabal`, `.format`, `.expr` | pretty-printer and round-trip coverage |
 
 The solver change is the whole mechanism, and it is small:
 
@@ -427,6 +428,16 @@ break the case whenever unrelated checks change.
 test-suite both depend on the same `stanza: test` library, and only the
 executable is reported. `stanza-unused.cabal` holds a two-link dead chain and its
 golden names both libraries, pinning the transitive behaviour.
+
+Parsing and printing are covered separately by `stanza-roundtrip.cabal`,
+registered in `ParserTests`, which carries a library for each of the three values
+plus one that omits the field. That fixture gets the `format` golden, the `expr`
+golden, and the round-trip assertion -- the last being the one that matters, since
+it pretty-prints and re-parses and compares `condSubLibraries`, so a field that
+printed but did not survive a re-parse would fail rather than quietly round-trip
+to the default. The golden output confirms the intended asymmetry: `stanza: test`
+and `stanza: bench` are printed, while `stanza: always` is omitted as the default
+and still reads back as `LibraryStanzaAlways`.
 
 These are real regression tests, not just recordings: disabling the cross-stanza
 rule fails exactly `stanza-cross-dep.cabal`, with a readable diff, and leaves the
