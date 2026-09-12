@@ -247,7 +247,7 @@ can be run directly after setting the execute permission (+x):
       \____        ____________________________________________/
            \ ... /
 
-See more in the documentation for :ref:`cabal run`.
+See more in the documentation for :ref:`cabal run<cabal-run>`.
 
 .. warning::
 

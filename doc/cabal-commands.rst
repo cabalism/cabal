@@ -293,6 +293,8 @@ cabal preferences. It is very useful when you are e.g. first configuring
 Package database commands
 -------------------------
 
+.. _cabal-update:
+
 cabal update
 ^^^^^^^^^^^^
 
@@ -350,6 +352,8 @@ packages.
 
 Initialization and download
 ---------------------------
+
+.. _cabal-init:
 
 cabal init
 ^^^^^^^^^^
@@ -460,6 +464,8 @@ The ``cabal get`` command supports the following options:
 
 Project configuration
 ---------------------
+
+.. _cabal-configure:
 
 cabal configure
 ^^^^^^^^^^^^^^^
@@ -870,6 +876,8 @@ build are executed.
 Project building and installing
 -------------------------------
 
+.. _cabal-build:
+
 cabal build
 ^^^^^^^^^^^
 
@@ -914,6 +922,8 @@ In addition ``cabal build`` accepts these flags:
 
     When given we will forego performing a full build and abort after running
     the configure phase of each target package.
+
+.. _cabal-install:
 
 cabal install
 ^^^^^^^^^^^^^
@@ -1115,6 +1125,8 @@ will not make sure that these executables actually exist (i.e., have
 been successfully built).  In order to determine the correct location,
 it may invoke the configuration step (see ``cabal configure``).
 
+.. _cabal-repl:
+
 cabal repl
 ^^^^^^^^^^
 
@@ -1227,7 +1239,7 @@ See ``cabal run`` for more information on scripts.
     in version 3.10 and earlier where only a single component can be loaded at
     once.
 
-.. _cabal run:
+.. _cabal-run:
 
 cabal run
 ^^^^^^^^^
