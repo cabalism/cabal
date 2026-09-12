@@ -1,8 +1,8 @@
 cabal-version: 3.0
 name:          pkg
 version:       0.1.0.0
-synopsis:      a library that belongs to the test stanza
-description:   The helper library is only requested when test-suites are.
+synopsis:      libraries belonging to optional stanzas
+description:   Helpers for the test-suite, the benchmark, and both at once.
 category:      Tests
 license:       BSD-3-Clause
 author:        cabal
@@ -22,9 +22,30 @@ library helper
   exposed-modules:  Helper
   build-depends:    base
 
+library bhelper
+  default-language: Haskell2010
+  stanza:           bench
+  hs-source-dirs:   bench
+  exposed-modules:  BHelper
+  build-depends:    base
+
+library shared
+  default-language: Haskell2010
+  stanza:           test, bench
+  hs-source-dirs:   both
+  exposed-modules:  Shared
+  build-depends:    base
+
 test-suite spec
   default-language: Haskell2010
   type:             exitcode-stdio-1.0
   hs-source-dirs:   tests
   main-is:          Spec.hs
-  build-depends:    base, pkg:helper
+  build-depends:    base, pkg:helper, pkg:shared
+
+benchmark bench
+  default-language: Haskell2010
+  type:             exitcode-stdio-1.0
+  hs-source-dirs:   benchsrc
+  main-is:          Bench.hs
+  build-depends:    base, pkg:bhelper, pkg:shared

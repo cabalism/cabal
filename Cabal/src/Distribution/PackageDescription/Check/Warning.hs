@@ -150,14 +150,16 @@ data CheckExplanation
   | IllegalLibraryName PackageName
   | -- | A component outside an optional stanza depends on a library that is
     -- in one: the depending component, the library, and the library's stanza.
-    CrossStanzaDependency ComponentName UnqualComponentName LibraryStanza
+    CrossStanzaDependency ComponentName UnqualComponentName [LibraryStanza]
   | -- | A library in an optional stanza is also 'public', which cannot work:
     -- the stanza belongs to this package's configuration.
-    PublicStanzaLibrary UnqualComponentName LibraryStanza
+    PublicStanzaLibrary UnqualComponentName [LibraryStanza]
   | -- | A library in an optional stanza that nothing in that stanza uses.
-    UnusedStanzaLibrary UnqualComponentName LibraryStanza
+    UnusedStanzaLibrary UnqualComponentName [LibraryStanza]
   | -- | The @stanza@ field was set inside a conditional.
     ConditionalStanza UnqualComponentName
+  | -- | The @stanza@ field names the same stanza more than once.
+    RepeatedStanza UnqualComponentName [LibraryStanza]
   | NoModulesExposed LibraryName
   | SignaturesCabal2
   | AutogenNotExposed
@@ -330,6 +332,7 @@ data CheckExplanationID
   | CIPublicStanzaLibrary
   | CIUnusedStanzaLibrary
   | CIConditionalStanza
+  | CIRepeatedStanza
   | CINoModulesExposed
   | CISignaturesCabal2
   | CIAutogenNotExposed
@@ -481,6 +484,7 @@ checkExplanationId (CrossStanzaDependency{}) = CICrossStanzaDependency
 checkExplanationId (PublicStanzaLibrary{}) = CIPublicStanzaLibrary
 checkExplanationId (UnusedStanzaLibrary{}) = CIUnusedStanzaLibrary
 checkExplanationId (ConditionalStanza{}) = CIConditionalStanza
+checkExplanationId (RepeatedStanza{}) = CIRepeatedStanza
 checkExplanationId (NoModulesExposed{}) = CINoModulesExposed
 checkExplanationId (SignaturesCabal2{}) = CISignaturesCabal2
 checkExplanationId (AutogenNotExposed{}) = CIAutogenNotExposed
@@ -639,6 +643,7 @@ ppCheckExplanationId CICrossStanzaDependency = "cross-stanza-dependency"
 ppCheckExplanationId CIPublicStanzaLibrary = "public-stanza-library"
 ppCheckExplanationId CIUnusedStanzaLibrary = "unused-stanza-library"
 ppCheckExplanationId CIConditionalStanza = "conditional-stanza"
+ppCheckExplanationId CIRepeatedStanza = "repeated-stanza"
 ppCheckExplanationId CINoModulesExposed = "no-modules-exposed"
 ppCheckExplanationId CISignaturesCabal2 = "signatures"
 ppCheckExplanationId CIAutogenNotExposed = "autogen-not-exposed"
@@ -819,6 +824,9 @@ ppWarnLang LangC = "C"
 ppWarnLang LangCPlusPlus = "C++"
 
 -- | Pretty printing `CheckExplanation`.
+ppStanzaList :: [LibraryStanza] -> String
+ppStanzaList = intercalate " and " . map ((++ " stanza") . prettyShow) . nub
+
 ppExplanation :: CheckExplanation -> String
 ppExplanation (ParseWarning fp pp) = showPWarning fp pp
 ppExplanation NoNameField = "No 'name' field."
@@ -833,12 +841,21 @@ ppExplanation (DuplicateSections duplicateNames) =
     ++ commaSep (map unUnqualComponentName duplicateNames)
     ++ ". The name of every library, executable, test suite,"
     ++ " and benchmark section in the package must be unique."
+ppExplanation (RepeatedStanza libname stanzas) =
+  "The library '"
+    ++ prettyShow libname
+    ++ "' names "
+    ++ intercalate ", " (map prettyShow (dupsOf stanzas))
+    ++ " more than once in its 'stanza' field. Naming a stanza twice is the"
+    ++ " same as naming it once."
+  where
+    dupsOf xs = nub [x | (x, i) <- zip xs [(0 :: Int) ..], x `elem` take i xs]
 ppExplanation (PublicStanzaLibrary libname stanza) =
   "The library '"
     ++ prettyShow libname
     ++ "' is in the "
-    ++ prettyShow stanza
-    ++ " stanza and also declares 'visibility: public'. Whether that stanza is"
+    ++ ppStanzaList stanza
+    ++ " and also declares 'visibility: public'. Whether that stanza is"
     ++ " requested is part of this package's own configuration, so a package"
     ++ " depending on this one has no way to ask for it. Either make the library"
     ++ " private or take it out of the stanza."
@@ -846,8 +863,10 @@ ppExplanation (UnusedStanzaLibrary libname stanza) =
   "The library '"
     ++ prettyShow libname
     ++ "' is in the "
-    ++ prettyShow stanza
-    ++ " stanza, but nothing in that stanza depends on it, so it will never be"
+    ++ ppStanzaList stanza
+    ++ ", but nothing in "
+    ++ (if length (nub stanza) > 1 then "those stanzas" else "that stanza")
+    ++ " depends on it, so it will never be"
     ++ " built. Either have a component in the stanza depend on it, or take it"
     ++ " out of the stanza."
 ppExplanation (ConditionalStanza libname) =
@@ -862,13 +881,12 @@ ppExplanation (CrossStanzaDependency dependent libname stanza) =
     ++ " depends on the library '"
     ++ prettyShow libname
     ++ "', which is in the "
-    ++ prettyShow stanza
-    ++ " stanza. A library in an optional stanza is only requested when that"
-    ++ " stanza is, so anything outside the stanza that depends on it would be"
-    ++ " left with a missing dependency whenever the stanza is disabled."
-    ++ " Either move the dependency into the "
-    ++ prettyShow stanza
-    ++ " stanza too, or take the library out of it."
+    ++ ppStanzaList stanza
+    ++ ". A library in an optional stanza is only requested when that stanza"
+    ++ " is, so anything outside it that depends on the library would be left"
+    ++ " with a missing dependency whenever the stanza is disabled. Either add"
+    ++ " the depending component's stanza to the library, or take the library"
+    ++ " out of its stanzas."
 ppExplanation (IllegalLibraryName pname) =
   "Illegal internal library name "
     ++ prettyShow pname

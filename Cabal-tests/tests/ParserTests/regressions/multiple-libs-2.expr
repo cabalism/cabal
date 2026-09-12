@@ -49,7 +49,7 @@ GenericPackageDescription {
         libExposed = True,
         libVisibility =
         LibraryVisibilityPublic,
-        libStanza = LibraryStanzaAlways,
+        libStanzas = [],
         libBuildInfo = BuildInfo {
           buildable = True,
           buildTools = [],
@@ -126,7 +126,7 @@ GenericPackageDescription {
           libExposed = True,
           libVisibility =
           LibraryVisibilityPrivate,
-          libStanza = LibraryStanzaAlways,
+          libStanzas = [],
           libBuildInfo = BuildInfo {
             buildable = True,
             buildTools = [],

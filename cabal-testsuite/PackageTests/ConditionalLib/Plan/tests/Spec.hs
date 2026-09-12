@@ -1,4 +1,4 @@
 import Helper
-
+import Shared
 main :: IO ()
-main = print helper
+main = print (helper + shared)

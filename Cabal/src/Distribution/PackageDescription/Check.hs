@@ -295,6 +295,11 @@ checkGenericPackageDescription
         (\libname -> checkP True (PackageBuildImpossible (ConditionalStanza libname)))
         (conditionalStanzaLibraries condSubLibraries_)
 
+      -- Naming a stanza twice is the same as naming it once.
+      mapM_
+        (\(libname, stanzas) -> checkP True (PackageBuildWarning (RepeatedStanza libname stanzas)))
+        (repeatedStanzaFields condSubLibraries_)
+
       -- Nothing in the stanza uses it, so it would never be built.
       mapM_
         (\(libname, stanza) -> checkP True (PackageBuildWarning (UnusedStanzaLibrary libname stanza)))
@@ -415,6 +420,17 @@ checkGenericPackageDescription
           , toSetOf (L.condBenchmarks . traverse . _2 . traverseCondTreeV . L._PackageFlag) gpd
           ]
 
+-- | Libraries naming the same stanza more than once.
+repeatedStanzaFields
+  :: [(UnqualComponentName, CondTree ConfVar Library)]
+  -> [(UnqualComponentName, [LibraryStanza])]
+repeatedStanzaFields sublibs =
+  [ (nm, stanzas)
+  | (nm, t) <- sublibs
+  , let stanzas = libStanzas (condTreeData t)
+  , length (nub stanzas) /= length stanzas
+  ]
+
 -- | Libraries in an optional stanza that are also declared @public@.
 --
 -- Whether a stanza is requested is part of this package's configuration, so a
@@ -422,13 +438,13 @@ checkGenericPackageDescription
 -- never be satisfied from outside.
 publicStanzaLibraries
   :: [(UnqualComponentName, CondTree ConfVar Library)]
-  -> [(UnqualComponentName, LibraryStanza)]
+  -> [(UnqualComponentName, [LibraryStanza])]
 publicStanzaLibraries sublibs =
-  [ (nm, stanza)
+  [ (nm, stanzas)
   | (nm, t) <- sublibs
   , let lib = condTreeData t
-  , let stanza = libStanza lib
-  , stanza /= LibraryStanzaAlways
+  , let stanzas = libStanzas lib
+  , not (null stanzas)
   , libVisibility lib == LibraryVisibilityPublic
   ]
 
@@ -440,34 +456,34 @@ unusedStanzaLibraries
   -> [(UnqualComponentName, CondTree ConfVar Library)]
   -> [(UnqualComponentName, CondTree ConfVar TestSuite)]
   -> [(UnqualComponentName, CondTree ConfVar Benchmark)]
-  -> [(UnqualComponentName, LibraryStanza)]
+  -> [(UnqualComponentName, [LibraryStanza])]
 unusedStanzaLibraries pkg sublibs tests benchs =
-  [ (nm, stanza)
+  [ (nm, stanzas)
   | (nm, t) <- sublibs
-  , let stanza = libStanza (condTreeData t)
-  , stanza /= LibraryStanzaAlways
-  , nm `notElem` live stanza
+  , let stanzas = libStanzas (condTreeData t)
+  , not (null stanzas)
+  , -- dead only if unreachable from every stanza it belongs to
+    all (\st -> nm `notElem` live nm st) stanzas
   ]
   where
-    stanzaOf nm = libStanza . condTreeData <$> lookup nm sublibs
+    stanzasOf nm = maybe [] (libStanzas . condTreeData) (lookup nm sublibs)
 
     subLibDeps nm = maybe [] (samePkgSubLibs pkg libBuildInfo) (lookup nm sublibs)
 
-    -- what the stanza's own components depend on directly: a stanza-scoped
-    -- library is only alive if a test-suite or benchmark reaches it
     roots stanza =
       concat $
         [samePkgSubLibs pkg testBuildInfo t | stanza == LibraryStanzaTest, (_, t) <- tests]
           ++ [samePkgSubLibs pkg benchmarkBuildInfo t | stanza == LibraryStanzaBench, (_, t) <- benchs]
 
-    -- transitive closure through libraries in the same stanza, so a chain of
-    -- dead libraries is reported in full rather than one link at a time
-    live stanza = go [] (roots stanza)
+    -- transitive closure through libraries sharing the stanza, so a dead chain
+    -- is reported in full rather than one link per run
+    live self stanza = go [] (roots stanza)
       where
         go seen [] = seen
         go seen (nm : rest)
           | nm `elem` seen = go seen rest
-          | stanzaOf nm == Just stanza = go (nm : seen) (subLibDeps nm ++ rest)
+          | stanza `elem` stanzasOf nm = go (nm : seen) (subLibDeps nm ++ rest)
+          | nm == self = go seen rest
           | otherwise = go seen rest
 
 -- | Libraries whose @stanza@ field was set inside a conditional.
@@ -480,7 +496,7 @@ conditionalStanzaLibraries
 conditionalStanzaLibraries sublibs =
   [ nm
   | (nm, t) <- sublibs
-  , any ((/= LibraryStanzaAlways) . libStanza) (drop 1 (toList t))
+  , any (not . null . libStanzas) (drop 1 (toList t))
   ]
 
 -- | Same-package sublibraries named anywhere in a component's condition tree.
@@ -516,38 +532,39 @@ stanzaScopedViolations
   -> [(UnqualComponentName, CondTree ConfVar Executable)]
   -> [(UnqualComponentName, CondTree ConfVar TestSuite)]
   -> [(UnqualComponentName, CondTree ConfVar Benchmark)]
-  -> [(ComponentName, UnqualComponentName, LibraryStanza)]
+  -> [(ComponentName, UnqualComponentName, [LibraryStanza])]
 stanzaScopedViolations pkg mlib sublibs flibs exes tests benchs =
-  [ (dependent, depName, depStanza)
-  | (dependent, dependentStanza, deps) <- components
+  [ (dependent, depName, depStanzas)
+  | (dependent, dependentStanzas, deps) <- components
   , depName <- deps
-  , Just depStanza <- [lookup depName stanzaOf]
-  , depStanza /= LibraryStanzaAlways
-  , depStanza /= dependentStanza
+  , Just depStanzas <- [lookup depName stanzaOf]
+  , not (null depStanzas)
+  , -- the dependent must itself be in one of the stanzas the library serves
+    not (any (`elem` depStanzas) dependentStanzas)
   ]
   where
     stanzaOf =
-      [ (nm, libStanza (condTreeData t))
+      [ (nm, libStanzas (condTreeData t))
       | (nm, t) <- sublibs
       ]
 
     components =
-      [ (CLibName LMainLibName, LibraryStanzaAlways, libDepsOf libBuildInfo t)
+      [ (CLibName LMainLibName, [], libDepsOf libBuildInfo t)
       | Just t <- [mlib]
       ]
-        ++ [ (CLibName (LSubLibName nm), libStanza (condTreeData t), libDepsOf libBuildInfo t)
+        ++ [ (CLibName (LSubLibName nm), libStanzas (condTreeData t), libDepsOf libBuildInfo t)
            | (nm, t) <- sublibs
            ]
-        ++ [ (CFLibName nm, LibraryStanzaAlways, libDepsOf foreignLibBuildInfo t)
+        ++ [ (CFLibName nm, [], libDepsOf foreignLibBuildInfo t)
            | (nm, t) <- flibs
            ]
-        ++ [ (CExeName nm, LibraryStanzaAlways, libDepsOf buildInfo t)
+        ++ [ (CExeName nm, [], libDepsOf buildInfo t)
            | (nm, t) <- exes
            ]
-        ++ [ (CTestName nm, LibraryStanzaTest, libDepsOf testBuildInfo t)
+        ++ [ (CTestName nm, [LibraryStanzaTest], libDepsOf testBuildInfo t)
            | (nm, t) <- tests
            ]
-        ++ [ (CBenchName nm, LibraryStanzaBench, libDepsOf benchmarkBuildInfo t)
+        ++ [ (CBenchName nm, [LibraryStanzaBench], libDepsOf benchmarkBuildInfo t)
            | (nm, t) <- benchs
            ]
 
