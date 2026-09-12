@@ -245,7 +245,7 @@ selectPackageTargets haddockFlags targetSelector targets
     -- unless they are requested by default (i.e. by using --executables)
     disableNotRequested t@(AvailableTarget _ cname (TargetBuildable _ _) _)
       | not (isRequested targetSelector (componentKind cname)) =
-          t{availableTargetStatus = TargetDisabledByUser}
+          t{availableTargetStatus = TargetDisabledByUser Nothing}
     disableNotRequested t = t
 
     isRequested (TargetPackage _ _ (Just _)) _ = True

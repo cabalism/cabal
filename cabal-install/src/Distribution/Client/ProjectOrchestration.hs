@@ -1028,10 +1028,10 @@ selectComponentTargetBasic
     , availableTargetStatus
     } =
     case availableTargetStatus of
-      TargetDisabledByUser ->
-        Left (TargetOptionalStanzaDisabledByUser pkgid cname subtarget)
-      TargetDisabledBySolver ->
-        Left (TargetOptionalStanzaDisabledBySolver pkgid cname subtarget)
+      TargetDisabledByUser stanza ->
+        Left (TargetOptionalStanzaDisabledByUser pkgid cname subtarget stanza)
+      TargetDisabledBySolver stanza ->
+        Left (TargetOptionalStanzaDisabledBySolver pkgid cname subtarget stanza)
       TargetNotLocal ->
         Left (TargetComponentNotProjectLocal pkgid cname subtarget)
       TargetNotBuildable ->
