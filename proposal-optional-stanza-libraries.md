@@ -269,6 +269,60 @@ Two notes on the cross-stanza rule as implemented:
   so it is a component cycle -- and `cabal` reports it as such. The check is what
   catches the cases that are not cycles, such as an executable depending on it.
 
+### Open: a library shared by more than one stanza
+
+A single-valued field cannot express a library that both the test-suites and the
+benchmarks need, and that is not a hypothetical -- sharing helpers between them is
+common. The prototype rejects it:
+
+```
+Error: [cross-stanza-dependency] The benchmark 'bench' depends on the library
+'helper', which is in the test stanza. ... Either move the dependency into the
+test stanza too, or take the library out of it.
+```
+
+Both remedies the message offers are unavailable. A benchmark cannot be moved
+into the test stanza, and taking the library out of the stanza means
+`stanza: always`, which puts its test-only dependencies back into every solve --
+the problem the field exists to remove. The only remaining option is to duplicate
+the library, once per stanza, which is worse than the situation before the
+feature.
+
+**The field should therefore hold a set, not a single value:**
+
+```cabal
+library helper
+  stanza: test, bench
+```
+
+with the reading that the library is requested when *any* of its stanzas is. The
+supporting pieces are already in place:
+
+- `Distribution.Solver.Types.OptionalStanza` already defines `OptionalStanzaSet`
+  with `optStanzaSetFromList` and `optStanzaSetMember`, and `enableStanzas`
+  already maps such a set onto a `ComponentRequestedSpec`.
+- The solver needs no new concept. `flagged_deps` is a list and each
+  `Stanza (SN pn s) deps` entry is independent, so emitting a library's
+  dependencies once per stanza in its set gives exactly the wanted disjunction:
+  required if tests are on, required if benchmarks are on, not required if
+  neither is.
+
+What does need deciding:
+
+- **Validation** becomes membership: a component in stanza `S` may depend on a
+  library whose set contains `S`. The current rule is the special case of a
+  singleton set.
+- **`componentAvailableTargetStatus`** currently reports one stanza when a target
+  is unavailable. For a library in several it has to say which ones, and decide
+  whether "disabled" means all of them are disabled or any.
+- **Spelling of the default.** With a set, the natural default is the empty set
+  rather than a distinguished `always` value, which also removes the awkward
+  `requested-by: always` noted under [Naming](#naming).
+
+This is the one part of the design the prototype does not implement, and it
+should be settled before the field is committed to, because it changes the type
+of the field rather than just its behaviour.
+
 ## Interactions
 
 **Explicit targets.** `cabal build pkg:lib:testlib` with tests disabled should
