@@ -1,0 +1,13 @@
+# cabal v2-build
+Resolving dependencies...
+Build profile: -w ghc-<GHCVER> -O1
+In order, the following will be built:
+ - pkg-0.1.0.0 (lib:helper) (first run)
+ - pkg-0.1.0.0 (exe:prog) (first run)
+Configuring library 'helper' for pkg-0.1.0.0...
+Error: [Cabal-7125]
+Failed to build pkg-0.1.0.0-inplace-helper. The failure occurred during the configure step. The exception was:
+  -----BEGIN CABAL OUTPUT-----
+Error: [Cabal-5559]
+[cross-stanza-dependency] The executable 'prog' depends on the library 'helper', which is in the test stanza. A library in an optional stanza is only requested when that stanza is, so anything outside the stanza that depends on it would be left with a missing dependency whenever the stanza is disabled. Either move the dependency into the test stanza too, or take the library out of it.
+CallStack (from HasCallStack): <SNIPPED>
