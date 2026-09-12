@@ -45,6 +45,33 @@ graph is still acyclic, but cabal resolves cycles at package granularity:
 [_41] rejecting: cabal-install:*test (cyclic dependencies; conflict set: cabal-install, cabal-install-testlib)
 ```
 
+### A common stanza solves the solver, and reintroduces the duplication
+
+A `common` stanza carrying the shared sources and their dependencies, imported
+only by the test-suites, does keep those dependencies out of the solve. Verified:
+with an unsatisfiable dependency in the common stanza, `--disable-tests` resolves
+cleanly and builds only the library.
+
+It works because a common stanza is textual: its `build-depends` end up inside
+each importing component, so if only test-suites import it, the dependencies
+exist only in test-suite stanzas and vanish with them.
+
+The cost is the problem this proposal started from. There is no library artifact,
+so each importing test-suite compiles the shared modules again -- measured on a
+two-suite package, the shared module is compiled once per suite. That is exactly
+`cabal-install`'s present situation, where four test-suites share
+`hs-source-dirs: tests` and four modules are compiled two or three times each.
+
+Two further limits: without a compiled artifact there is nothing to anchor
+instances, so shared orphan instances become a hazard; and common stanzas are
+package-local, so this cannot serve sharing between test-suites in *different*
+packages, which is the case [#10900](https://github.com/haskell/cabal/issues/10900)
+is chiefly about.
+
+So the choice without this feature is between resolving test-only dependencies
+in every build and recompiling test helpers once per suite. The point of the
+field is to stop having to choose.
+
 ### The workaround, and why it is not good enough
 
 A manual flag guarding `buildable` does work:
@@ -119,6 +146,20 @@ The alternative of adding a condition to the `.cabal` conditional language --
 
 Component scope is also the more honest model: "this component exists for the
 tests" is a property of the component, not a condition on its contents.
+
+A third option, raised alongside `test-only:` in #10900, is a new component
+*kind* -- a `test-library` or `testlib` stanza beside `library`. That has one
+real attraction: optionality would follow from the component's name again, so the
+name-keyed functions described above would keep working untouched, and none of
+the plumbing this proposal had to change would need changing.
+
+It costs more elsewhere, though. A component kind is part of a component's
+identity: `ComponentName`, the solver's `Component`, target syntax such as
+`pkg:lib:foo`, unit ids, the installed package database, Backpack, and every
+consumer that pattern-matches those. A field on `Library` reuses the existing
+library component wholesale and leaves all of that alone. The new kind would also
+need a sibling for benchmarks, and a third for a helper shared by both -- the
+same dead end a boolean reaches.
 
 ## Naming
 
