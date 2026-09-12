@@ -404,6 +404,7 @@ alone decides.
 | `cabal-install/tests/IntegrationTests2.hs` | fixtures updated with the stanza |
 | `Cabal/.../Check.hs`, `Check/Warning.hs` | four checks: `cross-stanza-dependency`, `public-stanza-library`, `conditional-stanza`, `unused-stanza-library` |
 | `Cabal-tests/.../Utils/Structured.hs` | golden structure hashes for `GenericPackageDescription` and `LocalBuildInfo` |
+| `Cabal-tests/tests/CheckTests.hs`, `ParserTests/regressions/stanza-*.cabal`, `*.check` | golden cases for the four findings |
 
 The solver change is the whole mechanism, and it is small:
 
@@ -414,13 +415,43 @@ The solver change is the whole mechanism, and it is small:
             [sl | sl <- sub_libs, subLibStanza sl == Just TestStanzas])
 ```
 
-### Note on the structure hash
+### Tests
 
-Adding a field to `Library` changes the `Structured` hash of
-`GenericPackageDescription` and `LocalBuildInfo`, which the golden tests in
-`Cabal-tests` pin. Updating them is not incidental: that hash is how `cabal`
-invalidates its caches when the description format changes, so the new values are
-part of the change rather than test churn to be papered over.
+Each of the four checks has a golden case under
+`Cabal-tests/tests/ParserTests/regressions/`, registered in `CheckTests.hs`. The
+fixtures carry version bounds and a long enough description so that the golden
+output is only the finding under test, rather than incidental advice that would
+break the case whenever unrelated checks change.
+
+`stanza-cross-dep.cabal` is the discriminating one: an executable and a
+test-suite both depend on the same `stanza: test` library, and only the
+executable is reported. `stanza-unused.cabal` holds a two-link dead chain and its
+golden names both libraries, pinning the transitive behaviour.
+
+These are real regression tests, not just recordings: disabling the cross-stanza
+rule fails exactly `stanza-cross-dep.cabal`, with a readable diff, and leaves the
+other three passing.
+
+Note that `tasty-golden` writes a missing golden file and reports the test as
+passing, so a first green run proves nothing. The files were read and checked
+against what each case is meant to produce.
+
+### Note on the golden data that a new field disturbs
+
+Adding a field to `Library` moves two sets of golden data, and both are part of
+the change rather than churn to be papered over.
+
+The `Structured` hashes of `GenericPackageDescription` and `LocalBuildInfo`
+change, because that hash is precisely how `cabal` invalidates its caches when
+the description format changes.
+
+The 38 `.expr` fixtures under `Cabal-tests/tests/ParserTests/regressions/` also
+move, since they pretty-print a parsed `GenericPackageDescription`. Regenerating
+them with `--accept` is safe here only because the result was checked: across all
+38 files the diff is 88 added lines, every one of them
+`libStanza = LibraryStanzaAlways,`, and nothing removed. A regeneration that
+showed anything else would mean the field had changed behaviour rather than
+merely appeared.
 
 ### Deliberate deviations
 
@@ -435,8 +466,10 @@ part of the change rather than test churn to be papered over.
 
 ### Not implemented
 
-- Golden `cabal check` test cases for the four new findings, under
-  `Cabal-tests/tests/CheckTests.hs`.
+Nothing outstanding from the original list. What remains is judgement the
+proposal process should settle rather than the prototype: the field's spelling
+(see [Naming](#naming)), whether `CmdHaddock`'s reuse of `TargetDisabledByUser`
+deserves its own status constructor, and documentation for the users' guide.
 - Explicit-target behaviour (`cabal build pkg:lib:testlib` with tests disabled) is
   untested.
 - `optionalStanza` (`CmdErrorMessages.hs`) still answers from the component's
