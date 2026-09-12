@@ -508,6 +508,8 @@ is in place, which moves the old configuration to a ``cabal.project.local~``
 file, this feature can also be disabled by using the ``--disable-backup``
 flag.
 
+.. _cabal-freeze:
+
 cabal freeze
 ^^^^^^^^^^^^
 
