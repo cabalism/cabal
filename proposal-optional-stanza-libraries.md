@@ -147,7 +147,7 @@ That suggests naming the field after what the user already types. Candidates:
 | `enabled-by: tests` | "this library is enabled by `tests`" | values match the `tests:`/`benchmarks:` project fields and `--enable-tests` exactly; the word "enabled" is, however, already load-bearing in Cabal, where *enabled* means buildable **and** requested |
 | `requested-by: tests` | "requested when `tests` are" | matches Cabal's own terminology precisely: `--enable-tests` is what *requests* a component, per `Distribution.Types.ComponentRequestedSpec` |
 | `optional: tests` | "optional, along with `tests`" | short, but says nothing about which stanza without reading the value |
-| `test-only: True` | "only for tests" | clearest at a glance, but needs a second field for benchmarks and does not generalise |
+| `test-only: True` | "only for tests" | clearest at a glance, and what [#10900](https://github.com/haskell/cabal/issues/10900) converged on, but it is a boolean: it needs a second field for benchmarks and still cannot say "either" |
 | `scope: test` | "scoped to tests" | "scope" is overloaded in Cabal already (dependency scope, visibility) |
 | `stanza: test` | -- | collides as described above |
 
@@ -318,6 +318,103 @@ no check in `Cabal` reports that a list field was written empty, and
 `build-depends:` with nothing after it passes silently. Treating an empty
 `stanza:` as equivalent to omitting it is the behaviour consistent with the rest
 of the format.
+
+## Relation to haskell/cabal#10900
+
+Issue [#10900](https://github.com/haskell/cabal/issues/10900) asks for the same
+capability and had converged on a narrower spelling:
+
+> - Libraries get a new field: `test-only: Bool`, by default False.
+> - Libraries with `test-only: True` can only be imported by other libraries with
+>   `test-only: True` or test-suites.
+> - Local libraries with `test-only: True` will only be enabled if
+>   `--enable-tests` is on, even if no other component depends on them. They will
+>   respect the usual component naming (i.e. `all` will build them if they are
+>   enabled).
+
+The mechanism proposed here is the same one, generalised. `test-only: True` is
+`stanza: test`; the import rule is the `cross-stanza-dependency` check; and
+building an undepended library under `--enable-tests` is the behaviour verified
+below. Three points deserve a direct answer.
+
+### A boolean cannot express a library shared with benchmarks
+
+`test-only: Bool` has no room for benchmarks, and none for a helper used by both
+the test-suites and the benchmarks -- which is the case that pushed this proposal
+to a set. Under a boolean, such a helper must either be duplicated or marked
+`test-only: False` and have its dependencies solved unconditionally. The set
+subsumes the boolean without losing anything: `stanza: test` is exactly
+`test-only: True`.
+
+`test-only:` is nevertheless a strong candidate for the *name*, and reads better
+than `stanza:`. It does not survive generalisation, though: `test-only: True` and
+`bench-only: True` cannot say "either", which is the whole point. See
+[Naming](#naming).
+
+### Undepended libraries are built, and that needed a fix
+
+The issue asks that a `test-only` library be enabled by `--enable-tests` even
+when nothing depends on it. It is, and there is a test for it: in
+`ConditionalLib/Plan` the `tests` sub-test builds `lib:helper` for a package
+whose test-suite happens to depend on it, and a package with an *undepended*
+stanza library builds it too.
+
+That did not work at first. `elabStanzasRequested` in
+`Distribution.Client.ProjectPlanning` drops a stanza request unless the package
+has components of that stanza:
+
+```haskell
+TestStanzas -> listToMaybe [v | v <- maybeToList tests, _ <- PD.testSuites elabPkgDescription]
+```
+
+A package that provides testlibs but has no test-suite of its own -- exactly the
+shape #10900 describes -- therefore had its request dropped, and the library
+could never be built. Worse, asking for it produced an uncaught
+`renderBuildTargetProblem: unexpected status` rather than a diagnosis, because
+the renderer obtained the stanza from the component's *name*. Both are fixed: a
+library in a stanza now counts as the package having that stanza, and the
+"not requested by default" status carries its stanza the way the disabled
+statuses already did.
+
+### Cross-package sharing is the unresolved conflict
+
+The issue's motivating case is sharing helpers between test-suites **in different
+packages** -- `unstable-*-testlib` sublibraries consumed by other packages' tests.
+That requires `visibility: public`, and this proposal currently makes
+`public` plus a stanza an error (`public-stanza-library`), on the grounds that
+whether a stanza is requested is part of the *producing* package's configuration
+and a consumer cannot ask for it.
+
+Within a single multi-package project that objection is weak: `tests: True`
+applies to every local package, so the producer's stanza is on whenever the
+consumer's tests are. Across a published dependency it is not weak at all --
+nothing enables the stanza of a package coming from Hackage, so the component
+would simply be unavailable.
+
+So the honest position is that this proposal serves the single-package case and
+the local multi-package case, but forbids the published case, while #10900 wants
+all three. Resolving it means deciding what a dependency on a stanza-scoped
+library of a *non-local* package should mean. The options seem to be to keep it
+an error, to allow it only for local packages, or to let a dependency on such a
+library imply enabling that stanza in the dependency -- which is a much larger
+change to how stanzas are selected.
+
+### The rebuild concern
+
+The issue notes the worry that enabling these libraries changes build plans and
+causes rebuilds, and observes that this is not new -- test-suites and benchmarks
+already behave this way. That carries over unchanged here, since the mechanism is
+the same one: a stanza-scoped library is requested exactly when its stanza is,
+and toggling a stanza has always re-planned.
+
+### Corroboration on the flag workaround
+
+The issue independently reaches the same conclusion about emulating this with
+cabal flags: it "changes the API of a package, and as downstream components
+cannot specify cabal flags in their `build-depends`, the same problem cascades
+down". That matches what the flag experiment here found, and is worth citing as
+evidence that the workaround is not merely inconvenient but structurally unable
+to serve the multi-package case.
 
 ## Interactions
 
