@@ -237,11 +237,14 @@ better than silently taking the root value.
 requested and so never built. A library in the same stanza counts as a user, not
 just a test-suite or benchmark.
 
-This reachability check is one level deep, not transitive: given a dead
-`stanza: test` library that itself depends on a second one, only the first is
-reported. Removing it surfaces the second on the next run, so the warning
-converges, but it does not name a whole dead chain at once. Making it transitive
-would be straightforward if that is thought worth the code for a warning.
+Reachability is transitive. A stanza-scoped library is live only if a test-suite
+or benchmark reaches it, directly or through other libraries in the same stanza,
+so a dead chain is reported in full rather than one link per run. Verified on a
+two-link chain: with the test-suite depending on neither, both libraries are
+reported; with the chain live, neither is; and when only the tail is orphaned,
+only the tail is reported. The closure keeps a visited set, so a dependency cycle
+among libraries terminates rather than looping -- such a package is rejected
+elsewhere as a component cycle, but the check must not hang before it gets there.
 
 Two notes on the cross-stanza rule as implemented:
 
