@@ -1,0 +1,544 @@
+GenericPackageDescription {
+  packageDescription =
+  PackageDescription {
+    specVersion = CabalSpecV3_0,
+    package = PackageIdentifier {
+      pkgName = PackageName
+        "stanza-roundtrip",
+      pkgVersion = mkVersion [0]},
+    licenseRaw = Left
+      (License
+        (ELicense
+          (ELicenseId MIT)
+          Nothing)),
+    licenseFiles = [],
+    copyright = "",
+    maintainer = "none@example.com",
+    author = "",
+    stability = "",
+    testedWith = [],
+    homepage = "",
+    pkgUrl = "",
+    bugReports = "",
+    sourceRepos = [],
+    synopsis =
+    "libraries carrying each stanza value",
+    description =
+    "Exercises pretty-printing and re-parsing of the stanza field.",
+    category = "Tests",
+    customFieldsPD = [],
+    buildTypeRaw = Nothing,
+    setupBuildInfo = Nothing,
+    library = Nothing,
+    subLibraries = [],
+    executables = [],
+    foreignLibs = [],
+    testSuites = [],
+    benchmarks = [],
+    dataFiles = [],
+    dataDir = SymbolicPath ".",
+    extraSrcFiles = [],
+    extraTmpFiles = [],
+    extraDocFiles = [],
+    extraFiles = []},
+  gpdScannedVersion = Nothing,
+  genPackageFlags = [],
+  condLibrary = Just
+    CondNode {
+      condTreeData = Library {
+        libName = LMainLibName,
+        exposedModules = [
+          ModuleName "Foo"],
+        reexportedModules = [],
+        signatures = [],
+        libExposed = True,
+        libVisibility =
+        LibraryVisibilityPublic,
+        libStanza = LibraryStanzaAlways,
+        libBuildInfo = BuildInfo {
+          buildable = True,
+          buildTools = [],
+          buildToolDepends = [],
+          cppOptions = [],
+          asmOptions = [],
+          cmmOptions = [],
+          ccOptions = [],
+          cxxOptions = [],
+          jsppOptions = [],
+          ldOptions = [],
+          hsc2hsOptions = [],
+          pkgconfigDepends = [],
+          frameworks = [],
+          extraFrameworkDirs = [],
+          asmSources = [],
+          cmmSources = [],
+          cSources = [],
+          cxxSources = [],
+          jsSources = [],
+          hsSourceDirs = [],
+          otherModules = [],
+          virtualModules = [],
+          autogenModules = [],
+          defaultLanguage = Just
+            Haskell2010,
+          otherLanguages = [],
+          defaultExtensions = [],
+          otherExtensions = [],
+          oldExtensions = [],
+          extraLibs = [],
+          extraLibsStatic = [],
+          extraGHCiLibs = [],
+          extraBundledLibs = [],
+          extraLibFlavours = [],
+          extraDynLibFlavours = [],
+          extraLibDirs = [],
+          extraLibDirsStatic = [],
+          includeDirs = [],
+          includes = [],
+          autogenIncludes = [],
+          installIncludes = [],
+          options = PerCompilerFlavor
+            []
+            [],
+          profOptions = PerCompilerFlavor
+            []
+            [],
+          sharedOptions =
+          PerCompilerFlavor [] [],
+          profSharedOptions =
+          PerCompilerFlavor [] [],
+          staticOptions =
+          PerCompilerFlavor [] [],
+          customFieldsBI = [],
+          targetBuildDepends = [
+            Dependency
+              (PackageName "base")
+              (IntersectVersionRanges
+                (OrLaterVersion
+                  (mkVersion [4, 9]))
+                (EarlierVersion
+                  (mkVersion [5])))
+              mainLibSet],
+          mixins = []}},
+      condTreeComponents = []},
+  condSubLibraries = [
+    _×_
+      (UnqualComponentName
+        "test-helper")
+      CondNode {
+        condTreeData = Library {
+          libName = LSubLibName
+            (UnqualComponentName
+              "test-helper"),
+          exposedModules = [
+            ModuleName "Bar"],
+          reexportedModules = [],
+          signatures = [],
+          libExposed = True,
+          libVisibility =
+          LibraryVisibilityPrivate,
+          libStanza = LibraryStanzaTest,
+          libBuildInfo = BuildInfo {
+            buildable = True,
+            buildTools = [],
+            buildToolDepends = [],
+            cppOptions = [],
+            asmOptions = [],
+            cmmOptions = [],
+            ccOptions = [],
+            cxxOptions = [],
+            jsppOptions = [],
+            ldOptions = [],
+            hsc2hsOptions = [],
+            pkgconfigDepends = [],
+            frameworks = [],
+            extraFrameworkDirs = [],
+            asmSources = [],
+            cmmSources = [],
+            cSources = [],
+            cxxSources = [],
+            jsSources = [],
+            hsSourceDirs = [],
+            otherModules = [],
+            virtualModules = [],
+            autogenModules = [],
+            defaultLanguage = Just
+              Haskell2010,
+            otherLanguages = [],
+            defaultExtensions = [],
+            otherExtensions = [],
+            oldExtensions = [],
+            extraLibs = [],
+            extraLibsStatic = [],
+            extraGHCiLibs = [],
+            extraBundledLibs = [],
+            extraLibFlavours = [],
+            extraDynLibFlavours = [],
+            extraLibDirs = [],
+            extraLibDirsStatic = [],
+            includeDirs = [],
+            includes = [],
+            autogenIncludes = [],
+            installIncludes = [],
+            options = PerCompilerFlavor
+              []
+              [],
+            profOptions = PerCompilerFlavor
+              []
+              [],
+            sharedOptions =
+            PerCompilerFlavor [] [],
+            profSharedOptions =
+            PerCompilerFlavor [] [],
+            staticOptions =
+            PerCompilerFlavor [] [],
+            customFieldsBI = [],
+            targetBuildDepends = [
+              Dependency
+                (PackageName "base")
+                (IntersectVersionRanges
+                  (OrLaterVersion
+                    (mkVersion [4, 9]))
+                  (EarlierVersion
+                    (mkVersion [5])))
+                mainLibSet],
+            mixins = []}},
+        condTreeComponents = []},
+    _×_
+      (UnqualComponentName
+        "bench-helper")
+      CondNode {
+        condTreeData = Library {
+          libName = LSubLibName
+            (UnqualComponentName
+              "bench-helper"),
+          exposedModules = [
+            ModuleName "Baz"],
+          reexportedModules = [],
+          signatures = [],
+          libExposed = True,
+          libVisibility =
+          LibraryVisibilityPrivate,
+          libStanza = LibraryStanzaBench,
+          libBuildInfo = BuildInfo {
+            buildable = True,
+            buildTools = [],
+            buildToolDepends = [],
+            cppOptions = [],
+            asmOptions = [],
+            cmmOptions = [],
+            ccOptions = [],
+            cxxOptions = [],
+            jsppOptions = [],
+            ldOptions = [],
+            hsc2hsOptions = [],
+            pkgconfigDepends = [],
+            frameworks = [],
+            extraFrameworkDirs = [],
+            asmSources = [],
+            cmmSources = [],
+            cSources = [],
+            cxxSources = [],
+            jsSources = [],
+            hsSourceDirs = [],
+            otherModules = [],
+            virtualModules = [],
+            autogenModules = [],
+            defaultLanguage = Just
+              Haskell2010,
+            otherLanguages = [],
+            defaultExtensions = [],
+            otherExtensions = [],
+            oldExtensions = [],
+            extraLibs = [],
+            extraLibsStatic = [],
+            extraGHCiLibs = [],
+            extraBundledLibs = [],
+            extraLibFlavours = [],
+            extraDynLibFlavours = [],
+            extraLibDirs = [],
+            extraLibDirsStatic = [],
+            includeDirs = [],
+            includes = [],
+            autogenIncludes = [],
+            installIncludes = [],
+            options = PerCompilerFlavor
+              []
+              [],
+            profOptions = PerCompilerFlavor
+              []
+              [],
+            sharedOptions =
+            PerCompilerFlavor [] [],
+            profSharedOptions =
+            PerCompilerFlavor [] [],
+            staticOptions =
+            PerCompilerFlavor [] [],
+            customFieldsBI = [],
+            targetBuildDepends = [
+              Dependency
+                (PackageName "base")
+                (IntersectVersionRanges
+                  (OrLaterVersion
+                    (mkVersion [4, 9]))
+                  (EarlierVersion
+                    (mkVersion [5])))
+                mainLibSet],
+            mixins = []}},
+        condTreeComponents = []},
+    _×_
+      (UnqualComponentName
+        "plain-helper")
+      CondNode {
+        condTreeData = Library {
+          libName = LSubLibName
+            (UnqualComponentName
+              "plain-helper"),
+          exposedModules = [
+            ModuleName "Qux"],
+          reexportedModules = [],
+          signatures = [],
+          libExposed = True,
+          libVisibility =
+          LibraryVisibilityPrivate,
+          libStanza = LibraryStanzaAlways,
+          libBuildInfo = BuildInfo {
+            buildable = True,
+            buildTools = [],
+            buildToolDepends = [],
+            cppOptions = [],
+            asmOptions = [],
+            cmmOptions = [],
+            ccOptions = [],
+            cxxOptions = [],
+            jsppOptions = [],
+            ldOptions = [],
+            hsc2hsOptions = [],
+            pkgconfigDepends = [],
+            frameworks = [],
+            extraFrameworkDirs = [],
+            asmSources = [],
+            cmmSources = [],
+            cSources = [],
+            cxxSources = [],
+            jsSources = [],
+            hsSourceDirs = [],
+            otherModules = [],
+            virtualModules = [],
+            autogenModules = [],
+            defaultLanguage = Just
+              Haskell2010,
+            otherLanguages = [],
+            defaultExtensions = [],
+            otherExtensions = [],
+            oldExtensions = [],
+            extraLibs = [],
+            extraLibsStatic = [],
+            extraGHCiLibs = [],
+            extraBundledLibs = [],
+            extraLibFlavours = [],
+            extraDynLibFlavours = [],
+            extraLibDirs = [],
+            extraLibDirsStatic = [],
+            includeDirs = [],
+            includes = [],
+            autogenIncludes = [],
+            installIncludes = [],
+            options = PerCompilerFlavor
+              []
+              [],
+            profOptions = PerCompilerFlavor
+              []
+              [],
+            sharedOptions =
+            PerCompilerFlavor [] [],
+            profSharedOptions =
+            PerCompilerFlavor [] [],
+            staticOptions =
+            PerCompilerFlavor [] [],
+            customFieldsBI = [],
+            targetBuildDepends = [
+              Dependency
+                (PackageName "base")
+                (IntersectVersionRanges
+                  (OrLaterVersion
+                    (mkVersion [4, 9]))
+                  (EarlierVersion
+                    (mkVersion [5])))
+                mainLibSet],
+            mixins = []}},
+        condTreeComponents = []}],
+  condForeignLibs = [],
+  condExecutables = [],
+  condTestSuites = [
+    _×_
+      (UnqualComponentName "spec")
+      CondNode {
+        condTreeData = TestSuite {
+          testName = UnqualComponentName
+            "",
+          testInterface = TestSuiteExeV10
+            (mkVersion [1, 0])
+            (SymbolicPath "Spec.hs"),
+          testBuildInfo = BuildInfo {
+            buildable = True,
+            buildTools = [],
+            buildToolDepends = [],
+            cppOptions = [],
+            asmOptions = [],
+            cmmOptions = [],
+            ccOptions = [],
+            cxxOptions = [],
+            jsppOptions = [],
+            ldOptions = [],
+            hsc2hsOptions = [],
+            pkgconfigDepends = [],
+            frameworks = [],
+            extraFrameworkDirs = [],
+            asmSources = [],
+            cmmSources = [],
+            cSources = [],
+            cxxSources = [],
+            jsSources = [],
+            hsSourceDirs = [],
+            otherModules = [],
+            virtualModules = [],
+            autogenModules = [],
+            defaultLanguage = Just
+              Haskell2010,
+            otherLanguages = [],
+            defaultExtensions = [],
+            otherExtensions = [],
+            oldExtensions = [],
+            extraLibs = [],
+            extraLibsStatic = [],
+            extraGHCiLibs = [],
+            extraBundledLibs = [],
+            extraLibFlavours = [],
+            extraDynLibFlavours = [],
+            extraLibDirs = [],
+            extraLibDirsStatic = [],
+            includeDirs = [],
+            includes = [],
+            autogenIncludes = [],
+            installIncludes = [],
+            options = PerCompilerFlavor
+              []
+              [],
+            profOptions = PerCompilerFlavor
+              []
+              [],
+            sharedOptions =
+            PerCompilerFlavor [] [],
+            profSharedOptions =
+            PerCompilerFlavor [] [],
+            staticOptions =
+            PerCompilerFlavor [] [],
+            customFieldsBI = [],
+            targetBuildDepends = [
+              Dependency
+                (PackageName "base")
+                (IntersectVersionRanges
+                  (OrLaterVersion
+                    (mkVersion [4, 9]))
+                  (EarlierVersion
+                    (mkVersion [5])))
+                mainLibSet,
+              Dependency
+                (PackageName "stanza-roundtrip")
+                (OrLaterVersion (mkVersion [0]))
+                (NonEmptySet.fromNonEmpty
+                  (NE.fromList
+                    [
+                      LSubLibName
+                        (UnqualComponentName
+                          "test-helper")]))],
+            mixins = []},
+          testCodeGenerators = []},
+        condTreeComponents = []}],
+  condBenchmarks = [
+    _×_
+      (UnqualComponentName "bench")
+      CondNode {
+        condTreeData = Benchmark {
+          benchmarkName =
+          UnqualComponentName "",
+          benchmarkInterface =
+          BenchmarkExeV10
+            (mkVersion [1, 0])
+            (SymbolicPath "Bench.hs"),
+          benchmarkBuildInfo = BuildInfo {
+            buildable = True,
+            buildTools = [],
+            buildToolDepends = [],
+            cppOptions = [],
+            asmOptions = [],
+            cmmOptions = [],
+            ccOptions = [],
+            cxxOptions = [],
+            jsppOptions = [],
+            ldOptions = [],
+            hsc2hsOptions = [],
+            pkgconfigDepends = [],
+            frameworks = [],
+            extraFrameworkDirs = [],
+            asmSources = [],
+            cmmSources = [],
+            cSources = [],
+            cxxSources = [],
+            jsSources = [],
+            hsSourceDirs = [],
+            otherModules = [],
+            virtualModules = [],
+            autogenModules = [],
+            defaultLanguage = Just
+              Haskell2010,
+            otherLanguages = [],
+            defaultExtensions = [],
+            otherExtensions = [],
+            oldExtensions = [],
+            extraLibs = [],
+            extraLibsStatic = [],
+            extraGHCiLibs = [],
+            extraBundledLibs = [],
+            extraLibFlavours = [],
+            extraDynLibFlavours = [],
+            extraLibDirs = [],
+            extraLibDirsStatic = [],
+            includeDirs = [],
+            includes = [],
+            autogenIncludes = [],
+            installIncludes = [],
+            options = PerCompilerFlavor
+              []
+              [],
+            profOptions = PerCompilerFlavor
+              []
+              [],
+            sharedOptions =
+            PerCompilerFlavor [] [],
+            profSharedOptions =
+            PerCompilerFlavor [] [],
+            staticOptions =
+            PerCompilerFlavor [] [],
+            customFieldsBI = [],
+            targetBuildDepends = [
+              Dependency
+                (PackageName "base")
+                (IntersectVersionRanges
+                  (OrLaterVersion
+                    (mkVersion [4, 9]))
+                  (EarlierVersion
+                    (mkVersion [5])))
+                mainLibSet,
+              Dependency
+                (PackageName "stanza-roundtrip")
+                (OrLaterVersion (mkVersion [0]))
+                (NonEmptySet.fromNonEmpty
+                  (NE.fromList
+                    [
+                      LSubLibName
+                        (UnqualComponentName
+                          "bench-helper")]))],
+            mixins = []}},
+        condTreeComponents = []}]}

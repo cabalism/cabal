@@ -166,7 +166,8 @@ errorTest fp = cabalGoldenTest fp correct $ do
 
 regressionTests :: TestTree
 regressionTests = testGroup "regressions"
-    [ regressionTest "encoding-0.8.cabal"
+    [ regressionTest "stanza-roundtrip.cabal"
+    , regressionTest "encoding-0.8.cabal"
     , regressionTest "Octree-0.5.cabal"
     , regressionTest "nothing-unicode.cabal"
     , regressionTest "multiple-libs-2.cabal"
