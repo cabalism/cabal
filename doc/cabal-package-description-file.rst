@@ -765,7 +765,7 @@ describe the package as a whole:
 
     A list of additional files to be included in source distributions built with :ref:`setup-sdist`.
     As with :pkg-field:`data-files` it can use a limited form of ``*`` wildcards in file names.
-    Files listed here are tracked by ``cabal build``; changes in these files cause (partial) rebuilds.
+    Files listed here are tracked by :ref:`cabal build<cabal-build>`; changes in these files cause (partial) rebuilds.
 
 .. pkg-field:: extra-doc-files: filename list
     :since: 1.18
@@ -3036,7 +3036,7 @@ with a listing in :pkg-field:`other-modules` or
     :ref:`package-related <package-related-info>` information, are typically
     exposed so that they're accessible with the library.
 
-    Creating a source distribution with ``cabal sdist`` reports any source files
+    Creating a source distribution with :ref:`cabal sdist<cabal-sdist>` reports any source files
     not found and fails. Listing modules as :pkg-field:`autogen-modules` exempts
     ``cabal sdist`` from finding files for these modules.
 

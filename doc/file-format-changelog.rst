@@ -36,7 +36,7 @@ relative to the respective preceding *published* version.
 
 * Added field :pkg-field:`extra-files` for specifying extra files to be included
   in ``sdist`` without adding any other semantics (compare,
-  :pkg-field:`extra-source-files` is tracked by ``cabal build``).
+  :pkg-field:`extra-source-files` is tracked by :ref:`cabal build<cabal-build>`).
 
 * License fields use identifiers from SPDX License List version
   ``3.25 2024-08-19``.

@@ -62,7 +62,7 @@ directory of the package in question:
     $ cabal build
 
 or you can pass the name of the package as an argument to
-``cabal build`` (this works in any subdirectory of the project):
+:ref:`cabal build<cabal-build>` (this works in any subdirectory of the project):
 
 ::
 
@@ -130,7 +130,7 @@ versions of packages that the this snapshot specifies:
     import: https://www.stackage.org/lts-19.2/cabal.config
 
 Please note that project files do not get bundled in Cabal package tarballs,
-made using e.g. ``cabal sdist``. Project files are intended for use in local
+made using e.g. :ref:`cabal sdist<cabal-sdist>`. Project files are intended for use in local
 development environments.
 
 .. _Stackage: https://stackage.org/

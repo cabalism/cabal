@@ -136,7 +136,7 @@ be configured. Specified names can be qualified with ``lib:`` or
 package named ``p`` which has a library and an executable named ``p``.)
 This has the following effects:
 
--  Subsequent invocations of ``cabal build``, ``register``, etc. operate only
+-  Subsequent invocations of :ref:`cabal build<cabal-build>`, ``register``, etc. operate only
    on the configured component.
 
 -  Cabal requires all "internal" dependencies (e.g., an executable
@@ -223,7 +223,7 @@ files of a package:
     artifacts, such as warning flags, are dropped. This is because
     ``--ghc-options`` applies to GHC for the entire build plan, not just the
     current package, and recompiling the entire dependency tree is probably
-    unintended. If you want to apply some options to ``cabal repl`` only, pass
+    unintended. If you want to apply some options to :ref:`cabal repl<cabal-repl>` only, pass
     ``--repl-options`` to ``cabal repl``.
 
 .. option:: --PROG-option=OPT

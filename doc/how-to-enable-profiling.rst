@@ -36,7 +36,7 @@ This command creates a ``cabal.project.local`` file with the following content:
       profiling: True
 
 This file stores temporary configuration settings that are passed implicitly to further Cabal commands
-like ``cabal build`` and ``cabal run``.
+like :ref:`cabal build<cabal-build>` and :ref:`cabal run<cabal-run>`.
 The setting ``profiling: True`` tells GHC to build your application (and its dependencies) with profiling enabled,
 and to insert performance measuring code into your application.
 Where exactly such code is inserted can be controlled with settings like ``profiling-detail``

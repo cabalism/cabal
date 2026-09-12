@@ -131,7 +131,7 @@ tools to interpret and make effective use of this information.
 
 Cabal commands that work with dependencies actually need to have the source code
 of each dependency and will download it as needed. Example of commands like this
-are ``cabal build`` or ``cabal freeze``.
+are :ref:`cabal build<cabal-build>` or :ref:`cabal freeze<cabal-freeze>`.
 
 Dependencies of a project are sourced, by default, from Hackage if they've been
 uploaded and published to this package repository. Cabal will download the
@@ -282,7 +282,7 @@ after the package name and version.
       Unpacking to vector-0.12.3.1/
       $ VER=0.12.3.1 echo "packages: vector-$VER" >> cabal.project
 
-- For the latest version of the package, use the package name only after a ``cabal update``.
+- For the latest version of the package, use the package name only after a :ref:`cabal update<cabal-update>`.
 
    .. code-block:: shell
 
@@ -292,7 +292,7 @@ after the package name and version.
       $ echo "packages: vector-0.13.1.0" >> cabal.project
 
 You can vendor unpacked source code obtained by other means, by means that
-replace the ``cabal get`` unpacking step, in the same way.
+replace the :ref:`cabal get<cabal-get>` unpacking step, in the same way.
 
 Fork, don't vendor
 ^^^^^^^^^^^^^^^^^^
