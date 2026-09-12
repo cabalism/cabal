@@ -204,8 +204,36 @@ cannot express.
 ## Interactions
 
 **Explicit targets.** `cabal build pkg:lib:testlib` with tests disabled should
-behave as `cabal build pkg:test:foo` does today. `OneComponentRequestedSpec`
-already exists for the explicit-target case.
+behave as `cabal build pkg:test:foo` does today, which is to fail with a specific
+explanation rather than silently enabling the stanza:
+
+```
+Error: [Cabal-7127]
+Cannot build the test suite 'unit-tests' because building test suites has been
+explicitly disabled in the configuration. ...
+```
+
+Reaching that required a change beyond the solver, because
+`componentAvailableTargetStatus` in `Distribution.Client.ProjectPlanning` asks
+`componentOptionalStanza` -- which answers from the component's *name* -- whether
+a component belongs to an optional stanza. For a library it answered "no", so the
+component was treated as always available, and asking for it with tests disabled
+produced an internal error rather than a diagnosis:
+
+```
+Error: [Cabal-7127]
+Internal error when trying to build the library 'testlib' from the package
+cabal-install-3.19.0.0. The package,component pair is not in the set of
+available targets for the project plan, which would suggest an inconsistency
+between readTargetSelectors and resolveTargets.
+```
+
+The fix is that a library must be asked, not its name. That function already
+receives the whole component, so it is a local change; the shared conversion
+`libraryStanzaToOptionalStanza` now lives beside `OptionalStanza`. The general
+lesson is that the assumption "optionality is a property of the component's name"
+is encoded in several places, and each has to be revisited. The prototype does so
+for planning and for the solver.
 
 **`cabal check`.** The validation rule above is a new check. A stanza-scoped
 sublibrary that no test-suite depends on is dead weight and could warrant a
@@ -283,9 +311,19 @@ The solver change is the whole mechanism, and it is small:
 - `cabal check` rules.
 - Explicit-target behaviour (`cabal build pkg:lib:testlib` with tests disabled) is
   untested.
-- `componentOptionalStanza` (`ProjectPlanning/Types.hs`) and `optionalStanza`
-  (`CmdErrorMessages.hs`) still answer from the component's name alone, so a
-  stanza-scoped sublibrary is not reported as belonging to a stanza in planning
-  and error messages. This did not block the cases tested, but should be
-  addressed.
+- **The disabled-target message names the wrong thing.** Asking for a
+  `stanza: test` library with tests disabled now produces the right error class,
+  but says "because building *libraries* has been explicitly disabled" where it
+  should say *test suites*. `renderTargetProblem` derives that noun with
+  `renderComponentKind Plural (componentKind cname)`, which was only ever correct
+  because an optional component was always a test-suite or benchmark.
+
+  The honest fix is to carry the `OptionalStanza` in
+  `TargetOptionalStanzaDisabledByUser` and `TargetOptionalStanzaDisabledBySolver`
+  and render from that; the stanza is known where those are constructed, in
+  `ProjectOrchestration`. That is four sites plus two in `IntegrationTests2`, but
+  it changes a type in `cabal-install`'s library, so it is left for the proposal
+  to decide rather than settled in a prototype.
+- `optionalStanza` (`CmdErrorMessages.hs`) still answers from the component's
+  name alone.
 - Parser round-trip tests, pretty-printer tests, documentation.
