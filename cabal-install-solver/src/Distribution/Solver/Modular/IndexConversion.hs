@@ -212,11 +212,11 @@ convGPD os arch cinfo constraints strfl solveExes pn
         = concatMap (\ds ->       conv ComponentLib         libBuildInfo        initDR ds) (maybeToList mlib)
        ++ concatMap (convSubLib initDR) [sl | sl <- sub_libs, null (subLibStanzas sl)]
        ++ prefix (Stanza (SN pn TestStanzas))
-            (L.map (convSubLib (addStanza TestStanzas initDR))
-                   [sl | sl <- sub_libs, inStanza TestStanzas sl])
+            ([(convSubLib (addStanza TestStanzas initDR)) sl |
+                sl <- sub_libs, inStanza TestStanzas sl])
        ++ prefix (Stanza (SN pn BenchStanzas))
-            (L.map (convSubLib (addStanza BenchStanzas initDR))
-                   [sl | sl <- sub_libs, inStanza BenchStanzas sl])
+            ([(convSubLib (addStanza BenchStanzas initDR)) sl |
+                sl <- sub_libs, inStanza BenchStanzas sl])
        ++ concatMap (\(nm, ds) -> conv (ComponentFLib nm)   foreignLibBuildInfo initDR ds) flibs
        ++ concatMap (\(nm, ds) -> conv (ComponentExe nm)    buildInfo           initDR ds) exes
        ++ prefix (Stanza (SN pn TestStanzas))
