@@ -199,10 +199,7 @@ convGPD os arch cinfo constraints strfl solveExes pn
     -- test-only dependencies into every solve, including ones that set
     -- @tests: False@.
     subLibStanza :: (UnqualComponentName, CondTree ConfVar Library) -> Maybe OptionalStanza
-    subLibStanza (_, ct) = case libStanza (condTreeData ct) of
-      LibraryStanzaAlways -> Nothing
-      LibraryStanzaTest   -> Just TestStanzas
-      LibraryStanzaBench  -> Just BenchStanzas
+    subLibStanza (_, ct) = libraryStanzaToOptionalStanza (libStanza (condTreeData ct))
 
     convSubLib dr (nm, ds) = conv (ComponentSubLib nm) libBuildInfo dr ds
 

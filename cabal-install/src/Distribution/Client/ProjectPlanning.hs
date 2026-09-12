@@ -185,6 +185,8 @@ import Distribution.Simple.Program.Find
 import Distribution.System
 
 import Distribution.Types.AnnotatedId
+import Distribution.Types.Component (Component (..))
+import Distribution.Types.Library (libStanza)
 import Distribution.Types.ComponentInclude
 import Distribution.Types.ComponentName
 import Distribution.Types.DependencySatisfaction
@@ -3268,7 +3270,7 @@ availableSourceTargets elab =
     componentAvailableTargetStatus
       :: Component -> AvailableTargetStatus (UnitId, ComponentName)
     componentAvailableTargetStatus component =
-      case componentOptionalStanza $ CD.componentNameToComponent cname of
+      case componentStanza component of
         -- it is not an optional stanza, so a library, exe or foreign lib
         Nothing
           | not buildable -> TargetNotBuildable
@@ -3298,6 +3300,11 @@ availableSourceTargets elab =
       where
         cname = componentName component
         buildable = PD.buildable (componentBuildInfo component)
+        -- A library may have been placed in an optional stanza, which its
+        -- component name alone cannot tell us; test-suites and benchmarks are
+        -- still identified by name.
+        componentStanza (CLib lib) = libraryStanzaToOptionalStanza (libStanza lib)
+        componentStanza c = componentOptionalStanza (CD.componentNameToComponent (componentName c))
         withinPlan =
           elabLocalToProject elab
             || case elabPkgOrComp elab of
