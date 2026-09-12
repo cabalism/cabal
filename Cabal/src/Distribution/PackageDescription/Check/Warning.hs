@@ -40,7 +40,9 @@ import Distribution.Types.BenchmarkType (BenchmarkType, knownBenchmarkTypes)
 import Distribution.Types.Dependency (Dependency (..))
 import Distribution.Types.ExeDependency (ExeDependency)
 import Distribution.Types.Flag (FlagName, unFlagName)
+import Distribution.Types.ComponentName (ComponentName, showComponentName)
 import Distribution.Types.LibraryName (LibraryName (..), showLibraryName)
+import Distribution.Types.LibraryStanza (LibraryStanza (..))
 import Distribution.Types.PackageName (PackageName)
 import Distribution.Types.TestType (TestType, knownTestTypes)
 import Distribution.Types.UnqualComponentName
@@ -146,6 +148,9 @@ data CheckExplanation
   | UnnamedInternal
   | DuplicateSections [UnqualComponentName]
   | IllegalLibraryName PackageName
+  | -- | A component outside an optional stanza depends on a library that is
+    -- in one: the depending component, the library, and the library's stanza.
+    CrossStanzaDependency ComponentName UnqualComponentName LibraryStanza
   | NoModulesExposed LibraryName
   | SignaturesCabal2
   | AutogenNotExposed
@@ -314,6 +319,7 @@ data CheckExplanationID
   | CIUnnamedInternal
   | CIDuplicateSections
   | CIIllegalLibraryName
+  | CICrossStanzaDependency
   | CINoModulesExposed
   | CISignaturesCabal2
   | CIAutogenNotExposed
@@ -461,6 +467,7 @@ checkExplanationId (NoTarget{}) = CINoTarget
 checkExplanationId (UnnamedInternal{}) = CIUnnamedInternal
 checkExplanationId (DuplicateSections{}) = CIDuplicateSections
 checkExplanationId (IllegalLibraryName{}) = CIIllegalLibraryName
+checkExplanationId (CrossStanzaDependency{}) = CICrossStanzaDependency
 checkExplanationId (NoModulesExposed{}) = CINoModulesExposed
 checkExplanationId (SignaturesCabal2{}) = CISignaturesCabal2
 checkExplanationId (AutogenNotExposed{}) = CIAutogenNotExposed
@@ -615,6 +622,7 @@ ppCheckExplanationId CINoTarget = "no-target"
 ppCheckExplanationId CIUnnamedInternal = "unnamed-internal-library"
 ppCheckExplanationId CIDuplicateSections = "duplicate-sections"
 ppCheckExplanationId CIIllegalLibraryName = "illegal-library-name"
+ppCheckExplanationId CICrossStanzaDependency = "cross-stanza-dependency"
 ppCheckExplanationId CINoModulesExposed = "no-modules-exposed"
 ppCheckExplanationId CISignaturesCabal2 = "signatures"
 ppCheckExplanationId CIAutogenNotExposed = "autogen-not-exposed"
@@ -809,6 +817,19 @@ ppExplanation (DuplicateSections duplicateNames) =
     ++ commaSep (map unUnqualComponentName duplicateNames)
     ++ ". The name of every library, executable, test suite,"
     ++ " and benchmark section in the package must be unique."
+ppExplanation (CrossStanzaDependency dependent libname stanza) =
+  "The "
+    ++ showComponentName dependent
+    ++ " depends on the library '"
+    ++ prettyShow libname
+    ++ "', which is in the "
+    ++ prettyShow stanza
+    ++ " stanza. A library in an optional stanza is only requested when that"
+    ++ " stanza is, so anything outside the stanza that depends on it would be"
+    ++ " left with a missing dependency whenever the stanza is disabled."
+    ++ " Either move the dependency into the "
+    ++ prettyShow stanza
+    ++ " stanza too, or take the library out of it."
 ppExplanation (IllegalLibraryName pname) =
   "Illegal internal library name "
     ++ prettyShow pname

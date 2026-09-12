@@ -46,6 +46,7 @@ import Distribution.Compat.Prelude
 import Prelude ()
 
 import Data.List (group)
+import qualified Distribution.Compat.NonEmptySet as NES
 import qualified Data.List as L
 import Distribution.CabalSpecVersion
 import Distribution.Compat.Lens
@@ -276,6 +277,13 @@ checkGenericPackageDescription
       -- Flag names.
       mapM_ checkFlagName genPackageFlags_
 
+      -- A library in an optional stanza may only be depended on from inside
+      -- that stanza. Otherwise disabling the stanza would leave the depending
+      -- component with a dependency that is not requested.
+      mapM_
+        (\(dependent, libname, stanza) -> checkP True (PackageBuildImpossible (CrossStanzaDependency dependent libname stanza)))
+        (stanzaScopedViolations packageDescription_ condLibrary_ condSubLibraries_ condForeignLibs_ condExecutables_ condTestSuites_ condBenchmarks_)
+
       -- § Feature checks.
       checkSpecVer
         CabalSpecV2_0
@@ -390,6 +398,70 @@ checkGenericPackageDescription
           , toSetOf (L.condTestSuites . traverse . _2 . traverseCondTreeV . L._PackageFlag) gpd
           , toSetOf (L.condBenchmarks . traverse . _2 . traverseCondTreeV . L._PackageFlag) gpd
           ]
+
+-- | Components that depend on a library placed in an optional stanza from
+-- outside that stanza.
+--
+-- A library carrying @stanza: test@ is only requested when test-suites are, so
+-- a dependency on it from the main library (say) would dangle whenever tests
+-- are disabled. Gating such a library's dependencies behind its stanza is only
+-- sound while this holds, which is why it is an error rather than a warning.
+--
+-- Dependencies are collected from every branch of each component's condition
+-- tree, since a violation hidden behind a flag is still a violation. The
+-- stanza of a library is read from its tree root.
+stanzaScopedViolations
+  :: PackageDescription
+  -> Maybe (CondTree ConfVar Library)
+  -> [(UnqualComponentName, CondTree ConfVar Library)]
+  -> [(UnqualComponentName, CondTree ConfVar ForeignLib)]
+  -> [(UnqualComponentName, CondTree ConfVar Executable)]
+  -> [(UnqualComponentName, CondTree ConfVar TestSuite)]
+  -> [(UnqualComponentName, CondTree ConfVar Benchmark)]
+  -> [(ComponentName, UnqualComponentName, LibraryStanza)]
+stanzaScopedViolations pkg mlib sublibs flibs exes tests benchs =
+  [ (dependent, depName, depStanza)
+  | (dependent, dependentStanza, deps) <- components
+  , depName <- deps
+  , Just depStanza <- [lookup depName stanzaOf]
+  , depStanza /= LibraryStanzaAlways
+  , depStanza /= dependentStanza
+  ]
+  where
+    stanzaOf =
+      [ (nm, libStanza (condTreeData t))
+      | (nm, t) <- sublibs
+      ]
+
+    components =
+      [ (CLibName LMainLibName, LibraryStanzaAlways, libDepsOf libBuildInfo t)
+      | Just t <- [mlib]
+      ]
+        ++ [ (CLibName (LSubLibName nm), libStanza (condTreeData t), libDepsOf libBuildInfo t)
+           | (nm, t) <- sublibs
+           ]
+        ++ [ (CFLibName nm, LibraryStanzaAlways, libDepsOf foreignLibBuildInfo t)
+           | (nm, t) <- flibs
+           ]
+        ++ [ (CExeName nm, LibraryStanzaAlways, libDepsOf buildInfo t)
+           | (nm, t) <- exes
+           ]
+        ++ [ (CTestName nm, LibraryStanzaTest, libDepsOf testBuildInfo t)
+           | (nm, t) <- tests
+           ]
+        ++ [ (CBenchName nm, LibraryStanzaBench, libDepsOf benchmarkBuildInfo t)
+           | (nm, t) <- benchs
+           ]
+
+    -- every same-package sublibrary named in any branch of the tree
+    libDepsOf :: (a -> BuildInfo) -> CondTree ConfVar a -> [UnqualComponentName]
+    libDepsOf getInfo t =
+      [ nm
+      | node <- toList t
+      , Dependency pkgname _ lns <- targetBuildDepends (getInfo node)
+      , pkgname == packageName pkg
+      , LSubLibName nm <- NES.toList lns
+      ]
 
 checkPackageDescription :: Monad m => PackageDescription -> CheckM m ()
 checkPackageDescription
