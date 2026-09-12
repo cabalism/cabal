@@ -1,0 +1,4 @@
+# cabal v2-build
+Resolving dependencies...
+Error: [Cabal-7127]
+Cannot build the library 'helper' because building test suites has been explicitly disabled in the configuration. You can adjust this configuration in the cabal.project{.local} file either for all packages in the project or on a per-package basis. Note that if you do not explicitly disable test suites then the solver will merely try to make a plan with them available, so you may wish to explicitly enable them which will require the solver to find a plan with them available or to fail with an explanation.
