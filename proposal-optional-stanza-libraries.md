@@ -230,10 +230,59 @@ between readTargetSelectors and resolveTargets.
 
 The fix is that a library must be asked, not its name. That function already
 receives the whole component, so it is a local change; the shared conversion
-`libraryStanzaToOptionalStanza` now lives beside `OptionalStanza`. The general
-lesson is that the assumption "optionality is a property of the component's name"
-is encoded in several places, and each has to be revisited. The prototype does so
-for planning and for the solver.
+`libraryStanzaToOptionalStanza` now lives beside `OptionalStanza`.
+
+That produced the right error class but the wrong noun -- "because building
+*libraries* has been explicitly disabled" -- because `renderTargetProblem`
+derived it with `renderComponentKind Plural (componentKind cname)`, which was
+only ever right while an optional component was always a test-suite or benchmark.
+Naming the stanza instead means carrying it, and the stanza is *not* known where
+the problem is constructed: `selectComponentTargetBasic` sees only the
+`AvailableTargetStatus`. So the two disabled statuses now carry it:
+
+```haskell
+    TargetDisabledByUser (Maybe OptionalStanza)
+  | TargetDisabledBySolver (Maybe OptionalStanza)
+```
+
+and `TargetOptionalStanzaDisabledByUser` / `...BySolver` carry it onward to the
+renderer. The result reads correctly for both kinds of component:
+
+```
+Cannot build the library 'testlib' because building test suites has been
+explicitly disabled in the configuration. ...
+
+Cannot build the test suite 'unit-tests' because building test suites has been
+explicitly disabled in the configuration. ...
+```
+
+The field is `Maybe` because `Distribution.Client.CmdHaddock` repurposes
+`TargetDisabledByUser` to mean "not requested by this target filter", where no
+stanza is involved; there the renderer falls back to the component kind, which is
+the existing wording. That repurposing is arguably worth its own status
+constructor, but that is out of scope here.
+
+The distinction is observable, and `IntegrationTests2` pins it. In the haddock
+target-problem fixture a benchmark that *was* buildable is rewritten by haddock's
+filter and so carries no stanza, while a test-suite already disabled by the solver
+keeps its `Just TestStanzas`:
+
+```haskell
+  [ AvailableTarget "p-0.1" (CBenchName "user-disabled")
+      -- haddock's own target filter, not a disabled stanza
+      (TargetDisabledByUser Nothing) True
+  , AvailableTarget "p-0.1" (CTestName "solver-disabled")
+      (TargetDisabledBySolver (Just TestStanzas)) True
+```
+
+Getting this wrong is caught by the suite, which is a useful property: it means
+the two meanings cannot quietly merge again.
+
+The general lesson is that the assumption "optionality is a property of the
+component's name" is encoded in several places, and each has to be revisited. The
+prototype does so for the solver, for planning, and for the two renderers -- the
+last of which also fixes the stanza named in `TargetProblemNoneEnabled`
+messages, which had the same defect.
 
 **`cabal check`.** The validation rule above is a new check. A stanza-scoped
 sublibrary that no test-suite depends on is dead weight and could warrant a
@@ -281,6 +330,10 @@ alone decides.
 | `cabal-install-solver/.../Modular/IndexConversion.hs` | stanza-scoped sublibraries emitted under `prefix (Stanza ...)` |
 | `Cabal/src/Distribution/PackageDescription/Check/Target.hs`, `Cabal/src/Distribution/Simple/Build.hs` | field added to positional match / record literal |
 | `Cabal-tree-diff/src/Data/TreeDiff/Instances/Cabal.hs` | `ToExpr LibraryStanza` |
+| `cabal-install-solver/.../Types/OptionalStanza.hs` | `libraryStanzaToOptionalStanza` |
+| `cabal-install/.../ProjectPlanning.hs` | `componentAvailableTargetStatus` asks the component; the two disabled statuses carry the stanza |
+| `cabal-install/.../TargetProblem.hs`, `ProjectOrchestration.hs`, `CmdErrorMessages.hs`, `CmdHaddock.hs` | stanza threaded to the renderers; messages name the stanza |
+| `cabal-install/tests/IntegrationTests2.hs` | fixtures updated with the stanza |
 
 The solver change is the whole mechanism, and it is small:
 
@@ -311,19 +364,10 @@ The solver change is the whole mechanism, and it is small:
 - `cabal check` rules.
 - Explicit-target behaviour (`cabal build pkg:lib:testlib` with tests disabled) is
   untested.
-- **The disabled-target message names the wrong thing.** Asking for a
-  `stanza: test` library with tests disabled now produces the right error class,
-  but says "because building *libraries* has been explicitly disabled" where it
-  should say *test suites*. `renderTargetProblem` derives that noun with
-  `renderComponentKind Plural (componentKind cname)`, which was only ever correct
-  because an optional component was always a test-suite or benchmark.
-
-  The honest fix is to carry the `OptionalStanza` in
-  `TargetOptionalStanzaDisabledByUser` and `TargetOptionalStanzaDisabledBySolver`
-  and render from that; the stanza is known where those are constructed, in
-  `ProjectOrchestration`. That is four sites plus two in `IntegrationTests2`, but
-  it changes a type in `cabal-install`'s library, so it is left for the proposal
-  to decide rather than settled in a prototype.
 - `optionalStanza` (`CmdErrorMessages.hs`) still answers from the component's
-  name alone.
+  name alone. It is now only reached for statuses that carry no stanza, so it is
+  no longer wrong, but it remains a name-keyed answer to a question that is not
+  about names.
+- `CmdHaddock`'s reuse of `TargetDisabledByUser` for "not requested by this
+  target filter" would be better as its own status constructor.
 - Parser round-trip tests, pretty-printer tests, documentation.
