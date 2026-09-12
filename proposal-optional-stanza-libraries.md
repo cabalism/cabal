@@ -201,6 +201,32 @@ what makes gating the dependencies alone sufficient.
 This rule is worth stating on its own merits: it is what the flag workaround
 cannot express.
 
+It is implemented as a package check reporting `PackageBuildImpossible`, which
+`Distribution.Simple.Configure.checkPackageProblems` turns into an error, so the
+package cannot be configured. The check walks every branch of each component's
+condition tree, since a violation hidden behind a flag is still a violation, and
+reads each sublibrary's stanza from its tree root. Reported as
+`cross-stanza-dependency`:
+
+```
+The package will not build sanely due to these errors:
+Error: [cross-stanza-dependency] The executable 'cabal' depends on the library
+'testlib', which is in the test stanza. A library in an optional stanza is only
+requested when that stanza is, so anything outside the stanza that depends on it
+would be left with a missing dependency whenever the stanza is disabled. Either
+move the dependency into the test stanza too, or take the library out of it.
+```
+
+Two notes on the rule as implemented:
+
+- A component's own stanza is what it may depend on: a test-suite may depend on a
+  `stanza: test` library, a benchmark on a `stanza: bench` one, and any component
+  on an ordinary library. Anything else is rejected.
+- Making the *main library* depend on a `stanza: test` sublibrary is already
+  rejected for a different reason -- the sublibrary depends on the main library,
+  so it is a component cycle -- and `cabal` reports it as such. The check is what
+  catches the cases that are not cycles, such as an executable depending on it.
+
 ## Interactions
 
 **Explicit targets.** `cabal build pkg:lib:testlib` with tests disabled should
@@ -334,6 +360,8 @@ alone decides.
 | `cabal-install/.../ProjectPlanning.hs` | `componentAvailableTargetStatus` asks the component; the two disabled statuses carry the stanza |
 | `cabal-install/.../TargetProblem.hs`, `ProjectOrchestration.hs`, `CmdErrorMessages.hs`, `CmdHaddock.hs` | stanza threaded to the renderers; messages name the stanza |
 | `cabal-install/tests/IntegrationTests2.hs` | fixtures updated with the stanza |
+| `Cabal/.../Check.hs`, `Check/Warning.hs` | the `cross-stanza-dependency` check |
+| `Cabal-tests/.../Utils/Structured.hs` | golden structure hashes for `GenericPackageDescription` and `LocalBuildInfo` |
 
 The solver change is the whole mechanism, and it is small:
 
@@ -343,6 +371,14 @@ The solver change is the whole mechanism, and it is small:
      (L.map (convSubLib (addStanza TestStanzas initDR))
             [sl | sl <- sub_libs, subLibStanza sl == Just TestStanzas])
 ```
+
+### Note on the structure hash
+
+Adding a field to `Library` changes the `Structured` hash of
+`GenericPackageDescription` and `LocalBuildInfo`, which the golden tests in
+`Cabal-tests` pin. Updating them is not incidental: that hash is how `cabal`
+invalidates its caches when the description format changes, so the new values are
+part of the change rather than test churn to be papered over.
 
 ### Deliberate deviations
 
@@ -357,11 +393,10 @@ The solver change is the whole mechanism, and it is small:
 
 ### Not implemented
 
-- The validation rule. Nothing currently stops `lib` depending on a
-  `stanza: test` sublibrary; the prototype relies on the package being
-  well-formed. This is the main piece of work remaining, and it is what makes
-  gating only the dependencies sound.
-- `cabal check` rules.
+- Further `cabal check` rules, such as warning about a stanza-scoped
+  sublibrary that no component in that stanza depends on.
+- A conditional `stanza:` field is read from the condition tree's root and
+  otherwise ignored. It should probably be rejected outright.
 - Explicit-target behaviour (`cabal build pkg:lib:testlib` with tests disabled) is
   untested.
 - `optionalStanza` (`CmdErrorMessages.hs`) still answers from the component's
