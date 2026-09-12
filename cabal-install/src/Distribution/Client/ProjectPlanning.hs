@@ -2312,18 +2312,16 @@ elaborateInstallPlan
               -- requested.
               TestStanzas ->
                 listToMaybe
-                  [ v
-                  | v <- maybeToList tests
-                  , not (null (PD.testSuites elabPkgDescription))
-                      || stanzaLibs LibraryStanzaTest
-                  ]
+                  [v |
+                     not (null (PD.testSuites elabPkgDescription))
+                       || stanzaLibs LibraryStanzaTest,
+                     v <- maybeToList tests]
               BenchStanzas ->
                 listToMaybe
-                  [ v
-                  | v <- maybeToList benchmarks
-                  , not (null (PD.benchmarks elabPkgDescription))
-                      || stanzaLibs LibraryStanzaBench
-                  ]
+                  [v |
+                     not (null (PD.benchmarks elabPkgDescription))
+                       || stanzaLibs LibraryStanzaBench,
+                     v <- maybeToList benchmarks]
               where
                 stanzaLibs st =
                   any ((st `elem`) . libStanzas) (PD.subLibraries elabPkgDescription)
