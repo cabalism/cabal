@@ -235,8 +235,8 @@ selectPackageTargets targetSelector targets
     -- When there's a target filter like "pkg:tests" then we do select tests,
     -- but if it's just a target like "pkg" then we don't build tests unless
     -- they are requested by default (i.e. by using --enable-tests)
-    buildable (TargetPackage _ _ Nothing) TargetNotRequestedByDefault = False
-    buildable (TargetAllPackages Nothing) TargetNotRequestedByDefault = False
+    buildable (TargetPackage _ _ Nothing) (TargetNotRequestedByDefault _) = False
+    buildable (TargetAllPackages Nothing) (TargetNotRequestedByDefault _) = False
     buildable _ _ = True
 
 -- | For a 'TargetComponent' 'TargetSelector', check if the component can be

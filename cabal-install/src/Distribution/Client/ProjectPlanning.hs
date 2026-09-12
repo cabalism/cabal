@@ -186,6 +186,7 @@ import Distribution.System
 
 import Distribution.Types.AnnotatedId
 import Distribution.Types.Library (libStanzas)
+import Distribution.Types.LibraryStanza (LibraryStanza (..))
 import Distribution.Types.ComponentInclude
 import Distribution.Types.ComponentName
 import Distribution.Types.DependencySatisfaction
@@ -2305,9 +2306,27 @@ elaborateInstallPlan
               -- package needs to be rebuilt.  (It needs to be done here,
               -- because the ElaboratedConfiguredPackage is where we test
               -- whether or not there have been changes.)
-              TestStanzas -> listToMaybe [v | v <- maybeToList tests, _ <- PD.testSuites elabPkgDescription]
-              BenchStanzas -> listToMaybe [v | v <- maybeToList benchmarks, _ <- PD.benchmarks elabPkgDescription]
+              -- A library placed in a stanza counts as the package having
+              -- that stanza, so a package that provides such libraries but no
+              -- test-suite or benchmark of its own can still have the stanza
+              -- requested.
+              TestStanzas ->
+                listToMaybe
+                  [ v
+                  | v <- maybeToList tests
+                  , not (null (PD.testSuites elabPkgDescription))
+                      || stanzaLibs LibraryStanzaTest
+                  ]
+              BenchStanzas ->
+                listToMaybe
+                  [ v
+                  | v <- maybeToList benchmarks
+                  , not (null (PD.benchmarks elabPkgDescription))
+                      || stanzaLibs LibraryStanzaBench
+                  ]
               where
+                stanzaLibs st =
+                  any ((st `elem`) . libStanzas) (PD.subLibraries elabPkgDescription)
                 tests, benchmarks :: Maybe Bool
                 tests = perPkgOptionMaybe pkgid packageConfigTests
                 benchmarks = perPkgOptionMaybe pkgid packageConfigBenchmarks
@@ -3133,8 +3152,9 @@ data AvailableTargetStatus k
 data TargetRequested
   = -- | To be built by default
     TargetRequestedByDefault
-  | -- | Not to be built by default
-    TargetNotRequestedByDefault
+  | -- | Not to be built by default. Carries the optional stanza responsible,
+    -- which a library's component name cannot supply.
+    TargetNotRequestedByDefault (Maybe OptionalStanza)
   deriving (Eq, Ord, Show)
 
 -- | Given the install plan, produce the set of 'AvailableTarget's for each
@@ -3295,7 +3315,7 @@ availableSourceTargets elab =
             (Nothing, True) ->
               TargetBuildable
                 (elabUnitId elab, cname)
-                TargetNotRequestedByDefault
+                (TargetNotRequestedByDefault (Just stanza))
             (Just True, False) ->
               error $ "componentAvailableTargetStatus: impossible; cname=" ++ prettyShow cname
       where
