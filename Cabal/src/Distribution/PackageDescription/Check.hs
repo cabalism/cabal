@@ -428,7 +428,7 @@ repeatedStanzaFields sublibs =
   [ (nm, stanzas)
   | (nm, t) <- sublibs
   , let stanzas = libStanzas (condTreeData t)
-  , length (nub stanzas) /= length stanzas
+  , length (ordNub stanzas) /= length stanzas
   ]
 
 -- | Libraries in an optional stanza that are also declared @public@.
