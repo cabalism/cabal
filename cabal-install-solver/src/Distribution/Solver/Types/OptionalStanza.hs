@@ -1,6 +1,7 @@
 module Distribution.Solver.Types.OptionalStanza (
     -- * OptionalStanza
     OptionalStanza(..),
+    libraryStanzaToOptionalStanza,
     showStanza,
     showStanzas,
     enableStanzas,
@@ -23,6 +24,7 @@ module Distribution.Solver.Types.OptionalStanza (
 ) where
 
 import Distribution.Solver.Compat.Prelude
+import Distribution.Types.LibraryStanza (LibraryStanza (..))
 import Prelude ()
 
 import Data.Bits                                 (testBit, (.|.), (.&.))
@@ -37,6 +39,16 @@ data OptionalStanza
     = TestStanzas
     | BenchStanzas
   deriving (Eq, Ord, Enum, Bounded, Show, Generic)
+
+-- | The optional stanza a library component belongs to, if any.
+--
+-- Test-suites and benchmarks can be mapped to their stanza from their component
+-- name alone, but a library carries its stanza as a field, so this needs the
+-- 'LibraryStanza' read off the component.
+libraryStanzaToOptionalStanza :: LibraryStanza -> Maybe OptionalStanza
+libraryStanzaToOptionalStanza LibraryStanzaAlways = Nothing
+libraryStanzaToOptionalStanza LibraryStanzaTest = Just TestStanzas
+libraryStanzaToOptionalStanza LibraryStanzaBench = Just BenchStanzas
 
 -- | String representation of an OptionalStanza.
 showStanza :: OptionalStanza -> String
