@@ -11,10 +11,15 @@ library testlib
 ```
 
 Such a library is *requested* exactly when one of those stanzas is, in the same
-way a test-suite is requested only under `--enable-tests`. Its dependencies are
-therefore not resolved for builds that want neither the tests nor the benchmarks,
-which lets a package share helper modules between its test-suites without those
-helpers' dependencies reaching every build.
+way a test-suite is requested only under `--enable-tests`. Its dependencies
+become conditional on that stanza rather than unconditional, which lets a package
+share helper modules between its test-suites without those helpers'
+dependencies being mandatory in every build.
+
+Conditional is not the same as absent: a build that has not disabled the stanza
+still prefers to enable it, and will solve those dependencies if it can. What
+changes is that it can now decline. See
+[What "not solved for" does and does not mean](#what-not-solved-for-does-and-does-not-mean).
 
 A library naming no stanzas -- the default, and what omitting the field means --
 is always requested, exactly as today.
@@ -151,6 +156,50 @@ a comma-separated set, empty by default.
 - A library is requested iff any stanza it names is requested. Being *requested* is necessary but not sufficient for being
   *enabled*; `buildable: False` still applies, per the existing distinction in
   `Distribution.Types.ComponentRequestedSpec`.
+
+### What "not solved for" does and does not mean
+
+The dependencies of a library in an optional stanza are guarded by that stanza,
+not removed from the description, so how much they affect a solve depends on how
+the stanza was decided. There are three cases, and only the first is absolute.
+
+**Explicitly disabled** (`tests: False`, `--disable-tests`). `ProjectPlanning`
+adds a constraint ruling the stanza out, so the library's dependencies are never
+required. This is the case `cabal.bootstrap.project` is in, and the reason a
+bootstrap plan is unaffected by test-only dependencies.
+
+**Left at the default.** They are *still used*. For every local package cabal
+adds a stanza preference for every stanza the user has not disabled --
+
+```haskell
+. addPreferences
+  -- enable stanza preference unilaterally, regardless if the user asked
+  -- accordingly or expressed no preference, to help hint the solver
+```
+
+-- and `preferPackageStanzaPreferences` in the solver reorders the stanza choice
+so that enabling it is tried first. The solver therefore attempts to satisfy a
+stanza-scoped library's dependencies by default, and if it can, they are part of
+the plan.
+
+What changes is that the choice is now a choice. Before, a sublibrary's
+dependencies were unconditional and a solve that could not satisfy them simply
+failed; that is what made `Cabal-QuickCheck` fatal to the bootstrap plan. Now the
+stanza node is weak, so the solver backtracks and produces a plan without the
+stanza rather than failing. Verified: a stanza library depending on a package
+that does not exist leaves `cabal build` at default settings working, where the
+same dependency on an ordinary sublibrary fails the solve.
+
+**Explicitly enabled** (`--enable-tests`). The stanza is constrained on and the
+dependencies are required, so an unsatisfiable one is a failure again.
+
+Two consequences worth being plain about. Someone who merely wants to avoid
+downloading a heavy test-only dependency will not get that from the default; they
+need `--disable-tests`. And the preference is added for *local* packages only, so
+the stanzas of a dependency taken from Hackage are never preferred -- which is
+the mechanical reason a stanza-scoped library cannot usefully be `public`, as
+discussed under
+[Cross-package sharing](#cross-package-sharing-is-the-unresolved-conflict).
 
 ### Validation
 
