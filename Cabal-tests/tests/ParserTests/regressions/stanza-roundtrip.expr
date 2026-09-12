@@ -54,7 +54,7 @@ GenericPackageDescription {
         libExposed = True,
         libVisibility =
         LibraryVisibilityPublic,
-        libStanza = LibraryStanzaAlways,
+        libStanzas = [],
         libBuildInfo = BuildInfo {
           buildable = True,
           buildTools = [],
@@ -137,7 +137,8 @@ GenericPackageDescription {
           libExposed = True,
           libVisibility =
           LibraryVisibilityPrivate,
-          libStanza = LibraryStanzaTest,
+          libStanzas = [
+            LibraryStanzaTest],
           libBuildInfo = BuildInfo {
             buildable = True,
             buildTools = [],
@@ -219,7 +220,92 @@ GenericPackageDescription {
           libExposed = True,
           libVisibility =
           LibraryVisibilityPrivate,
-          libStanza = LibraryStanzaBench,
+          libStanzas = [
+            LibraryStanzaBench],
+          libBuildInfo = BuildInfo {
+            buildable = True,
+            buildTools = [],
+            buildToolDepends = [],
+            cppOptions = [],
+            asmOptions = [],
+            cmmOptions = [],
+            ccOptions = [],
+            cxxOptions = [],
+            jsppOptions = [],
+            ldOptions = [],
+            hsc2hsOptions = [],
+            pkgconfigDepends = [],
+            frameworks = [],
+            extraFrameworkDirs = [],
+            asmSources = [],
+            cmmSources = [],
+            cSources = [],
+            cxxSources = [],
+            jsSources = [],
+            hsSourceDirs = [],
+            otherModules = [],
+            virtualModules = [],
+            autogenModules = [],
+            defaultLanguage = Just
+              Haskell2010,
+            otherLanguages = [],
+            defaultExtensions = [],
+            otherExtensions = [],
+            oldExtensions = [],
+            extraLibs = [],
+            extraLibsStatic = [],
+            extraGHCiLibs = [],
+            extraBundledLibs = [],
+            extraLibFlavours = [],
+            extraDynLibFlavours = [],
+            extraLibDirs = [],
+            extraLibDirsStatic = [],
+            includeDirs = [],
+            includes = [],
+            autogenIncludes = [],
+            installIncludes = [],
+            options = PerCompilerFlavor
+              []
+              [],
+            profOptions = PerCompilerFlavor
+              []
+              [],
+            sharedOptions =
+            PerCompilerFlavor [] [],
+            profSharedOptions =
+            PerCompilerFlavor [] [],
+            staticOptions =
+            PerCompilerFlavor [] [],
+            customFieldsBI = [],
+            targetBuildDepends = [
+              Dependency
+                (PackageName "base")
+                (IntersectVersionRanges
+                  (OrLaterVersion
+                    (mkVersion [4, 9]))
+                  (EarlierVersion
+                    (mkVersion [5])))
+                mainLibSet],
+            mixins = []}},
+        condTreeComponents = []},
+    _×_
+      (UnqualComponentName
+        "both-helper")
+      CondNode {
+        condTreeData = Library {
+          libName = LSubLibName
+            (UnqualComponentName
+              "both-helper"),
+          exposedModules = [
+            ModuleName "Qux"],
+          reexportedModules = [],
+          signatures = [],
+          libExposed = True,
+          libVisibility =
+          LibraryVisibilityPrivate,
+          libStanzas = [
+            LibraryStanzaTest,
+            LibraryStanzaBench],
           libBuildInfo = BuildInfo {
             buildable = True,
             buildTools = [],
@@ -295,13 +381,13 @@ GenericPackageDescription {
             (UnqualComponentName
               "plain-helper"),
           exposedModules = [
-            ModuleName "Qux"],
+            ModuleName "Quux"],
           reexportedModules = [],
           signatures = [],
           libExposed = True,
           libVisibility =
           LibraryVisibilityPrivate,
-          libStanza = LibraryStanzaAlways,
+          libStanzas = [],
           libBuildInfo = BuildInfo {
             buildable = True,
             buildTools = [],

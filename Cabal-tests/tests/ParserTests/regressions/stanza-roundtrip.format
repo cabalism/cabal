@@ -26,8 +26,14 @@ library bench-helper
     default-language: Haskell2010
     build-depends:    base >=4.9 && <5
 
-library plain-helper
+library both-helper
     exposed-modules:  Qux
+    stanza:           test, bench
+    default-language: Haskell2010
+    build-depends:    base >=4.9 && <5
+
+library plain-helper
+    exposed-modules:  Quux
     default-language: Haskell2010
     build-depends:    base >=4.9 && <5
 
