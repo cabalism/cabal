@@ -534,25 +534,26 @@ instance NFData BuildTimeSettings where
         haddockOpen
         buildTimings
       ) =
-    rnf dryRun
-      `seq` rnf onlyDeps
-      `seq` rnf onlyDownload
-      `seq` rnf summaryFile
-      `seq` rnf logVerbosity
-      `seq` rnf buildReports
-      `seq` rnf reportPlanningFailure
-      `seq` rnf symlinkBinDir
-      `seq` rnf numJobs
-      `seq` rnf keepGoing
-      `seq` rnf offlineMode
-      `seq` rnf keepTempFiles
-      `seq` rnf remoteRepos
-      `seq` rnf localNoIndexRepos
-      `seq` rnf cacheDir
-      `seq` rnf httpTransport
-      `seq` rnf ignoreExpiry
-      `seq` rnf progPathExtra
-      `seq` rnf haddockOpen
-      `seq` rnf buildTimings
-      -- a function can only be forced to WHNF
-      `seq` maybe () (`seq` ()) logFile
+      rnf dryRun `seq`
+        rnf onlyDeps `seq`
+          rnf onlyDownload `seq`
+            rnf summaryFile `seq`
+              rnf logVerbosity `seq`
+                rnf buildReports `seq`
+                  rnf reportPlanningFailure `seq`
+                    rnf symlinkBinDir `seq`
+                      rnf numJobs `seq`
+                        rnf keepGoing `seq`
+                          rnf offlineMode `seq`
+                            rnf keepTempFiles `seq`
+                              rnf remoteRepos `seq`
+                                rnf localNoIndexRepos `seq`
+                                  rnf cacheDir `seq`
+                                    rnf httpTransport `seq`
+                                      rnf ignoreExpiry `seq`
+                                        rnf progPathExtra `seq`
+                                          rnf haddockOpen `seq`
+                                            rnf buildTimings
+                                            -- a function can only be forced to WHNF
+                                            `seq`
+                                              maybe () (`seq` ()) logFile

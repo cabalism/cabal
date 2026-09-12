@@ -185,8 +185,6 @@ import Distribution.Simple.Program.Find
 import Distribution.System
 
 import Distribution.Types.AnnotatedId
-import Distribution.Types.Library (libStanzas)
-import Distribution.Types.LibraryStanza (LibraryStanza (..))
 import Distribution.Types.ComponentInclude
 import Distribution.Types.ComponentName
 import Distribution.Types.DependencySatisfaction
@@ -194,7 +192,9 @@ import Distribution.Types.DependencySatisfaction
   )
 import Distribution.Types.DumpBuildInfo
 import Distribution.Types.GivenComponent
+import Distribution.Types.Library (libStanzas)
 import Distribution.Types.LibraryName
+import Distribution.Types.LibraryStanza (LibraryStanza (..))
 import qualified Distribution.Types.LocalBuildConfig as LBC
 import Distribution.Types.PackageVersionConstraint
 import Distribution.Types.PkgconfigDependency
@@ -2312,16 +2312,18 @@ elaborateInstallPlan
               -- requested.
               TestStanzas ->
                 listToMaybe
-                  [v |
-                     not (null (PD.testSuites elabPkgDescription))
-                       || stanzaLibs LibraryStanzaTest,
-                     v <- maybeToList tests]
+                  [ v
+                  | not (null (PD.testSuites elabPkgDescription))
+                      || stanzaLibs LibraryStanzaTest
+                  , v <- maybeToList tests
+                  ]
               BenchStanzas ->
                 listToMaybe
-                  [v |
-                     not (null (PD.benchmarks elabPkgDescription))
-                       || stanzaLibs LibraryStanzaBench,
-                     v <- maybeToList benchmarks]
+                  [ v
+                  | not (null (PD.benchmarks elabPkgDescription))
+                      || stanzaLibs LibraryStanzaBench
+                  , v <- maybeToList benchmarks
+                  ]
               where
                 stanzaLibs st =
                   any ((st `elem`) . libStanzas) (PD.subLibraries elabPkgDescription)

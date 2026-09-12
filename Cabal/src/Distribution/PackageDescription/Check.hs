@@ -46,10 +46,10 @@ import Distribution.Compat.Prelude
 import Prelude ()
 
 import Data.List (group)
-import qualified Distribution.Compat.NonEmptySet as NES
 import qualified Data.List as L
 import Distribution.CabalSpecVersion
 import Distribution.Compat.Lens
+import qualified Distribution.Compat.NonEmptySet as NES
 import Distribution.Compiler
 import Distribution.FieldGrammar.Parsec (freeTextIgnoreDotlineVers)
 import Distribution.License
@@ -463,7 +463,7 @@ unusedStanzaLibraries pkg sublibs tests benchs =
   , let stanzas = libStanzas (condTreeData t)
   , not (null stanzas)
   , -- dead only if unreachable from every stanza it belongs to
-    all (\st -> nm `notElem` live nm st) stanzas
+  all (\st -> nm `notElem` live nm st) stanzas
   ]
   where
     stanzasOf nm = maybe [] (libStanzas . condTreeData) (lookup nm sublibs)
@@ -540,7 +540,7 @@ stanzaScopedViolations pkg mlib sublibs flibs exes tests benchs =
   , Just depStanzas <- [lookup depName stanzaOf]
   , not (null depStanzas)
   , -- the dependent must itself be in one of the stanzas the library serves
-    not (any (`elem` depStanzas) dependentStanzas)
+  not (any (`elem` depStanzas) dependentStanzas)
   ]
   where
     stanzaOf =

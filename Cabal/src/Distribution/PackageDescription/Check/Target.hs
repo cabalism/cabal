@@ -60,7 +60,8 @@ checkLibrary
           reexportedModules_
           signatures_
           _libExposed_
-          _libVisibility_ _libStanzas_
+          _libVisibility_
+          _libStanzas_
           libBuildInfo_
         ) = do
     checkP
