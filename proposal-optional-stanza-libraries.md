@@ -174,16 +174,18 @@ A new field on library components, spelled here as `stanza:` but see
 [Naming](#naming) -- `requested-by:` is the recommended spelling:
 
 ```
-stanza: always | test | bench
+stanza: test, bench
 ```
 
-- Default `always`, which is the current behaviour.
+a comma-separated set, empty by default.
+
+- Default empty, which is the current behaviour: the library is always
+  requested.
 - Accepted only on sublibraries. On the main library it is an unrecognised
   field, warned about and ignored -- the same treatment `visibility:` already
   gets there, so this is consistent rather than special.
 - Requires `cabal-version: 3.20` or later.
-- A library with `stanza: test` is requested iff test-suites are requested, and
-  likewise for `bench`. Being *requested* is necessary but not sufficient for being
+- A library is requested iff any stanza it names is requested. Being *requested* is necessary but not sufficient for being
   *enabled*; `buildable: False` still applies, per the existing distinction in
   `Distribution.Types.ComponentRequestedSpec`.
 
@@ -269,59 +271,53 @@ Two notes on the cross-stanza rule as implemented:
   so it is a component cycle -- and `cabal` reports it as such. The check is what
   catches the cases that are not cycles, such as an executable depending on it.
 
-### Open: a library shared by more than one stanza
+### Libraries shared by more than one stanza
 
-A single-valued field cannot express a library that both the test-suites and the
-benchmarks need, and that is not a hypothetical -- sharing helpers between them is
-common. The prototype rejects it:
-
-```
-Error: [cross-stanza-dependency] The benchmark 'bench' depends on the library
-'helper', which is in the test stanza. ... Either move the dependency into the
-test stanza too, or take the library out of it.
-```
-
-Both remedies the message offers are unavailable. A benchmark cannot be moved
-into the test stanza, and taking the library out of the stanza means
-`stanza: always`, which puts its test-only dependencies back into every solve --
-the problem the field exists to remove. The only remaining option is to duplicate
-the library, once per stanza, which is worse than the situation before the
-feature.
-
-**The field should therefore hold a set, not a single value:**
+Sharing helpers between a package's test-suites and its benchmarks is common, and
+a single-valued field cannot express it. The field therefore holds a set:
 
 ```cabal
-library helper
+library shared
   stanza: test, bench
 ```
 
-with the reading that the library is requested when *any* of its stanzas is. The
-supporting pieces are already in place:
+read as **requested when any of its stanzas is**. A library naming no stanzas --
+the default, and what omitting the field means -- is always requested.
 
-- `Distribution.Solver.Types.OptionalStanza` already defines `OptionalStanzaSet`
-  with `optStanzaSetFromList` and `optStanzaSetMember`, and `enableStanzas`
-  already maps such a set onto a `ComponentRequestedSpec`.
-- The solver needs no new concept. `flagged_deps` is a list and each
-  `Stanza (SN pn s) deps` entry is independent, so emitting a library's
-  dependencies once per stanza in its set gives exactly the wanted disjunction:
-  required if tests are on, required if benchmarks are on, not required if
-  neither is.
+Nothing new was needed in the solver. `flagged_deps` is a list and each
+`Stanza (SN pn s) deps` entry is independent, so emitting a library's
+dependencies once per stanza it belongs to says exactly "required if tests are
+on, required if benchmarks are on, not required if neither is".
+`Distribution.Solver.Types.OptionalStanza` already had `OptionalStanzaSet` and
+`enableStanzas` for the surrounding machinery.
 
-What does need deciding:
+Validation becomes membership: a component in stanza `S` may depend on a library
+whose set contains `S`. That also repairs the advice in the error message, which
+previously could not be followed. Before, a benchmark depending on a
+`stanza: test` library was told to "move the dependency into the test stanza
+too", which a benchmark cannot do; now it reads:
 
-- **Validation** becomes membership: a component in stanza `S` may depend on a
-  library whose set contains `S`. The current rule is the special case of a
-  singleton set.
-- **`componentAvailableTargetStatus`** currently reports one stanza when a target
-  is unavailable. For a library in several it has to say which ones, and decide
-  whether "disabled" means all of them are disabled or any.
-- **Spelling of the default.** With a set, the natural default is the empty set
-  rather than a distinguished `always` value, which also removes the awkward
-  `requested-by: always` noted under [Naming](#naming).
+```
+Either add the depending component's stanza to the library, or take the library
+out of its stanzas.
+```
 
-This is the one part of the design the prototype does not implement, and it
-should be settled before the field is committed to, because it changes the type
-of the field rather than just its behaviour.
+**Repeated entries are a warning** (`repeated-stanza`, `PackageBuildWarning`).
+`stanza: test, test` means the same as `stanza: test`, so nothing is broken; it
+is reported because it is not what anyone intends. The precedent for warning
+rather than erroring on a redundant setting is `OptRts` -- "`-rtsopts` has no
+effect for libraries" -- which is also a `PackageBuildWarning`. Note this is why
+the field is parsed into a list and de-duplicated at its use sites: parsing
+straight into a set would swallow the repeat and leave nothing to report.
+
+**An empty field is not reported.** `stanza:` written with nothing after it is
+indistinguishable from an absent field: `monoidalFieldAla` yields `[]` for both,
+and separating them would mean typing the field as `Maybe [LibraryStanza]` and
+threading `fromMaybe []` through every use. It would also be without precedent --
+no check in `Cabal` reports that a list field was written empty, and
+`build-depends:` with nothing after it passes silently. Treating an empty
+`stanza:` as equivalent to omitting it is the behaviour consistent with the rest
+of the format.
 
 ## Interactions
 
@@ -532,8 +528,7 @@ under `cabal-testsuite/PackageTests/ConditionalLib/`.
 | test | asserts |
 | --- | --- |
 | `ConditionalLib/Deps` | the load-bearing one: `helper` names a package that does not exist, and with `--disable-tests` the solve succeeds anyway. If its dependencies were required the build would fail, which is precisely what happened to `cabal.bootstrap.project` before the field existed |
-| `ConditionalLib/Plan/cabal` | with test-suites unrequested, neither `lib:helper` nor `test:spec` is in the plan |
-| `ConditionalLib/Plan/enable-tests` | the same command with `--enable-tests`: both appear |
+| `ConditionalLib/Plan/cabal` | four named sub-tests over one package -- `neither`, `tests`, `benchmarks`, `both` -- each with its own golden. A library in both stanzas appears under `tests` and under `benchmarks`, and under neither when both are off |
 | `ConditionalLib/Plan/target-disabled` | asking for `pkg:lib:helper` with tests disabled fails, and the message names *test suites* |
 | `ConditionalLib/CrossStanza` | an executable depending on a `stanza: test` library fails the build with `cross-stanza-dependency` |
 
