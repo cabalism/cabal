@@ -29,7 +29,7 @@ creating an empty directory.
 Using ``cabal init``
 --------------------
 
-The ``cabal init`` command creates the necessary files for a Cabal package,
+The :ref:`cabal init<cabal-init>` command creates the necessary files for a Cabal package,
 it has both an ``--interactive`` (default) and ``--non-interactive``
 mode. The interactive mode will walk you through many of the package
 options and metadata, the non-interactive mode will simply pick reasonable
@@ -106,7 +106,7 @@ can build and run our application.
 
 Since we have an executable we can use ``cabal run proglet`` which will build
 our executable (and re-build it if we've made any changes) and then run the
-binary. The ``cabal run`` command works for any ``component-name`` (tests for
+binary. The :ref:`cabal run<cabal-run>` command works for any ``component-name`` (tests for
 example), not just the main executable.
 
 

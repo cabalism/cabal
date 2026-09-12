@@ -479,7 +479,7 @@ are persisted to all subsequent calls to ``build``.
 ``cabal configure`` is intended to be a convenient way to write out
 a ``cabal.project.local`` for simple configurations; e.g.,
 ``cabal configure -w ghc-7.8`` would ensure that all subsequent
-builds with ``cabal build`` are performed with the compiler
+builds with :ref:`cabal build<cabal-build>` are performed with the compiler
 ``ghc-7.8``. For more complex configuration, we recommend writing the
 ``cabal.project.local`` file directly (or placing it in
 ``cabal.project``!)
@@ -492,7 +492,7 @@ builds with ``cabal build`` are performed with the compiler
    ``./Setup configure``, namely ``--cabal-lib-version``,
    ``--constraint``, ``--preference`` and ``--solver.``
 
--  Any flag accepted by ``cabal install`` beyond ``./Setup configure``.
+-  Any flag accepted by :ref:`cabal install<cabal-install>` beyond ``./Setup configure``.
 
 -  Any flag accepted by ``./Setup haddock``.
 
@@ -907,14 +907,14 @@ Some example targets:
     $ cabal build path/to/script    # build the script as an executable
 
 Beyond a list of targets, ``cabal build`` accepts all the flags that
-``cabal configure`` takes. Most of these flags are only taken into
+:ref:`cabal configure<cabal-configure>` takes. Most of these flags are only taken into
 consideration when building local packages; however, some flags may
 cause extra store packages to be built (for example,
 ``--enable-profiling`` will automatically make sure profiling libraries
 for all transitive dependencies are built and installed.)
 
 When building a script, the executable is cached under the cabal directory.
-See ``cabal run`` for more information on scripts.
+See :ref:`cabal run<cabal-run>` for more information on scripts.
 
 In addition ``cabal build`` accepts these flags:
 

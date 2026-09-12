@@ -18,7 +18,7 @@ project or can be referenced as a unit):
       optimization: False
 
 In general, the accepted field names coincide with the accepted command
-line flags that ``cabal install`` and other commands take. For example,
+line flags that :ref:`cabal install<cabal-install>` and other commands take. For example,
 ``cabal configure --enable-profiling`` will write out a project
 file with ``profiling: True``.
 
@@ -32,9 +32,9 @@ options):
 
 3. ``cabal.project.freeze`` (the output of :ref:`cabal freeze<cabal-freeze>`)
 
-4. ``cabal.project.local`` (the output of ``cabal configure``)
+4. ``cabal.project.local`` (the output of :ref:`cabal configure<cabal-configure>`)
 
-Any call to ``cabal build`` will consider ``cabal.project*`` files from parent
+Any call to :ref:`cabal build<cabal-build>` will consider ``cabal.project*`` files from parent
 directories when there is none in the current directory.
 
 .. _conditionals and imports:

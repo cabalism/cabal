@@ -61,7 +61,7 @@ The ``myapp.cabal`` file is a package description file, commonly referred to as 
 .. warning::
 
     The version bounds on base, a boot library distributed with GHC
-    [#boot-packages]_, are tied to the GHC version visible when ``cabal init``
+    [#boot-packages]_, are tied to the GHC version visible when :ref:`cabal init<cabal-init>`
     is run. If run with a later version of GHC you might see a difference in the
     version bounds.
 
@@ -99,7 +99,7 @@ To run the executable, switch into the application directory with ``cd myapp`` a
 
 This command automatically determines if the executable needs to be (re)built
 before running the executable. With only one executable component in the package,
-``cabal run`` (without a component name) is smart enough to infer it, so the name can be omitted.
+:ref:`cabal run<cabal-run>` (without a component name) is smart enough to infer it, so the name can be omitted.
 
 If you just want to build the executable without running it, run:
 
