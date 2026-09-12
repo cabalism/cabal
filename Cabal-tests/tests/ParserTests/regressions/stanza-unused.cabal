@@ -1,0 +1,26 @@
+cabal-version: 3.0
+name:          stanza-unused
+version:       0
+synopsis:      a chain of stanza libraries that nothing in the stanza uses
+description:   Both helpers are unreachable from the test-suite. This description is deliberately longer than the synopsis so that the golden output isolates the stanza check.
+category:      Tests
+license:       MIT
+maintainer:    none@example.com
+
+library helper-b
+  default-language: Haskell2010
+  stanza:           test
+  build-depends:    base >=4.9 && <5
+  exposed-modules:  Bar
+
+library helper-a
+  default-language: Haskell2010
+  stanza:           test
+  build-depends:    base >=4.9 && <5, stanza-unused:helper-b
+  exposed-modules:  Foo
+
+test-suite spec
+  default-language: Haskell2010
+  type:             exitcode-stdio-1.0
+  main-is:          Spec.hs
+  build-depends:    base >=4.9 && <5

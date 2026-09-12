@@ -1,0 +1,1 @@
+[public-stanza-library] The library 'helper' is in the test stanza and also declares 'visibility: public'. Whether that stanza is requested is part of this package's own configuration, so a package depending on this one has no way to ask for it. Either make the library private or take it out of the stanza.

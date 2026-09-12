@@ -1,0 +1,2 @@
+[unused-stanza-library] The library 'helper-a' is in the test stanza, but nothing in that stanza depends on it, so it will never be built. Either have a component in the stanza depend on it, or take it out of the stanza.
+[unused-stanza-library] The library 'helper-b' is in the test stanza, but nothing in that stanza depends on it, so it will never be built. Either have a component in the stanza depend on it, or take it out of the stanza.

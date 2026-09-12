@@ -1,0 +1,1 @@
+[conditional-stanza] The library 'helper' sets 'stanza' inside a conditional. Which stanza a component belongs to has to be known before conditions are resolved, so the field must be set unconditionally.
