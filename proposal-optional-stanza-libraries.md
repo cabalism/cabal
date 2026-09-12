@@ -361,6 +361,25 @@ older `cabal` reports an unsupported spec version rather than misreading the
 package. A package using it cannot be built by older toolchains, which is the
 normal cost of new `.cabal` syntax.
 
+The gate is doing more work than it may appear, and the prototype demonstrates
+what happens without it. An unrecognised field in a `.cabal` file is a *warning*,
+not an error, and the field is then ignored -- so a `cabal` without this feature
+reads a `stanza: test` library as an ordinary sublibrary and resolves its
+dependencies unconditionally. Running the unpatched `cabal` 3.19 against this
+repository's own bootstrap project gives:
+
+```
+warnings: cabal-install/cabal-install.cabal:324:5: Unknown field: "stanza"
+...
+[__1] unknown package: Cabal-QuickCheck (dependency of cabal-install)
+```
+
+The warning is buried and the failure surfaces much later as a solver error that
+says nothing about the field that caused it. With the gate in place the same
+`cabal` refuses the package up front, naming the spec version it cannot satisfy.
+Failing loudly and early is the better of the two, and it is the reason the gate
+should not be treated as a formality.
+
 **sdist and `flattenPackageDescription`.** Flattening takes all components, so
 source distributions are unaffected.
 
@@ -474,6 +493,15 @@ merely appeared.
   `Cabal` is 3.19, so no available `Cabal` can satisfy a `cabal-version: 3.20`
   package and `cabal-install` could not build itself. The one-line gate is marked
   in `FieldGrammar.hs`.
+
+  The consequence, in this repository, is that `cabal-install` now describes
+  itself with a field that only a `cabal` built from this branch understands. An
+  older `cabal` ignores it and then fails to resolve the bootstrap project, as
+  above. That is a chicken-and-egg peculiar to prototyping `.cabal` syntax inside
+  the package that defines it, and it is why landing the feature has to sequence
+  the `cabal-version` bump against the `Cabal` version: the field can only be
+  used by `cabal-install` itself once a released `Cabal` supports the spec
+  version that gates it.
 
 ### Not implemented
 
