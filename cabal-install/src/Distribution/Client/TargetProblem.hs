@@ -4,6 +4,7 @@ module Distribution.Client.TargetProblem
   ) where
 
 import Distribution.Client.Compat.Prelude
+import Distribution.Solver.Types.OptionalStanza (OptionalStanza)
 import Prelude ()
 
 import Distribution.Client.ProjectPlanning (AvailableTarget)
@@ -28,10 +29,12 @@ data TargetProblem a
       PackageId
       ComponentName
       SubComponentTarget
+      (Maybe OptionalStanza)
   | TargetOptionalStanzaDisabledBySolver
       PackageId
       ComponentName
       SubComponentTarget
+      (Maybe OptionalStanza)
   | TargetProblemUnknownComponent
       PackageName
       (Either UnqualComponentName ComponentName)

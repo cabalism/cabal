@@ -37,6 +37,7 @@ import Distribution.Client.Types
 import Distribution.Solver.Types.ConstraintSource
   ( ConstraintSource (ConstraintSourceUnknown)
   )
+import Distribution.Solver.Types.OptionalStanza (OptionalStanza (..))
 import Distribution.Solver.Types.PackageConstraint
   ( PackageProperty (PackagePropertySource)
   )
@@ -833,7 +834,7 @@ testTargetProblemsCommon config0 = do
         , -- Testsuites and benchmarks can be disabled by the solver if it
           -- cannot satisfy deps
 
-          ( \_ -> TargetOptionalStanzaDisabledBySolver "q-0.1" (CTestName "solver-disabled") WholeComponent
+          ( \_ -> TargetOptionalStanzaDisabledBySolver "q-0.1" (CTestName "solver-disabled") WholeComponent (Just TestStanzas)
           , mkTargetComponent "q-0.1" (CTestName "solver-disabled")
           )
         , -- Testsuites and benchmarks can be disabled explicitly by the
@@ -844,6 +845,7 @@ testTargetProblemsCommon config0 = do
                 "q-0.1"
                 (CBenchName "user-disabled")
                 WholeComponent
+                (Just BenchStanzas)
           , mkTargetComponent "q-0.1" (CBenchName "user-disabled")
           )
         , -- An unknown package. The target selector resolution should only
@@ -913,12 +915,12 @@ testTargetProblemsBuild config reportSubCase = do
           [ AvailableTarget
               "p-0.1"
               (CBenchName "user-disabled")
-              TargetDisabledByUser
+              (TargetDisabledByUser (Just BenchStanzas))
               True
           , AvailableTarget
               "p-0.1"
               (CTestName "solver-disabled")
-              TargetDisabledBySolver
+              (TargetDisabledBySolver (Just TestStanzas))
               True
           , AvailableTarget
               "p-0.1"
@@ -1360,12 +1362,12 @@ testTargetProblemsTest config reportSubCase = do
           [ AvailableTarget
               "p-0.1"
               (CTestName "user-disabled")
-              TargetDisabledByUser
+              (TargetDisabledByUser (Just TestStanzas))
               True
           , AvailableTarget
               "p-0.1"
               (CTestName "solver-disabled")
-              TargetDisabledByUser
+              (TargetDisabledByUser (Just TestStanzas))
               True
           ]
       , mkTargetPackage "p-0.1"
@@ -1384,12 +1386,12 @@ testTargetProblemsTest config reportSubCase = do
           [ AvailableTarget
               "p-0.1"
               (CTestName "user-disabled")
-              TargetDisabledBySolver
+              (TargetDisabledBySolver (Just TestStanzas))
               True
           , AvailableTarget
               "p-0.1"
               (CTestName "solver-disabled")
-              TargetDisabledBySolver
+              (TargetDisabledBySolver (Just TestStanzas))
               True
           ]
       , mkTargetPackage "p-0.1"
@@ -1514,12 +1516,12 @@ testTargetProblemsBench config reportSubCase = do
           [ AvailableTarget
               "p-0.1"
               (CBenchName "user-disabled")
-              TargetDisabledByUser
+              (TargetDisabledByUser (Just BenchStanzas))
               True
           , AvailableTarget
               "p-0.1"
               (CBenchName "solver-disabled")
-              TargetDisabledByUser
+              (TargetDisabledByUser (Just BenchStanzas))
               True
           ]
       , mkTargetPackage "p-0.1"
@@ -1538,12 +1540,12 @@ testTargetProblemsBench config reportSubCase = do
           [ AvailableTarget
               "p-0.1"
               (CBenchName "user-disabled")
-              TargetDisabledBySolver
+              (TargetDisabledBySolver (Just BenchStanzas))
               True
           , AvailableTarget
               "p-0.1"
               (CBenchName "solver-disabled")
-              TargetDisabledBySolver
+              (TargetDisabledBySolver (Just BenchStanzas))
               True
           ]
       , mkTargetPackage "p-0.1"
@@ -1665,12 +1667,13 @@ testTargetProblemsHaddock config reportSubCase = do
           [ AvailableTarget
               "p-0.1"
               (CBenchName "user-disabled")
-              TargetDisabledByUser
+              -- haddock's own target filter, not a disabled stanza
+              (TargetDisabledByUser Nothing)
               True
           , AvailableTarget
               "p-0.1"
               (CTestName "solver-disabled")
-              TargetDisabledBySolver
+              (TargetDisabledBySolver (Just TestStanzas))
               True
           , AvailableTarget
               "p-0.1"

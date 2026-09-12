@@ -166,6 +166,16 @@ renderOptionalStanza Plural TestStanzas = "test suites"
 renderOptionalStanza Singular BenchStanzas = "benchmark"
 renderOptionalStanza Plural BenchStanzas = "benchmarks"
 
+-- | What to call the thing whose being disabled stopped us, plurally.
+--
+-- Name the stanza when we know which one it was: the kind of the component
+-- asked for is not the same thing, since a library may be placed in an
+-- optional stanza. Where no stanza is known the status was repurposed to mean
+-- something else and the component kind is the best available wording.
+renderDisabledKinds :: ComponentName -> Maybe OptionalStanza -> String
+renderDisabledKinds cname =
+  maybe (renderComponentKind Plural (componentKind cname)) (renderOptionalStanza Plural)
+
 -- | The optional stanza type (test suite or benchmark), if it is one.
 optionalStanza :: ComponentName -> Maybe OptionalStanza
 optionalStanza (CTestName _) = Just TestStanzas
@@ -282,7 +292,7 @@ renderTargetProblem verb _ (TargetComponentNotBuildable pkgid cname _) =
     ++ "property is conditional on flags. Alternatively you may simply have to "
     ++ "edit the .cabal file to declare it as buildable and fix any resulting "
     ++ "build problems."
-renderTargetProblem verb _ (TargetOptionalStanzaDisabledByUser _ cname _) =
+renderTargetProblem verb _ (TargetOptionalStanzaDisabledByUser _ cname _ mstanza) =
   "Cannot "
     ++ verb
     ++ " the "
@@ -300,8 +310,8 @@ renderTargetProblem verb _ (TargetOptionalStanzaDisabledByUser _ cname _) =
     ++ "require the solver to find a plan with them available or to fail with an "
     ++ "explanation."
   where
-    compkinds = renderComponentKind Plural (componentKind cname)
-renderTargetProblem verb _ (TargetOptionalStanzaDisabledBySolver pkgid cname _) =
+    compkinds = renderDisabledKinds cname mstanza
+renderTargetProblem verb _ (TargetOptionalStanzaDisabledBySolver pkgid cname _ mstanza) =
   "Cannot "
     ++ verb
     ++ " the "
@@ -322,7 +332,7 @@ renderTargetProblem verb _ (TargetOptionalStanzaDisabledBySolver pkgid cname _) 
     ++ "other packages. Use the '--dry-run' flag to see package versions and "
     ++ "check that you are happy with the choices."
   where
-    compkinds = renderComponentKind Plural (componentKind cname)
+    compkinds = renderDisabledKinds cname mstanza
 renderTargetProblem verb _ (TargetProblemUnknownComponent pkgname ecname) =
   "Cannot "
     ++ verb
@@ -377,7 +387,7 @@ renderTargetProblemNoneEnabled verb targetSelector targets =
     ++ " because none of the components are available to build: "
     ++ renderListSemiAnd
       [ case (status, mstanza) of
-        (TargetDisabledByUser, Just stanza) ->
+        (TargetDisabledByUser _, Just stanza) ->
           renderListCommaAnd
             [ "the " ++ showComponentName availableTargetComponentName
             | AvailableTarget{availableTargetComponentName} <- targets'
@@ -386,7 +396,7 @@ renderTargetProblemNoneEnabled verb targetSelector targets =
             ++ " not available because building "
             ++ renderOptionalStanza Plural stanza
             ++ " has been disabled in the configuration"
-        (TargetDisabledBySolver, Just stanza) ->
+        (TargetDisabledBySolver _, Just stanza) ->
           renderListCommaAnd
             [ "the " ++ showComponentName availableTargetComponentName
             | AvailableTarget{availableTargetComponentName} <- targets'
@@ -437,6 +447,9 @@ renderTargetProblemNoneEnabled verb targetSelector targets =
       , case availableTargetStatus t of
           TargetNotBuildable -> Nothing
           TargetNotLocal -> Nothing
+          -- the status carries the stanza; the component's name cannot say
+          TargetDisabledByUser mst -> mst
+          TargetDisabledBySolver mst -> mst
           _ -> optionalStanza (availableTargetComponentName t)
       )
 

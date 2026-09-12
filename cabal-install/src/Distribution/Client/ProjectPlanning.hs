@@ -185,7 +185,6 @@ import Distribution.Simple.Program.Find
 import Distribution.System
 
 import Distribution.Types.AnnotatedId
-import Distribution.Types.Component (Component (..))
 import Distribution.Types.Library (libStanza)
 import Distribution.Types.ComponentInclude
 import Distribution.Types.ComponentName
@@ -3113,10 +3112,12 @@ data AvailableTarget k = AvailableTarget
 -- it's actually possible to select this component to be built, and if not
 -- why not.
 data AvailableTargetStatus k
-  = -- | When the user does @tests: False@
-    TargetDisabledByUser
-  | -- | When the solver could not enable tests
-    TargetDisabledBySolver
+  = -- | When the user does @tests: False@. Carries the stanza that was
+    -- disabled, which cannot be recovered from the component's name: a library
+    -- may be placed in an optional stanza too.
+    TargetDisabledByUser (Maybe OptionalStanza)
+  | -- | When the solver could not enable tests. Carries the stanza, as above.
+    TargetDisabledBySolver (Maybe OptionalStanza)
   | -- | When the component has @buildable: False@
     TargetNotBuildable
   | -- | When the component is non-core in a non-local package
@@ -3284,8 +3285,8 @@ availableSourceTargets elab =
                , optStanzaSetMember stanza (elabStanzasAvailable elab)
                ) of
             _ | not withinPlan -> TargetNotLocal
-            (Just False, _) -> TargetDisabledByUser
-            (Nothing, False) -> TargetDisabledBySolver
+            (Just False, _) -> TargetDisabledByUser (Just stanza)
+            (Nothing, False) -> TargetDisabledBySolver (Just stanza)
             _ | not buildable -> TargetNotBuildable
             (Just True, True) ->
               TargetBuildable
