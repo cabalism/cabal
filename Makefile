@@ -20,6 +20,18 @@ lib: ## Builds the Cabal libraries.
 exe: ## Builds the cabal-install executables.
 	$(CABALBUILD) cabal-install:exes
 
+# Unoptimized build for edit-compile loops, in a build directory of its own so
+# it does not fight with the optimized one. See project-cabal/no-optimization.config.
+DEV_PROJECT := --project-file=cabal.dev.project --builddir=dist-newstyle-dev
+
+.PHONY: dev-lib
+dev-lib: ## Builds the Cabal libraries without optimization.
+	$(CABALBUILD) $(DEV_PROJECT) Cabal:libs
+
+.PHONY: dev-exe
+dev-exe: ## Builds the cabal-install executables without optimization.
+	$(CABALBUILD) $(DEV_PROJECT) cabal-install:exes
+
 .PHONY: init
 init: ## Set up git hooks and ignored revisions.
 	@git config core.hooksPath .githooks
@@ -157,6 +169,10 @@ ghcid-lib: ## Run ghcid for the Cabal library.
 .PHONY: ghcid-cli
 ghcid-cli: ## Run ghcid for the cabal-install executable.
 	ghcid -c 'cabal repl cabal-install'
+
+.PHONY: ghcid-dev-cli
+ghcid-dev-cli: ## Run ghcid for cabal-install, without optimization.
+	ghcid -c 'cabal repl $(DEV_PROJECT) cabal-install'
 
 .PHONY: doctest
 doctest: ## Run doctests.

@@ -6,6 +6,7 @@ We have these projects, all in the root:
 $ tree -P '*.project' --prune -L 1
 .
 ├── cabal.bootstrap.project
+├── cabal.dev.project
 ├── cabal.meta.project
 ├── cabal.project
 ├── cabal.release.project
@@ -50,10 +51,11 @@ project-cabal
 │   ├── install.config
 │   ├── integration-tests.config
 │   └── tests.config
+├── no-optimization.config
 ├── pkgs.config
 └── semaphore.config
 
-2 directories, 11 files
+2 directories, 12 files
 ```
 
 ## Package Groups
@@ -82,6 +84,7 @@ package group.
 | release          |      | ✓     | ✓     | ✓       |
 | validate         | ✓    |       |       |         |
 | validate.libonly |      | ✓     | ✓     |         |
+| dev              | ✓    |       |       |         |
 
 The `meta` project is a one-liner:
 
@@ -101,6 +104,15 @@ Additional configuration is imported:
 | release          |             |           |            |             |
 | validate         | ✓           | ✓         | ✓          | ✓           |
 | validate.libonly | ✓           | ✓         |            | ✓           |
+| dev              | ✓           | ✓         | ✓          | ✓           |
+
+The `dev` project is the default project with optimization turned off, for
+edit-compile loops; it inherits everything else, the semaphore included. It wants
+a build directory of its own, since optimization is part of a component's
+identity and switching it rebuilds everything. `builddir` cannot be set in a
+project file, so the `dev-lib`, `dev-exe` and `ghcid-dev-cli` Makefile targets
+pass it on the command line. Keep using the optimized build for anything that
+runs the built `cabal` for real: `cabal-testsuite`, the benchmarks, and releases.
 
 The `semaphore` config turns on GHC's semaphore-based parallelism, setting both
 `semaphore` and the `jobs` its token count comes from, since `jobs` defaults to 1

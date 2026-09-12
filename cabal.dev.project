@@ -1,0 +1,5 @@
+-- The default project, without optimization, for edit-compile loops.
+-- See project-cabal/no-optimization.config for why, and for the build
+-- directory this wants to be used with.
+import: cabal.project
+import: project-cabal/no-optimization.config
