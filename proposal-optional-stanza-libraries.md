@@ -237,11 +237,30 @@ better than silently taking the root value.
 requested and so never built. A library in the same stanza counts as a user, not
 just a test-suite or benchmark.
 
+This reachability check is one level deep, not transitive: given a dead
+`stanza: test` library that itself depends on a second one, only the first is
+reported. Removing it surfaces the second on the next run, so the warning
+converges, but it does not name a whole dead chain at once. Making it transitive
+would be straightforward if that is thought worth the code for a warning.
+
 Two notes on the cross-stanza rule as implemented:
 
 - A component's own stanza is what it may depend on: a test-suite may depend on a
   `stanza: test` library, a benchmark on a `stanza: bench` one, and any component
   on an ordinary library. Anything else is rejected.
+- **A stanza-scoped library may depend on another in the same stanza.** A
+  library's own stanza is what it is judged by, so `stanza: test` depending on
+  `stanza: test` is fine, as is any stanza-scoped library depending on an
+  ordinary one. Verified end to end: a chain of two `stanza: test` libraries
+  under a test-suite builds and runs with tests enabled, and with
+  `--disable-tests` the whole chain is reported as unavailable together:
+
+  ```
+  Cannot build the package two-0.1 because none of the components are available
+  to build: the test suite 't', the library 'helper-b' and the library 'helper-a'
+  are not available because building test suites has been disabled in the
+  configuration
+  ```
 - Making the *main library* depend on a `stanza: test` sublibrary is already
   rejected for a different reason -- the sublibrary depends on the main library,
   so it is a component cycle -- and `cabal` reports it as such. The check is what
