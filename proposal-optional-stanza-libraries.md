@@ -425,6 +425,7 @@ alone decides.
 | `Cabal-tests/.../Utils/Structured.hs` | golden structure hashes for `GenericPackageDescription` and `LocalBuildInfo` |
 | `Cabal-tests/tests/CheckTests.hs`, `ParserTests/regressions/stanza-*.cabal`, `*.check` | golden cases for the four findings |
 | `Cabal-tests/tests/ParserTests.hs`, `stanza-roundtrip.cabal`, `.format`, `.expr` | pretty-printer and round-trip coverage |
+| `cabal-testsuite/PackageTests/{StanzaLibraryDeps,OptionalStanzaLibrary,CrossStanzaDependency}` | end-to-end behaviour |
 
 The solver change is the whole mechanism, and it is small:
 
@@ -465,6 +466,32 @@ other three passing.
 Note that `tasty-golden` writes a missing golden file and reports the test as
 passing, so a first green run proves nothing. The files were read and checked
 against what each case is meant to produce.
+
+### Integration tests
+
+The checks above all work on a package *description*. What the feature actually
+does -- keep a library's dependencies out of the solve while its stanza is not
+requested -- is exercised by `cabal-testsuite`, which drives a real `cabal`
+against a real package and is run by `cabal-validate`.
+
+| test | asserts |
+| --- | --- |
+| `PackageTests/StanzaLibraryDeps` | the load-bearing one: `helper` names a package that does not exist, and with `--disable-tests` the solve succeeds anyway. If its dependencies were required the build would fail, which is precisely what happened to `cabal.bootstrap.project` before the field existed |
+| `PackageTests/OptionalStanzaLibrary/cabal` | with test-suites unrequested, neither `lib:helper` nor `test:spec` is in the plan |
+| `PackageTests/OptionalStanzaLibrary/enable-tests` | the same command with `--enable-tests`: both appear |
+| `PackageTests/OptionalStanzaLibrary/target-disabled` | asking for `pkg:lib:helper` with tests disabled fails, and the message names *test suites* |
+| `PackageTests/CrossStanzaDependency` | an executable depending on a `stanza: test` library fails the build with `cross-stanza-dependency` |
+
+The first was added after checking that the others do not cover the solver: with
+`subLibStanza` stubbed to `Nothing`, so that stanza-scoped libraries are treated
+as ordinary ones, `StanzaLibraryDeps` fails and the plan tests still pass. They
+guard different things -- the plan tests guard which components are *requested*,
+which is the planner, not the solver.
+
+An earlier version of `StanzaLibraryDeps` gave `helper` only a `base` dependency.
+That fixture was useless: whether such a dependency is solved for is
+unobservable. The dependency has to be one that cannot be satisfied for its
+absence from the solve to be visible.
 
 ### Note on the golden data that a new field disturbs
 
