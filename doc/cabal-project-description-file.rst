@@ -30,7 +30,7 @@ options):
 
 2. ``cabal.project`` (the project configuration)
 
-3. ``cabal.project.freeze`` (the output of ``cabal freeze``)
+3. ``cabal.project.freeze`` (the output of :ref:`cabal freeze<cabal-freeze>`)
 
 4. ``cabal.project.local`` (the output of ``cabal configure``)
 
@@ -625,7 +625,7 @@ The following settings control the behavior of the dependency solver:
     dependency solver runtime.
 
     One way to use :cfg-field:`preferences` is to take a known working set of
-    constraints (e.g., via ``cabal freeze``) and record them as
+    constraints (e.g., via :ref:`cabal freeze<cabal-freeze>`) and record them as
     preferences. In this case, the solver will first attempt to use this
     configuration, and if this violates hard constraints, it will try to
     find the minimal number of upgrades to satisfy the hard constraints
@@ -1211,7 +1211,7 @@ feature was added.
     - **Unset.** The solver is asked to *prefer* enabling the test suites of
       local packages, so it tries to solve their dependencies and will use them
       if it can. Those dependencies are part of the resulting plan and appear in
-      the output of ``cabal freeze``. The preference is weak, so if they
+      the output of :ref:`cabal freeze<cabal-freeze>`. The preference is weak, so if they
       cannot be satisfied the solver produces a plan without the test suites
       rather than failing.
     - **Explicitly** ``tests: False`` **or** ``--disable-tests``. The test suites

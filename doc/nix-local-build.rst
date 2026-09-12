@@ -109,7 +109,7 @@ temporarily build with profiling.
 How can I have a reproducible set of versions for my dependencies?
 ------------------------------------------------------------------
 
-You can use ``cabal freeze`` to save the solver results to a file.
+You can use :ref:`cabal freeze<cabal-freeze>` to save the solver results to a file.
 
 Since Cabal 3.8, an alternative approach is to use a :ref:`remote project
 configuration file<conditionals and imports>`: to specify a set of versions for
