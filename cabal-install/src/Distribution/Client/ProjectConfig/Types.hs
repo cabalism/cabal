@@ -555,4 +555,4 @@ instance NFData BuildTimeSettings where
       `seq` rnf haddockOpen
       `seq` rnf buildTimings
       -- a function can only be forced to WHNF
-      `seq` maybe () (\f -> f `seq` ()) logFile
+      `seq` maybe () (`seq` ()) logFile
