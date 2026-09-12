@@ -112,15 +112,30 @@ libraryStanzaNotRequestedReason
   :: ComponentRequestedSpec
   -> Component
   -> Maybe ComponentDisabledReason
-libraryStanzaNotRequestedReason enabled (CLib lib) = case libStanza lib of
-  LibraryStanzaAlways -> Nothing
-  LibraryStanzaTest
-    | ComponentRequestedSpec{testsRequested = False} <- enabled -> Just DisabledAllTests
-    | otherwise -> Nothing
-  LibraryStanzaBench
-    | ComponentRequestedSpec{benchmarksRequested = False} <- enabled -> Just DisabledAllBenchmarks
-    | otherwise -> Nothing
+libraryStanzaNotRequestedReason enabled (CLib lib) = case libStanzas lib of
+  -- belongs to no optional stanza, so always requested
+  [] -> Nothing
+  stanzas
+    -- requested when any stanza it belongs to is requested
+    | any requested stanzas -> Nothing
+    -- otherwise report one of the stanzas that is not
+    | LibraryStanzaTest `elem` stanzas -> Just DisabledAllTests
+    | otherwise -> Just DisabledAllBenchmarks
+  where
+    requested LibraryStanzaTest = testsRequestedOf enabled
+    requested LibraryStanzaBench = benchmarksRequestedOf enabled
 libraryStanzaNotRequestedReason _ _ = Nothing
+
+-- 'OneComponentRequestedSpec' names a single component; a library in an
+-- optional stanza is not that component unless it was the one asked for, which
+-- 'componentNameNotRequestedReason' already decides.
+testsRequestedOf :: ComponentRequestedSpec -> Bool
+testsRequestedOf ComponentRequestedSpec{testsRequested = t} = t
+testsRequestedOf OneComponentRequestedSpec{} = True
+
+benchmarksRequestedOf :: ComponentRequestedSpec -> Bool
+benchmarksRequestedOf ComponentRequestedSpec{benchmarksRequested = b} = b
+benchmarksRequestedOf OneComponentRequestedSpec{} = True
 
 -- | Is this component name disabled, and if so, why?
 --

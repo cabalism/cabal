@@ -27,9 +27,11 @@ data Library = Library
   -- ^ Is the lib to be exposed by default? (i.e. whether its modules available in GHCi for example)
   , libVisibility :: LibraryVisibility
   -- ^ Whether this multilib can be used as a dependency for other packages.
-  , libStanza :: LibraryStanza
-  -- ^ Which optional stanza, if any, this library belongs to. A library in an
-  -- optional stanza is requested only when that stanza is.
+  , libStanzas :: [LibraryStanza]
+  -- ^ Which optional stanzas, if any, this library belongs to. Such a library
+  -- is requested when any of them is; one belonging to none is always
+  -- requested. Kept as a list rather than a set so that a repeated entry can
+  -- be reported.
   , libBuildInfo :: BuildInfo
   }
   deriving (Generic, Show, Eq, Ord, Read, Data)
@@ -50,7 +52,7 @@ emptyLibrary =
     , signatures = mempty
     , libExposed = True
     , libVisibility = mempty
-    , libStanza = mempty
+    , libStanzas = mempty
     , libBuildInfo = mempty
     }
 
@@ -73,7 +75,7 @@ instance Semigroup Library where
       , signatures = combine signatures
       , libExposed = libExposed a && libExposed b -- so False propagates
       , libVisibility = combine libVisibility
-      , libStanza = combine libStanza
+      , libStanzas = combine libStanzas
       , libBuildInfo = combine libBuildInfo
       }
     where

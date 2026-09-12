@@ -193,25 +193,30 @@ convGPD os arch cinfo constraints strfl solveExes pn
     initDR = DependencyReason pn M.empty S.empty
 
     -- A sublibrary may declare that it belongs to an optional stanza, in which
-    -- case its dependencies are only required when that stanza is enabled --
-    -- exactly as for the test-suites and benchmarks below. Without this, a
-    -- library holding helpers shared by several test-suites would drag its
-    -- test-only dependencies into every solve, including ones that set
+    -- case its dependencies are only required when one of those stanzas is
+    -- enabled -- exactly as for the test-suites and benchmarks below. Without
+    -- this, a library holding helpers shared by several test-suites would drag
+    -- its test-only dependencies into every solve, including ones that set
     -- @tests: False@.
-    subLibStanza :: (UnqualComponentName, CondTree ConfVar Library) -> Maybe OptionalStanza
-    subLibStanza (_, ct) = libraryStanzaToOptionalStanza (libStanza (condTreeData ct))
+    subLibStanzas :: (UnqualComponentName, CondTree ConfVar Library) -> [OptionalStanza]
+    subLibStanzas (_, ct) = map libraryStanzaToOptionalStanza (libStanzas (condTreeData ct))
+
+    -- a library belonging to several stanzas has its dependencies emitted once
+    -- under each. The entries are independent, so between them they say
+    -- "required if any of these stanzas is enabled".
+    inStanza st sl = st `elem` subLibStanzas sl
 
     convSubLib dr (nm, ds) = conv (ComponentSubLib nm) libBuildInfo dr ds
 
     flagged_deps
         = concatMap (\ds ->       conv ComponentLib         libBuildInfo        initDR ds) (maybeToList mlib)
-       ++ concatMap (convSubLib initDR) [sl | sl <- sub_libs, isNothing (subLibStanza sl)]
+       ++ concatMap (convSubLib initDR) [sl | sl <- sub_libs, null (subLibStanzas sl)]
        ++ prefix (Stanza (SN pn TestStanzas))
             (L.map (convSubLib (addStanza TestStanzas initDR))
-                   [sl | sl <- sub_libs, subLibStanza sl == Just TestStanzas])
+                   [sl | sl <- sub_libs, inStanza TestStanzas sl])
        ++ prefix (Stanza (SN pn BenchStanzas))
             (L.map (convSubLib (addStanza BenchStanzas initDR))
-                   [sl | sl <- sub_libs, subLibStanza sl == Just BenchStanzas])
+                   [sl | sl <- sub_libs, inStanza BenchStanzas sl])
        ++ concatMap (\(nm, ds) -> conv (ComponentFLib nm)   foreignLibBuildInfo initDR ds) flibs
        ++ concatMap (\(nm, ds) -> conv (ComponentExe nm)    buildInfo           initDR ds) exes
        ++ prefix (Stanza (SN pn TestStanzas))

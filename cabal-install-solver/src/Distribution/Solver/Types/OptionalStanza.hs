@@ -40,15 +40,14 @@ data OptionalStanza
     | BenchStanzas
   deriving (Eq, Ord, Enum, Bounded, Show, Generic)
 
--- | The optional stanza a library component belongs to, if any.
+-- | The optional stanza a library's stanza entry names.
 --
 -- Test-suites and benchmarks can be mapped to their stanza from their component
--- name alone, but a library carries its stanza as a field, so this needs the
--- 'LibraryStanza' read off the component.
-libraryStanzaToOptionalStanza :: LibraryStanza -> Maybe OptionalStanza
-libraryStanzaToOptionalStanza LibraryStanzaAlways = Nothing
-libraryStanzaToOptionalStanza LibraryStanzaTest = Just TestStanzas
-libraryStanzaToOptionalStanza LibraryStanzaBench = Just BenchStanzas
+-- name alone, but a library carries its stanzas as a field, so this needs the
+-- entries read off the component.
+libraryStanzaToOptionalStanza :: LibraryStanza -> OptionalStanza
+libraryStanzaToOptionalStanza LibraryStanzaTest = TestStanzas
+libraryStanzaToOptionalStanza LibraryStanzaBench = BenchStanzas
 
 -- | String representation of an OptionalStanza.
 showStanza :: OptionalStanza -> String

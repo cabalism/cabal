@@ -185,7 +185,7 @@ import Distribution.Simple.Program.Find
 import Distribution.System
 
 import Distribution.Types.AnnotatedId
-import Distribution.Types.Library (libStanza)
+import Distribution.Types.Library (libStanzas)
 import Distribution.Types.ComponentInclude
 import Distribution.Types.ComponentName
 import Distribution.Types.DependencySatisfaction
@@ -3304,7 +3304,11 @@ availableSourceTargets elab =
         -- A library may have been placed in an optional stanza, which its
         -- component name alone cannot tell us; test-suites and benchmarks are
         -- still identified by name.
-        componentStanza (CLib lib) = libraryStanzaToOptionalStanza (libStanza lib)
+        -- A library may belong to several optional stanzas; it is unavailable
+        -- only when all of them are, and we report the first for the message.
+        componentStanza (CLib lib) = case map libraryStanzaToOptionalStanza (libStanzas lib) of
+          [] -> Nothing
+          (st : _) -> Just st
         componentStanza c = componentOptionalStanza (CD.componentNameToComponent (componentName c))
         withinPlan =
           elabLocalToProject elab
