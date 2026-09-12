@@ -284,6 +284,22 @@ checkGenericPackageDescription
         (\(dependent, libname, stanza) -> checkP True (PackageBuildImpossible (CrossStanzaDependency dependent libname stanza)))
         (stanzaScopedViolations packageDescription_ condLibrary_ condSubLibraries_ condForeignLibs_ condExecutables_ condTestSuites_ condBenchmarks_)
 
+      -- A public library cannot be in an optional stanza: a dependent package
+      -- has no way to request this package's stanza.
+      mapM_
+        (\(libname, stanza) -> checkP True (PackageBuildImpossible (PublicStanzaLibrary libname stanza)))
+        (publicStanzaLibraries condSubLibraries_)
+
+      -- The stanza has to be known before conditions are resolved.
+      mapM_
+        (\libname -> checkP True (PackageBuildImpossible (ConditionalStanza libname)))
+        (conditionalStanzaLibraries condSubLibraries_)
+
+      -- Nothing in the stanza uses it, so it would never be built.
+      mapM_
+        (\(libname, stanza) -> checkP True (PackageBuildWarning (UnusedStanzaLibrary libname stanza)))
+        (unusedStanzaLibraries packageDescription_ condSubLibraries_ condTestSuites_ condBenchmarks_)
+
       -- § Feature checks.
       checkSpecVer
         CabalSpecV2_0
@@ -399,6 +415,79 @@ checkGenericPackageDescription
           , toSetOf (L.condBenchmarks . traverse . _2 . traverseCondTreeV . L._PackageFlag) gpd
           ]
 
+-- | Libraries in an optional stanza that are also declared @public@.
+--
+-- Whether a stanza is requested is part of this package's configuration, so a
+-- dependent package cannot ask for it; a public stanza-scoped library could
+-- never be satisfied from outside.
+publicStanzaLibraries
+  :: [(UnqualComponentName, CondTree ConfVar Library)]
+  -> [(UnqualComponentName, LibraryStanza)]
+publicStanzaLibraries sublibs =
+  [ (nm, stanza)
+  | (nm, t) <- sublibs
+  , let lib = condTreeData t
+  , let stanza = libStanza lib
+  , stanza /= LibraryStanzaAlways
+  , libVisibility lib == LibraryVisibilityPublic
+  ]
+
+-- | Libraries in an optional stanza that nothing in that stanza depends on.
+--
+-- Such a library is never requested, so it is never built.
+unusedStanzaLibraries
+  :: PackageDescription
+  -> [(UnqualComponentName, CondTree ConfVar Library)]
+  -> [(UnqualComponentName, CondTree ConfVar TestSuite)]
+  -> [(UnqualComponentName, CondTree ConfVar Benchmark)]
+  -> [(UnqualComponentName, LibraryStanza)]
+unusedStanzaLibraries pkg sublibs tests benchs =
+  [ (nm, stanza)
+  | (nm, t) <- sublibs
+  , let stanza = libStanza (condTreeData t)
+  , stanza /= LibraryStanzaAlways
+  , nm `notElem` usedBy nm stanza
+  ]
+  where
+    -- components that are themselves in this stanza, excluding the library
+    -- being considered
+    usedBy self stanza =
+      concat $
+        [samePkgSubLibs pkg testBuildInfo t | stanza == LibraryStanzaTest, (_, t) <- tests]
+          ++ [samePkgSubLibs pkg benchmarkBuildInfo t | stanza == LibraryStanzaBench, (_, t) <- benchs]
+          ++ [ samePkgSubLibs pkg libBuildInfo t
+             | (other, t) <- sublibs
+             , other /= self
+             , libStanza (condTreeData t) == stanza
+             ]
+
+-- | Libraries whose @stanza@ field was set inside a conditional.
+--
+-- Only the tree root is consulted when deciding a component's stanza, so a
+-- conditional setting would be quietly ignored.
+conditionalStanzaLibraries
+  :: [(UnqualComponentName, CondTree ConfVar Library)]
+  -> [UnqualComponentName]
+conditionalStanzaLibraries sublibs =
+  [ nm
+  | (nm, t) <- sublibs
+  , any ((/= LibraryStanzaAlways) . libStanza) (drop 1 (toList t))
+  ]
+
+-- | Same-package sublibraries named anywhere in a component's condition tree.
+samePkgSubLibs
+  :: PackageDescription
+  -> (a -> BuildInfo)
+  -> CondTree ConfVar a
+  -> [UnqualComponentName]
+samePkgSubLibs pkg getInfo t =
+  [ nm
+  | node <- toList t
+  , Dependency pkgname _ lns <- targetBuildDepends (getInfo node)
+  , pkgname == packageName pkg
+  , LSubLibName nm <- NES.toList lns
+  ]
+
 -- | Components that depend on a library placed in an optional stanza from
 -- outside that stanza.
 --
@@ -453,15 +542,8 @@ stanzaScopedViolations pkg mlib sublibs flibs exes tests benchs =
            | (nm, t) <- benchs
            ]
 
-    -- every same-package sublibrary named in any branch of the tree
     libDepsOf :: (a -> BuildInfo) -> CondTree ConfVar a -> [UnqualComponentName]
-    libDepsOf getInfo t =
-      [ nm
-      | node <- toList t
-      , Dependency pkgname _ lns <- targetBuildDepends (getInfo node)
-      , pkgname == packageName pkg
-      , LSubLibName nm <- NES.toList lns
-      ]
+    libDepsOf getInfo = samePkgSubLibs pkg getInfo
 
 checkPackageDescription :: Monad m => PackageDescription -> CheckM m ()
 checkPackageDescription
