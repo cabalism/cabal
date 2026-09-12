@@ -849,7 +849,7 @@ ppExplanation (RepeatedStanza libname stanzas) =
     ++ " more than once in its 'stanza' field. Naming a stanza twice is the"
     ++ " same as naming it once."
   where
-    dupsOf xs = nub [x | (x, i) <- zip xs [(0 :: Int) ..], x `elem` take i xs]
+    dupsOf xs = ordNub ([x | (x, i) <- zip xs [(0 :: Int) ..], x `elem` take i xs])
 ppExplanation (PublicStanzaLibrary libname stanza) =
   "The library '"
     ++ prettyShow libname
@@ -865,7 +865,7 @@ ppExplanation (UnusedStanzaLibrary libname stanza) =
     ++ "' is in the "
     ++ ppStanzaList stanza
     ++ ", but nothing in "
-    ++ (if length (nub stanza) > 1 then "those stanzas" else "that stanza")
+    ++ (if length (ordNub stanza) > 1 then "those stanzas" else "that stanza")
     ++ " depends on it, so it will never be"
     ++ " built. Either have a component in the stanza depend on it, or take it"
     ++ " out of the stanza."
