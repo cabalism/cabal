@@ -1,0 +1,21 @@
+cabal-version: 3.0
+name:          stanza-public
+version:       0
+synopsis:      a library in a stanza that is also public
+description:   A stanza-scoped library cannot be public. This description is deliberately longer than the synopsis so that the golden output isolates the stanza check.
+category:      Tests
+license:       MIT
+maintainer:    none@example.com
+
+library helper
+  default-language: Haskell2010
+  stanza:           test
+  visibility:       public
+  build-depends:    base >=4.9 && <5
+  exposed-modules:  Bar
+
+test-suite spec
+  default-language: Haskell2010
+  type:             exitcode-stdio-1.0
+  main-is:          Spec.hs
+  build-depends:    base >=4.9 && <5, stanza-public:helper

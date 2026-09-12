@@ -58,6 +58,10 @@ checkTests = testGroup "regressions"
     , checkTest "issue-7776-c.cabal"
     , checkTest "issue-8646.cabal"
     , checkTest "decreasing-indentation.cabal"
+    , checkTest "stanza-cross-dep.cabal"
+    , checkTest "stanza-public.cabal"
+    , checkTest "stanza-conditional.cabal"
+    , checkTest "stanza-unused.cabal"
     ]
 
 checkTest :: FilePath -> TestTree
