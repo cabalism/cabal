@@ -102,12 +102,13 @@ Finally the command prints the configuration needed to use the directory:
 $ cabal vendor
 Vendored 12 packages into /home/me/proj/vendor
 
-To build using the vendored packages, add the following to the project file:
+To build using the vendored packages, add the following to the project file
+(the 'url' line must stay indented under 'repository'):
 
-    repository vendored
-      url: file+noindex:vendor
+repository vendored
+  url: file+noindex:vendor
 
-    active-repositories: vendored
+active-repositories: vendored
 ```
 
 The path is relative to the project root whenever the directory is inside
@@ -122,7 +123,7 @@ printed stanza then keeps the other repositories active and makes the
 vendored one the sole provider of the packages it holds:
 
 ```
-    active-repositories: :rest, vendored:override
+active-repositories: :rest, vendored:override
 ```
 
 Names that are not source dependencies of the project, or that name a local
