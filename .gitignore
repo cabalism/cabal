@@ -116,3 +116,4 @@ scripts/release/binary-downloads/
 /third-party/
 /project-buck2/vendor/*/src/
 /buck-out/
+vendor/
