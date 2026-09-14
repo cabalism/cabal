@@ -347,6 +347,66 @@ the unpacked copy is left to the user; the `git init` recipe above is the
 suggested one. A project-aware `cabal get` (#8584) would give the same
 unpack step without `--local-no-index-repo`, and is a separate change.
 
+### Two real cases from this repository, and where vendoring stops
+
+While prototyping, two arrangements in the cabal repository itself were
+examined as candidates for `cabal vendor`. They are instructive because one
+is in scope and one is not, and the line between them is the line around
+this proposal.
+
+**Buck2 builds of this repository** (`project-buck2/`, on a branch). Buck2
+builds the packages in the repository against Hackage dependencies that
+cabal has already built into its store; a generator turns the store into
+`haskell_prebuilt_library` targets. One Hackage dependency,
+`hackage-security`, cannot be a prebuilt library: it depends on `Cabal-syntax`
+from this repository, so cabal builds it in-place and there is nothing in the
+store. A script (`fetch-inplace-deps.py`) copies its source from cabal's
+private `dist-newstyle/src/hackage-security-<version>/` into
+`project-buck2/vendor/hackage-security/src/`, where a hand-written `BUCK` file
+builds it. Two things are notable:
+
+- The script does what `cabal vendor --unpack hackage-security` does — the
+  package is in the plan, the source is the revised source distribution —
+  except that it also depends on cabal's internal directory layout, which is
+  exactly what a command should spare it. This case is in scope.
+- The consumer needs the tree at a path *it* chooses, without a version in
+  the name, because the `BUCK` file globs `src/**/*.hs` next to itself and
+  Buck2 rules can only see their own directory. `--unpack` today writes
+  `vendor/src/<package>-<version>/`, so the build file would have to know the
+  version. That is a layout question for `--unpack` (see Open Question 2),
+  not a reason to leave the script.
+
+The same branch also carries a git submodule, `buck2/`, for the Buck2 rules
+themselves (a fork of `haskell-buck2`: Starlark, toolchains, a Python
+generator). It contains no `.cabal` file and is never built by cabal; it is
+build tooling. `cabal vendor` has nothing to say about it, and should not: a
+submodule, or a pinned archive fetched by a script, is the right tool for a
+tree that is not a package. This case is out of scope, and the temptation to
+grow the command into a general fetcher is worth resisting explicitly.
+
+**Updo** ([up-do/updo](https://github.com/up-do/updo)) is a Hackage package
+that projects use as a make-and-Dhall toolkit to generate `cabal.project`
+and `stack.yaml`. It is never compiled by the consuming project; its
+makefiles are `include`d and its scripts run in place. It bootstraps itself
+with one make rule, kept in the consuming project's `project-bootstrap.mk`:
+fetch an archive (the Hackage source distribution of a pinned version, or a
+GitHub archive of a pinned commit), unpack it, and rename the result to
+`updo/`. Its documentation explains why cabal was not used: "`cabal get`
+doesn't support unpacking to a specific directory that does not match the
+package name with a version suffix", and `--destdir` only chooses the parent.
+So updo wants, for a package that is not in any build plan, the same thing
+the Buck2 case wants for a package that is: a package's source, pinned,
+unpacked at a chosen path. `cabal vendor` cannot serve it, because the
+command is a function of the build plan and updo is not in the plan. What
+cabal could offer instead — a destination for `cabal get`, and possibly a
+declared "source tree" in the project file — is a separate question, taken
+up in the companion draft "Package sources at a chosen path"
+(`source-trees-proposal.md`).
+
+The two cases together give a second, independent data point on the layout
+of unpacked sources: both a Buck2 build file and a Makefile want an
+unversioned path they chose. That is recorded under Open Question 2.
+
 ### Everything is already there
 
 Two existing functions define the on-disk contract, so the command adds no
@@ -522,10 +582,21 @@ what it always meant to test: refusal to download.
    locally") and deliberately does not initialise the unpacked directory as
    a git repository: a nested repository inside the project's working tree
    is a surprise, and the recipe is one line for those who want it. Open:
-   whether the same `vendor/src/` location should also hold the browsable
-   VCS checkouts of question 1, so that "the source of dependency X, in the
-   tree" means one thing; and whether a project-aware `cabal get` (#8584)
-   should subsume the unpack step.
+   - the **name of the unpacked directory**. Two independent consumers (the
+     Buck2 build files and updo's makefiles, see "Two real cases") want an
+     unversioned path of their choosing, not `vendor/src/<package>-<version>/`.
+     Options: an unversioned default (`vendor/src/<package>/`, as Go lays out
+     `vendor/` by module path; cargo keeps the version), an explicit
+     destination per package (`--unpack aeson=third-party/aeson`), or both.
+     A versioned name is safer for the local-hacking workflow (two versions
+     can coexist while switching); an unversioned one is what build files
+     want to reference. This is the question the prototype most wants an
+     answer to;
+   - whether the same `vendor/src/` location should also hold the browsable
+     VCS checkouts of question 1, so that "the source of dependency X, in the
+     tree" means one thing;
+   - whether a project-aware `cabal get` (#8584) should subsume the unpack
+     step.
 3. Should vendored source distributions of VCS dependencies record their
    provenance (location, commit) in a small manifest, so that a later
    `cabal vendor` can tell when a stanza moved on?
