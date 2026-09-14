@@ -331,8 +331,7 @@ vendorAction flags@NixStyleFlags{extraFlags = VendorFlags{vendorOutputDir, vendo
     else do
       createDirectoryIfMissing True vendorDir
       projectConfigWithBuilderRepoContext verbosity buildSettings $ \repoCtxt ->
-        for_ (Map.toList selected) $ \(pkgid, source) ->
-          vendorPackage verbosity repoCtxt vendorDir pkgid source
+        for_ (Map.toList selected) $ uncurry (vendorPackage verbosity repoCtxt vendorDir)
 
       when prune $ do
         removed <- pruneVendorDir verbosity vendorDir (Map.keysSet sources)
@@ -350,8 +349,7 @@ vendorAction flags@NixStyleFlags{extraFlags = VendorFlags{vendorOutputDir, vendo
 
       unpacked <-
         if unpack
-          then fmap concat . for (Map.toList selected) $ \(pkgid, source) ->
-            unpackVendored verbosity vendorDir pkgid source
+          then fmap concat . for (Map.toList selected) $ uncurry (unpackVendored verbosity vendorDir)
           else return []
 
       noticeNoWrap verbosity $
