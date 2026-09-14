@@ -283,6 +283,29 @@ This works today with existing commands, without changes to `cabal vendor`:
 The same steps apply to a vendored `source-repository-package` dependency,
 whose tarball is the source distribution of its checkout.
 
+**Getting a patch back out.** Because the pristine source stays in the vendor
+directory, a patch for upstream is the difference between a fresh unpack and
+the edited directory:
+
+```
+cabal --local-no-index-repo=vendored:$PWD/vendor --active-repositories=vendored \
+  get assoc-1.1.1 --destdir=pristine
+git diff --no-index pristine/assoc-1.1.1 patched/assoc-1.1.1 > assoc.patch
+```
+
+Simpler still is to `git init` the unpacked directory and commit it as
+vendored before editing; `git diff` and `git format-patch` then produce the
+patch at any time, and the edits have history without any upstream
+involvement. Two things to know when sending such a patch upstream: the
+baseline must be the *revised* package (as `cabal get` produces it), not the
+bare tarball, or the diff also contains Hackage's revision to the `.cabal`
+file — `x-revision:` and changed bounds — which is not the author's; and a
+source distribution is not the repository (files not shipped in the
+distribution are absent, and a package from a multi-package repository sits
+at a subdirectory there), so the patch may need `git apply --directory=`
+or a different `-p` level. The `source-repository head` field of the `.cabal`
+file says where upstream is.
+
 What is missing is convenience: the unpack step needs the repository spelled
 out, `--local-no-index-repo` is not even listed in `cabal --help`, and the
 `packages:` line is added by hand. A `cabal vendor --unpack PACKAGES` (or a
@@ -458,6 +481,10 @@ tests today.
    sees the project's repositories (vendored included) without global flags.
    Whichever is chosen should share the `vendor/src/` location with question
    1, so that "the source of dependency X, in the tree" means one thing.
+   The unpack step could also initialise the directory as a git repository
+   with the vendored source as its first commit, so that a patch for
+   upstream is always one `git diff` away; whether cabal should do that, or
+   leave version control to the user, is open.
 3. Should vendored source distributions of VCS dependencies record their
    provenance (location, commit) in a small manifest, so that a later
    `cabal vendor` can tell when a stanza moved on?
