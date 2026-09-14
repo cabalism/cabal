@@ -233,6 +233,65 @@ parse `vendor` as a URI authority.) Repository stanzas in the global
 `~/.config/cabal/config` are not affected; a relative path there keeps its
 current, warned-about, behaviour.
 
+### Working on a vendored package locally
+
+A common reason to want a dependency's source at hand is to try a change in
+it: a fix, a debug print, a different default. The usual tool for that is a
+git submodule (or a `source-repository-package` pointing at a fork), which
+gives the full history and a way to push, at the price of needing the
+upstream repository, the network and git at build time. The vendored
+directory offers a lighter alternative: a snapshot of exactly the source that
+the plan builds, with its revised `.cabal` file, which can be turned into a
+local package, edited in place, and later turned back. Nothing can be pushed
+upstream from it — a change that should go upstream is sent as a patch by
+hand — which is the same trade-off `cargo vendor` makes with its `[patch]`
+sections.
+
+This works today with existing commands, without changes to `cabal vendor`:
+
+1. Unpack the package from the vendored repository. `cabal get` applies the
+   sidecar `.cabal` file as it does for an index revision, so the result is
+   what the plan builds:
+
+   ```
+   cabal --local-no-index-repo=vendored:$PWD/vendor --active-repositories=vendored \
+     get assoc-1.1.1 --destdir=patched
+   ```
+
+   (`cabal get` is not project-aware, so the repository is passed on the
+   command line. The same command without the two global flags unpacks from
+   Hackage directly, for those who want to go to a local copy without
+   vendoring first.)
+
+2. List the directory in the project file:
+
+   ```
+   packages: ., patched/assoc-1.1.1
+   ```
+
+   A `packages:` entry shadows every repository version of that package name,
+   so the vendored tarball is ignored for as long as the line is there. The
+   package is now local: built in place, subject to local package
+   configuration, part of `cabal build all` — which is what one wants while
+   working on it.
+
+3. Edit, build, test. To go back, remove the `packages:` line (and the
+   directory); the plan returns to the vendored tarball. A `cabal vendor`
+   run in the meantime is unaffected, since local packages are never
+   vendored.
+
+The same steps apply to a vendored `source-repository-package` dependency,
+whose tarball is the source distribution of its checkout.
+
+What is missing is convenience: the unpack step needs the repository spelled
+out, `--local-no-index-repo` is not even listed in `cabal --help`, and the
+`packages:` line is added by hand. A `cabal vendor --unpack PACKAGES` (or a
+project-aware `cabal get`) that writes the package to `vendor/src/<pkgid>/`
+and prints the `packages:` line would make this a one-liner; it is listed
+under Open Questions together with the related question of browsable
+checkouts for VCS dependencies, since both want the same `vendor/src/`
+location.
+
 ### Everything is already there
 
 Two existing functions define the on-disk contract, so the command adds no
@@ -287,7 +346,9 @@ alternative is attractive as a later extension, it is called out as such.
      rather than in the store, local package configuration (`ghc-options`,
      `-Wall` and friends in `package *`) applies to it, and `cabal build all`
      and `cabal test all` include it. That is a change in behaviour the user
-     did not ask for.
+     did not ask for — unless they want to work on the package, for which
+     see "Working on a vendored package locally"; it is the right thing to
+     do on request, not by default.
    - *Skip them with a warning.* Rejected: they are exactly the dependencies
      that most often need the network at build time.
    - *A first-class vendored location for checkouts* — see the follow-up
@@ -389,16 +450,24 @@ tests today.
    changing how repository packages work. Whether to spell it per stanza
    (`vendored-in: vendor/bar`) or per project, and what the field is called,
    is open.
-2. Should vendored source distributions of VCS dependencies record their
+2. **A one-step way to make a vendored package local.** "Working on a
+   vendored package locally" is possible today with `cabal get` plus a
+   `packages:` line, but clumsy. Options: `cabal vendor --unpack PACKAGES`,
+   writing `vendor/src/<pkgid>/` with the revision applied and printing the
+   `packages:` line to add; or making `cabal get` project-aware so that it
+   sees the project's repositories (vendored included) without global flags.
+   Whichever is chosen should share the `vendor/src/` location with question
+   1, so that "the source of dependency X, in the tree" means one thing.
+3. Should vendored source distributions of VCS dependencies record their
    provenance (location, commit) in a small manifest, so that a later
    `cabal vendor` can tell when a stanza moved on?
-3. Should `cabal vendor` verify tarballs already in the directory against
+4. Should `cabal vendor` verify tarballs already in the directory against
    `pkg-src-sha256` from the plan, or is leaving files alone enough?
-4. The default names: `vendor` for the directory and `vendored` for the
+5. The default names: `vendor` for the directory and `vendored` for the
    repository in the printed stanza.
-5. Windows: the relative form is `file+noindex:vendor`; absolute paths keep
+6. Windows: the relative form is `file+noindex:vendor`; absolute paths keep
    the documented `file+noindex:C:/...` form.
-6. Whether the no-index cache (`noindex.cache`) should be invalidated by
+7. Whether the no-index cache (`noindex.cache`) should be invalidated by
    cabal when the directory changes, which would make the "remove the cache"
    step unnecessary for everyone, not only for `cabal vendor`.
 
