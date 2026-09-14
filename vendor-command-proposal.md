@@ -490,14 +490,14 @@ message says explicitly that the `url` line must stay indented. The
 testsuite did not catch this because it runs cabal with `+nowrap`; a
 reviewer looking at the recorded output would not have seen it either.
 
-A follow-up worth doing separately: `cabal build --offline` currently refuses
-to build any repository package that is not yet in the store, even when it
-comes from a `file+noindex` repository where nothing is downloaded
-(`ProjectBuilding.hs`, `packagesToDownload`). Treating no-index repositories
-as local there is a one-line change, but the existing `OfflineFlag` test
-relies on the current behaviour and would need a real remote repository
-(`withRemoteRepo`, which needs `hackage-repo-tool`) to keep testing what it
-tests today.
+A small related fix is included: `cabal build --offline` used to refuse to
+build any repository package that was not yet in the store, even when it
+came from a `file+noindex` repository where nothing is downloaded
+(`ProjectBuilding.hs`, `packagesToDownload`). No-index repositories are now
+treated as local there, so `--offline` works with a vendored repository as
+one would expect. The existing `OfflineFlag` test relied on the old
+behaviour and now uses a real remote repository (`withRemoteRepo`) to test
+what it always meant to test: refusal to download.
 
 ## Open Questions
 
