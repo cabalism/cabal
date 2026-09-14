@@ -321,14 +321,31 @@ at a subdirectory there), so the patch may need `git apply --directory=`
 or a different `-p` level. The `source-repository head` field of the `.cabal`
 file says where upstream is.
 
-What is missing is convenience: the unpack step needs the repository spelled
-out, `--local-no-index-repo` is not even listed in `cabal --help`, and the
-`packages:` line is added by hand. A `cabal vendor --unpack PACKAGES` (or a
-project-aware `cabal get`) that writes the package to `vendor/src/<pkgid>/`
-and prints the `packages:` line would make this a one-liner; it is listed
-under Open Questions together with the related question of browsable
-checkouts for VCS dependencies, since both want the same `vendor/src/`
-location.
+The prototype makes this a one-liner: `cabal vendor --unpack PACKAGES`
+vendors the named packages as usual and additionally unpacks each into
+`vendor/src/<package>-<version>/`, with the revised `.cabal` file applied
+(the same step `cabal get` performs), then prints the `packages:` entry to
+add:
+
+```
+$ cabal vendor --unpack assoc
+...
+Unpacked into vendor/src. To work on these as local packages,
+which take precedence over the vendored ones, add to the project file:
+
+packages:
+  vendor/src/assoc-1.1.1
+```
+
+Package names are required (`--unpack` alone is an error: unpacking every
+dependency would turn them all into local packages). A package directory
+that already exists is left alone with a warning, since it may hold edits;
+the tarball and sidecar next to it are still refreshed. The `src/`
+subdirectory is ignored by the no-index reader, so it does not disturb the
+repository it sits in, and `--prune` never touches it. Version control of
+the unpacked copy is left to the user; the `git init` recipe above is the
+suggested one. A project-aware `cabal get` (#8584) would give the same
+unpack step without `--local-no-index-repo`, and is a separate change.
 
 ### Everything is already there
 
@@ -464,6 +481,15 @@ and vendoring a `source-repository-package` from a local git repository
 followed by a build with the repository deleted. The author is willing to
 see it through review.
 
+One lesson from the prototype worth recording: the stanza the command
+prints is indentation-sensitive (`url:` must sit under `repository`), and
+cabal's ordinary `notice` re-wraps messages to the terminal width and drops
+leading whitespace, so the first version printed a stanza that did not
+parse when pasted. The output now uses the unwrapped variant, and the
+message says explicitly that the `url` line must stay indented. The
+testsuite did not catch this because it runs cabal with `+nowrap`; a
+reviewer looking at the recorded output would not have seen it either.
+
 A follow-up worth doing separately: `cabal build --offline` currently refuses
 to build any repository package that is not yet in the store, even when it
 comes from a `file+noindex` repository where nothing is downloaded
@@ -491,18 +517,15 @@ tests today.
    changing how repository packages work. Whether to spell it per stanza
    (`vendored-in: vendor/bar`) or per project, and what the field is called,
    is open.
-2. **A one-step way to make a vendored package local.** "Working on a
-   vendored package locally" is possible today with `cabal get` plus a
-   `packages:` line, but clumsy. Options: `cabal vendor --unpack PACKAGES`,
-   writing `vendor/src/<pkgid>/` with the revision applied and printing the
-   `packages:` line to add; or making `cabal get` project-aware so that it
-   sees the project's repositories (vendored included) without global flags.
-   Whichever is chosen should share the `vendor/src/` location with question
-   1, so that "the source of dependency X, in the tree" means one thing.
-   The unpack step could also initialise the directory as a git repository
-   with the vendored source as its first commit, so that a patch for
-   upstream is always one `git diff` away; whether cabal should do that, or
-   leave version control to the user, is open.
+2. **`--unpack` and `vendor/src/`.** The prototype implements
+   `cabal vendor --unpack PACKAGES` (see "Working on a vendored package
+   locally") and deliberately does not initialise the unpacked directory as
+   a git repository: a nested repository inside the project's working tree
+   is a surprise, and the recipe is one line for those who want it. Open:
+   whether the same `vendor/src/` location should also hold the browsable
+   VCS checkouts of question 1, so that "the source of dependency X, in the
+   tree" means one thing; and whether a project-aware `cabal get` (#8584)
+   should subsume the unpack step.
 3. Should vendored source distributions of VCS dependencies record their
    provenance (location, commit) in a small manifest, so that a later
    `cabal vendor` can tell when a stanza moved on?
