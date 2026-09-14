@@ -93,9 +93,14 @@ The directory defaults to `vendor` in the project root; `-o`/`--output-directory
 changes it (as for `cabal sdist`). Every package in the plan is written,
 overwriting a file of the same name; files for packages not in the plan are
 left alone, so the directory accumulates rather than being regenerated (see
-"Repeated runs" below). The directory's `noindex.cache` is removed after
-writing so that cabal rebuilds the index on next use (cabal never invalidates
-that cache by itself). `--dry-run` lists what would be vendored and writes
+"Repeated runs" below), unless `--prune` is given, which removes the
+`<package>-<version>.tar.gz` and `.cabal` files of packages that are not in
+the plan. Pruning goes by the whole plan even when package names are given,
+and only ever touches files named like package files: `preferred-versions`,
+`noindex.cache` or anything else a user keeps in the directory is left alone.
+The directory's `noindex.cache` is removed after writing so that cabal
+rebuilds the index on next use (cabal never invalidates that cache by
+itself). `--dry-run` lists what would be vendored (and removed) and writes
 nothing.
 
 Finally the command prints the configuration needed to use the directory:
@@ -162,9 +167,19 @@ following behaviour for the ways it gets run more than once.
 
   after `cabal update`, or with `cabal vendor --index-state=...`. Newer
   versions are then added next to the old ones; the old files stay until
-  removed by hand (or by a future `--prune`), and with several versions in
-  the directory the solver picks among them as it would in any repository,
-  so a `cabal.project.freeze` remains the way to pin exact versions.
+  removed by hand or with `--prune`, and with several versions in the
+  directory the solver picks among them as it would in any repository, so a
+  `cabal.project.freeze` remains the way to pin exact versions.
+- **`--prune` is relative to one plan.** A directory that serves several
+  configurations of the project (with and without tests, two compilers) is
+  pruned to whichever configuration `cabal vendor --prune` runs with; the
+  other configuration's packages have to be vendored again. This is the
+  same trade-off as a regenerating `cargo vendor`, made explicit by the
+  flag rather than the default. Once the project builds from the vendored
+  repository, the plan is solved from the directory itself, so `--prune`
+  is a no-op except for versions the solver no longer chooses (typically
+  older ones superseded by a refresh) — the prototype confirms this on a
+  250-package directory.
 - **A `source-repository-package` dependency vendored earlier**, whose stanza
   has since been removed, now comes from the vendored repository itself and
   is left untouched; if the stanza is still there, the source distribution is
@@ -387,12 +402,15 @@ alternative is attractive as a later extension, it is called out as such.
    natively and what version control handles well; wrapping it is a one-liner
    for anyone who needs an archive.
 
-6. **Pruning.** Files for packages not in the plan are left alone (chosen).
-   `cargo vendor` regenerates the directory from scratch. Leaving files lets
-   several configurations (or several `cabal vendor` runs with different
-   flags or package names) accumulate in one repository, and avoids deleting
-   anything the user put there. The cost is that stale versions linger after
-   a refresh; a `--prune` flag is an obvious later addition.
+6. **Pruning.** Files for packages not in the plan are left alone by
+   default, and removed on request with `--prune` (chosen). `cargo vendor`
+   always regenerates the directory from scratch. Leaving files lets several
+   configurations (or several `cabal vendor` runs with different flags or
+   package names) accumulate in one repository, and avoids deleting anything
+   the user put there; `--prune` covers the case where stale versions linger
+   after a refresh. Pruning against the packages named on the command line
+   rather than the whole plan was rejected: it would delete legitimately
+   vendored dependencies on every partial run.
 
 7. **Reproducibility.** With only the vendored repository active there is one
    version of every package, so no freeze file is needed. Also writing
