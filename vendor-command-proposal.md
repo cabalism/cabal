@@ -171,6 +171,16 @@ following behaviour for the ways it gets run more than once.
   written again from the current checkout.
 - A file that is its own source (the plan took the package from the vendor
   directory) is never copied over itself.
+- **Several `.cabal` files in one directory are not a problem.** A local
+  package directory in `packages:` must contain exactly one `.cabal` file,
+  but the vendor directory is never read that way. A `file+noindex`
+  repository is read by listing the directory, taking every
+  `<package>-<version>.tar.gz` as an entry and looking up the file with the
+  exact name `<package>-<version>.cabal` for it; unmatched `.cabal` files are
+  ignored. So each package id has at most one sidecar, which every run
+  overwrites in place, and different versions of a package are different
+  entries with different file names. Repeated runs cannot produce a
+  "multiple `.cabal` files" conflict.
 
 ### Dependencies from git and other version control
 
