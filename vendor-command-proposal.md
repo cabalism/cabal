@@ -90,11 +90,13 @@ Build tool dependencies and setup dependencies are part of the plan and are
 vendored like any other dependency.
 
 The directory defaults to `vendor` in the project root; `-o`/`--output-directory`
-changes it (as for `cabal sdist`). Files already present are left alone, so
-the directory can accumulate what several configurations need, and the
-directory's `noindex.cache` is removed after writing so that cabal rebuilds
-the index on next use (cabal never invalidates that cache by itself).
-`--dry-run` lists what would be vendored and writes nothing.
+changes it (as for `cabal sdist`). Every package in the plan is written,
+overwriting a file of the same name; files for packages not in the plan are
+left alone, so the directory accumulates rather than being regenerated (see
+"Repeated runs" below). The directory's `noindex.cache` is removed after
+writing so that cabal rebuilds the index on next use (cabal never invalidates
+that cache by itself). `--dry-run` lists what would be vendored and writes
+nothing.
 
 Finally the command prints the configuration needed to use the directory:
 
@@ -128,6 +130,47 @@ active-repositories: :rest, vendored:override
 
 Names that are not source dependencies of the project, or that name a local
 package, are errors.
+
+### Repeated runs
+
+`cabal vendor` is a function of the current plan: each run writes the
+packages of the plan it computes, and nothing else changes. That gives the
+following behaviour for the ways it gets run more than once.
+
+- **The same full run twice** is idempotent: the same files are written
+  again with the same contents.
+- **Two partial runs** (`cabal vendor aeson`, later `cabal vendor text`)
+  accumulate; both print the `:rest, vendored:override` stanza, which is the
+  right one as long as the directory does not hold the whole plan.
+- **A partial run after a full run**, or a full run after partial ones, also
+  accumulates. The stanza printed describes the run that was just made, not
+  the directory: after `cabal vendor` has vendored everything, the directory
+  can be used with `active-repositories: vendored` even though a later
+  `cabal vendor aeson` prints the `:rest, ...:override` form; conversely a
+  partial directory is not made complete by a partial run, whatever the
+  stanza says.
+- **Once the project uses the vendored repository** (`active-repositories:
+  vendored` in the project file), the plan is solved from the vendored
+  repository alone, so `cabal vendor` finds every package already in place
+  and does nothing — it cannot pick up newer versions from Hackage, because
+  it no longer sees Hackage. To refresh, run it with the other repositories
+  re-enabled for that one invocation, for example
+
+  ```
+  cabal --active-repositories=:rest vendor
+  ```
+
+  after `cabal update`, or with `cabal vendor --index-state=...`. Newer
+  versions are then added next to the old ones; the old files stay until
+  removed by hand (or by a future `--prune`), and with several versions in
+  the directory the solver picks among them as it would in any repository,
+  so a `cabal.project.freeze` remains the way to pin exact versions.
+- **A `source-repository-package` dependency vendored earlier**, whose stanza
+  has since been removed, now comes from the vendored repository itself and
+  is left untouched; if the stanza is still there, the source distribution is
+  written again from the current checkout.
+- A file that is its own source (the plan took the package from the vendor
+  directory) is never copied over itself.
 
 ### Dependencies from git and other version control
 
@@ -250,11 +293,12 @@ alternative is attractive as a later extension, it is called out as such.
    natively and what version control handles well; wrapping it is a one-liner
    for anyone who needs an archive.
 
-6. **Pruning.** Files already in the directory are left alone (chosen).
+6. **Pruning.** Files for packages not in the plan are left alone (chosen).
    `cargo vendor` regenerates the directory from scratch. Leaving files lets
    several configurations (or several `cabal vendor` runs with different
-   flags) accumulate in one repository, and avoids deleting anything the user
-   put there. A `--prune` flag is an obvious later addition.
+   flags or package names) accumulate in one repository, and avoids deleting
+   anything the user put there. The cost is that stale versions linger after
+   a refresh; a `--prune` flag is an obvious later addition.
 
 7. **Reproducibility.** With only the vendored repository active there is one
    version of every package, so no freeze file is needed. Also writing
