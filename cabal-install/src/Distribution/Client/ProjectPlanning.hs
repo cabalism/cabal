@@ -138,7 +138,7 @@ import Distribution.Client.SetupWrapper
 import Distribution.Client.Store
 import Distribution.Client.Targets (userToPackageConstraint)
 import Distribution.Client.Types
-import Distribution.Client.Types.PackageRevision (PackageRevision, RevisionPinSource)
+import Distribution.Client.Types.PackageRevision (PackageRevision (..), RevisionPinSource (..), showRevisionPinSource)
 import Distribution.Client.Utils (concatMapM, duplicatesBy, incVersion)
 
 import qualified Distribution.Client.BuildReports.Storage as BuildReports
@@ -883,7 +883,9 @@ rebuildInstallPlan
                   Left msg -> do
                     reportPlanningFailure projectConfig compiler platform localPackages
                     dieWithException verbosity $ PhaseRunSolverErr msg
-                  Right plan -> return (plan, pkgConfigDB, tis, ar)
+                  Right plan -> do
+                    warnUnusedRevisionPins verbosity solverSettings plan
+                    return (plan, pkgConfigDB, tis, ar)
           where
             corePackageDbs :: PackageDBStackCWD
             corePackageDbs =
@@ -1165,6 +1167,39 @@ getPkgConfigDb verbosity progdb = do
   -- Alternatively we could monitor all the .pc files too.
   traverse_ monitorDirectoryStatus dirs
   liftIO $ readPkgConfigDb verbosity progdb
+
+-- | Warn about pins in the @revisions@ field for package versions that are
+-- not in the plan. Such a pin has no effect, which usually means it is stale:
+-- the solver picked another version of the package, or the package is no
+-- longer a dependency. (A pin in a version constraint cannot be stale, as
+-- the constraint fixes the version.)
+warnUnusedRevisionPins :: Verbosity -> SolverSettings -> SolverInstallPlan -> IO ()
+warnUnusedRevisionPins verbosity solverSettings plan =
+  for_ unused $ \(revision@(PackageRevision pkgid _), src) ->
+    warn verbosity $
+      "The revision pin "
+        ++ prettyShow revision
+        ++ " from "
+        ++ showRevisionPinSource src
+        ++ " has no effect: "
+        ++ case Map.lookup (pkgName pkgid) planVersions of
+          Nothing -> "the package " ++ prettyShow (pkgName pkgid) ++ " is not in the plan."
+          Just versions ->
+            "the plan uses "
+              ++ intercalate ", " [prettyShow (PackageIdentifier (pkgName pkgid) v) | v <- versions]
+              ++ " instead."
+  where
+    planIds :: Set PackageId
+    planIds = Set.fromList (map packageId (SolverInstallPlan.toList plan))
+
+    planVersions :: Map PackageName [Version]
+    planVersions = Map.fromListWith (flip (++)) [(pkgName p, [pkgVersion p]) | p <- Set.toList planIds]
+
+    unused =
+      [ (revision, src)
+      | (revision@(PackageRevision pkgid _), src@RevisionPinField{}) <- solverSettingRevisions solverSettings
+      , pkgid `Set.notMember` planIds
+      ]
 
 -- | Select the config values to monitor for changes package source hashes.
 packageLocationsSignature

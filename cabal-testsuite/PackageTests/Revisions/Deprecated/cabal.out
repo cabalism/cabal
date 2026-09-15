@@ -8,6 +8,7 @@ In order, the following would be built:
  - pkg-1.0 (lib:pkg) (first run)
 # cabal v2-build
 Resolving dependencies...
+Warning: The revision pin foo-1.0@rev:1 from the 'revisions' field (project config revisions.project) has no effect: the plan uses foo-2.0 instead.
 Build profile: -w ghc-<GHCVER> -O1
 In order, the following would be built:
  - foo-2.0 (lib:foo) (requires build)
