@@ -14,7 +14,7 @@ doesn't depend on the order of lines or imports.
 Importing a package set, such as a Stackage snapshot's `cabal.config`, pins hundreds of packages with `==` and
 `installed`. Cabal constraints only intersect, so a project cannot use a different version of even one pinned package.
 The user guide documents a workaround: download the `cabal.config`, then repeatedly comment out conflicting lines
-(`doc/nix-local-build.rst`, "Limitations"). [Updo](https://github.com/cabalism/updo), a tool that generates cabal
+(`doc/nix-local-build.rst`, "Limitations"). [Updo](https://github.com/up-do/updo), a tool that generates cabal
 projects from a package set plus per-project constraints, automates exactly that edit.
 
 The same need shows up beyond snapshots:
@@ -291,8 +291,8 @@ If both land, the two features are complementary:
 
 ## Implementation Notes
 
-I'm willing to implement this, following the prototypes below. Expected timeline: a PR within one release cycle of
-acceptance.
+I'm willing to implement this, following the prototypes below. Timeline: to be agreed once the proposal is
+accepted.
 
 - **Field.** Add `projectConfigOverrideConstraints :: [(UserConstraint, ConstraintSource)]` to `ProjectConfigShared`,
   next to `projectConfigConstraints` in `ProjectConfig/Types.hs`, with:
@@ -371,7 +371,7 @@ acceptance.
   review)
 - [#7556 Conditionals and imports in project files](https://github.com/haskell/cabal/pull/7556)
 - The `hide-constraints` branch (masking on imports)
-- [Updo](https://github.com/cabalism/updo)
+- [Updo](https://github.com/up-do/updo)
 - Tool documentation:
   - [npm `overrides`](https://docs.npmjs.com/cli/v10/configuring-npm/package-json#overrides),
     [Yarn `resolutions`](https://yarnpkg.com/configuration/manifest#resolutions) and
