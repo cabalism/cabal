@@ -366,7 +366,9 @@ resolveSolverSettings
       solverSettingOnlyConstrained = fromFlag projectConfigOnlyConstrained
       solverSettingIndexState = flagToMaybe projectConfigIndexState
       solverSettingActiveRepos = flagToMaybe projectConfigActiveRepos
-      solverSettingRevisions = projectConfigRevisions
+      solverSettingRevisions =
+        projectConfigRevisions
+          ++ mapMaybe (userConstraintRevision . fst) projectConfigConstraints
       solverSettingIndependentGoals = fromFlag projectConfigIndependentGoals
       solverSettingPreferVersion = fromFlag projectConfigPreferVersion
       -- solverSettingShadowPkgs        = fromFlag projectConfigShadowPkgs
