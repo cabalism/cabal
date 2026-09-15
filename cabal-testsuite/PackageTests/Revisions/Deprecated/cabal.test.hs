@@ -11,9 +11,11 @@ main = cabalTest $ withRepo "repo" $ do
   cabal' "v2-build" ["--dry-run"] >>= assertChoosesFoo "2.0"
 
   -- A 'revisions' pin does not affect which version is chosen, so a pin on
-  -- the deprecated version has no effect.
-  withProjectFile "revisions.project" $
-    cabal' "v2-build" ["--dry-run"] >>= assertChoosesFoo "2.0"
+  -- the deprecated version has no effect, which is pointed out.
+  withProjectFile "revisions.project" $ do
+    r <- cabal' "v2-build" ["--dry-run"]
+    assertChoosesFoo "2.0" r
+    assertOutputContains "The revision pin foo-1.0@rev:1 from the 'revisions' field (project config revisions.project) has no effect: the plan uses foo-2.0 instead." r
 
   -- A constraint with a pin forces the deprecated version, at that revision.
   withProjectFile "constraint.project" $ do
@@ -32,7 +34,7 @@ main = cabalTest $ withRepo "repo" $ do
     assertChoosesFoo :: String -> Result -> TestM ()
     assertChoosesFoo ver out = do
       assertOutputContains ("foo-" ++ ver ++ " (lib:foo)") out
-      assertOutputDoesNotContain ("foo-" ++ other ver) out
+      assertOutputDoesNotContain ("foo-" ++ other ver ++ " (lib:foo)") out
     other "1.0" = "2.0"
     other _ = "1.0"
 
