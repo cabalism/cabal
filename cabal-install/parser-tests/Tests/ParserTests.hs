@@ -21,7 +21,7 @@ import Distribution.Client.IndexUtils.ActiveRepos (ActiveRepoEntry (..), ActiveR
 import Distribution.Client.IndexUtils.IndexState (RepoIndexState (..), headTotalIndexState, insertIndexState)
 import Distribution.Client.ProjectConfig
 import Distribution.Client.RebuildMonad (runRebuild)
-import Distribution.Client.Targets (readUserConstraint)
+import Distribution.Client.Targets (UserConstraint (..), UserConstraintScope (..), readUserConstraint)
 import Distribution.Client.Types.AllowNewer (AllowNewer (..), AllowOlder (..), RelaxDepMod (..), RelaxDepScope (..), RelaxDepSubject (..), RelaxDeps (..), RelaxedDep (..))
 import Distribution.Client.Types.InstallMethod (InstallMethod (..))
 import Distribution.Client.Types.OverwritePolicy (OverwritePolicy (..))
@@ -218,9 +218,10 @@ testProjectConfigShared = do
       let
         bar = fromRight (error "error parsing bar") $ readUserConstraint "bar == 2.1"
         barFlags = fromRight (error "error parsing bar flags") $ readUserConstraint "bar +foo -baz"
+        bazRev = UserConstraintRevision (UserAnyQualifier (mkPackageName "baz")) (mkVersion [1, 0]) (RevisionNumber 3)
         source = ConstraintSourceProjectConfig $ ProjectConfigPath $ "cabal.project" :| []
        in
-        [(bar, source), (barFlags, source)]
+        [(bar, source), (barFlags, source), (bazRev, source)]
     projectConfigPreferences = [PackageVersionConstraint (mkPackageName "foo") (ThisVersion (mkVersion [0, 9])), PackageVersionConstraint (mkPackageName "baz") (LaterVersion (mkVersion [2, 0]))]
     projectConfigCabalVersion = Flag (mkVersion [1, 24, 0, 1])
     projectConfigSolver = Flag AlwaysModular
