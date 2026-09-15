@@ -14,7 +14,7 @@ module Distribution.Client.ProjectConfig.Parsec
 import Distribution.CabalSpecVersion
 import Distribution.Client.HttpUtils
 import Distribution.Client.ProjectConfig.FieldGrammar (packageConfigFieldGrammar, projectConfigFieldGrammar)
-import Distribution.Client.ProjectConfig.Import (ProjectConfigSkeleton, cyclicalImportMsg, fetchImport, untrimmedUriImportMsg)
+import Distribution.Client.ProjectConfig.Import (ImportSpec (..), ProjectConfigSkeleton, cyclicalImportMsg, fetchImport, hideImportConstraints, parseImportSpec, untrimmedUriImportMsg)
 import qualified Distribution.Client.ProjectConfig.Lens as L
 import Distribution.Client.ProjectConfig.Types
 import Distribution.Client.Types.Repo hiding (repoName)
@@ -118,7 +118,7 @@ parseProjectSkeleton cacheDir httpTransport verbosity projectDir source (Project
     go acc (x : xs) = case x of
       (Field (Name pos name) importLines) | name == "import" -> do
         liftParseResult
-          ( \importLoc -> do
+          ( \(ImportSpec importLoc hidePkgs) -> do
               let importLocPath = importLoc `consProjectConfigPath` source
 
               -- Once we canonicalize the import path, we can check for cyclical imports
@@ -134,9 +134,10 @@ parseProjectSkeleton cacheDir httpTransport verbosity projectDir source (Project
                     (noticeDoc verbosity $ untrimmedUriImportMsg (Disp.text "Warning:") importLocPath)
                   let parser = parseProjectSkeleton cacheDir httpTransport verbosity projectDir importLocPath
                   (mbUri, importParseResult) <- fetchImport parser cacheDir httpTransport verbosity projectDir normLocPath
+                  importParseResult' <- liftParseResult (fmap pure . hideImportConstraints verbosity normLocPath hidePkgs) importParseResult
                   rest <- go [] xs
                   let fs = (\z -> CondNode ([(mbUri, normLocPath)], z) mempty) <$> fieldsToConfig normSource (reverse acc)
-                  pure . fmap mconcat . sequence $ [fs, importParseResult, rest]
+                  pure . fmap mconcat . sequence $ [fs, importParseResult', rest]
           )
           (parseImport pos importLines)
       (Section (Name pos "if") args xs') -> do
@@ -171,8 +172,10 @@ parseProjectSkeleton cacheDir httpTransport verbosity projectDir source (Project
         pure (Just <$> condNode, rest)
       _ -> (pure Nothing,) <$> go [] x
 
-    parseImport :: Position -> [FieldLine Position] -> ParseResult ProjectFileSource FilePath
-    parseImport pos lines' = runFieldParser pos (P.many P.anyChar) cabalSpec lines'
+    parseImport :: Position -> [FieldLine Position] -> ParseResult ProjectFileSource ImportSpec
+    parseImport pos lines' = do
+      importField <- runFieldParser pos (P.many P.anyChar) cabalSpec lines'
+      either (parseFatalFailure pos) pure . parseImportSpec $ lines importField
 
     -- We want a normalized path for @fieldsToConfig@. This eventually surfaces
     -- in solver rejection messages and build messages "this build was affected

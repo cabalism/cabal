@@ -61,7 +61,7 @@ import Distribution.Solver.Types.ConstraintSource
 import Distribution.Solver.Types.ProjectConfigPath
 
 import Distribution.Client.NixStyleOptions (NixStyleFlags (..))
-import Distribution.Client.ProjectConfig.Import (ProjectConfigSkeleton, cyclicalImportMsg, fetchImport, untrimmedUriImportMsg)
+import Distribution.Client.ProjectConfig.Import (ImportSpec (..), ProjectConfigSkeleton, cyclicalImportMsg, fetchImport, hideImportConstraints, parseImportSpec, untrimmedUriImportMsg)
 import Distribution.Client.ProjectFlags (ProjectFlags (..), defaultProjectFlags, projectFlagsOptions)
 import Distribution.Client.Setup
   ( ConfigExFlags (..)
@@ -270,25 +270,31 @@ parseProjectSkeleton cacheDir httpTransport verbosity projectDir source (Project
   where
     go :: [ParseUtils.Field] -> [ParseUtils.Field] -> IO (ProjectParseResult ProjectConfigSkeleton)
     go acc (x : xs) = case x of
-      (ParseUtils.F _ "import" importLoc) -> do
-        let importLocPath = importLoc `consProjectConfigPath` source
-
-        -- Once we canonicalize the import path, we can check for cyclical imports
+      (ParseUtils.F l "import" importField) -> do
         normSource <- canonicalizeConfigPath projectDir source
-        normLocPath <- canonicalizeConfigPath projectDir importLocPath
-        debug verbosity $ "\nimport path, normalized\n=======================\n" ++ render (docProjectConfigPath normLocPath)
+        case parseImportSpec (lines importField) of
+          Left err -> pure . projectParseFail Nothing (Just normSource) $ ParseUtils.FromString err (Just l)
+          Right (ImportSpec importLoc hidePkgs) -> do
+            let importLocPath = importLoc `consProjectConfigPath` source
 
-        if isCyclicConfigPath normLocPath
-          then pure . projectParseFail Nothing (Just normSource) $ ParseUtils.FromString (render $ cyclicalImportMsg normLocPath) Nothing
-          else do
-            when
-              (isUntrimmedUriConfigPath importLocPath)
-              (noticeDoc verbosity $ untrimmedUriImportMsg (Disp.text "Warning:") importLocPath)
-            let parser = parseProjectSkeleton cacheDir httpTransport verbosity projectDir importLocPath
-            (mbUri, res) <- fetchImport parser cacheDir httpTransport verbosity projectDir normLocPath
-            rest <- go [] xs
-            let fs = (\z -> CondNode ([(mbUri, normLocPath)], z) mempty) <$> fieldsToConfig normSource (reverse acc)
-            pure . fmap mconcat . sequence $ [projectParse Nothing normSource fs, res, rest]
+            -- Once we canonicalize the import path, we can check for cyclical imports
+            normLocPath <- canonicalizeConfigPath projectDir importLocPath
+            debug verbosity $ "\nimport path, normalized\n=======================\n" ++ render (docProjectConfigPath normLocPath)
+
+            if isCyclicConfigPath normLocPath
+              then pure . projectParseFail Nothing (Just normSource) $ ParseUtils.FromString (render $ cyclicalImportMsg normLocPath) Nothing
+              else do
+                when
+                  (isUntrimmedUriConfigPath importLocPath)
+                  (noticeDoc verbosity $ untrimmedUriImportMsg (Disp.text "Warning:") importLocPath)
+                let parser = parseProjectSkeleton cacheDir httpTransport verbosity projectDir importLocPath
+                (mbUri, res) <- fetchImport parser cacheDir httpTransport verbosity projectDir normLocPath
+                res' <- case res of
+                  ProjectParseOk ws skeleton -> ProjectParseOk ws <$> hideImportConstraints verbosity normLocPath hidePkgs skeleton
+                  failed@ProjectParseFailed{} -> pure failed
+                rest <- go [] xs
+                let fs = (\z -> CondNode ([(mbUri, normLocPath)], z) mempty) <$> fieldsToConfig normSource (reverse acc)
+                pure . fmap mconcat . sequence $ [projectParse Nothing normSource fs, res', rest]
       (ParseUtils.Section l "if" p xs') -> do
         normSource <- canonicalizeConfigPath projectDir source
         subpcs <- go [] xs'
