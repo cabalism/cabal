@@ -150,6 +150,7 @@ import Distribution.Client.SrcDist
   ( packageDirToSdist
   )
 import Distribution.Client.Targets
+import Distribution.Client.Types.PackageRevision (RevisionPinSource (..))
 import Distribution.Client.Types.SourceRepo
   ( SourceRepoList
   , SourceRepositoryPackage (..)
@@ -367,8 +368,11 @@ resolveSolverSettings
       solverSettingIndexState = flagToMaybe projectConfigIndexState
       solverSettingActiveRepos = flagToMaybe projectConfigActiveRepos
       solverSettingRevisions =
-        projectConfigRevisions
-          ++ mapMaybe (userConstraintRevision . fst) projectConfigConstraints
+        [(revision, RevisionPinField src) | (revision, src) <- projectConfigRevisions]
+          ++ [ (revision, RevisionPinConstraint (prettyShow uc) src)
+             | (uc, src) <- projectConfigConstraints
+             , Just revision <- [userConstraintRevision uc]
+             ]
       solverSettingIndependentGoals = fromFlag projectConfigIndependentGoals
       solverSettingPreferVersion = fromFlag projectConfigPreferVersion
       -- solverSettingShadowPkgs        = fromFlag projectConfigShadowPkgs

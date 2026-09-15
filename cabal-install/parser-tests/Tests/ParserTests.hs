@@ -208,11 +208,12 @@ testProjectConfigShared = do
        in
         toFlag indexState''
     projectConfigRevisions =
-      [ PackageRevision (PackageIdentifier (mkPackageName "foo") (mkVersion [1, 2, 3])) (RevisionNumber 2)
-      , PackageRevision (PackageIdentifier (mkPackageName "bar") (mkVersion [0, 1])) (RevisionHash barHash)
+      [ (PackageRevision (PackageIdentifier (mkPackageName "foo") (mkVersion [1, 2, 3])) (RevisionNumber 2), source)
+      , (PackageRevision (PackageIdentifier (mkPackageName "bar") (mkVersion [0, 1])) (RevisionHash barHash), source)
       ]
       where
         barHash = fromJust $ parseHashValue "69977f97a8db2c11e97bde92fff7e86e793c1fb23827b284bf89938ee463fbf0"
+        source = ConstraintSourceProjectConfig $ ProjectConfigPath $ "cabal.project" :| []
     projectConfigStoreDir = toFlag "a/store/dir/path" -- cli only
     projectConfigConstraints =
       let
