@@ -102,6 +102,28 @@ that snapshot. To use the ``lts-21.25`` resolver, you can write
 ``import: https://www.stackage.org/lts-21.25/cabal.config`` in your
 ``cabal.project``.
 
+.. _hide-constraints:
+
+An import may have modifiers, indented beneath it. The only modifier is
+``hide-constraints``, taking a comma separated list of package names. It hides
+every constraint on these packages, whether of version, flags, stanzas or being
+installed, that comes from the imported file or from anything that it imports in
+turn. Constraints from the importing file and from other imports are kept, as
+are settings such as ``flags`` in ``package`` stanzas of the import.
+
+As constraints are intersected rather than overridden, this is how to use a
+different version of a package than the version pinned by an imported snapshot:
+
+::
+
+    import: https://www.stackage.org/lts-21.25/cabal.config
+      hide-constraints: hashable, text
+
+    constraints: hashable ==1.4.2.0, text ==2.0.2
+
+A package named by ``hide-constraints`` without any constraints to hide is
+reported with a warning. With ``-v2``, the hidden constraints are listed.
+
 There are a number of limitations that come with this approach however; please
 see :ref:`How can I have a reproducible set of versions for my dependencies?<how reproducible>` for
 more information.
@@ -583,6 +605,9 @@ The following settings control the behavior of the dependency solver:
         constraints: bar == 2.1
         package bar
           flags: +foo -baz
+
+    Constraints that come from an import can be hidden with
+    :ref:`hide-constraints<hide-constraints>`.
 
     Valid constraints take the same form as for the
     :option:`runhaskell Setup.hs configure --constraint`

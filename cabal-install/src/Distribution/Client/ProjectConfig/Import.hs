@@ -11,10 +11,18 @@ module Distribution.Client.ProjectConfig.Import
   , projectSkeletonImports
   , fetchImport
 
+    -- * Import modifiers
+  , ImportSpec (..)
+  , parseImportSpec
+  , hideConstraints
+  , hideImportConstraints
+
     -- * Messages
   , docProjectConfigFiles
   , cyclicalImportMsg
   , untrimmedUriImportMsg
+  , hiddenConstraintsMsg
+  , unusedHideConstraintsMsg
 
     -- * Checks
   , reportDuplicateImports
@@ -30,17 +38,22 @@ import qualified Data.Map as Map
 import Distribution.Client.Compat.Prelude hiding (empty, (<>))
 import qualified Distribution.Client.Compat.Prelude as Prelude ((<>))
 import Distribution.Client.HttpUtils
+import qualified Distribution.Client.ProjectConfig.Lens as L
 import Distribution.Client.ProjectConfig.Types
-import Distribution.Compat.Lens (view)
+import Distribution.Client.Targets (UserConstraint, userConstraintPackageName)
+import Distribution.Compat.Lens (Lens', over, view)
 import Distribution.PackageDescription (ConfVar (..))
-import Distribution.Simple.Utils (debug, noticeDoc, ordNub)
+import Distribution.Parsec (parsecCommaList)
+import Distribution.Simple.Utils (debug, info, noticeDoc, ordNub)
+import Distribution.Solver.Types.ConstraintSource (ConstraintSource (..))
 import Distribution.Solver.Types.ProjectConfigPath
-import Distribution.Types.CondTree (CondTree (..), traverseCondTreeA)
+import Distribution.Types.CondTree (CondTree (..), mapTreeData, traverseCondTreeA)
+import Distribution.Types.PackageName (PackageName)
 import Distribution.Utils.String (trim)
 import Network.URI (URI (..), parseURI)
 import System.Directory (createDirectoryIfMissing)
 import System.FilePath (isAbsolute, isPathSeparator, makeValid, (</>))
-import Text.PrettyPrint (Doc, empty, int, nest, semi, text, vcat, (<>))
+import Text.PrettyPrint (Doc, comma, empty, hsep, int, nest, punctuate, render, semi, text, vcat, (<>))
 
 -- | ProjectConfigSkeleton is a tree of conditional blocks and imports wrapping
 -- a config. It can be finalized by providing the conditional resolution info
@@ -75,6 +88,76 @@ fetchImport parser cacheDir httpTransport verbosity projectDir normLocPath =
         Nothing ->
           BS.readFile $
             if isAbsolute pci then pci else coerce projectDir </> pci
+
+-- | An import location with any modifiers indented beneath it, like this:
+--
+-- > import: https://www.stackage.org/lts-21.19/cabal.config
+-- >   hide-constraints: hashable, text
+data ImportSpec = ImportSpec
+  { importSpecLoc :: FilePath
+  -- ^ The location of the import, a file path or a URI.
+  , importSpecHideConstraints :: [PackageName]
+  -- ^ Packages whose constraints are hidden from the import and from anything
+  -- that it imports in turn.
+  }
+  deriving (Eq, Show)
+
+-- | Parses the lines of an import field. The first line is the import location
+-- and any lines that follow are modifiers.
+--
+-- >>> importSpecLoc <$> parseImportSpec ["cabal.config"]
+-- Right "cabal.config"
+--
+-- >>> fmap prettyShow . importSpecHideConstraints <$> parseImportSpec ["cabal.config", "hide-constraints: hashable, text", "hide-constraints: aeson"]
+-- Right ["hashable","text","aeson"]
+--
+-- >>> importSpecLoc <$> parseImportSpec ["cabal.config", "hide-constraint: hashable"]
+-- Left "unknown import modifier \"hide-constraint\", the only import modifier is hide-constraints"
+--
+-- >>> importSpecLoc <$> parseImportSpec ["cabal.config", "hide-constraints: hashable ==1.4.2.0"]
+-- Left "expected a comma-separated list of package names for hide-constraints, got \"hashable ==1.4.2.0\""
+parseImportSpec :: [String] -> Either String ImportSpec
+parseImportSpec [] = Left "missing import location"
+parseImportSpec (loc : modifiers)
+  | null (trim loc) = Left "missing import location"
+  | otherwise = ImportSpec loc . concat <$> traverse parseModifier modifiers
+  where
+    parseModifier :: String -> Either String [PackageName]
+    parseModifier line = case break (== ':') line of
+      (trim -> "hide-constraints", ':' : (trim -> pkgs)) ->
+        either
+          (const . Left $ "expected a comma-separated list of package names for hide-constraints, got " ++ show pkgs)
+          Right
+          (explicitEitherParsec (parsecCommaList parsec) pkgs)
+      (trim -> name, ':' : _) ->
+        Left $ "unknown import modifier " ++ show name ++ ", the only import modifier is hide-constraints"
+      _ ->
+        Left $ "expected an import modifier, like hide-constraints: <packages>, got " ++ show (trim line)
+
+-- | Hides the constraints on the given packages from a parsed import, including
+-- from its conditionals and from anything that it imports in turn. Returns the
+-- skeleton without these constraints and the constraints that were hidden.
+hideConstraints :: [PackageName] -> ProjectConfigSkeleton -> (ProjectConfigSkeleton, [(UserConstraint, ConstraintSource)])
+hideConstraints pkgs skeleton =
+  ( mapTreeData (second $ over constraints (filter (not . isHidden))) skeleton
+  , foldMap (filter isHidden . view constraints . snd) skeleton
+  )
+  where
+    constraints :: Lens' ProjectConfig [(UserConstraint, ConstraintSource)]
+    constraints = L.projectConfigShared . L.projectConfigConstraints
+
+    isHidden = (`elem` pkgs) . userConstraintPackageName . fst
+
+-- | Hides constraints from a parsed import, logging the constraints hidden and
+-- warning about any package that had no constraints to hide.
+hideImportConstraints :: Verbosity -> ProjectConfigPath -> [PackageName] -> ProjectConfigSkeleton -> IO ProjectConfigSkeleton
+hideImportConstraints _ _ [] skeleton = pure skeleton
+hideImportConstraints verbosity importPath pkgs skeleton = do
+  let (skeleton', hidden) = hideConstraints pkgs skeleton
+      unused = ordNub pkgs \\ (userConstraintPackageName . fst <$> hidden)
+  unless (null hidden) . info verbosity . render $ hiddenConstraintsMsg importPath hidden
+  unless (null unused) . noticeDoc verbosity $ unusedHideConstraintsMsg (text "Warning:") importPath unused
+  pure skeleton'
 
 -- | Not just any file path. The project itself.
 newtype ProjectFilePath = ProjectFilePath FilePath
@@ -231,6 +314,29 @@ untrimmedUriImportMsg :: Doc -> ProjectConfigPath -> Doc
 untrimmedUriImportMsg intro path =
   vcat
     [ intro <+> text "import has leading or trailing whitespace" <> semi
+    , nest 2 (docProjectConfigPath path)
+    ]
+
+-- | A message listing the constraints hidden from an import by
+-- hide-constraints, with the file that each constraint came from.
+hiddenConstraintsMsg :: ProjectConfigPath -> [(UserConstraint, ConstraintSource)] -> Doc
+hiddenConstraintsMsg path hidden =
+  vcat
+    [ text "hide-constraints hid these constraints of import" <> semi
+    , nest 2 (docProjectConfigPath path)
+    , nest 2 $ vcat [pretty c <+> text "from" <+> constraintFrom src | (c, src) <- hidden]
+    ]
+  where
+    constraintFrom = \case
+      ConstraintSourceProjectConfig (ProjectConfigPath (p :| _)) -> text p
+      src -> pretty src
+
+-- | A message for packages named by hide-constraints that had no constraints to
+-- hide.
+unusedHideConstraintsMsg :: Doc -> ProjectConfigPath -> [PackageName] -> Doc
+unusedHideConstraintsMsg intro path pkgs =
+  vcat
+    [ intro <+> text "hide-constraints found no constraints to hide for" <+> hsep (punctuate comma (pretty <$> pkgs)) <> semi
     , nest 2 (docProjectConfigPath path)
     ]
 
