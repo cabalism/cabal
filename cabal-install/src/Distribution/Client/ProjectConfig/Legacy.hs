@@ -704,6 +704,7 @@ convertLegacyAllPackageFlags globalFlags configFlags configExFlags installFlags 
       -- installAvoidReinstalls    = projectConfigAvoidReinstalls,
       -- installOverrideReinstall  = projectConfigOverrideReinstall,
       installIndexState = projectConfigIndexState
+      , installRevisions = projectConfigRevisions
       , installMaxBackjumps = projectConfigMaxBackjumps
       , -- installUpgradeDeps        = projectConfigUpgradeDeps,
       installReorderGoals = projectConfigReorderGoals
@@ -1006,6 +1007,7 @@ convertToLegacySharedConfig
           , installOnly = mempty
           , installOnlyDeps = projectConfigOnlyDeps
           , installIndexState = projectConfigIndexState
+          , installRevisions = projectConfigRevisions
           , installRootCmd = mempty -- no longer supported
           , installSummaryFile = projectConfigSummaryFile
           , installLogFile = projectConfigLogFile
@@ -1442,6 +1444,12 @@ legacySharedConfigFieldDescrs constraintSrc =
               (fmap toPathTemplate parseTokenQ)
               (fromNubList . installSummaryFile)
               (\v conf -> conf{installSummaryFile = toNubList v})
+          , commaNewLineListFieldParsec
+              "revisions"
+              pretty
+              parsec
+              installRevisions
+              (\v conf -> conf{installRevisions = v})
           ]
         . filterFields
           [ "doc-index-file"

@@ -15,6 +15,7 @@ import qualified UnitTests.Distribution.Client.IndexUtils.Timestamp
 import qualified UnitTests.Distribution.Client.Init
 import qualified UnitTests.Distribution.Client.InstallPlan
 import qualified UnitTests.Distribution.Client.JobControl
+import qualified UnitTests.Distribution.Client.PackageRevision
 import qualified UnitTests.Distribution.Client.ProjectConfig
 import qualified UnitTests.Distribution.Client.ProjectPlanning
 import qualified UnitTests.Distribution.Client.Store
@@ -87,6 +88,9 @@ main = do
       , testGroup
           "Distribution.Client.Targets"
           UnitTests.Distribution.Client.Targets.tests
+      , testGroup
+          "Distribution.Client.PackageRevision"
+          UnitTests.Distribution.Client.PackageRevision.tests
       , testGroup
           "UnitTests.Distribution.Client.UserConfig"
           UnitTests.Distribution.Client.UserConfig.tests

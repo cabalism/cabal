@@ -3,6 +3,7 @@ module Distribution.Client.HashValue
   , hashValue
   , truncateHash
   , showHashValue
+  , parseHashValue
   , readFileHashValue
   , hashFromTUF
   ) where
@@ -44,6 +45,7 @@ newtype HashValue = HashValue BS.ByteString
 -- Therefore, we simply derive this structurally.
 instance Binary HashValue
 instance Structured HashValue
+instance NFData HashValue
 
 -- | Hash some data. Currently uses SHA256.
 hashValue :: LBS.ByteString -> HashValue
@@ -51,6 +53,13 @@ hashValue = HashValue . SHA256.hashlazy
 
 showHashValue :: HashValue -> String
 showHashValue (HashValue digest) = BS.unpack (Base16.encode digest)
+
+-- | Parse the base16 rendering produced by 'showHashValue'.
+parseHashValue :: String -> Maybe HashValue
+parseHashValue str =
+  case Base16.decode (BS.pack str) of
+    Right hash | not (BS.null hash) -> Just (HashValue hash)
+    _ -> Nothing
 
 -- | Hash the content of a file. Uses SHA256.
 readFileHashValue :: FilePath -> IO HashValue

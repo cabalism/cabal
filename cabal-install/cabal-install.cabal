@@ -223,6 +223,7 @@ library
         Distribution.Client.Types.InstallMethod
         Distribution.Client.Types.OverwritePolicy
         Distribution.Client.Types.PackageLocation
+        Distribution.Client.Types.PackageRevision
         Distribution.Client.Types.PackageSpecifier
         Distribution.Client.Types.ReadyPackage
         Distribution.Client.Types.Repo
@@ -349,6 +350,7 @@ test-suite unit-tests
       UnitTests.Distribution.Client.InstallPlan
       UnitTests.Distribution.Client.JobControl
       UnitTests.Distribution.Client.ProjectConfig
+      UnitTests.Distribution.Client.PackageRevision
       UnitTests.Distribution.Client.ProjectPlanning
       UnitTests.Distribution.Client.Store
       UnitTests.Distribution.Client.Tar

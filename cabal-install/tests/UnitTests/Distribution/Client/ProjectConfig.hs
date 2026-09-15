@@ -600,6 +600,7 @@ instance Arbitrary ProjectConfigShared where
     projectConfigLocalNoIndexRepos <- arbitrary
     projectConfigActiveRepos <- arbitrary
     projectConfigIndexState <- arbitrary
+    projectConfigRevisions <- shortListOf 2 arbitrary
     projectConfigStoreDir <- arbitraryFlag arbitraryShortToken
     projectConfigConstraints <- arbitraryConstraints
     projectConfigPreferences <- shortListOf 2 arbitrary
@@ -647,6 +648,7 @@ instance Arbitrary ProjectConfigShared where
         <*> shrinker projectConfigLocalNoIndexRepos
         <*> shrinker projectConfigActiveRepos
         <*> shrinker projectConfigIndexState
+        <*> shrinker projectConfigRevisions
         <*> shrinker projectConfigStoreDir
         <*> shrinkerPP preShrink_Constraints postShrink_Constraints projectConfigConstraints
         <*> shrinker projectConfigPreferences

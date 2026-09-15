@@ -138,6 +138,7 @@ import Distribution.Client.SetupWrapper
 import Distribution.Client.Store
 import Distribution.Client.Targets (userToPackageConstraint)
 import Distribution.Client.Types
+import Distribution.Client.Types.PackageRevision (PackageRevision)
 import Distribution.Client.Utils (concatMapM, duplicatesBy, incVersion)
 
 import qualified Distribution.Client.BuildReports.Storage as BuildReports
@@ -856,6 +857,7 @@ rebuildInstallPlan
                   withRepoCtx
                   (solverSettingIndexState solverSettings)
                   (solverSettingActiveRepos solverSettings)
+                  (solverSettingRevisions solverSettings)
               pkgConfigDB <- getPkgConfigDb verbosity progdb
 
               -- TODO: [code cleanup] it'd be better if the Compiler contained the
@@ -1142,12 +1144,13 @@ getSourcePackages
   -> (forall a. (RepoContext -> IO a) -> IO a)
   -> Maybe IndexUtils.TotalIndexState
   -> Maybe IndexUtils.ActiveRepos
+  -> [PackageRevision]
   -> Rebuild (SourcePackageDb, IndexUtils.TotalIndexState, IndexUtils.ActiveRepos)
-getSourcePackages verbosity withRepoCtx idxState activeRepos = do
+getSourcePackages verbosity withRepoCtx idxState activeRepos revisions = do
   (sourcePkgDbWithTIS, repos) <-
     liftIO $
       withRepoCtx $ \repoctx -> do
-        sourcePkgDbWithTIS <- IndexUtils.getSourcePackagesAtIndexState verbosity repoctx idxState activeRepos
+        sourcePkgDbWithTIS <- IndexUtils.getSourcePackagesAtIndexState verbosity repoctx idxState activeRepos revisions
         return (sourcePkgDbWithTIS, repoContextRepos repoctx)
 
   traverse_ needIfExists

@@ -96,6 +96,7 @@ import Prelude ()
 
 import Distribution.Client.Types.AllowNewer (AllowNewer (..), AllowOlder (..), RelaxDeps (..))
 import Distribution.Client.Types.Credentials (Password (..), Token (..), Username (..))
+import Distribution.Client.Types.PackageRevision (PackageRevision)
 import Distribution.Client.Types.Repo (LocalRepo (..), RemoteRepo (..))
 import Distribution.Client.Types.RepoName
 import Distribution.Client.Types.WriteGhcEnvironmentFilesPolicy
@@ -2235,6 +2236,7 @@ data InstallFlags = InstallFlags
   , installOnly :: Flag Bool
   , installOnlyDeps :: Flag Bool
   , installIndexState :: Flag TotalIndexState
+  , installRevisions :: [PackageRevision]
   , installRootCmd :: Flag String
   , installSummaryFile :: NubList PathTemplate
   , installLogFile :: Flag PathTemplate
@@ -2282,6 +2284,7 @@ defaultInstallFlags =
     , installOnly = Flag False
     , installOnlyDeps = Flag False
     , installIndexState = mempty
+    , installRevisions = mempty
     , installRootCmd = mempty
     , installSummaryFile = mempty
     , installLogFile = mempty
