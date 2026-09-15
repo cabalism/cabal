@@ -60,6 +60,11 @@ module Distribution.Client.ProjectConfig
   , projectConfigWithSolverRepoContext
   , SolverSettings (..)
   , resolveSolverSettings
+  , OverrideError
+  , OverrideNote
+  , applyOverrideConstraints
+  , reportOverrideNotes
+  , overrideErrorMsg
   , BuildTimeSettings (..)
   , resolveBuildTimeSettings
   , resolveNumJobsSetting
@@ -95,6 +100,13 @@ import Distribution.Client.Glob
   )
 import Distribution.Client.JobControl
 import Distribution.Client.ProjectConfig.Legacy
+import Distribution.Client.ProjectConfig.Override
+  ( OverrideError
+  , OverrideNote
+  , applyOverrideConstraints
+  , overrideErrorMsg
+  , reportOverrideNotes
+  )
 import qualified Distribution.Client.ProjectConfig.Parsec as Parsec
 import Distribution.Client.ProjectConfig.Types
 import Distribution.Client.RebuildMonad
@@ -304,14 +316,20 @@ projectConfigWithSolverRepoContext
 
 -- | Resolve the project configuration, with all its optional fields, into
 -- 'SolverSettings' with no optional fields (by applying defaults).
-resolveSolverSettings :: ProjectConfig -> SolverSettings
+resolveSolverSettings :: ProjectConfig -> Either OverrideError (SolverSettings, [OverrideNote])
 resolveSolverSettings
   ProjectConfig
     { projectConfigShared
     , projectConfigLocalPackages
     , projectConfigSpecificPackage
-    } =
-    SolverSettings{..}
+    } = do
+    -- Overrides are resolved against the constraints from configuration files
+    -- and the command line, before the constraints cabal adds itself are
+    -- prepended, so those are never replaced.
+    (resolvedConstraints, overrideNotes) <-
+      applyOverrideConstraints projectConfigConstraints projectConfigOverrideConstraints
+    let solverSettingConstraints = solverCabalLibConstraints ++ resolvedConstraints
+    pure (SolverSettings{..}, overrideNotes)
     where
       -- TODO: [required eventually] some of these settings need validation, e.g.
       -- the flag assignments need checking.
@@ -342,7 +360,6 @@ resolveSolverSettings
 
       solverSettingRemoteRepos = fromNubList projectConfigRemoteRepos
       solverSettingLocalNoIndexRepos = fromNubList projectConfigLocalNoIndexRepos
-      solverSettingConstraints = solverCabalLibConstraints ++ projectConfigConstraints
       solverSettingPreferences = projectConfigPreferences
       solverSettingFlagAssignment = packageConfigFlagAssignment projectConfigLocalPackages
       solverSettingFlagAssignments =

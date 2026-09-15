@@ -562,6 +562,7 @@ instance Semigroup SavedConfig where
           , configBackup = combine configBackup
           , -- TODO: NubListify
             configExConstraints = lastNonEmpty configExConstraints
+          , configExOverrideConstraints = lastNonEmpty configExOverrideConstraints
           , -- TODO: NubListify
             configPreferences = lastNonEmpty configPreferences
           , configSolver = combine configSolver
