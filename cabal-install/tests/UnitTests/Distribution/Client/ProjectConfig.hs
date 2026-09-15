@@ -7,7 +7,7 @@ module UnitTests.Distribution.Client.ProjectConfig (tests) where
 import Control.Monad
 import Data.Either (isRight)
 import Data.Foldable (for_)
-import Data.List (intercalate, isPrefixOf, (\\))
+import Data.List (intercalate, isPrefixOf, sort, (\\))
 import Data.List.NonEmpty (NonEmpty (..))
 import Data.Map (Map)
 import qualified Data.Map as Map
@@ -42,12 +42,15 @@ import Distribution.Utils.NubList
 import Distribution.Verbosity
 
 import Distribution.Solver.Types.ConstraintSource
+import Distribution.Solver.Types.OptionalStanza (OptionalStanza (..))
 import Distribution.Solver.Types.PackageConstraint
 import Distribution.Solver.Types.ProjectConfigPath
 import Distribution.Solver.Types.Settings
 
 import Distribution.Client.ProjectConfig
 import Distribution.Client.ProjectConfig.Legacy
+import Distribution.Client.ProjectConfig.Override
+import Distribution.Version (mkVersion, thisVersion)
 
 import UnitTests.Distribution.Client.ArbitraryInstances
 import UnitTests.Distribution.Client.TreeDiffInstances ()
@@ -87,6 +90,7 @@ tests =
       ]
   , testGetProjectRootUsability
   , testFindProjectRoot
+  , testOverrideConstraints
   ]
 
 testGetProjectRootUsability :: TestTree
@@ -332,6 +336,13 @@ hackProjectConfigShared config =
                 ]
             ambiguous _ = False
          in filter (not . ambiguous) (projectConfigConstraints config)
+    , projectConfigOverrideConstraints =
+        let ambiguous (UserConstraint _ (PackagePropertyFlags flags), _) =
+              (not . null)
+                [ () | (name, False) <- unFlagAssignment flags, "any" `isPrefixOf` unFlagName name
+                ]
+            ambiguous _ = False
+         in filter (not . ambiguous) (projectConfigOverrideConstraints config)
     }
 
 prop_roundtrip_printparse_local :: PackageConfig -> Property
@@ -602,6 +613,7 @@ instance Arbitrary ProjectConfigShared where
     projectConfigIndexState <- arbitrary
     projectConfigStoreDir <- arbitraryFlag arbitraryShortToken
     projectConfigConstraints <- arbitraryConstraints
+    projectConfigOverrideConstraints <- arbitraryConstraints
     projectConfigPreferences <- shortListOf 2 arbitrary
     projectConfigCabalVersion <- arbitrary
     projectConfigSolver <- arbitrary
@@ -649,6 +661,7 @@ instance Arbitrary ProjectConfigShared where
         <*> shrinker projectConfigIndexState
         <*> shrinker projectConfigStoreDir
         <*> shrinkerPP preShrink_Constraints postShrink_Constraints projectConfigConstraints
+        <*> shrinkerPP preShrink_Constraints postShrink_Constraints projectConfigOverrideConstraints
         <*> shrinker projectConfigPreferences
         <*> shrinker projectConfigCabalVersion
         <*> shrinker projectConfigSolver
@@ -1050,3 +1063,98 @@ instance Arbitrary OnlyConstrained where
       [ pure OnlyConstrainedAll
       , pure OnlyConstrainedNone
       ]
+
+testOverrideConstraints :: TestTree
+testOverrideConstraints =
+  testGroup
+    "override-constraints"
+    [ testCase "no overrides is the identity" $
+        apply [pin133 stackage, flags stackage] [] @?= Right ([pin133 stackage, flags stackage], [])
+    , testCase "a root override replaces a deep pin" $
+        apply [pin133 stackage] [pin132 root]
+          @?= Right ([pin132 root], [OverrideReplaced (pin132 root) (pin133 stackage)])
+    , testCase "an override in a sibling import replaces a pin at the same position" $
+        apply [pin133 stackage] [pin132 sibling]
+          @?= Right ([pin132 sibling], [OverrideReplaced (pin132 sibling) (pin133 stackage)])
+    , testCase "an override in an import does not replace a root constraint" $
+        apply [pin132 root] [pin133 sibling]
+          @?= Right ([pin132 root, pin133 sibling], [OverrideUnused (pin133 sibling)])
+    , testCase "different overrides at the same position conflict" $
+        apply [] [pin132 sibling, pin133 stackage]
+          @?= Left (OverrideConflict (pin132 sibling) (pin133 stackage))
+    , testCase "a root override silences a conflict between imports" $
+        apply [] [pin132 sibling, pin133 stackage, pin132 root]
+          @?= Right
+            ( [pin132 root]
+            , [OverrideReplaced (pin132 root) (pin133 stackage), OverrideReplaced (pin132 root) (pin132 sibling)]
+            )
+    , testCase "an override narrower than the pin is an error" $
+        apply [pin133 stackage] [(topLevel (version [1, 4, 2, 0]), root)]
+          @?= Left (OverrideTooNarrow (topLevel (version [1, 4, 2, 0]), root) (pin133 stackage))
+    , testCase "a flag override replaces only that flag" $
+        apply [flags stackage] [(anyFoo (flagsOf [("bar", False)]), root)]
+          @?= Right
+            ( [(anyFoo (flagsOf [("baz", False)]), stackage), (anyFoo (flagsOf [("bar", False)]), root)]
+            , [OverrideReplaced (anyFoo (flagsOf [("bar", False)]), root) (anyFoo (flagsOf [("bar", True)]), stackage)]
+            )
+    , testCase "cabal.project.local overrides the freeze file" $
+        apply [pin133 freeze] [pin132 local]
+          @?= Right ([pin132 local], [OverrideReplaced (pin132 local) (pin133 freeze)])
+    , testCase "the command line overrides cabal.project.local" $
+        apply [pin133 local] [pin132 cli]
+          @?= Right ([pin132 cli], [OverrideReplaced (pin132 cli) (pin133 local)])
+    , testCase "the same override at the same depth merges" $
+        apply [pin133 stackageViaB] [pin132 viaA, pin132 viaB]
+          @?= Right ([pin132 viaA], [OverrideReplaced (pin132 viaA) (pin133 stackageViaB)])
+    , testCase "a shallower copy of an override replaces a deeper one" $
+        apply [pin133 stackage] [pin132 sibling, pin132 siblingAgain]
+          @?= Right
+            ( [pin132 sibling]
+            , [OverrideReplaced (pin132 sibling) (pin132 siblingAgain), OverrideReplaced (pin132 sibling) (pin133 stackage)]
+            )
+    , testCase "constraints cabal adds itself are never replaced" $
+        apply [pin133 internal] [pin132 root]
+          @?= Right ([pin133 internal, pin132 root], [OverrideUnused (pin132 root)])
+    , testCase "stanza constraints are never replaced" $
+        apply [(anyFoo (PackagePropertyStanzas [TestStanzas]), stackage)] [(anyFoo (version [1]), root)]
+          @?= Right
+            ( [(anyFoo (PackagePropertyStanzas [TestStanzas]), stackage), (anyFoo (version [1]), root)]
+            , [OverrideUnused (anyFoo (version [1]), root)]
+            )
+    , testCase "the result does not depend on input order" $
+        let plain = [pin133 stackage, flags stackage, pin132 sibling]
+            overrides = [pin132 root, (anyFoo (flagsOf [("bar", False)]), local)]
+            asSet = fmap (sortOnShow . fst)
+         in asSet (apply (reverse plain) (reverse overrides)) @?= asSet (apply plain overrides)
+    ]
+  where
+    apply = applyOverrideConstraints
+
+    hashable = mkPackageName "hashable"
+    foo = mkPackageName "foo"
+
+    path p ps = ConstraintSourceProjectConfig (ProjectConfigPath (p :| ps))
+    root = path "cabal.project" []
+    stackage = path "stackage.config" ["cabal.project"]
+    sibling = path "override.config" ["cabal.project"]
+    siblingAgain = path "override.config" ["hop.config", "cabal.project"]
+    viaA = path "override.config" ["a.config", "cabal.project"]
+    viaB = path "override.config" ["b.config", "cabal.project"]
+    stackageViaB = path "stackage.config" ["b.config", "cabal.project"]
+    freeze = path "cabal.project.freeze" []
+    local = path "cabal.project.local" []
+    cli = ConstraintSourceCommandlineFlag
+    internal = ConstraintSourceNonReinstallablePackage
+
+    version = PackagePropertyVersion . thisVersion . mkVersion
+    anyHashable = UserConstraint (UserAnyQualifier hashable)
+    topLevel = UserConstraint (UserQualified UserQualToplevel hashable)
+    anyFoo = UserConstraint (UserAnyQualifier foo)
+    flagsOf = PackagePropertyFlags . mkFlagAssignment . map (\(n, b) -> (mkFlagName n, b))
+
+    pin133 src = (anyHashable (version [1, 4, 3, 0]), src)
+    pin132 src = (anyHashable (version [1, 4, 2, 0]), src)
+    flags src = (anyFoo (flagsOf [("bar", True), ("baz", False)]), src)
+
+    sortOnShow :: [(UserConstraint, ConstraintSource)] -> [String]
+    sortOnShow = sort . map show

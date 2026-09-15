@@ -1,0 +1,196 @@
+# cabal v2-update
+Downloading the latest package list from test-local-repo
+# --project-file-parser=legacy checking that a plain constraint conflicts with an imported pin
+# cabal v2-build
+Resolving dependencies...
+Error: [Cabal-7107]
+Could not resolve dependencies:
+[__0] trying: uses-hashable-0.1.0.0 (user goal)
+[__1] next goal: hashable (dependency of uses-hashable)
+[__1] rejecting: hashable-1.4.3.0
+      (constraint from 0-no-override.project requires ==1.4.2.0)
+[__1] rejecting: hashable-1.4.2.0
+      (constraint from stackage.config requires ==1.4.3.0)
+        imported by: 0-no-override.project
+[__1] fail (backjumping, conflict set: hashable, uses-hashable)
+After searching the rest of the dependency tree exhaustively, these were the goals I've had most trouble fulfilling: hashable (3), uses-hashable (2)
+# --project-file-parser=legacy checking that an override in the root replaces an imported pin
+# cabal v2-build
+Resolving dependencies...
+Build profile: -w ghc-<GHCVER> -O1
+In order, the following would be built:
+ - hashable-1.4.2.0 (lib) (requires build)
+ - uses-hashable-0.1.0.0 (lib) (first run)
+# --project-file-parser=legacy checking that an override in a sibling import replaces the pin
+# cabal v2-build
+Resolving dependencies...
+Build profile: -w ghc-<GHCVER> -O1
+In order, the following would be built:
+ - hashable-1.4.2.0 (lib) (requires build)
+ - uses-hashable-0.1.0.0 (lib) (first run)
+# --project-file-parser=legacy checking that an override in an import cannot replace a root constraint
+# cabal v2-build
+Warning: override-constraints replaced nothing for:
+  any.hashable ==1.4.3.0 from
+    override-1.4.3.0.config
+      imported by: 3-import-cannot-override-root.project
+Resolving dependencies...
+Error: [Cabal-7107]
+Could not resolve dependencies:
+[__0] trying: uses-hashable-0.1.0.0 (user goal)
+[__1] next goal: hashable (dependency of uses-hashable)
+[__1] rejecting: hashable-1.4.3.0
+      (constraint from 3-import-cannot-override-root.project requires ==1.4.2.0)
+[__1] rejecting: hashable-1.4.2.0
+      (constraint from override-1.4.3.0.config requires ==1.4.3.0)
+        imported by: 3-import-cannot-override-root.project
+[__1] fail (backjumping, conflict set: hashable, uses-hashable)
+After searching the rest of the dependency tree exhaustively, these were the goals I've had most trouble fulfilling: hashable (3), uses-hashable (2)
+# --project-file-parser=legacy checking that two different overrides at the same position conflict
+# cabal v2-build
+Error: [Cabal-7169]
+conflicting override-constraints at the same position:
+  any.hashable ==1.4.2.0 from
+    override-1.4.2.0.config
+      imported by: 4-conflict.project
+  any.hashable ==1.4.3.0 from
+    override-1.4.3.0.config
+      imported by: 4-conflict.project
+# --project-file-parser=legacy checking that a root override silences a conflict between imports
+# cabal v2-build
+Resolving dependencies...
+Build profile: -w ghc-<GHCVER> -O1
+In order, the following would be built:
+ - hashable-1.4.2.0 (lib) (requires build)
+ - uses-hashable-0.1.0.0 (lib) (first run)
+# --project-file-parser=legacy checking that an override narrower than the pin is an error
+# cabal v2-build
+Error: [Cabal-7169]
+an override-constraint is narrower than a constraint it would replace:
+  hashable ==1.4.2.0 from
+    6-narrow.project
+    is narrower than any.hashable ==1.4.3.0 from
+                       stackage.config
+                         imported by: 6-narrow.project
+Widen the override's scope, for example with the any. prefix, to replace every instance of the package.
+# --project-file-parser=legacy checking that cabal.project.local overrides an import of cabal.project
+# cabal v2-build
+Resolving dependencies...
+Build profile: -w ghc-<GHCVER> -O1
+In order, the following would be built:
+ - hashable-1.4.2.0 (lib) (requires build)
+ - uses-hashable-0.1.0.0 (lib) (first run)
+# --project-file-parser=legacy checking that the command line overrides an imported pin
+# cabal v2-build
+Resolving dependencies...
+Build profile: -w ghc-<GHCVER> -O1
+In order, the following would be built:
+ - hashable-1.4.3.0 (lib) (requires build)
+ - uses-hashable-0.1.0.0 (lib) (first run)
+# --project-file-parser=legacy checking that an override that replaces nothing is a warning
+# cabal v2-build
+Warning: override-constraints replaced nothing for:
+  any.text ==2.0.2 from
+    8-unused.project
+Resolving dependencies...
+Build profile: -w ghc-<GHCVER> -O1
+In order, the following would be built:
+ - hashable-1.4.2.0 (lib) (requires build)
+ - uses-hashable-0.1.0.0 (lib) (first run)
+# --project-file-parser=parsec checking that a plain constraint conflicts with an imported pin
+# cabal v2-build
+Resolving dependencies...
+Error: [Cabal-7107]
+Could not resolve dependencies:
+[__0] trying: uses-hashable-0.1.0.0 (user goal)
+[__1] next goal: hashable (dependency of uses-hashable)
+[__1] rejecting: hashable-1.4.3.0
+      (constraint from 0-no-override.project requires ==1.4.2.0)
+[__1] rejecting: hashable-1.4.2.0
+      (constraint from stackage.config requires ==1.4.3.0)
+        imported by: 0-no-override.project
+[__1] fail (backjumping, conflict set: hashable, uses-hashable)
+After searching the rest of the dependency tree exhaustively, these were the goals I've had most trouble fulfilling: hashable (3), uses-hashable (2)
+# --project-file-parser=parsec checking that an override in the root replaces an imported pin
+# cabal v2-build
+Resolving dependencies...
+Build profile: -w ghc-<GHCVER> -O1
+In order, the following would be built:
+ - hashable-1.4.2.0 (lib) (requires build)
+ - uses-hashable-0.1.0.0 (lib) (first run)
+# --project-file-parser=parsec checking that an override in a sibling import replaces the pin
+# cabal v2-build
+Resolving dependencies...
+Build profile: -w ghc-<GHCVER> -O1
+In order, the following would be built:
+ - hashable-1.4.2.0 (lib) (requires build)
+ - uses-hashable-0.1.0.0 (lib) (first run)
+# --project-file-parser=parsec checking that an override in an import cannot replace a root constraint
+# cabal v2-build
+Warning: override-constraints replaced nothing for:
+  any.hashable ==1.4.3.0 from
+    override-1.4.3.0.config
+      imported by: 3-import-cannot-override-root.project
+Resolving dependencies...
+Error: [Cabal-7107]
+Could not resolve dependencies:
+[__0] trying: uses-hashable-0.1.0.0 (user goal)
+[__1] next goal: hashable (dependency of uses-hashable)
+[__1] rejecting: hashable-1.4.3.0
+      (constraint from 3-import-cannot-override-root.project requires ==1.4.2.0)
+[__1] rejecting: hashable-1.4.2.0
+      (constraint from override-1.4.3.0.config requires ==1.4.3.0)
+        imported by: 3-import-cannot-override-root.project
+[__1] fail (backjumping, conflict set: hashable, uses-hashable)
+After searching the rest of the dependency tree exhaustively, these were the goals I've had most trouble fulfilling: hashable (3), uses-hashable (2)
+# --project-file-parser=parsec checking that two different overrides at the same position conflict
+# cabal v2-build
+Error: [Cabal-7169]
+conflicting override-constraints at the same position:
+  any.hashable ==1.4.2.0 from
+    override-1.4.2.0.config
+      imported by: 4-conflict.project
+  any.hashable ==1.4.3.0 from
+    override-1.4.3.0.config
+      imported by: 4-conflict.project
+# --project-file-parser=parsec checking that a root override silences a conflict between imports
+# cabal v2-build
+Resolving dependencies...
+Build profile: -w ghc-<GHCVER> -O1
+In order, the following would be built:
+ - hashable-1.4.2.0 (lib) (requires build)
+ - uses-hashable-0.1.0.0 (lib) (first run)
+# --project-file-parser=parsec checking that an override narrower than the pin is an error
+# cabal v2-build
+Error: [Cabal-7169]
+an override-constraint is narrower than a constraint it would replace:
+  hashable ==1.4.2.0 from
+    6-narrow.project
+    is narrower than any.hashable ==1.4.3.0 from
+                       stackage.config
+                         imported by: 6-narrow.project
+Widen the override's scope, for example with the any. prefix, to replace every instance of the package.
+# --project-file-parser=parsec checking that cabal.project.local overrides an import of cabal.project
+# cabal v2-build
+Resolving dependencies...
+Build profile: -w ghc-<GHCVER> -O1
+In order, the following would be built:
+ - hashable-1.4.2.0 (lib) (requires build)
+ - uses-hashable-0.1.0.0 (lib) (first run)
+# --project-file-parser=parsec checking that the command line overrides an imported pin
+# cabal v2-build
+Resolving dependencies...
+Build profile: -w ghc-<GHCVER> -O1
+In order, the following would be built:
+ - hashable-1.4.3.0 (lib) (requires build)
+ - uses-hashable-0.1.0.0 (lib) (first run)
+# --project-file-parser=parsec checking that an override that replaces nothing is a warning
+# cabal v2-build
+Warning: override-constraints replaced nothing for:
+  any.text ==2.0.2 from
+    8-unused.project
+Resolving dependencies...
+Build profile: -w ghc-<GHCVER> -O1
+In order, the following would be built:
+ - hashable-1.4.2.0 (lib) (requires build)
+ - uses-hashable-0.1.0.0 (lib) (first run)
