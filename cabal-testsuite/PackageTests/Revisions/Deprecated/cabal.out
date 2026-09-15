@@ -1,0 +1,25 @@
+# cabal v2-update
+Downloading the latest package list from test-local-repo
+# cabal v2-build
+Resolving dependencies...
+Build profile: -w ghc-<GHCVER> -O1
+In order, the following would be built:
+ - foo-2.0 (lib:foo) (requires build)
+ - pkg-1.0 (lib:pkg) (first run)
+# cabal v2-build
+Resolving dependencies...
+Build profile: -w ghc-<GHCVER> -O1
+In order, the following would be built:
+ - foo-2.0 (lib:foo) (requires build)
+ - pkg-1.0 (lib:pkg) (first run)
+# cabal v2-build
+Resolving dependencies...
+Build profile: -w ghc-<GHCVER> -O1
+In order, the following would be built:
+ - foo-1.0 (lib:foo) (requires build)
+ - pkg-1.0 (lib:pkg) (first run)
+# cabal v2-build
+Error: [Cabal-7169]
+The package foo-1.0 in 'test-local-repo' has no revision matching the pin 'rev:2' from the 'revisions' field (project config missing.project). The available revisions are:
+  rev:1 (sha256:6cd3caede0ba6f647ac56181225d1eb2cf0cb8bd62a74da2e6e9b6d1597b2c81)
+Check the pin and the index-state in use.

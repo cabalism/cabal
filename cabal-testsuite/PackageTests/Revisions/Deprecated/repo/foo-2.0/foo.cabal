@@ -1,0 +1,6 @@
+name: foo
+version: 2.0
+build-type: Simple
+cabal-version: >= 1.2
+
+library

@@ -797,10 +797,17 @@ The following settings control the behavior of the dependency solver:
     also the command line form, ``--constraint="smtlib-backends ==0.3@rev:1"``.
     There is no separate command line flag for this field.
 
+    A pin does not affect which version the solver picks (preferences and
+    deprecated versions apply as usual), only which ``.cabal`` file is used
+    for that version once picked. Everything else that reads the ``.cabal``
+    file then applies to the pinned revision: for example
+    :cfg-field:`allow-newer` relaxes the bounds of the pinned revision.
+
     It is an error if the package version exists in a package repository
-    but none of its revisions match the pin, for example because the
-    revision is newer than the :cfg-field:`index-state` in use, or because
-    the same package version is pinned to two different revisions.
+    but none of its revisions match the pin, whether or not the solver
+    would pick that version, for example because the revision is newer
+    than the :cfg-field:`index-state` in use, or because the same package
+    version is pinned to two different revisions.
 
     ``cabal freeze`` pins the revision of every package in the plan whose
     ``.cabal`` file is a revision, in its version constraint
