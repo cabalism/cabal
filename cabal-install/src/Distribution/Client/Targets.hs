@@ -31,6 +31,7 @@ module Distribution.Client.Targets
   , UserQualifier (..)
   , UserConstraintScope (..)
   , UserConstraint (..)
+  , userConstraintRevision
   , userConstraintPackageName
   , readUserConstraint
   , userToPackageConstraint
@@ -47,6 +48,7 @@ import Distribution.Client.Types
   )
 import Distribution.Package
   ( Package (..)
+  , PackageIdentifier (..)
   , PackageName
   , mkPackageName
   , packageName
@@ -84,7 +86,15 @@ import Distribution.Types.Flag
   ( parsecFlagAssignmentNonEmpty
   )
 import Distribution.Version
-  ( isAnyVersion
+  ( Version
+  , isAnyVersion
+  , isSpecificVersion
+  , thisVersion
+  )
+
+import Distribution.Client.Types.PackageRevision
+  ( PackageRevision (..)
+  , RevisionPin
   )
 
 import Distribution.PackageDescription.Parsec
@@ -112,6 +122,7 @@ import System.FilePath
   , takeDirectory
   , takeExtension
   )
+import qualified Text.PrettyPrint as Disp
 
 -- ------------------------------------------------------------
 
@@ -632,6 +643,12 @@ fromUserConstraintScope (UserAnyQualifier pn) = ScopeAnyQualifier pn
 -- the command line.
 data UserConstraint
   = UserConstraint UserConstraintScope PackageProperty
+  | -- | @pkg ==1.2.3\@rev:N@ (or @\@sha256:HASH@): an exact version together
+    -- with a pin of its @.cabal@ file revision. The version is an ordinary
+    -- version constraint in the given scope; the revision pin applies to that
+    -- package version wherever it is used, so only the unqualified and
+    -- @any.@ scopes are accepted.
+    UserConstraintRevision UserConstraintScope Version RevisionPin
   deriving (Eq, Show, Generic)
 
 instance Binary UserConstraint
@@ -639,15 +656,29 @@ instance NFData UserConstraint
 instance Structured UserConstraint
 
 userConstraintPackageName :: UserConstraint -> PackageName
-userConstraintPackageName (UserConstraint scope _) = scopePN scope
+userConstraintPackageName = scopePN . userConstraintScope
   where
     scopePN (UserQualified _ pn) = pn
     scopePN (UserAnyQualifier pn) = pn
     scopePN (UserAnySetupQualifier pn) = pn
 
+userConstraintScope :: UserConstraint -> UserConstraintScope
+userConstraintScope (UserConstraint scope _) = scope
+userConstraintScope (UserConstraintRevision scope _ _) = scope
+
+-- | The revision pin carried by a @pkg ==1.2.3\@rev:N@ constraint, if any.
+userConstraintRevision :: UserConstraint -> Maybe PackageRevision
+userConstraintRevision uc@(UserConstraintRevision _ v pin) =
+  Just (PackageRevision (PackageIdentifier (userConstraintPackageName uc) v) pin)
+userConstraintRevision UserConstraint{} = Nothing
+
+-- | The constraint for the solver. A revision pin is not a solver
+-- constraint (the solver never sees revisions); it only fixes the version.
 userToPackageConstraint :: UserConstraint -> PackageConstraint
 userToPackageConstraint (UserConstraint scope prop) =
   PackageConstraint (fromUserConstraintScope scope) prop
+userToPackageConstraint (UserConstraintRevision scope v _) =
+  PackageConstraint (fromUserConstraintScope scope) (PackagePropertyVersion (thisVersion v))
 
 readUserConstraint :: String -> Either String UserConstraint
 readUserConstraint str =
@@ -657,28 +688,50 @@ readUserConstraint str =
   where
     msgCannotParse =
       "expected a (possibly qualified) package name followed by a "
-        ++ "constraint, which is either a version range, 'installed', "
-        ++ "'source', 'test', 'bench', or flags. "
+        ++ "constraint, which is either a version range (an exact version "
+        ++ "optionally followed by a revision pin '@rev:N' or '@sha256:HASH'), "
+        ++ "'installed', 'source', 'test', 'bench', or flags. "
 
 instance Pretty UserConstraint where
-  pretty (UserConstraint scope prop) =
-    pretty $ PackageConstraint (fromUserConstraintScope scope) prop
+  pretty uc@(UserConstraint _ _) = pretty (userToPackageConstraint uc)
+  pretty uc@(UserConstraintRevision _ _ pin) =
+    pretty (userToPackageConstraint uc) <<>> Disp.char '@' <<>> pretty pin
 
 instance Parsec UserConstraint where
   parsec = do
     scope <- parseConstraintScope
     P.spaces
-    prop <-
-      P.choice
-        [ PackagePropertyFlags <$> parsecFlagAssignmentNonEmpty -- headed by "+-"
-        , PackagePropertyVersion <$> parsec -- headed by "<=>" (will be)
-        , PackagePropertyInstalled <$ P.string "installed"
-        , PackagePropertySource <$ P.string "source"
-        , PackagePropertyStanzas [TestStanzas] <$ P.string "test"
-        , PackagePropertyStanzas [BenchStanzas] <$ P.string "bench"
-        ]
-    return (UserConstraint scope prop)
+    P.choice
+      [ UserConstraint scope . PackagePropertyFlags <$> parsecFlagAssignmentNonEmpty -- headed by "+-"
+      , parseVersion scope -- headed by "<=>" (will be)
+      , UserConstraint scope PackagePropertyInstalled <$ P.string "installed"
+      , UserConstraint scope PackagePropertySource <$ P.string "source"
+      , UserConstraint scope (PackagePropertyStanzas [TestStanzas]) <$ P.string "test"
+      , UserConstraint scope (PackagePropertyStanzas [BenchStanzas]) <$ P.string "bench"
+      ]
     where
+      -- A version range, optionally followed by a revision pin when the
+      -- range is an exact version.
+      parseVersion :: forall m. CabalParsing m => UserConstraintScope -> m UserConstraint
+      parseVersion scope = do
+        vr <- parsec
+        mpin <- P.optional (P.char '@' *> parsec)
+        case mpin of
+          Nothing -> return (UserConstraint scope (PackagePropertyVersion vr))
+          Just pin
+            | Just v <- isSpecificVersion vr
+            , isRevisionScope scope ->
+                return (UserConstraintRevision scope v pin)
+            | Just _ <- isSpecificVersion vr ->
+                fail "a revision pin cannot be scoped with 'setup.' or 'pkg:setup.', use 'pkg ==1.2.3@rev:N' or 'any.pkg ==1.2.3@rev:N'"
+            | otherwise ->
+                fail "a revision can only be pinned together with an exact version, as in 'pkg ==1.2.3@rev:N'"
+
+      isRevisionScope :: UserConstraintScope -> Bool
+      isRevisionScope (UserQualified UserQualToplevel _) = True
+      isRevisionScope (UserAnyQualifier _) = True
+      isRevisionScope _ = False
+
       parseConstraintScope :: forall m. CabalParsing m => m UserConstraintScope
       parseConstraintScope = do
         pn <- parsec

@@ -902,7 +902,7 @@ exceptionMessageCabalInstall e = case e of
         [ "\n  rev:" ++ show rev ++ " (sha256:" ++ showHashValue hash ++ ")"
         | (rev, hash) <- available
         ]
-      ++ "\nCheck the pin in 'revisions' and the index-state in use."
+      ++ "\nCheck the pin (in 'revisions' or 'constraints') and the index-state in use."
   ConflictingRevisionPins pkgid pin pin' ->
     "The package "
       ++ prettyShow pkgid
@@ -910,7 +910,7 @@ exceptionMessageCabalInstall e = case e of
       ++ prettyShow pin
       ++ "' and '"
       ++ prettyShow pin'
-      ++ "' in 'revisions'."
+      ++ "' (in 'revisions' or 'constraints')."
 
 instance Exception (VerboseException CabalInstallException) where
   displayException :: VerboseException CabalInstallException -> [Char]
