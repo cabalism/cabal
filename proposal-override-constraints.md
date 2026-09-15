@@ -118,6 +118,21 @@ Position A is **stronger** than position B when either:
 
 Layer is compared first, so a file imported by `cabal.project.local`, at any depth, outranks `cabal.project` itself.
 
+For example, with `cabal.project` importing `stackage.config`, which in turn imports `ghc-9.8.config`:
+
+| Constraint | Layer | Depth |
+|---|---|---|
+| `--constraint="any.hashable ==1.4.2.0"` on the command line | 1 | 0 |
+| `cabal install foo-1.2` (a user target) | 1 | 0 |
+| `constraints:` in `cabal.project.local` | 2 | 0 |
+| `constraints:` in a file imported by `cabal.project.local` | 2 | 1 |
+| `constraints:` in `cabal.project` | 3 | 0 |
+| `constraints:` in `cabal.project.freeze` | 3 | 0 |
+| `constraints:` in `stackage.config` | 3 | 1 |
+| `constraints:` in `ghc-9.8.config` | 3 | 2 |
+| `constraints:` in the global config file | 4 | 0 |
+| `flags:` in a `package` stanza, `--flags`, and constraints cabal adds itself | outside the position system | — |
+
 `cabal.project.local` outranks `cabal.project`. It holds uncommitted, per-developer configuration, so a developer can
 override constraints from the shared project, its freeze file and its imports without editing any of them. This is
 already how the rest of the project configuration is layered: the user guide says the sources are combined with
