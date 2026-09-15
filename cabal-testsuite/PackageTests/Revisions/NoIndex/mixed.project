@@ -1,0 +1,3 @@
+packages: .
+revisions: foo-1.0@rev:1
+constraints: any.foo ==1.0@rev:0

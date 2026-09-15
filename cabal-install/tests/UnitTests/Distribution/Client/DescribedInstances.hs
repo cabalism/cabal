@@ -10,6 +10,7 @@ import Distribution.Described
 
 import Distribution.Types.PackageId (PackageIdentifier)
 import Distribution.Types.PackageName (PackageName)
+import Distribution.Types.Version (Version)
 import Distribution.Types.VersionRange (VersionRange)
 
 import Distribution.Client.BuildReports.Types (InstallOutcome, Outcome)
@@ -173,11 +174,19 @@ instance Described CombineStrategy where
 
 instance Described UserConstraint where
   describe _ =
-    REAppend
-      [ describeConstraintScope
-      , describeConstraintProperty
+    REUnion
+      [ describeConstraintScope <> describeConstraintProperty
+      , describeRevisionScope <> describeRevisionConstraint
       ]
     where
+      -- a revision pin is only accepted in the unqualified and any. scopes
+      describeRevisionScope :: GrammarRegex void
+      describeRevisionScope = REUnion ["any." <> describePN, describePN]
+
+      describeRevisionConstraint :: GrammarRegex void
+      describeRevisionConstraint =
+        RESpaces <> "==" <> describe (Proxy :: Proxy Version) <> "@" <> describe (Proxy :: Proxy RevisionPin)
+
       describeConstraintScope :: GrammarRegex void
       describeConstraintScope =
         REUnion

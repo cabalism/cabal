@@ -307,7 +307,18 @@ instance Arbitrary UserQualifier where
       ]
 
 instance Arbitrary UserConstraint where
-  arbitrary = genericArbitrary
+  arbitrary =
+    frequency
+      [ (5, UserConstraint <$> arbitrary <*> arbitrary)
+      , (1, UserConstraintRevision <$> revisionScope <*> arbitrary <*> arbitrary)
+      ]
+    where
+      -- a revision pin is only accepted in the unqualified and any. scopes
+      revisionScope =
+        oneof
+          [ UserQualified UserQualToplevel <$> arbitrary
+          , UserAnyQualifier <$> arbitrary
+          ]
   shrink = genericShrink
 
 instance Arbitrary PackageProperty where

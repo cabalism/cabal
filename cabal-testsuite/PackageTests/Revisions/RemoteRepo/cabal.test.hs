@@ -37,11 +37,15 @@ main = do
     r <- withProjectFile "rev2.project" $ fails $ cabal' "v2-build" ["--dry-run"]
     assertOutputContains "has no revision matching the pin 'rev:2'" r
 
-    -- Freezing records the revision of foo-1.0 when it is a revision.
+    -- Freezing records the revision of foo-1.0 in its version constraint
+    -- when it is a revision.
     cabal "v2-freeze" []
-    assertFileDoesContain (cwd </> "cabal.project.freeze") "foo-1.0@rev:1"
+    assertFileDoesContain (cwd </> "cabal.project.freeze") "any.foo ==1.0@rev:1"
+    assertFileDoesNotContain (cwd </> "cabal.project.freeze") "revisions"
     withProjectFile "rev0.project" $ do
       cabal "v2-freeze" []
+      assertFileDoesContain (cwd </> "rev0.project.freeze") "any.foo ==1.0,"
+      assertFileDoesNotContain (cwd </> "rev0.project.freeze") "@rev"
       assertFileDoesNotContain (cwd </> "rev0.project.freeze") "revisions"
   where
     assertRevisionOfFoo :: Int -> TestM ()
