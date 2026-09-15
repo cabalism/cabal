@@ -1,0 +1,8 @@
+packages: .
+
+import: stackage.config
+
+-- Hiding here hides hashable ==1.4.2.0 of constraints.config but doesn't reach
+-- the stackage.config sibling import, leaving hashable ==1.4.3.0.
+import: constraints.config
+  hide-constraints: hashable

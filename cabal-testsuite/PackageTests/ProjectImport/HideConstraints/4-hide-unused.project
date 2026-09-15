@@ -1,0 +1,6 @@
+packages: .
+
+import: stackage.config
+  hide-constraints: hashable, text
+
+constraints: hashable ==1.4.2.0

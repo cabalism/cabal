@@ -1,0 +1,120 @@
+# cabal v2-update
+Downloading the latest package list from test-local-repo
+# --project-file-parser=legacy checking that imported constraints conflict without hiding
+# cabal v2-build
+Resolving dependencies...
+Error: [Cabal-7107]
+Could not resolve dependencies:
+[__0] trying: uses-hashable-0.1.0.0 (user goal)
+[__1] next goal: hashable (dependency of uses-hashable)
+[__1] rejecting: hashable-1.4.3.0
+      (constraint from 0-no-hide.project requires ==1.4.2.0)
+[__1] rejecting: hashable-1.4.2.0
+      (constraint from stackage.config requires ==1.4.3.0)
+        imported by: 0-no-hide.project
+[__1] fail (backjumping, conflict set: hashable, uses-hashable)
+After searching the rest of the dependency tree exhaustively, these were the goals I've had most trouble fulfilling: hashable (3), uses-hashable (2)
+# --project-file-parser=legacy checking that hide-constraints hides constraints of an import
+# cabal v2-build
+Resolving dependencies...
+Build profile: -w ghc-<GHCVER> -O1
+In order, the following would be built:
+ - hashable-1.4.2.0 (lib) (requires build)
+ - uses-hashable-0.1.0.0 (lib) (first run)
+# --project-file-parser=legacy checking that hide-constraints hides constraints of imports of an import
+# cabal v2-build
+Resolving dependencies...
+Build profile: -w ghc-<GHCVER> -O1
+In order, the following would be built:
+ - hashable-1.4.2.0 (lib) (requires build)
+ - uses-hashable-0.1.0.0 (lib) (first run)
+# --project-file-parser=legacy checking that hide-constraints keeps constraints of a sibling import
+# cabal v2-build
+Resolving dependencies...
+Build profile: -w ghc-<GHCVER> -O1
+In order, the following would be built:
+ - hashable-1.4.2.0 (lib) (requires build)
+ - uses-hashable-0.1.0.0 (lib) (first run)
+# --project-file-parser=legacy checking that hide-constraints doesn't hide constraints of a sibling import
+# cabal v2-build
+Resolving dependencies...
+Build profile: -w ghc-<GHCVER> -O1
+In order, the following would be built:
+ - hashable-1.4.3.0 (lib) (requires build)
+ - uses-hashable-0.1.0.0 (lib) (first run)
+# --project-file-parser=legacy checking that hide-constraints warns about packages without constraints to hide
+# cabal v2-build
+Warning: hide-constraints found no constraints to hide for text;
+  stackage.config
+    imported by: 4-hide-unused.project
+Resolving dependencies...
+Build profile: -w ghc-<GHCVER> -O1
+In order, the following would be built:
+ - hashable-1.4.2.0 (lib) (requires build)
+ - uses-hashable-0.1.0.0 (lib) (first run)
+# --project-file-parser=legacy checking that an unknown import modifier is a parse error
+# cabal v2-build
+Error: [Cabal-7090]
+Error parsing project file 5-bad-modifier.project:3:
+ - unknown import modifier "hide-constraint", the only import modifier is hide-constraints
+# --project-file-parser=parsec checking that imported constraints conflict without hiding
+# cabal v2-build
+Resolving dependencies...
+Error: [Cabal-7107]
+Could not resolve dependencies:
+[__0] trying: uses-hashable-0.1.0.0 (user goal)
+[__1] next goal: hashable (dependency of uses-hashable)
+[__1] rejecting: hashable-1.4.3.0
+      (constraint from 0-no-hide.project requires ==1.4.2.0)
+[__1] rejecting: hashable-1.4.2.0
+      (constraint from stackage.config requires ==1.4.3.0)
+        imported by: 0-no-hide.project
+[__1] fail (backjumping, conflict set: hashable, uses-hashable)
+After searching the rest of the dependency tree exhaustively, these were the goals I've had most trouble fulfilling: hashable (3), uses-hashable (2)
+# --project-file-parser=parsec checking that hide-constraints hides constraints of an import
+# cabal v2-build
+Resolving dependencies...
+Build profile: -w ghc-<GHCVER> -O1
+In order, the following would be built:
+ - hashable-1.4.2.0 (lib) (requires build)
+ - uses-hashable-0.1.0.0 (lib) (first run)
+# --project-file-parser=parsec checking that hide-constraints hides constraints of imports of an import
+# cabal v2-build
+Resolving dependencies...
+Build profile: -w ghc-<GHCVER> -O1
+In order, the following would be built:
+ - hashable-1.4.2.0 (lib) (requires build)
+ - uses-hashable-0.1.0.0 (lib) (first run)
+# --project-file-parser=parsec checking that hide-constraints keeps constraints of a sibling import
+# cabal v2-build
+Resolving dependencies...
+Build profile: -w ghc-<GHCVER> -O1
+In order, the following would be built:
+ - hashable-1.4.2.0 (lib) (requires build)
+ - uses-hashable-0.1.0.0 (lib) (first run)
+# --project-file-parser=parsec checking that hide-constraints doesn't hide constraints of a sibling import
+# cabal v2-build
+Resolving dependencies...
+Build profile: -w ghc-<GHCVER> -O1
+In order, the following would be built:
+ - hashable-1.4.3.0 (lib) (requires build)
+ - uses-hashable-0.1.0.0 (lib) (first run)
+# --project-file-parser=parsec checking that hide-constraints warns about packages without constraints to hide
+# cabal v2-build
+Warning: hide-constraints found no constraints to hide for text;
+  stackage.config
+    imported by: 4-hide-unused.project
+Resolving dependencies...
+Build profile: -w ghc-<GHCVER> -O1
+In order, the following would be built:
+ - hashable-1.4.2.0 (lib) (requires build)
+ - uses-hashable-0.1.0.0 (lib) (first run)
+# --project-file-parser=parsec checking that an unknown import modifier is a parse error
+# cabal v2-build
+Error: [Cabal-7167]
+Error parsing:
+
+3:1: error:
+  unknown import modifier "hide-constraint", the only import modifier is hide-constraints
+
+

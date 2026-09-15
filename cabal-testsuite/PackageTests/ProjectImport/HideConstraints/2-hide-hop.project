@@ -1,0 +1,7 @@
+packages: .
+
+-- Hides constraints imported by hop.config too.
+import: hop.config
+  hide-constraints: hashable
+
+constraints: hashable ==1.4.2.0
