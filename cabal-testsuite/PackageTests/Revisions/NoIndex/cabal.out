@@ -37,6 +37,7 @@ In order, the following would be built:
  - pkg-1.0 (lib:pkg) (first run)
 # cabal v2-build
 Resolving dependencies...
+Warning: The revision pin foo-2.0@rev:5 from the 'revisions' field (project config other.project) has no effect: the plan uses foo-1.0 instead.
 Build profile: -w ghc-<GHCVER> -O1
 In order, the following would be built:
  - bar-1.0 (lib:bar) (requires build)

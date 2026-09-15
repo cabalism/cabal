@@ -791,7 +791,8 @@ The following settings control the behavior of the dependency solver:
           , aeson-2.2.1.0@sha256:69977f97a8db2c11e97bde92fff7e86e793c1fb23827b284bf89938ee463fbf0
 
     A pin only applies when the solver picks exactly that package version;
-    if it picks another version of the package the pin has no effect. To
+    if it picks another version of the package the pin has no effect and
+    ``cabal`` warns that the pin is probably stale. To
     fix the version as well, pin the revision in a :cfg-field:`constraints`
     entry instead, ``constraints: smtlib-backends ==0.3@rev:1``, which is
     also the command line form, ``--constraint="smtlib-backends ==0.3@rev:1"``.

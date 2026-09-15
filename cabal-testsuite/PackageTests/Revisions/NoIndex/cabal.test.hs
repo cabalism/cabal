@@ -14,8 +14,10 @@ main = cabalTest $ withRepo "repo" $ do
   withProjectFile "constraint.project" $ cabal "v2-build" ["--dry-run"]
   cabal "v2-build" ["--dry-run", "--constraint=any.foo ==1.0@rev:1"]
 
-  -- A pin for a package version that is not chosen has no effect.
-  withProjectFile "other.project" $ cabal "v2-build" ["--dry-run"]
+  -- A pin for a package version that is not chosen has no effect, and is
+  -- pointed out as probably stale.
+  r0 <- withProjectFile "other.project" $ cabal' "v2-build" ["--dry-run"]
+  assertOutputContains "The revision pin foo-2.0@rev:5 from the 'revisions' field (project config other.project) has no effect: the plan uses foo-1.0 instead." r0
 
   -- A pin for a revision the repository does not have is an error.
   r <- withProjectFile "rev2.project" $ fails $ cabal' "v2-build" ["--dry-run"]
