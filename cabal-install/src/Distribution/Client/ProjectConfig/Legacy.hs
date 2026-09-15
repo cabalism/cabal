@@ -690,6 +690,7 @@ convertLegacyAllPackageFlags globalFlags configFlags configExFlags installFlags 
     ConfigExFlags
       { configCabalVersion = projectConfigCabalVersion
       , configExConstraints = projectConfigConstraints
+      , configExOverrideConstraints = projectConfigOverrideConstraints
       , configPreferences = projectConfigPreferences
       , configSolver = projectConfigSolver
       , configAllowOlder = projectConfigAllowOlder
@@ -973,6 +974,7 @@ convertToLegacySharedConfig
           , configAppend = mempty
           , configBackup = mempty
           , configExConstraints = projectConfigConstraints
+          , configExOverrideConstraints = projectConfigOverrideConstraints
           , configPreferences = projectConfigPreferences
           , configSolver = projectConfigSolver
           , configAllowOlder = projectConfigAllowOlder
@@ -1405,6 +1407,12 @@ legacySharedConfigFieldDescrs constraintSrc =
               (fmap (,constraintSrc) parsec)
               configExConstraints
               (\v conf -> conf{configExConstraints = v})
+          , commaNewLineListFieldParsec
+              "override-constraints"
+              (pretty . fst)
+              (fmap (,constraintSrc) parsec)
+              configExOverrideConstraints
+              (\v conf -> conf{configExOverrideConstraints = v})
           , commaNewLineListFieldParsec
               "preferences"
               pretty

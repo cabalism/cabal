@@ -215,6 +215,8 @@ data ProjectConfigShared = ProjectConfigShared
   , projectConfigStoreDir :: Flag FilePath
   , -- solver configuration
     projectConfigConstraints :: [(UserConstraint, ConstraintSource)]
+  , projectConfigOverrideConstraints :: [(UserConstraint, ConstraintSource)]
+  -- ^ Constraints that replace others; see "Distribution.Client.ProjectConfig.Override".
   , projectConfigPreferences :: [PackageVersionConstraint]
   , projectConfigCabalVersion :: Flag Version -- TODO: [required eventually] unused
   , projectConfigSolver :: Flag PreSolver

@@ -245,6 +245,10 @@ projectConfigConstraints :: Lens' ProjectConfigShared [(UserConstraint, Constrai
 projectConfigConstraints f s = fmap (\x -> s{T.projectConfigConstraints = x}) (f (T.projectConfigConstraints s))
 {-# INLINEABLE projectConfigConstraints #-}
 
+projectConfigOverrideConstraints :: Lens' ProjectConfigShared [(UserConstraint, ConstraintSource)]
+projectConfigOverrideConstraints f s = fmap (\x -> s{T.projectConfigOverrideConstraints = x}) (f (T.projectConfigOverrideConstraints s))
+{-# INLINEABLE projectConfigOverrideConstraints #-}
+
 projectConfigPreferences :: Lens' ProjectConfigShared [PackageVersionConstraint]
 projectConfigPreferences f s = fmap (\x -> s{T.projectConfigPreferences = x}) (f (T.projectConfigPreferences s))
 {-# INLINEABLE projectConfigPreferences #-}

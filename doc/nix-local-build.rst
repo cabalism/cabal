@@ -140,11 +140,18 @@ Limitations
 ^^^^^^^^^^^
 
 Stackage does not guarantee that the config files will work with revisions, and
-it's not currently possible to `override used versions of packages <https://github.com/haskell/cabal/issues/9511>`
-or to `specify revisions <https://github.com/haskell/cabal/issues/7833>` using
-cabal.
+it's not currently possible to `specify revisions <https://github.com/haskell/cabal/issues/7833>`
+using cabal.
 
-To mitigate these shortcomings, download the linked ``cabal.config`` file, import this locally with a relative path and repeatedly ``cabal build all --dry-run`` to identify and then comment out version constraint conflicts until the cabal solver is happy.
+Constraints are additive, so a version of a package that differs from the
+version pinned by the snapshot conflicts with it. To use a different version,
+replace the snapshot's pin with :cfg-field:`override-constraints`:
+
+::
+
+    packages: .
+    import: https://www.stackage.org/lts-19.2/cabal.config
+    override-constraints: any.hashable ==1.4.2.0
 
 How it works
 ============

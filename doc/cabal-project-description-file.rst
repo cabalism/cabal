@@ -588,6 +588,45 @@ The following settings control the behavior of the dependency solver:
     :option:`runhaskell Setup.hs configure --constraint`
     command line option.
 
+.. cfg-field:: override-constraints: CONSTRAINT (comma separated list)
+               --override-constraint=CONSTRAINT
+               --override-constraint="any.pkg == 2.0"
+    :synopsis: Constraints that replace other constraints.
+
+    Constraints that replace other constraints on the same package instead of
+    being intersected with them. The syntax is that of :cfg-field:`constraints`.
+    Use this to change a version pinned by an imported package set, such as a
+    Stackage snapshot:
+
+    ::
+
+        import: https://www.stackage.org/lts-21.25/cabal.config
+
+        override-constraints: any.hashable ==1.4.2.0, any.text ==2.0.2
+
+    An override replaces constraints of the same *kind* on the package: version
+    ranges, ``installed`` and ``source`` are one kind, and each flag is its own
+    kind, so ``any.foo -bar`` replaces only the ``bar`` flag. Stanza constraints
+    are never replaced. The override's scope must contain the scope of what it
+    replaces, so snapshot pins, which use ``any.``, are overridden with ``any.``
+    too; an override that is narrower than a constraint it would replace is an
+    error.
+
+    Which constraints an override replaces depends on *position*. From strongest
+    to weakest, the layers are the command line, ``cabal.project.local`` and its
+    imports, ``cabal.project`` and ``cabal.project.freeze`` and their imports, and
+    the global config file. Within a layer, a file closer to the root of the
+    imports is stronger. An override replaces every constraint of its kind at a
+    weaker position, and plain constraints at the same position. It never
+    replaces a stronger position, so a constraint in ``cabal.project`` is not
+    overridden by an import. Two different overrides at the same position are
+    an error. The order of lines and imports makes no difference.
+
+    Overrides are resolved before the solver runs. With ``-v2``, every
+    replacement is listed. Replacing a constraint from a freeze file is always
+    reported, and an override that replaces nothing, or that replaces a
+    constraint in its own file, gets a warning.
+
 .. cfg-field:: preferences: CONSTRAINT (comma separated list)
                --preference=CONSTRAINT
                --preference="pkg >= 2.0"

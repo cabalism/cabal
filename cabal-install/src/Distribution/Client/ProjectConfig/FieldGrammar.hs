@@ -88,6 +88,9 @@ projectConfigSharedFieldGrammar source = do
   projectConfigConstraints <-
     monoidalFieldAla "constraints" (alaList' FSep ProjectConstraints) L.projectConfigConstraints
       ^^^ (fmap . fmap) (\(userConstraint, _) -> (userConstraint, ConstraintSourceProjectConfig source))
+  projectConfigOverrideConstraints <-
+    monoidalFieldAla "override-constraints" (alaList' FSep ProjectConstraints) L.projectConfigOverrideConstraints
+      ^^^ (fmap . fmap) (\(userConstraint, _) -> (userConstraint, ConstraintSourceProjectConfig source))
   projectConfigPreferences <- monoidalFieldAla "preferences" formatPackageVersionConstraints L.projectConfigPreferences
   projectConfigCabalVersion <- optionalFieldDef "cabal-lib-version" L.projectConfigCabalVersion mempty
   projectConfigSolver <- optionalFieldDef "solver" L.projectConfigSolver mempty
