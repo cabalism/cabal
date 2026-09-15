@@ -832,56 +832,60 @@ rebuildInstallPlan
         (compiler, platform, progdb)
         localPackages
         installedPackages =
-          rerunIfChanged
-            verbosity
-            fileMonitorSolverPlan
-            ( solverSettings
-            , localPackages
-            , localPackagesEnabledStanzas
-            , compiler
-            , platform
-            , programDbSignature progdb
-            )
-            $ do
-              installedPkgIndex <-
-                getInstalledPackages
-                  verbosity
-                  compiler
-                  progdb
-                  platform
-                  corePackageDbs
-              (sourcePkgDb, tis, ar) <-
-                getSourcePackages
-                  verbosity
-                  withRepoCtx
-                  (solverSettingIndexState solverSettings)
-                  (solverSettingActiveRepos solverSettings)
-              pkgConfigDB <- getPkgConfigDb verbosity progdb
+          do
+            solverSettings <- liftIO $ case resolveSolverSettings projectConfig of
+              Left err -> dieWithException verbosity (OverrideConstraintsError (overrideErrorMsg err))
+              Right (settings, notes) -> settings <$ reportOverrideNotes verbosity notes
+            rerunIfChanged
+              verbosity
+              fileMonitorSolverPlan
+              ( solverSettings
+              , localPackages
+              , localPackagesEnabledStanzas
+              , compiler
+              , platform
+              , programDbSignature progdb
+              )
+              $ do
+                installedPkgIndex <-
+                  getInstalledPackages
+                    verbosity
+                    compiler
+                    progdb
+                    platform
+                    corePackageDbs
+                (sourcePkgDb, tis, ar) <-
+                  getSourcePackages
+                    verbosity
+                    withRepoCtx
+                    (solverSettingIndexState solverSettings)
+                    (solverSettingActiveRepos solverSettings)
+                pkgConfigDB <- getPkgConfigDb verbosity progdb
 
-              -- TODO: [code cleanup] it'd be better if the Compiler contained the
-              -- ConfiguredPrograms that it needs, rather than relying on the progdb
-              -- since we don't need to depend on all the programs here, just the
-              -- ones relevant for the compiler.
+                -- TODO: [code cleanup] it'd be better if the Compiler contained the
+                -- ConfiguredPrograms that it needs, rather than relying on the progdb
+                -- since we don't need to depend on all the programs here, just the
+                -- ones relevant for the compiler.
 
-              liftIO $ do
-                notice verbosity "Resolving dependencies..."
-                planOrError <-
-                  foldProgress logMsg (pure . Left) (pure . Right) $
-                    planPackages
-                      verbosity
-                      compiler
-                      platform
-                      solverSettings
-                      (installedPackages <> installedPkgIndex)
-                      sourcePkgDb
-                      pkgConfigDB
-                      localPackages
-                      localPackagesEnabledStanzas
-                case planOrError of
-                  Left msg -> do
-                    reportPlanningFailure projectConfig compiler platform localPackages
-                    dieWithException verbosity $ PhaseRunSolverErr msg
-                  Right plan -> return (plan, pkgConfigDB, tis, ar)
+                liftIO $ do
+                  notice verbosity "Resolving dependencies..."
+                  planOrError <-
+                    foldProgress logMsg (pure . Left) (pure . Right) $
+                      planPackages
+                        verbosity
+                        compiler
+                        platform
+                        solverSettings
+                        (installedPackages <> installedPkgIndex)
+                        sourcePkgDb
+                        pkgConfigDB
+                        localPackages
+                        localPackagesEnabledStanzas
+                  case planOrError of
+                    Left msg -> do
+                      reportPlanningFailure projectConfig compiler platform localPackages
+                      dieWithException verbosity $ PhaseRunSolverErr msg
+                    Right plan -> return (plan, pkgConfigDB, tis, ar)
           where
             corePackageDbs :: PackageDBStackCWD
             corePackageDbs =
@@ -894,7 +898,6 @@ rebuildInstallPlan
                 projectConfigShared
                 projectConfigBuildOnly
 
-            solverSettings = resolveSolverSettings projectConfig
             logMsg message rest = debugNoWrap verbosity message >> rest
             perPkgOption = lookupPerPkgOption (const True) projectConfigAllPackages projectConfigLocalPackages (getMapMappend projectConfigSpecificPackage)
 

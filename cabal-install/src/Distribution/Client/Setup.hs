@@ -912,6 +912,7 @@ data ConfigExFlags = ConfigExFlags
   , configAppend :: Flag Bool
   , configBackup :: Flag Bool
   , configExConstraints :: [(UserConstraint, ConstraintSource)]
+  , configExOverrideConstraints :: [(UserConstraint, ConstraintSource)]
   , configPreferences :: [PackageVersionConstraint]
   , configSolver :: Flag PreSolver
   , configAllowNewer :: Maybe AllowNewer
@@ -989,6 +990,17 @@ configureExOptions _showOrParseArgs src =
       "Specify constraints on a package (version, installed/source, flags)"
       configExConstraints
       (\v flags -> flags{configExConstraints = v})
+      ( reqArg
+          "CONSTRAINT"
+          ((\x -> [(x, src)]) `fmap` ReadE readUserConstraint)
+          (map $ prettyShow . fst)
+      )
+  , option
+      []
+      ["override-constraint"]
+      "Specify a constraint that replaces other constraints on the package (version, installed/source, flags)"
+      configExOverrideConstraints
+      (\v flags -> flags{configExOverrideConstraints = v})
       ( reqArg
           "CONSTRAINT"
           ((\x -> [(x, src)]) `fmap` ReadE readUserConstraint)
