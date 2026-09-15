@@ -47,7 +47,9 @@ import Distribution.Solver.Types.ProjectConfigPath
 import Distribution.Solver.Types.Settings
 
 import Distribution.Client.ProjectConfig
+import Distribution.Client.ProjectConfig.Import (hideConstraints)
 import Distribution.Client.ProjectConfig.Legacy
+import Distribution.Version (anyVersion, mkVersion, thisVersion)
 
 import UnitTests.Distribution.Client.ArbitraryInstances
 import UnitTests.Distribution.Client.TreeDiffInstances ()
@@ -87,7 +89,33 @@ tests =
       ]
   , testGetProjectRootUsability
   , testFindProjectRoot
+  , testHideConstraints
   ]
+
+testHideConstraints :: TestTree
+testHideConstraints =
+  testGroup
+    "hideConstraints"
+    [ testCase "hides constraints of any scope from every branch" $
+        hideConstraints [hashable] skeleton @?= (expected, [anyHashable, setupHashable, toplevelHashableFlag])
+    , testCase "hides nothing for a package without constraints" $
+        hideConstraints [mkPackageName "aeson"] skeleton @?= (skeleton, [])
+    ]
+  where
+    hashable = mkPackageName "hashable"
+    text = mkPackageName "text"
+    src = ConstraintSourceProjectConfig (ProjectConfigPath $ "stackage.config" :| ["cabal.project"])
+
+    anyHashable = (UserConstraint (UserAnyQualifier hashable) (PackagePropertyVersion (thisVersion (mkVersion [1, 4, 3, 0]))), src)
+    setupHashable = (UserConstraint (UserAnySetupQualifier hashable) PackagePropertyInstalled, src)
+    toplevelHashableFlag = (UserConstraint (UserQualified UserQualToplevel hashable) (PackagePropertyFlags (mkFlagAssignment [(mkFlagName "random-initial-seed", True)])), src)
+    anyText = (UserConstraint (UserAnyQualifier text) (PackagePropertyVersion anyVersion), src)
+
+    node cs = CondNode ([], mempty{projectConfigShared = mempty{projectConfigConstraints = cs}})
+    branch t f = CondBranch (Var (OS Windows)) t f
+
+    skeleton = node [anyHashable, anyText] [branch (node [setupHashable] []) (Just $ node [toplevelHashableFlag, anyText] [])]
+    expected = node [anyText] [branch (node [] []) (Just $ node [anyText] [])]
 
 testGetProjectRootUsability :: TestTree
 testGetProjectRootUsability =

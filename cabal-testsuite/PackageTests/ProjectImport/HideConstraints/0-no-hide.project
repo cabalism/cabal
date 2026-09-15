@@ -1,0 +1,5 @@
+packages: .
+
+import: stackage.config
+
+constraints: hashable ==1.4.2.0

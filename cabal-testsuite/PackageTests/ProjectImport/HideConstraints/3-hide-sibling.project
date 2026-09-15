@@ -1,0 +1,7 @@
+packages: .
+
+import: stackage.config
+  hide-constraints: hashable
+
+-- The hiding doesn't reach this sibling import.
+import: constraints.config
