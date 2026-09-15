@@ -1,0 +1,4 @@
+packages: .
+-- The override in a sibling import replaces the pin at the same position.
+import: stackage.config
+import: override-1.4.2.0.config

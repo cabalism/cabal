@@ -1,0 +1,4 @@
+packages: .
+import: override-1.4.2.0.config
+import: override-1.4.3.0.config
+override-constraints: any.hashable ==1.4.2.0
