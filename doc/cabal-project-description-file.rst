@@ -588,6 +588,21 @@ The following settings control the behavior of the dependency solver:
     :option:`runhaskell Setup.hs configure --constraint`
     command line option.
 
+    An exact version constraint can also pin the ``.cabal`` file
+    *revision* of that package version, by number or by the SHA-256 hash
+    of the ``.cabal`` file text (see :cfg-field:`revisions`):
+
+    ::
+
+        constraints: smtlib-backends ==0.3@rev:1,
+                     any.aeson ==2.2.1.0@sha256:69977f97a8db2c11e97bde92fff7e86e793c1fb23827b284bf89938ee463fbf0
+
+    The version part is an ordinary version constraint in the given scope.
+    The revision pin applies to that package version wherever it is used,
+    so it is only accepted in the unqualified and ``any.`` scopes, and only
+    together with an exact version (``==``). On the command line this is
+    ``--constraint="smtlib-backends ==0.3@rev:1"``.
+
 .. cfg-field:: preferences: CONSTRAINT (comma separated list)
                --preference=CONSTRAINT
                --preference="pkg >= 2.0"
@@ -777,15 +792,20 @@ The following settings control the behavior of the dependency solver:
 
     A pin only applies when the solver picks exactly that package version;
     if it picks another version of the package the pin has no effect. To
-    fix the version as well, add a :cfg-field:`constraints` entry.
+    fix the version as well, pin the revision in a :cfg-field:`constraints`
+    entry instead, ``constraints: smtlib-backends ==0.3@rev:1``, which is
+    also the command line form, ``--constraint="smtlib-backends ==0.3@rev:1"``.
+    There is no separate command line flag for this field.
 
     It is an error if the package version exists in a package repository
     but none of its revisions match the pin, for example because the
     revision is newer than the :cfg-field:`index-state` in use, or because
     the same package version is pinned to two different revisions.
 
-    ``cabal freeze`` records a pin for every package in the plan whose
-    ``.cabal`` file is a revision.
+    ``cabal freeze`` pins the revision of every package in the plan whose
+    ``.cabal`` file is a revision, in its version constraint
+    (``any.pkg ==1.2.3@rev:N``); only a package that is at several versions
+    in the plan gets its pins recorded in this field.
 
 .. cfg-field:: active-repositories: reponame1, reponame2
 

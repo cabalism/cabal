@@ -519,9 +519,10 @@ with the ``freeze`` command:
 
 ``cabal freeze`` writes out a **freeze file** which records all of
 the versions and flags that are picked by the solver under the
-current index and flags, the :cfg-field:`index-state` of the index, and
-the :cfg-field:`revisions` of the packages whose ``.cabal`` file is a
-revision.  Default name of this file is
+current index and flags, the :cfg-field:`index-state` of the index, and,
+for the packages whose ``.cabal`` file is a Hackage revision, the revision
+(``any.pkg ==1.2.3@rev:N``, see :cfg-field:`revisions`).  Default name of
+this file is
 ``cabal.project.freeze`` but in combination with a
 ``--project-file=my.project`` flag (see :ref:`project-file
 <cmdoption-project-file>`)
