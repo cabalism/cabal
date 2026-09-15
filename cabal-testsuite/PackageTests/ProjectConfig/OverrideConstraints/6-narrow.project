@@ -1,0 +1,4 @@
+packages: .
+import: stackage.config
+-- A top-level scope is narrower than the snapshot's any. scope.
+override-constraints: hashable ==1.4.2.0
