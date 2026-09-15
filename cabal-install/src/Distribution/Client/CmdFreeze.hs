@@ -50,7 +50,8 @@ import Distribution.Client.Setup
   ( GlobalFlags
   )
 import Distribution.Package
-  ( PackageName
+  ( PackageIdentifier (..)
+  , PackageName
   , packageId
   , packageName
   , packageVersion
@@ -70,6 +71,7 @@ import Distribution.Verbosity
   )
 import Distribution.Version
   ( VersionRange
+  , isSpecificVersion
   , simplifyVersionRange
   , thisVersion
   , unionVersionRanges
@@ -184,39 +186,41 @@ projectFreezeConfig elaboratedPlan totalIndexState activeRepos0 =
   mempty
     { projectConfigShared =
         mempty
-          { projectConfigConstraints =
-              concat (Map.elems (projectFreezeConstraints elaboratedPlan))
+          { projectConfigConstraints = concat (Map.elems constraints)
           , projectConfigIndexState = Flag totalIndexState
           , projectConfigActiveRepos = Flag activeRepos
-          , projectConfigRevisions = projectFreezeRevisions elaboratedPlan
+          , projectConfigRevisions = revisions
           }
     }
   where
     activeRepos :: ActiveRepos
     activeRepos = filterSkippedActiveRepos activeRepos0
 
--- | Given the install plan, pin the @.cabal@ file revision of every package
--- from a package repository whose @.cabal@ file is a revision (rather than
--- the original upload), so that later revisions cannot change the plan.
-projectFreezeRevisions :: ElaboratedInstallPlan -> [PackageRevision]
-projectFreezeRevisions plan =
-  [ PackageRevision pkgid (RevisionNumber rev)
-  | (pkgid, rev) <-
-      Map.toList $
-        Map.fromList
-          [ (packageId elab, rev)
-          | InstallPlan.Configured elab <- InstallPlan.toList plan
-          , let rev = packageDescriptionRevision (elabPkgDescription elab)
-          , rev > 0
-          , RepoTarballPackage{} <- [elabPkgSourceLocation elab]
-          ]
-  ]
+    (constraints, revisions) = projectFreezeConstraints elaboratedPlan
+
+-- | The @.cabal@ file revision of every package in the plan that comes from a
+-- package repository and whose @.cabal@ file is a revision (rather than the
+-- original upload).
+planRevisions :: ElaboratedInstallPlan -> Map PackageIdentifier Int
+planRevisions plan =
+  Map.fromList
+    [ (packageId elab, rev)
+    | InstallPlan.Configured elab <- InstallPlan.toList plan
+    , let rev = packageDescriptionRevision (elabPkgDescription elab)
+    , rev > 0
+    , RepoTarballPackage{} <- [elabPkgSourceLocation elab]
+    ]
 
 -- | Given the install plan, produce solver constraints that will ensure the
 -- solver picks the same solution again in future in different environments.
+--
+-- The @.cabal@ file revisions of the packages are pinned too, so that later
+-- revisions cannot change the plan: in the version constraint
+-- (@any.pkg ==1.2.3\@rev:N@) when the package is at a single version in the
+-- plan, otherwise as separate 'PackageRevision's.
 projectFreezeConstraints
   :: ElaboratedInstallPlan
-  -> Map PackageName [(UserConstraint, ConstraintSource)]
+  -> (Map PackageName [(UserConstraint, ConstraintSource)], [PackageRevision])
 projectFreezeConstraints plan =
   --
   -- TODO: [required eventually] this is currently an underapproximation
@@ -232,20 +236,38 @@ projectFreezeConstraints plan =
   -- constraint would apply to both instances). We do however keep flag
   -- constraints of local packages.
   --
-  deleteLocalPackagesVersionConstraints
-    (Map.unionWith (++) versionConstraints flagConstraints)
+  ( deleteLocalPackagesVersionConstraints
+      (Map.unionWith (++) versionConstraints flagConstraints)
+  , leftoverRevisions
+  )
   where
     versionConstraints :: Map PackageName [(UserConstraint, ConstraintSource)]
     versionConstraints =
       Map.mapWithKey
-        ( \p v ->
-            [
-              ( UserConstraint (UserAnyQualifier p) (PackagePropertyVersion v)
-              , ConstraintSourceFreeze
-              )
-            ]
-        )
+        (\p v -> [(versionConstraint p v, ConstraintSourceFreeze)])
         versionRanges
+
+    -- The version constraint of a package, carrying the revision pin when the
+    -- package is at a single version in the plan and that is a revision.
+    versionConstraint :: PackageName -> VersionRange -> UserConstraint
+    versionConstraint p v
+      | Just ver <- isSpecificVersion v
+      , Just rev <- Map.lookup (PackageIdentifier p ver) revisions =
+          UserConstraintRevision (UserAnyQualifier p) ver (RevisionNumber rev)
+      | otherwise = UserConstraint (UserAnyQualifier p) (PackagePropertyVersion v)
+
+    revisions :: Map PackageIdentifier Int
+    revisions = planRevisions plan
+
+    -- Pins that no version constraint carries, because the package is at
+    -- several versions in the plan (or is also a local package).
+    leftoverRevisions :: [PackageRevision]
+    leftoverRevisions =
+      [ PackageRevision pkgid (RevisionNumber rev)
+      | (pkgid, rev) <- Map.toList revisions
+      , (isSpecificVersion =<< Map.lookup (pkgName pkgid) versionRanges) /= Just (pkgVersion pkgid)
+          || Map.member (pkgName pkgid) localPackages
+      ]
 
     versionRanges :: Map PackageName VersionRange
     versionRanges =
@@ -297,6 +319,7 @@ projectFreezeConstraints plan =
         localPackages
 
     isVersionConstraint (UserConstraint _ (PackagePropertyVersion _)) = True
+    isVersionConstraint UserConstraintRevision{} = True
     isVersionConstraint _ = False
 
     localPackages :: Map PackageName ()
