@@ -98,6 +98,11 @@ The **layers**, strongest first, are:
 3. `cabal.project`, `cabal.project.freeze` and their imports;
 4. the user config file.
 
+`cabal.project.local` outranks `cabal.project`. It holds uncommitted, per-developer configuration, so a developer can
+override constraints from the shared project, its freeze file and its imports without editing any of them. This
+follows the usual pattern in configuration tools, where local settings win over shared ones (Spack's scopes and
+Docker Compose override files, for example).
+
 The **depth** is the number of imports between the layer's root file (depth 0) and the file that contains the
 constraint.
 
@@ -244,16 +249,15 @@ The two features are complementary:
 
 ## Open Questions
 
-1. Should `cabal.project.local` outrank `cabal.project`, as proposed, or tie with it?
-2. Is it acceptable that a top-level override for `p` replaces a broader `any.p` constraint? Setup and exe instances of
+1. Is it acceptable that a top-level override for `p` replaces a broader `any.p` constraint? Setup and exe instances of
    `p` would lose the snapshot pin.
-3. Flags set in `package p` stanzas (`flags:`) lose their file provenance before solving. Should they get positions so
+2. Flags set in `package p` stanzas (`flags:`) lose their file provenance before solving. Should they get positions so
    that overrides can replace them, or stay out of scope?
-4. Should overrides be allowed in remote (URI) imports? The position rule already stops them from beating the root.
-5. Should v1 commands such as `v1-install` and `v1-freeze` honour overrides or ignore them?
-6. Should `installed` and `source` share a kind with version ranges, as proposed?
-7. What should the field be called: `override-constraints`, `constraint-overrides` or `force-constraints`?
-8. Should a first phase ship root-only overrides (depth 0 and the command line) before depth-graded ones?
+3. Should overrides be allowed in remote (URI) imports? The position rule already stops them from beating the root.
+4. Should v1 commands such as `v1-install` and `v1-freeze` honour overrides or ignore them?
+5. Should `installed` and `source` share a kind with version ranges, as proposed?
+6. What should the field be called: `override-constraints`, `constraint-overrides` or `force-constraints`?
+7. Should a first phase ship root-only overrides (depth 0 and the command line) before depth-graded ones?
 
 ## References
 
