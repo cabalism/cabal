@@ -6,6 +6,7 @@ module Distribution.Client.Utils.Newtypes
   , AllowNewerNT (..)
   , AllowOlderNT (..)
   , ProjectConstraints (..)
+  , ProjectRevisions (..)
   , MaxBackjumps (..)
   , URI_NT (..)
   , KeyThreshold (..)
@@ -15,6 +16,7 @@ where
 import Distribution.Client.Compat.Prelude
 import Distribution.Client.Targets (UserConstraint)
 import Distribution.Client.Types.AllowNewer (AllowNewer (..), AllowOlder (..))
+import Distribution.Client.Types.PackageRevision (PackageRevision)
 import Distribution.Compat.CharParsing
 import Distribution.Parsec
 import Distribution.Simple.Compiler (PackageDBCWD, interpretPackageDB, readPackageDb)
@@ -74,6 +76,15 @@ parsecProjectConstraints :: CabalParsing m => m ProjectConstraints
 parsecProjectConstraints = do
   userConstraint <- parsec
   return $ ProjectConstraints (userConstraint, ConstraintSourceUnknown)
+
+newtype ProjectRevisions = ProjectRevisions {getProjectRevisions :: (PackageRevision, ConstraintSource)}
+
+-- | Parse 'ProjectRevisions'. As for 'ProjectConstraints', the
+-- 'ConstraintSource' is set afterwards.
+instance Parsec ProjectRevisions where
+  parsec = do
+    revision <- parsec
+    return $ ProjectRevisions (revision, ConstraintSourceUnknown)
 
 newtype MaxBackjumps = MaxBackjumps {getMaxBackjumps :: Int}
 

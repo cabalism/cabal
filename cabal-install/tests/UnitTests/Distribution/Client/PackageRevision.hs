@@ -6,6 +6,7 @@ import Distribution.Client.HashValue (parseHashValue)
 import Distribution.Client.Types.PackageRevision
   ( PackageRevision (..)
   , RevisionPin (..)
+  , RevisionPinSource (..)
   , packageDescriptionRevision
   , packageRevisionsMap
   )
@@ -13,6 +14,7 @@ import Distribution.Package (PackageIdentifier (..), mkPackageName)
 import Distribution.PackageDescription (customFieldsPD, emptyPackageDescription)
 import Distribution.Parsec (eitherParsec)
 import Distribution.Pretty (prettyShow)
+import Distribution.Solver.Types.ConstraintSource (ConstraintSource (..))
 import Distribution.Version (mkVersion)
 
 import Data.Either (isLeft)
@@ -52,10 +54,11 @@ tests =
   , testGroup
       "packageRevisionsMap"
       [ testCase "identical pins are merged" $
-          packageRevisionsMap [fooRev2, fooRev2] @?= Right (Map.fromList [(foo, RevisionNumber 2)])
+          packageRevisionsMap [(fooRev2, field), (fooRev2, constraint)]
+            @?= Right (Map.fromList [(foo, (RevisionNumber 2, field))])
       , testCase "conflicting pins are rejected" $
-          packageRevisionsMap [fooRev2, PackageRevision foo (RevisionNumber 3)]
-            @?= Left (foo, RevisionNumber 2, RevisionNumber 3)
+          packageRevisionsMap [(fooRev2, field), (PackageRevision foo (RevisionNumber 3), constraint)]
+            @?= Left (foo, (RevisionNumber 2, field), (RevisionNumber 3, constraint))
       ]
   , testGroup
       "packageDescriptionRevision"
@@ -67,6 +70,8 @@ tests =
   where
     foo = PackageIdentifier (mkPackageName "foo") (mkVersion [1, 2, 3])
     fooRev2 = PackageRevision foo (RevisionNumber 2)
+    field = RevisionPinField ConstraintSourceCommandlineFlag
+    constraint = RevisionPinConstraint "foo ==1.2.3@rev:3" ConstraintSourceFreeze
     hash = fromJust (parseHashValue "69977f97a8db2c11e97bde92fff7e86e793c1fb23827b284bf89938ee463fbf0")
 
     examples :: [(String, PackageRevision)]

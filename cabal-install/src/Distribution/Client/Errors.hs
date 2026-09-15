@@ -18,7 +18,7 @@ import qualified Data.ByteString.Char8 as BS8
 import Data.List (groupBy)
 import Distribution.Client.HashValue (HashValue, showHashValue)
 import Distribution.Client.IndexUtils.Timestamp
-import Distribution.Client.Types.PackageRevision (RevisionPin (..))
+import Distribution.Client.Types.PackageRevision (RevisionPin (..), RevisionPinSource, showRevisionPinSource)
 import qualified Distribution.Client.Types.Repo as Repo
 import qualified Distribution.Client.Types.RepoName as RepoName
 import Distribution.Compat.Prelude
@@ -188,8 +188,8 @@ data CabalInstallException
   | CabalFileParseFailure CabalFileParseError
   | ProjectConfigParseFailure ProjectConfigParseError
   | ProjectConfigNoPackages FilePath
-  | RevisionNotFound RepoName.RepoName PackageId RevisionPin [(Int, HashValue)]
-  | ConflictingRevisionPins PackageId RevisionPin RevisionPin
+  | RevisionNotFound RepoName.RepoName PackageId RevisionPin RevisionPinSource [(Int, HashValue)]
+  | ConflictingRevisionPins PackageId (RevisionPin, RevisionPinSource) (RevisionPin, RevisionPinSource)
   deriving (Show)
 
 exceptionCodeCabalInstall :: CabalInstallException -> Int
@@ -890,27 +890,33 @@ exceptionMessageCabalInstall e = case e of
       , "' requires at least one of the fields 'packages' "
       , "or 'optional-packages', but neither was specified."
       ]
-  RevisionNotFound rname pkgid pin available ->
+  RevisionNotFound rname pkgid pin src available ->
     "The package "
       ++ prettyShow pkgid
       ++ " in '"
       ++ RepoName.unRepoName rname
       ++ "' has no revision matching the pin '"
       ++ prettyShow pin
-      ++ "'. The available revisions are:"
+      ++ "' from "
+      ++ showRevisionPinSource src
+      ++ ". The available revisions are:"
       ++ concat
         [ "\n  rev:" ++ show rev ++ " (sha256:" ++ showHashValue hash ++ ")"
         | (rev, hash) <- available
         ]
-      ++ "\nCheck the pin (in 'revisions' or 'constraints') and the index-state in use."
-  ConflictingRevisionPins pkgid pin pin' ->
+      ++ "\nCheck the pin and the index-state in use."
+  ConflictingRevisionPins pkgid (pin, src) (pin', src') ->
     "The package "
       ++ prettyShow pkgid
-      ++ " is pinned to conflicting revisions '"
+      ++ " is pinned to revision '"
       ++ prettyShow pin
-      ++ "' and '"
+      ++ "' by "
+      ++ showRevisionPinSource src
+      ++ " and to revision '"
       ++ prettyShow pin'
-      ++ "' (in 'revisions' or 'constraints')."
+      ++ "' by "
+      ++ showRevisionPinSource src'
+      ++ "."
 
 instance Exception (VerboseException CabalInstallException) where
   displayException :: VerboseException CabalInstallException -> [Char]

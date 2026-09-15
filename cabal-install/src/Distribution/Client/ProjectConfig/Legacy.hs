@@ -1448,8 +1448,8 @@ legacySharedConfigFieldDescrs constraintSrc =
               (\v conf -> conf{installSummaryFile = toNubList v})
           , commaNewLineListFieldParsec
               "revisions"
-              pretty
-              parsec
+              (pretty . fst)
+              (fmap (,constraintSrc) parsec)
               installRevisions
               (\v conf -> conf{installRevisions = v})
           ]

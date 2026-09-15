@@ -138,7 +138,7 @@ import Distribution.Client.SetupWrapper
 import Distribution.Client.Store
 import Distribution.Client.Targets (userToPackageConstraint)
 import Distribution.Client.Types
-import Distribution.Client.Types.PackageRevision (PackageRevision)
+import Distribution.Client.Types.PackageRevision (PackageRevision, RevisionPinSource)
 import Distribution.Client.Utils (concatMapM, duplicatesBy, incVersion)
 
 import qualified Distribution.Client.BuildReports.Storage as BuildReports
@@ -1144,7 +1144,7 @@ getSourcePackages
   -> (forall a. (RepoContext -> IO a) -> IO a)
   -> Maybe IndexUtils.TotalIndexState
   -> Maybe IndexUtils.ActiveRepos
-  -> [PackageRevision]
+  -> [(PackageRevision, RevisionPinSource)]
   -> Rebuild (SourcePackageDb, IndexUtils.TotalIndexState, IndexUtils.ActiveRepos)
 getSourcePackages verbosity withRepoCtx idxState activeRepos revisions = do
   (sourcePkgDbWithTIS, repos) <-

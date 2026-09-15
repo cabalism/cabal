@@ -2236,7 +2236,7 @@ data InstallFlags = InstallFlags
   , installOnly :: Flag Bool
   , installOnlyDeps :: Flag Bool
   , installIndexState :: Flag TotalIndexState
-  , installRevisions :: [PackageRevision]
+  , installRevisions :: [(PackageRevision, ConstraintSource)]
   , installRootCmd :: Flag String
   , installSummaryFile :: NubList PathTemplate
   , installLogFile :: Flag PathTemplate

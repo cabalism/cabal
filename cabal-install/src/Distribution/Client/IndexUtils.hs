@@ -246,7 +246,8 @@ getSourcePackages verbosity repoCtxt =
 -- it was at a particular time.
 --
 -- The 'PackageRevision's pin package versions to a specific @.cabal@ file
--- revision instead of the latest one at the index state.
+-- revision instead of the latest one at the index state; each comes with
+-- where it was given, for error messages.
 --
 -- Returns also the total index where repositories'
 -- RepoIndexState's are not HEAD. This is used in v2-freeze.
@@ -255,7 +256,7 @@ getSourcePackagesAtIndexState
   -> RepoContext
   -> Maybe TotalIndexState
   -> Maybe ActiveRepos
-  -> [PackageRevision]
+  -> [(PackageRevision, RevisionPinSource)]
   -> IO (SourcePackageDb, TotalIndexState, ActiveRepos)
 getSourcePackagesAtIndexState verbosity repoCtxt _ _ _
   | null (repoContextRepos repoCtxt) = do
@@ -1103,8 +1104,8 @@ packageNoIndexFromCache verbosity rname pins mkPkg cache = do
           pkgtxt = BS.fromStrict bs
       -- A file+noindex repository has a single .cabal file per package
       -- version, so a pin can only check that it is the pinned revision.
-      for_ (Map.lookup pkgId pins) $ \pin ->
-        selectRevision verbosity rname pkgId pin [(gpd, pkgtxt, ())]
+      for_ (Map.lookup pkgId pins) $ \(pin, src) ->
+        selectRevision verbosity rname pkgId pin src [(gpd, pkgtxt, ())]
       pure (Just (mkPkg (NormalPackage pkgId gpd pkgtxt 0)))
     NoIndexCachePreference _ -> pure Nothing
   let prefs = concat [deps | NoIndexCachePreference deps <- noIndexCacheEntries cache]
@@ -1137,7 +1138,7 @@ packageListFromCache verbosity rname pins mkPkg hnd Cache{..} = accum mempty [] 
       -- pinned one. The candidates were collected newest first.
       pinned <-
         Map.traverseWithKey
-          (\pkgid (pin, candidates) -> selectRevision verbosity rname pkgid pin (reverse candidates))
+          (\pkgid ((pin, src), candidates) -> selectRevision verbosity rname pkgid pin src (reverse candidates))
           (Map.intersectionWith (,) pins revs)
       return (Map.elems (Map.union pinned srcpkgs) ++ btrs, Map.elems prefs)
     accum srcpkgs btrs prefs revs (CachePackageId pkgid blockno _ : entries) = do
@@ -1219,11 +1220,12 @@ selectRevision
   -> RepoName
   -> PackageId
   -> RevisionPin
+  -> RevisionPinSource
   -> [(GenericPackageDescription, ByteString, a)]
   -> IO a
-selectRevision verbosity rname pkgid pin candidates =
+selectRevision verbosity rname pkgid pin src candidates =
   case reverse [x | (gpd, pkgtxt, x) <- candidates, matches gpd pkgtxt] of
-    [] -> dieWithException verbosity $ RevisionNotFound rname pkgid pin available
+    [] -> dieWithException verbosity $ RevisionNotFound rname pkgid pin src available
     (x : _) -> return x
   where
     revision = packageDescriptionRevision . Distribution.PackageDescription.packageDescription
