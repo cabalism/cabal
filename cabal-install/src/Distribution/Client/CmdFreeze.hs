@@ -33,6 +33,12 @@ import Distribution.Client.Targets
   , UserConstraintScope (..)
   , UserQualifier (..)
   )
+import Distribution.Client.Types.PackageLocation (PackageLocation (..))
+import Distribution.Client.Types.PackageRevision
+  ( PackageRevision (..)
+  , RevisionPin (..)
+  , packageDescriptionRevision
+  )
 import Distribution.Solver.Types.ConstraintSource
   ( ConstraintSource (..)
   )
@@ -45,6 +51,7 @@ import Distribution.Client.Setup
   )
 import Distribution.Package
   ( PackageName
+  , packageId
   , packageName
   , packageVersion
   )
@@ -181,11 +188,29 @@ projectFreezeConfig elaboratedPlan totalIndexState activeRepos0 =
               concat (Map.elems (projectFreezeConstraints elaboratedPlan))
           , projectConfigIndexState = Flag totalIndexState
           , projectConfigActiveRepos = Flag activeRepos
+          , projectConfigRevisions = projectFreezeRevisions elaboratedPlan
           }
     }
   where
     activeRepos :: ActiveRepos
     activeRepos = filterSkippedActiveRepos activeRepos0
+
+-- | Given the install plan, pin the @.cabal@ file revision of every package
+-- from a package repository whose @.cabal@ file is a revision (rather than
+-- the original upload), so that later revisions cannot change the plan.
+projectFreezeRevisions :: ElaboratedInstallPlan -> [PackageRevision]
+projectFreezeRevisions plan =
+  [ PackageRevision pkgid (RevisionNumber rev)
+  | (pkgid, rev) <-
+      Map.toList $
+        Map.fromList
+          [ (packageId elab, rev)
+          | InstallPlan.Configured elab <- InstallPlan.toList plan
+          , let rev = packageDescriptionRevision (elabPkgDescription elab)
+          , rev > 0
+          , RepoTarballPackage{} <- [elabPkgSourceLocation elab]
+          ]
+  ]
 
 -- | Given the install plan, produce solver constraints that will ensure the
 -- solver picks the same solution again in future in different environments.
