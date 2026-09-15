@@ -13,6 +13,7 @@ import Distribution.Client.ProjectConfig.Types (MapLast, MapMappend, PackageConf
 import qualified Distribution.Client.ProjectConfig.Types as T
 import Distribution.Client.Targets (UserConstraint)
 import Distribution.Client.Types.AllowNewer (AllowNewer, AllowOlder)
+import Distribution.Client.Types.PackageRevision (PackageRevision)
 import Distribution.Client.Types.Repo (LocalRepo, RemoteRepo)
 import Distribution.Client.Types.SourceRepo (SourceRepoList)
 import Distribution.Client.Types.WriteGhcEnvironmentFilesPolicy (WriteGhcEnvironmentFilesPolicy)
@@ -240,6 +241,10 @@ projectConfigActiveRepos f s = fmap (\x -> s{T.projectConfigActiveRepos = x}) (f
 projectConfigIndexState :: Lens' ProjectConfigShared (Flag TotalIndexState)
 projectConfigIndexState f s = fmap (\x -> s{T.projectConfigIndexState = x}) (f (T.projectConfigIndexState s))
 {-# INLINEABLE projectConfigIndexState #-}
+
+projectConfigRevisions :: Lens' ProjectConfigShared [PackageRevision]
+projectConfigRevisions f s = fmap (\x -> s{T.projectConfigRevisions = x}) (f (T.projectConfigRevisions s))
+{-# INLINEABLE projectConfigRevisions #-}
 
 projectConfigConstraints :: Lens' ProjectConfigShared [(UserConstraint, ConstraintSource)]
 projectConfigConstraints f s = fmap (\x -> s{T.projectConfigConstraints = x}) (f (T.projectConfigConstraints s))

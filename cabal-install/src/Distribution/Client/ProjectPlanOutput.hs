@@ -21,6 +21,7 @@ import Distribution.Client.ProjectBuilding.Types
 import Distribution.Client.ProjectPlanning.Types
 import Distribution.Client.Types.ConfiguredId (confInstId)
 import Distribution.Client.Types.PackageLocation (PackageLocation (..))
+import Distribution.Client.Types.PackageRevision (packageDescriptionRevision)
 import Distribution.Client.Types.Repo (RemoteRepo (..), Repo (..))
 import Distribution.Client.Types.SourceRepo (SourceRepoMaybe, SourceRepositoryPackage (..))
 import Distribution.Client.Version (cabalInstallVersion)
@@ -275,10 +276,7 @@ encodePlanAsJson distDirLayout elaboratedInstallPlan elaboratedSharedConfig =
 
         elaboratedPackageToRevision :: ElaboratedConfiguredPackage -> Double
         elaboratedPackageToRevision =
-          fromMaybe 0
-            . (readMaybe <=< lookup "x-revision")
-            . PD.customFieldsPD
-            . elabPkgDescription
+          fromIntegral . packageDescriptionRevision . elabPkgDescription
 
         sourceRepoToJ :: SourceRepoMaybe -> J.Value
         sourceRepoToJ SourceRepositoryPackage{..} =

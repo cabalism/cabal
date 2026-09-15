@@ -20,6 +20,25 @@ import Distribution.Client.IndexUtils.Timestamp (Timestamp)
 import Distribution.Client.Targets (UserConstraint)
 import Distribution.Client.Types (RepoName)
 import Distribution.Client.Types.AllowNewer (RelaxDepSubject, RelaxDeps, RelaxedDep)
+import Distribution.Client.Types.PackageRevision (PackageRevision, RevisionPin)
+
+-------------------------------------------------------------------------------
+-- PackageRevision
+-------------------------------------------------------------------------------
+
+instance Described RevisionPin where
+  describe _ =
+    REUnion
+      [ "rev:" <> REMunch1 reEps (reChars ['0' .. '9'])
+      , "sha256:" <> REMunch1 reEps sha256Byte
+      ]
+    where
+      -- a base16-encoded byte; the hash has to have an even number of digits
+      sha256Byte = hexDigit <> hexDigit
+      hexDigit = reChars (['0' .. '9'] ++ ['a' .. 'f'])
+
+instance Described PackageRevision where
+  describe _ = describe (Proxy :: Proxy PackageIdentifier) <> "@" <> describe (Proxy :: Proxy RevisionPin)
 
 -------------------------------------------------------------------------------
 -- BuildReport

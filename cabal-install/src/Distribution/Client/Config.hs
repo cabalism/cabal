@@ -433,6 +433,7 @@ instance Semigroup SavedConfig where
           , installOnly = combine installOnly
           , installOnlyDeps = combine installOnlyDeps
           , installIndexState = combine installIndexState
+          , installRevisions = lastNonEmpty' savedInstallFlags installRevisions
           , installRootCmd = combine installRootCmd
           , installSummaryFile = lastNonEmptyNL installSummaryFile
           , installLogFile = combine installLogFile
