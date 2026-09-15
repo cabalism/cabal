@@ -242,7 +242,7 @@ projectConfigIndexState :: Lens' ProjectConfigShared (Flag TotalIndexState)
 projectConfigIndexState f s = fmap (\x -> s{T.projectConfigIndexState = x}) (f (T.projectConfigIndexState s))
 {-# INLINEABLE projectConfigIndexState #-}
 
-projectConfigRevisions :: Lens' ProjectConfigShared [PackageRevision]
+projectConfigRevisions :: Lens' ProjectConfigShared [(PackageRevision, ConstraintSource)]
 projectConfigRevisions f s = fmap (\x -> s{T.projectConfigRevisions = x}) (f (T.projectConfigRevisions s))
 {-# INLINEABLE projectConfigRevisions #-}
 

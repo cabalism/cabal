@@ -39,7 +39,7 @@ import Distribution.Client.Targets
   ( UserConstraint
   )
 import Distribution.Client.Types.AllowNewer (AllowNewer (..), AllowOlder (..))
-import Distribution.Client.Types.PackageRevision (PackageRevision)
+import Distribution.Client.Types.PackageRevision (PackageRevision, RevisionPinSource)
 import Distribution.Client.Types.Repo (LocalRepo, RemoteRepo)
 import Distribution.Client.Types.SourceRepo (SourceRepoList)
 import Distribution.Client.Types.WriteGhcEnvironmentFilesPolicy (WriteGhcEnvironmentFilesPolicy)
@@ -213,8 +213,9 @@ data ProjectConfigShared = ProjectConfigShared
   , projectConfigLocalNoIndexRepos :: NubList LocalRepo
   , projectConfigActiveRepos :: Flag ActiveRepos
   , projectConfigIndexState :: Flag TotalIndexState
-  , projectConfigRevisions :: [PackageRevision]
-  -- ^ Pinned @.cabal@ file revisions of package versions.
+  , projectConfigRevisions :: [(PackageRevision, ConstraintSource)]
+  -- ^ Pinned @.cabal@ file revisions of package versions, and where each
+  -- was given.
   , projectConfigStoreDir :: Flag FilePath
   , -- solver configuration
     projectConfigConstraints :: [(UserConstraint, ConstraintSource)]
@@ -447,7 +448,7 @@ data SolverSettings = SolverSettings
   , solverSettingOnlyConstrained :: OnlyConstrained
   , solverSettingIndexState :: Maybe TotalIndexState
   , solverSettingActiveRepos :: Maybe ActiveRepos
-  , solverSettingRevisions :: [PackageRevision]
+  , solverSettingRevisions :: [(PackageRevision, RevisionPinSource)]
   , solverSettingIndependentGoals :: IndependentGoals
   , solverSettingPreferVersion :: PreferVersion
   -- Things that only make sense for manual mode, not --local mode

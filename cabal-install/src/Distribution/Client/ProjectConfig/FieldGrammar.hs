@@ -84,7 +84,9 @@ projectConfigSharedFieldGrammar source = do
       projectConfigLocalNoIndexRepos = mempty
   projectConfigActiveRepos <- monoidalField "active-repositories" L.projectConfigActiveRepos
   projectConfigIndexState <- monoidalField "index-state" L.projectConfigIndexState
-  projectConfigRevisions <- monoidalFieldAla "revisions" (alaList FSep) L.projectConfigRevisions
+  projectConfigRevisions <-
+    monoidalFieldAla "revisions" (alaList' FSep ProjectRevisions) L.projectConfigRevisions
+      ^^^ (fmap . fmap) (\(revision, _) -> (revision, ConstraintSourceProjectConfig source))
   projectConfigStoreDir <- optionalFieldDefAla "store-dir" (alaFlag FilePathNT) L.projectConfigStoreDir mempty
   projectConfigConstraints <-
     monoidalFieldAla "constraints" (alaList' FSep ProjectConstraints) L.projectConfigConstraints

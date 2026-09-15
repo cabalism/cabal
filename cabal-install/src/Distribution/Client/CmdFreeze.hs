@@ -189,7 +189,7 @@ projectFreezeConfig elaboratedPlan totalIndexState activeRepos0 =
           { projectConfigConstraints = concat (Map.elems constraints)
           , projectConfigIndexState = Flag totalIndexState
           , projectConfigActiveRepos = Flag activeRepos
-          , projectConfigRevisions = revisions
+          , projectConfigRevisions = [(revision, ConstraintSourceFreeze) | revision <- revisions]
           }
     }
   where

@@ -12,6 +12,8 @@
 module Distribution.Client.Types.PackageRevision
   ( RevisionPin (..)
   , PackageRevision (..)
+  , RevisionPinSource (..)
+  , showRevisionPinSource
   , RevisionPins
   , packageRevisionsMap
   , packageDescriptionRevision
@@ -25,6 +27,7 @@ import Data.Char (isHexDigit)
 import Distribution.Client.HashValue (HashValue, parseHashValue, showHashValue)
 import Distribution.Package (PackageId, PackageIdentifier (..))
 import Distribution.PackageDescription (PackageDescription (..))
+import Distribution.Solver.Types.ConstraintSource (ConstraintSource, showConstraintSource)
 import Distribution.Version (nullVersion)
 
 import qualified Data.Map.Strict as Map
@@ -89,18 +92,42 @@ instance Parsec PackageRevision where
     _ <- P.char '@'
     PackageRevision pkgid <$> parsec
 
--- | Revision pins keyed by package version.
-type RevisionPins = Map PackageId RevisionPin
+-- | Where a revision pin was given, for error messages.
+data RevisionPinSource
+  = -- | In the @revisions@ field of the given source.
+    RevisionPinField ConstraintSource
+  | -- | In a version constraint (shown as the user wrote it) of the given
+    -- source.
+    RevisionPinConstraint String ConstraintSource
+  deriving (Eq, Show, Generic)
+
+instance Binary RevisionPinSource
+instance Structured RevisionPinSource
+instance NFData RevisionPinSource
+
+showRevisionPinSource :: RevisionPinSource -> String
+showRevisionPinSource (RevisionPinField src) =
+  "the 'revisions' field (" ++ showConstraintSource src ++ ")"
+showRevisionPinSource (RevisionPinConstraint constraint src) =
+  "the constraint '" ++ constraint ++ "' (" ++ showConstraintSource src ++ ")"
+
+-- | Revision pins keyed by package version, with where each was given.
+type RevisionPins = Map PackageId (RevisionPin, RevisionPinSource)
 
 -- | Collect revision pins into a map, rejecting conflicting pins for the
--- same package version. Repeating an identical pin is fine.
-packageRevisionsMap :: [PackageRevision] -> Either (PackageId, RevisionPin, RevisionPin) RevisionPins
+-- same package version. Repeating an identical pin is fine; the first one
+-- given is the one reported.
+packageRevisionsMap
+  :: [(PackageRevision, RevisionPinSource)]
+  -> Either (PackageId, (RevisionPin, RevisionPinSource), (RevisionPin, RevisionPinSource)) RevisionPins
 packageRevisionsMap = foldM insert Map.empty
   where
-    insert m (PackageRevision pkgid pin) =
+    insert m (PackageRevision pkgid pin, src) =
       case Map.lookup pkgid m of
-        Just pin' | pin' /= pin -> Left (pkgid, pin', pin)
-        _ -> Right (Map.insert pkgid pin m)
+        Nothing -> Right (Map.insert pkgid (pin, src) m)
+        Just (pin', src')
+          | pin' == pin -> Right m
+          | otherwise -> Left (pkgid, (pin', src'), (pin, src))
 
 -- | The revision number recorded in a package description's @x-revision@
 -- field, or @0@ when there is none.

@@ -27,9 +27,9 @@ main = cabalTest $ withRepo "repo" $ do
   -- Pinning a package version to two different revisions is an error,
   -- whether in the 'revisions' field or between it and a constraint.
   r' <- withProjectFile "conflict.project" $ fails $ cabal' "v2-build" ["--dry-run"]
-  assertOutputContains "conflicting revisions" r'
+  assertOutputContains "is pinned to revision 'rev:1' by the 'revisions' field (project config conflict.project) and to revision 'rev:0' by the 'revisions' field" r'
   r'' <- withProjectFile "mixed.project" $ fails $ cabal' "v2-build" ["--dry-run"]
-  assertOutputContains "conflicting revisions" r''
+  assertOutputContains "by the 'revisions' field (project config mixed.project) and to revision 'rev:0' by the constraint 'any.foo ==1.0@rev:0' (project config mixed.project)" r''
 
   -- A revision pin needs an exact version and an unqualified or any. scope.
   r3 <- fails $ cabal' "v2-build" ["--dry-run", "--constraint=foo >=1.0@rev:1"]
