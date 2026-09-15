@@ -18,6 +18,7 @@ import Distribution.Client.IndexUtils.Timestamp (Timestamp)
 import Distribution.Client.Targets (UserConstraint)
 import Distribution.Client.Types (RepoName)
 import Distribution.Client.Types.AllowNewer (RelaxDepSubject, RelaxDeps, RelaxedDep)
+import Distribution.Client.Types.PackageRevision (PackageRevision, RevisionPin)
 
 tests :: TestTree
 tests =
@@ -32,6 +33,8 @@ tests =
     , testDescribed (Proxy :: Proxy RelaxedDep)
     , testDescribed (Proxy :: Proxy RelaxDeps)
     , testDescribed (Proxy :: Proxy UserConstraint)
+    , testDescribed (Proxy :: Proxy RevisionPin)
+    , testDescribed (Proxy :: Proxy PackageRevision)
     , testDescribed (Proxy :: Proxy InstallOutcome)
     , testDescribed (Proxy :: Proxy Outcome)
     ]

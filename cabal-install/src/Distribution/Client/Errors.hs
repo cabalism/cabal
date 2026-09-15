@@ -16,7 +16,9 @@ import Data.ByteString (ByteString)
 import qualified Data.ByteString.Base16 as Base16
 import qualified Data.ByteString.Char8 as BS8
 import Data.List (groupBy)
+import Distribution.Client.HashValue (HashValue, showHashValue)
 import Distribution.Client.IndexUtils.Timestamp
+import Distribution.Client.Types.PackageRevision (RevisionPin (..))
 import qualified Distribution.Client.Types.Repo as Repo
 import qualified Distribution.Client.Types.RepoName as RepoName
 import Distribution.Compat.Prelude
@@ -186,6 +188,8 @@ data CabalInstallException
   | CabalFileParseFailure CabalFileParseError
   | ProjectConfigParseFailure ProjectConfigParseError
   | ProjectConfigNoPackages FilePath
+  | RevisionNotFound RepoName.RepoName PackageId RevisionPin [(Int, HashValue)]
+  | ConflictingRevisionPins PackageId RevisionPin RevisionPin
   deriving (Show)
 
 exceptionCodeCabalInstall :: CabalInstallException -> Int
@@ -343,6 +347,8 @@ exceptionCodeCabalInstall e = case e of
   CabalFileParseFailure{} -> 7166
   ProjectConfigParseFailure{} -> 7167
   ProjectConfigNoPackages{} -> 7168
+  RevisionNotFound{} -> 7169
+  ConflictingRevisionPins{} -> 7170
 
 exceptionMessageCabalInstall :: CabalInstallException -> String
 exceptionMessageCabalInstall e = case e of
@@ -884,6 +890,27 @@ exceptionMessageCabalInstall e = case e of
       , "' requires at least one of the fields 'packages' "
       , "or 'optional-packages', but neither was specified."
       ]
+  RevisionNotFound rname pkgid pin available ->
+    "The package "
+      ++ prettyShow pkgid
+      ++ " in '"
+      ++ RepoName.unRepoName rname
+      ++ "' has no revision matching the pin '"
+      ++ prettyShow pin
+      ++ "'. The available revisions are:"
+      ++ concat
+        [ "\n  rev:" ++ show rev ++ " (sha256:" ++ showHashValue hash ++ ")"
+        | (rev, hash) <- available
+        ]
+      ++ "\nCheck the pin in 'revisions' and the index-state in use."
+  ConflictingRevisionPins pkgid pin pin' ->
+    "The package "
+      ++ prettyShow pkgid
+      ++ " is pinned to conflicting revisions '"
+      ++ prettyShow pin
+      ++ "' and '"
+      ++ prettyShow pin'
+      ++ "' in 'revisions'."
 
 instance Exception (VerboseException CabalInstallException) where
   displayException :: VerboseException CabalInstallException -> [Char]

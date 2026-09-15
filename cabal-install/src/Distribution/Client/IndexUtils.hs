@@ -52,11 +52,13 @@ import Prelude ()
 import qualified Codec.Archive.Tar as Tar
 import qualified Codec.Archive.Tar.Entry as Tar
 import qualified Codec.Archive.Tar.Index as Tar
+import Distribution.Client.HashValue (hashValue)
 import Distribution.Client.IndexUtils.ActiveRepos
 import Distribution.Client.IndexUtils.IndexState
 import Distribution.Client.IndexUtils.Timestamp
 import qualified Distribution.Client.Tar as Tar
 import Distribution.Client.Types
+import Distribution.Client.Types.PackageRevision
 import Distribution.Parsec (simpleParsecBS)
 import Distribution.Verbosity
 
@@ -235,13 +237,16 @@ filterCache (IndexStateTime ts0) cache0 = (cache, IndexStateInfo{..})
 -- This is a higher level wrapper used internally in cabal-install.
 getSourcePackages :: Verbosity -> RepoContext -> IO SourcePackageDb
 getSourcePackages verbosity repoCtxt =
-  fstOf3 <$> getSourcePackagesAtIndexState verbosity repoCtxt Nothing Nothing
+  fstOf3 <$> getSourcePackagesAtIndexState verbosity repoCtxt Nothing Nothing []
 
 -- | Variant of 'getSourcePackages' which allows getting the source
 -- packages at a particular 'IndexState'.
 --
 -- Current choices are either the latest (aka HEAD), or the index as
 -- it was at a particular time.
+--
+-- The 'PackageRevision's pin package versions to a specific @.cabal@ file
+-- revision instead of the latest one at the index state.
 --
 -- Returns also the total index where repositories'
 -- RepoIndexState's are not HEAD. This is used in v2-freeze.
@@ -250,8 +255,9 @@ getSourcePackagesAtIndexState
   -> RepoContext
   -> Maybe TotalIndexState
   -> Maybe ActiveRepos
+  -> [PackageRevision]
   -> IO (SourcePackageDb, TotalIndexState, ActiveRepos)
-getSourcePackagesAtIndexState verbosity repoCtxt _ _
+getSourcePackagesAtIndexState verbosity repoCtxt _ _ _
   | null (repoContextRepos repoCtxt) = do
       -- In the test suite, we routinely don't have any remote package
       -- servers, so don't bleat about it
@@ -266,9 +272,13 @@ getSourcePackagesAtIndexState verbosity repoCtxt _ _
         , headTotalIndexState
         , ActiveRepos []
         )
-getSourcePackagesAtIndexState verbosity repoCtxt mb_idxState mb_activeRepos = do
+getSourcePackagesAtIndexState verbosity repoCtxt mb_idxState mb_activeRepos revisions = do
   let describeState IndexStateHead = "most recent state"
       describeState (IndexStateTime time) = "historical state as of " ++ prettyShow time
+
+  pins <- case packageRevisionsMap revisions of
+    Left (pkgid, pin, pin') -> dieWithException verbosity $ ConflictingRevisionPins pkgid pin pin'
+    Right pins -> return pins
 
   pkgss <- for (repoContextRepos repoCtxt) $ \r -> do
     let rname :: RepoName
@@ -307,7 +317,7 @@ getSourcePackagesAtIndexState verbosity repoCtxt mb_idxState mb_activeRepos = do
           RepoSecure{} -> idxState
           _ -> IndexStateHead
 
-    (pis, deps, isi) <- readRepoIndex verbosity repoCtxt r idxState'
+    (pis, deps, isi) <- readRepoIndex verbosity repoCtxt r idxState' pins
 
     case idxState' of
       IndexStateHead -> do
@@ -466,8 +476,9 @@ readRepoIndex
   -> RepoContext
   -> Repo
   -> RepoIndexState
+  -> RevisionPins
   -> IO (PackageIndex UnresolvedSourcePackage, [Dependency], IndexStateInfo)
-readRepoIndex verbosity repoCtxt repo idxState =
+readRepoIndex verbosity repoCtxt repo idxState pins =
   handleNotFound $ do
     ret@(_, _, isi) <-
       readPackageIndexCacheFile
@@ -475,6 +486,7 @@ readRepoIndex verbosity repoCtxt repo idxState =
         mkAvailablePackage
         (RepoIndex repoCtxt repo)
         idxState
+        pins
     when (isRepoRemote repo) $ do
       warnIfIndexIsOld =<< getIndexFileAge repo
       dieIfRequestedIdxIsNewer isi
@@ -1039,17 +1051,20 @@ readPackageIndexCacheFile
   -> (PackageEntry -> pkg)
   -> Index
   -> RepoIndexState
+  -> RevisionPins
   -> IO (PackageIndex pkg, [Dependency], IndexStateInfo)
-readPackageIndexCacheFile verbosity mkPkg index idxState
+readPackageIndexCacheFile verbosity mkPkg index@(RepoIndex _ repo) idxState pins
   | localNoIndex index = do
       cache0 <- readNoIndexCache verbosity index
-      (pkgs, prefs) <- packageNoIndexFromCache verbosity mkPkg cache0
+      (pkgs, prefs) <- packageNoIndexFromCache verbosity rname pins mkPkg cache0
       pure (pkgs, prefs, emptyStateInfo)
   | otherwise = do
       (cache, isi) <- getIndexCache verbosity index idxState
       indexHnd <- openFile (indexFile index) ReadMode
-      (pkgs, deps) <- packageIndexFromCache verbosity mkPkg indexHnd cache
+      (pkgs, deps) <- packageIndexFromCache verbosity rname pins mkPkg indexHnd cache
       pure (pkgs, deps, isi)
+  where
+    rname = repoName repo
 
 -- | Read 'Cache' and 'IndexStateInfo' from the repository index file.
 -- Throws IOException if any arise (e.g. the index or its cache are missing).
@@ -1061,12 +1076,14 @@ getIndexCache verbosity index idxState =
 packageIndexFromCache
   :: Package pkg
   => Verbosity
+  -> RepoName
+  -> RevisionPins
   -> (PackageEntry -> pkg)
   -> Handle
   -> Cache
   -> IO (PackageIndex pkg, [Dependency])
-packageIndexFromCache verbosity mkPkg hnd cache = do
-  (pkgs, prefs) <- packageListFromCache verbosity mkPkg hnd cache
+packageIndexFromCache verbosity rname pins mkPkg hnd cache = do
+  (pkgs, prefs) <- packageListFromCache verbosity rname pins mkPkg hnd cache
   pkgIndex <- evaluate $ PackageIndex.fromList pkgs
   return (pkgIndex, prefs)
 
@@ -1074,23 +1091,25 @@ packageNoIndexFromCache
   :: forall pkg
    . Package pkg
   => Verbosity
+  -> RepoName
+  -> RevisionPins
   -> (PackageEntry -> pkg)
   -> NoIndexCache
   -> IO (PackageIndex pkg, [Dependency])
-packageNoIndexFromCache _verbosity mkPkg cache = do
-  let (pkgs, prefs) = packageListFromNoIndexCache
+packageNoIndexFromCache verbosity rname pins mkPkg cache = do
+  pkgs <- fmap catMaybes $ for (noIndexCacheEntries cache) $ \case
+    CacheGPD gpd bs -> do
+      let pkgId = package $ Distribution.PackageDescription.packageDescription gpd
+          pkgtxt = BS.fromStrict bs
+      -- A file+noindex repository has a single .cabal file per package
+      -- version, so a pin can only check that it is the pinned revision.
+      for_ (Map.lookup pkgId pins) $ \pin ->
+        selectRevision verbosity rname pkgId pin [(gpd, pkgtxt, ())]
+      pure (Just (mkPkg (NormalPackage pkgId gpd pkgtxt 0)))
+    NoIndexCachePreference _ -> pure Nothing
+  let prefs = concat [deps | NoIndexCachePreference deps <- noIndexCacheEntries cache]
   pkgIndex <- evaluate $ PackageIndex.fromList pkgs
   pure (pkgIndex, prefs)
-  where
-    packageListFromNoIndexCache :: ([pkg], [Dependency])
-    packageListFromNoIndexCache = foldr go mempty (noIndexCacheEntries cache)
-
-    go :: NoIndexCacheEntry -> ([pkg], [Dependency]) -> ([pkg], [Dependency])
-    go (CacheGPD gpd bs) (pkgs, prefs) =
-      let pkgId = package $ Distribution.PackageDescription.packageDescription gpd
-       in (mkPkg (NormalPackage pkgId gpd (BS.fromStrict bs) 0) : pkgs, prefs)
-    go (NoIndexCachePreference deps) (pkgs, prefs) =
-      (pkgs, deps ++ prefs)
 
 -- | Read package list
 --
@@ -1100,17 +1119,28 @@ packageNoIndexFromCache _verbosity mkPkg cache = do
 -- Note: 01-index.tar is an append-only index and therefore contains
 -- all .cabal edits and preference-updates. The masking happens
 -- here, i.e. the semantics that later entries in a tar file mask
--- earlier ones is resolved in this function.
+-- earlier ones is resolved in this function. The exception are
+-- package versions with a 'RevisionPin', for which the pinned .cabal
+-- edit is used instead of the last one.
 packageListFromCache
   :: Verbosity
+  -> RepoName
+  -> RevisionPins
   -> (PackageEntry -> pkg)
   -> Handle
   -> Cache
   -> IO ([pkg], [Dependency])
-packageListFromCache verbosity mkPkg hnd Cache{..} = accum mempty [] mempty cacheEntries
+packageListFromCache verbosity rname pins mkPkg hnd Cache{..} = accum mempty [] mempty mempty cacheEntries
   where
-    accum !srcpkgs btrs !prefs [] = return (Map.elems srcpkgs ++ btrs, Map.elems prefs)
-    accum srcpkgs btrs prefs (CachePackageId pkgid blockno _ : entries) = do
+    accum !srcpkgs btrs !prefs !revs [] = do
+      -- Replace the last revision of each pinned package version with the
+      -- pinned one. The candidates were collected newest first.
+      pinned <-
+        Map.traverseWithKey
+          (\pkgid (pin, candidates) -> selectRevision verbosity rname pkgid pin (reverse candidates))
+          (Map.intersectionWith (,) pins revs)
+      return (Map.elems (Map.union pinned srcpkgs) ++ btrs, Map.elems prefs)
+    accum srcpkgs btrs prefs revs (CachePackageId pkgid blockno _ : entries) = do
       -- Given the cache entry, make a package index entry.
       -- The magic here is that we use lazy IO to read the .cabal file
       -- from the index tarball if it turns out that we need it.
@@ -1121,8 +1151,11 @@ packageListFromCache verbosity mkPkg hnd Cache{..} = accum mempty [] mempty cach
         return (pkg, pkgtxt)
 
       let srcpkg = mkPkg (NormalPackage pkgid pkg pkgtxt blockno)
-      accum (Map.insert pkgid srcpkg srcpkgs) btrs prefs entries
-    accum srcpkgs btrs prefs (CacheBuildTreeRef refType blockno : entries) = do
+          revs'
+            | pkgid `Map.member` pins = Map.insertWith (++) pkgid [(pkg, pkgtxt, srcpkg)] revs
+            | otherwise = revs
+      accum (Map.insert pkgid srcpkg srcpkgs) btrs prefs revs' entries
+    accum srcpkgs btrs prefs revs (CacheBuildTreeRef refType blockno : entries) = do
       -- We have to read the .cabal file eagerly here because we can't cache the
       -- package id for build tree references - the user might edit the .cabal
       -- file after the reference was added to the index.
@@ -1131,9 +1164,9 @@ packageListFromCache verbosity mkPkg hnd Cache{..} = accum mempty [] mempty cach
         let err = "Error reading package index from cache."
         tryReadAddSourcePackageDesc verbosity path err
       let srcpkg = mkPkg (BuildTreeRef refType (packageId pkg) pkg path blockno)
-      accum srcpkgs (srcpkg : btrs) prefs entries
-    accum srcpkgs btrs prefs (CachePreference pref@(Dependency pn _ _) _ _ : entries) =
-      accum srcpkgs btrs (Map.insert pn pref prefs) entries
+      accum srcpkgs (srcpkg : btrs) prefs revs entries
+    accum srcpkgs btrs prefs revs (CachePreference pref@(Dependency pn _ _) _ _ : entries) =
+      accum srcpkgs btrs (Map.insert pn pref prefs) revs entries
 
     getEntryContent :: BlockNo -> IO ByteString
     getEntryContent blockno = do
@@ -1175,6 +1208,31 @@ packageListFromCache verbosity mkPkg hnd Cache{..} = accum mempty [] mempty cach
     interror :: String -> IO a
     interror msg =
       dieWithException verbosity $ InternalError msg
+
+-- | Select, among the revisions of a package version that a repository
+-- has (oldest first), the one matching a 'RevisionPin'.
+--
+-- Dies when no revision matches, listing the revisions that are
+-- available.
+selectRevision
+  :: Verbosity
+  -> RepoName
+  -> PackageId
+  -> RevisionPin
+  -> [(GenericPackageDescription, ByteString, a)]
+  -> IO a
+selectRevision verbosity rname pkgid pin candidates =
+  case reverse [x | (gpd, pkgtxt, x) <- candidates, matches gpd pkgtxt] of
+    [] -> dieWithException verbosity $ RevisionNotFound rname pkgid pin available
+    (x : _) -> return x
+  where
+    revision = packageDescriptionRevision . Distribution.PackageDescription.packageDescription
+
+    matches gpd pkgtxt = case pin of
+      RevisionNumber n -> revision gpd == n
+      RevisionHash h -> hashValue pkgtxt == h
+
+    available = [(revision gpd, hashValue pkgtxt) | (gpd, pkgtxt, _) <- candidates]
 
 ------------------------------------------------------------------------
 -- Index cache data structure --

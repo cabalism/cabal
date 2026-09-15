@@ -12,6 +12,7 @@ import Distribution.Solver.Types.Settings
 import Distribution.Client.BuildReports.Types
 import Distribution.Client.CmdInstall.ClientInstallFlags
 import Distribution.Client.Dependency.Types
+import Distribution.Client.HashValue (HashValue)
 import Distribution.Client.IndexUtils.ActiveRepos
 import Distribution.Client.IndexUtils.IndexState
 import Distribution.Client.IndexUtils.Timestamp
@@ -19,6 +20,7 @@ import Distribution.Client.ProjectConfig.Types
 import Distribution.Client.Targets
 import Distribution.Client.Types
 import Distribution.Client.Types.OverwritePolicy (OverwritePolicy)
+import Distribution.Client.Types.PackageRevision (PackageRevision, RevisionPin)
 import Distribution.Client.Types.SourceRepo (SourceRepositoryPackage)
 
 import Distribution.Simple.Compiler (PackageDBX)
@@ -76,6 +78,9 @@ instance ToExpr ReportLevel
 instance ToExpr StrongFlags
 instance ToExpr Timestamp
 instance ToExpr TotalIndexState
+instance ToExpr HashValue
+instance ToExpr RevisionPin
+instance ToExpr PackageRevision
 instance ToExpr UserConstraint
 instance ToExpr UserConstraintScope
 instance ToExpr UserQualifier

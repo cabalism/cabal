@@ -1,0 +1,4 @@
+packages: .
+revisions:
+  , foo-1.0@rev:1
+  , foo-1.0@rev:0

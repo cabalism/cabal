@@ -28,11 +28,13 @@ import Data.List ((\\))
 import Data.Monoid (Last (..))
 
 import Distribution.Simple.Setup
+import Distribution.Simple.Utils (toUTF8LBS)
 import Distribution.Types.Flag (mkFlagAssignment)
 
 import Distribution.Client.BuildReports.Types (BuildReport, InstallOutcome, Outcome, ReportLevel (..))
 import Distribution.Client.CmdInstall.ClientInstallFlags (InstallMethod)
 import Distribution.Client.Glob (FilePathRoot (..), Glob (..), GlobPiece (..), RootedGlob (..))
+import Distribution.Client.HashValue (hashValue)
 import Distribution.Client.IndexUtils.ActiveRepos (ActiveRepoEntry (..), ActiveRepos (..), CombineStrategy (..))
 import Distribution.Client.IndexUtils.IndexState (RepoIndexState (..), TotalIndexState, makeTotalIndexState)
 import Distribution.Client.IndexUtils.Timestamp (Timestamp, epochTimeToTimestamp)
@@ -40,6 +42,7 @@ import Distribution.Client.Targets
 import Distribution.Client.Types (RepoName (..), WriteGhcEnvironmentFilesPolicy)
 import Distribution.Client.Types.AllowNewer
 import Distribution.Client.Types.OverwritePolicy (OverwritePolicy)
+import Distribution.Client.Types.PackageRevision (PackageRevision (..), RevisionPin (..))
 import Distribution.Solver.Types.OptionalStanza (OptionalStanza (..), OptionalStanzaMap, OptionalStanzaSet, optStanzaSetFromList, optStanzaTabulate)
 import Distribution.Solver.Types.PackageConstraint (PackageProperty (..))
 
@@ -192,6 +195,16 @@ instance Arbitrary RepoIndexState where
 
 instance Arbitrary TotalIndexState where
   arbitrary = makeTotalIndexState <$> arbitrary <*> arbitrary
+
+instance Arbitrary RevisionPin where
+  arbitrary =
+    oneof
+      [ RevisionNumber <$> choose (0, 20)
+      , RevisionHash . hashValue . toUTF8LBS <$> arbitrary
+      ]
+
+instance Arbitrary PackageRevision where
+  arbitrary = PackageRevision <$> arbitrary <*> arbitrary
 
 instance Arbitrary WriteGhcEnvironmentFilesPolicy where
   arbitrary = arbitraryBoundedEnum

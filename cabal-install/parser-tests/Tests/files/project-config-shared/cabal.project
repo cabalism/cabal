@@ -16,6 +16,8 @@ active-repositories:
 index-state:
   , hackage.haskell.org 2020-05-06T22:33:27Z
   , head.hackage 2020-04-29T04:11:05Z
+revisions: foo-1.2.3@rev:2,
+           bar-0.1@sha256:69977f97a8db2c11e97bde92fff7e86e793c1fb23827b284bf89938ee463fbf0
 constraints: bar == 2.1,
              bar +foo -baz
 preferences: foo == 0.9,

@@ -15,6 +15,7 @@ import Distribution.Client.BuildReports.Types (ReportLevel (..))
 import Distribution.Client.CmdInstall.ClientInstallFlags (ClientInstallFlags (..))
 import Distribution.Client.Dependency.Types (PreSolver (..))
 import Distribution.Client.DistDirLayout
+import Distribution.Client.HashValue (parseHashValue)
 import Distribution.Client.HttpUtils
 import Distribution.Client.IndexUtils.ActiveRepos (ActiveRepoEntry (..), ActiveRepos (..), CombineStrategy (..))
 import Distribution.Client.IndexUtils.IndexState (RepoIndexState (..), headTotalIndexState, insertIndexState)
@@ -24,6 +25,7 @@ import Distribution.Client.Targets (readUserConstraint)
 import Distribution.Client.Types.AllowNewer (AllowNewer (..), AllowOlder (..), RelaxDepMod (..), RelaxDepScope (..), RelaxDepSubject (..), RelaxDeps (..), RelaxedDep (..))
 import Distribution.Client.Types.InstallMethod (InstallMethod (..))
 import Distribution.Client.Types.OverwritePolicy (OverwritePolicy (..))
+import Distribution.Client.Types.PackageRevision (PackageRevision (..), RevisionPin (..))
 import Distribution.Client.Types.Repo (LocalRepo (..), RemoteRepo (..), asPosixPath)
 import Distribution.Client.Types.RepoName (RepoName (..))
 import Distribution.Client.Types.SourceRepo
@@ -205,6 +207,12 @@ testProjectConfigShared = do
         indexState'' = insertIndexState (RepoName "head.hackage") headHackageState indexState'
        in
         toFlag indexState''
+    projectConfigRevisions =
+      [ PackageRevision (PackageIdentifier (mkPackageName "foo") (mkVersion [1, 2, 3])) (RevisionNumber 2)
+      , PackageRevision (PackageIdentifier (mkPackageName "bar") (mkVersion [0, 1])) (RevisionHash barHash)
+      ]
+      where
+        barHash = fromJust $ parseHashValue "69977f97a8db2c11e97bde92fff7e86e793c1fb23827b284bf89938ee463fbf0"
     projectConfigStoreDir = toFlag "a/store/dir/path" -- cli only
     projectConfigConstraints =
       let

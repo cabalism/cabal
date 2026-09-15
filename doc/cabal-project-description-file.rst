@@ -748,6 +748,45 @@ The following settings control the behavior of the dependency solver:
         , hackage.haskell.org 2020-05-06T22:33:27Z
         , head.hackage 2020-04-29T04:11:05Z
 
+.. cfg-field:: revisions: PACKAGE-VERSION@rev:N or PACKAGE-VERSION@sha256:HASH (comma separated list)
+    :synopsis: Pin package versions to a specific ``.cabal`` file revision.
+    :since: 3.20
+
+    :default: ``none``
+
+    Package repositories such as Hackage allow the ``.cabal`` file of a
+    published package version to be edited after the fact. Each such edit
+    is a *revision*, numbered from 1 (the original upload being revision 0)
+    and recorded in the ``x-revision`` field of the revised ``.cabal`` file.
+    By default the latest revision known to the package index (as of the
+    :cfg-field:`index-state` in use) is used. This field selects a specific
+    revision for a package version instead, so that later revisions cannot
+    change the build plan, without freezing the whole index.
+
+    A revision is identified either by its number, ``rev:N``, or by the
+    SHA-256 hash of the ``.cabal`` file text, ``sha256:HASH``. Both are
+    reported for every package in ``plan.json`` as ``pkg-revision`` and
+    ``pkg-cabal-sha256``, and the revision number is shown on the package's
+    revisions page on Hackage.
+
+    ::
+
+        revisions:
+          , smtlib-backends-0.3@rev:1
+          , aeson-2.2.1.0@sha256:69977f97a8db2c11e97bde92fff7e86e793c1fb23827b284bf89938ee463fbf0
+
+    A pin only applies when the solver picks exactly that package version;
+    if it picks another version of the package the pin has no effect. To
+    fix the version as well, add a :cfg-field:`constraints` entry.
+
+    It is an error if the package version exists in a package repository
+    but none of its revisions match the pin, for example because the
+    revision is newer than the :cfg-field:`index-state` in use, or because
+    the same package version is pinned to two different revisions.
+
+    ``cabal freeze`` records a pin for every package in the plan whose
+    ``.cabal`` file is a revision.
+
 .. cfg-field:: active-repositories: reponame1, reponame2
 
     :synopsis: Specify active package repositories
