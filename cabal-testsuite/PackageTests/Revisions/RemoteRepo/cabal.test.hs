@@ -5,7 +5,7 @@ import Control.Concurrent (threadDelay)
 import Control.Monad.IO.Class
 import Data.Maybe (mapMaybe)
 import Distribution.Types.PackageName (PackageName, mkPackageName)
-import System.Directory (copyFile)
+import System.Directory (copyFile, removeFile)
 
 -- Revision pins against a secure repository with two revisions of foo-1.0.
 main = do
@@ -18,6 +18,10 @@ main = do
     cabal "v2-update" []
     assertRevisionOfFoo 0
 
+    -- Freeze now, recording the index-state before the revision exists.
+    cabal "v2-freeze" []
+    assertFileDoesContain (cwd </> "cabal.project.freeze") "index-state:"
+
     -- Publish revision 1 of foo-1.0: 'hackage-repo-tool update' appends to
     -- the index every file in the index directory that is newer than the
     -- index tarball.
@@ -25,6 +29,14 @@ main = do
     liftIO $ copyFile (cwd </> "rev1" </> "foo.cabal") (repoDir </> "index" </> "foo" </> "1.0" </> "foo.cabal")
     hackageRepoTool "update" ["--keys", repoDir </> "keys", "--repo", repoDir]
     cabal "v2-update" []
+
+    -- Under the frozen index-state the revision does not exist yet, so a pin
+    -- on it is an error listing only the revision at that index-state.
+    r0 <- fails $ cabal' "v2-build" ["--dry-run", "--constraint=foo ==1.0@rev:1"]
+    assertOutputContains "has no revision matching the pin 'rev:1'" r0
+    assertOutputContains "rev:0 (sha256:" r0
+    assertOutputDoesNotContain "rev:1 (sha256:" r0
+    liftIO $ removeFile (cwd </> "cabal.project.freeze")
 
     -- The latest revision is used by default; pins select a revision by
     -- number or by hash.

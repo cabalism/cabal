@@ -1,0 +1,3 @@
+packages: .
+allow-newer: foo:base
+revisions: foo-1.0@rev:0
