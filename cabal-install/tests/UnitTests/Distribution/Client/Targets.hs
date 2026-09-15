@@ -2,12 +2,14 @@ module UnitTests.Distribution.Client.Targets
   ( tests
   ) where
 
+import Distribution.Client.HashValue (parseHashValue)
 import Distribution.Client.Targets
   ( UserConstraint (..)
   , UserConstraintScope (..)
   , UserQualifier (..)
   , readUserConstraint
   )
+import Distribution.Client.Types.PackageRevision (RevisionPin (..))
 import Distribution.Package (mkPackageName)
 import Distribution.PackageDescription (mkFlagAssignment, mkFlagName)
 import Distribution.Version (anyVersion, mkVersion, thisVersion)
@@ -20,7 +22,9 @@ import Distribution.Solver.Types.PackageConstraint (PackageProperty (..))
 import Test.Tasty
 import Test.Tasty.HUnit
 
+import Data.Either (isLeft)
 import Data.List (intercalate)
+import Data.Maybe (fromJust)
 
 -- Helper function: makes a test group by mapping each element
 -- of a list to a test case.
@@ -39,6 +43,17 @@ tests =
       "parseUserConstraint"
       (uncurry parseUserConstraintTest)
       exampleConstraints
+  , makeGroup
+      "rejectUserConstraint"
+      rejectUserConstraintTest
+      [ "foo >=1.2@rev:2" -- not an exact version
+      , "foo ==1.2.*@rev:2" -- not an exact version either
+      , "setup.foo ==1.2.3@rev:2" -- a revision pin cannot be scoped
+      , "bar:setup.foo ==1.2.3@rev:2"
+      , "foo ==1.2.3@"
+      , "foo ==1.2.3@rev:x"
+      , "foo installed@rev:2"
+      ]
   , makeGroup
       "readUserConstraints"
       (uncurry readUserConstraintsTest)
@@ -100,6 +115,21 @@ exampleConstraints =
             )
         )
     )
+  , -- an exact version with a revision pin
+
+    ( "foo ==1.2.3@rev:2"
+    , UserConstraintRevision
+        (UserQualified UserQualToplevel (pn "foo"))
+        (mkVersion [1, 2, 3])
+        (RevisionNumber 2)
+    )
+  ,
+    ( "any.foo ==1.2.3@sha256:69977f97a8db2c11e97bde92fff7e86e793c1fb23827b284bf89938ee463fbf0"
+    , UserConstraintRevision
+        (UserAnyQualifier (pn "foo"))
+        (mkVersion [1, 2, 3])
+        (RevisionHash (fromJust (parseHashValue "69977f97a8db2c11e97bde92fff7e86e793c1fb23827b284bf89938ee463fbf0")))
+    )
     -- -- TODO: Re-enable UserQualExe tests once we decide on a syntax.
     --
     -- , ("foo:happy:exe.template-haskell test",
@@ -130,3 +160,7 @@ readUserConstraintsTest str ucs =
   where
     expected = Right ucs
     actual = explicitEitherParsec (parsecCommaList parsec) str
+
+rejectUserConstraintTest :: String -> Assertion
+rejectUserConstraintTest str =
+  assertBool ("parsed: " ++ str) (isLeft (readUserConstraint str))
