@@ -1,5 +1,4 @@
 {-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE TupleSections #-}
 
 -- | Resolving @override-constraints@ against plain @constraints@ before the
@@ -220,7 +219,7 @@ applyOverrideConstraints plain overrides = do
         ]
 
     positions :: [Position]
-    positions = sort . nub $ [p | a <- atoms, atomIsOverride a, Just p <- [atomPosition a]]
+    positions = sort (ordNub ([p | a <- atoms, atomIsOverride a, Just p <- [atomPosition a]]))
 
     step :: (Set.Set Int, [(Atom, Atom)]) -> Position -> Either OverrideError (Set.Set Int, [(Atom, Atom)])
     step (removed0, replacements0) p = foldM group (removed0, replacements0) groups
