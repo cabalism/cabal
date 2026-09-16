@@ -1,5 +1,4 @@
 {-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE TupleSections #-}
 
 -- | Resolving @override-constraints@ against plain @constraints@ before the
@@ -40,7 +39,7 @@ import Distribution.Client.Targets
   , UserQualifier (..)
   , userConstraintPackageName
   )
-import Distribution.Simple.Utils (info, notice, warn)
+import Distribution.Simple.Utils (info, notice, ordNub, warn)
 import Distribution.Solver.Types.ConstraintSource (ConstraintSource (..))
 import Distribution.Solver.Types.PackageConstraint (PackageProperty (..))
 import Distribution.Solver.Types.ProjectConfigPath
@@ -220,7 +219,7 @@ applyOverrideConstraints plain overrides = do
         ]
 
     positions :: [Position]
-    positions = sort . nub $ [p | a <- atoms, atomIsOverride a, Just p <- [atomPosition a]]
+    positions = sort (ordNub ([p | a <- atoms, atomIsOverride a, Just p <- [atomPosition a]]))
 
     step :: (Set.Set Int, [(Atom, Atom)]) -> Position -> Either OverrideError (Set.Set Int, [(Atom, Atom)])
     step (removed0, replacements0) p = foldM group (removed0, replacements0) groups
