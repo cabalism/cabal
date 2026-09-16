@@ -47,7 +47,7 @@ import Distribution.Solver.Types.ProjectConfigPath
 import Distribution.Solver.Types.Settings
 
 import Distribution.Client.ProjectConfig
-import Distribution.Client.ProjectConfig.Import (hideConstraints)
+import Distribution.Client.ProjectConfig.Import (ImportSpec (..), hideConstraints, parseImportSpec)
 import Distribution.Client.ProjectConfig.Legacy
 import Distribution.Version (anyVersion, mkVersion, thisVersion)
 
@@ -90,7 +90,19 @@ tests =
   , testGetProjectRootUsability
   , testFindProjectRoot
   , testHideConstraints
+  , testParseImportSpec
   ]
+
+testParseImportSpec :: TestTree
+testParseImportSpec =
+  testGroup
+    "parseImportSpec"
+    [ testCase "a package named hide-constraints can be hidden" $
+        parseImportSpec ["hide-constraints", "hide-constraints: hide-constraints"]
+          @?= Right (ImportSpec "hide-constraints" [mkPackageName "hide-constraints"])
+    , testCase "an import named hide-constraints has no modifiers" $
+        parseImportSpec ["hide-constraints"] @?= Right (ImportSpec "hide-constraints" [])
+    ]
 
 testHideConstraints :: TestTree
 testHideConstraints =
