@@ -111,6 +111,12 @@ data ImportSpec = ImportSpec
 -- >>> fmap prettyShow . importSpecHideConstraints <$> parseImportSpec ["cabal.config", "hide-constraints: hashable, text", "hide-constraints: aeson"]
 -- Right ["hashable","text","aeson"]
 --
+-- The modifier is told apart from its value by position, so a package named
+-- hide-constraints can be hidden.
+--
+-- >>> fmap prettyShow . importSpecHideConstraints <$> parseImportSpec ["hide-constraints", "hide-constraints: hide-constraints"]
+-- Right ["hide-constraints"]
+--
 -- >>> importSpecLoc <$> parseImportSpec ["cabal.config", "hide-constraint: hashable"]
 -- Left "unknown import modifier \"hide-constraint\", the only import modifier is hide-constraints"
 --
