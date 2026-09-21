@@ -398,6 +398,23 @@ Job and concurrency options
 
     The command line variant of this field is ``--keep-going``.
 
+REPL options
+^^^^^^^^^^^^
+
+.. cfg-field::  multi-repl: boolean
+                --enable-multi-repl
+                --disable-multi-repl
+    :synopsis: Allow ``cabal repl`` to load several components at once.
+
+    :default: False
+
+    If true, ``cabal repl`` may be given more than one target and loads the
+    closure of the required components into a single GHCi session, using
+    GHC's multiple home units support. Requires ``ghc >= 9.4``.
+
+    The command line variant of this field is ``--enable-multi-repl``.
+    See :ref:`how-to-rerun-tests-on-change` for a typical use.
+
 Project options
 ^^^^^^^^^^^^^^^
 

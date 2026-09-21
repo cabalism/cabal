@@ -1113,6 +1113,8 @@ will not make sure that these executables actually exist (i.e., have
 been successfully built).  In order to determine the correct location,
 it may invoke the configuration step (see ``cabal configure``).
 
+.. _cabal-repl:
+
 cabal repl
 ^^^^^^^^^^
 
@@ -1218,6 +1220,9 @@ See ``cabal run`` for more information on scripts.
     This requires GHC with multiple home unit support (GHC-9.4+)
 
     The closure of required components will be loaded.
+
+    See :ref:`how-to-rerun-tests-on-change` for loading a library and its
+    test suite together and rerunning the tests on every change.
 
 .. option:: --disable-multi-repl
 
