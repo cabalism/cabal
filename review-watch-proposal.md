@@ -65,12 +65,14 @@ upstreaming whatever ends up belonging in cabal.
 - Independently of either, add a page to the cabal docs showing the multi-repl
 recipe with ghcid. That addresses the "badly documented" complaint immediately
 and costs nothing. Two things I found while writing such a page that bear on
-the proposal: GHCi on 9.4 to 9.12 cannot evaluate anything from a multi-unit
-session (`Main.main` and `:main` both fail, and `:module` reports "not
-supported (yet) in multi-mode"), so the "run the tests after `:r`" workflow
-only exists from GHC 9.14 onwards; and ghciwatch does not support
-multi-component sessions at all (MercuryTechnologies/ghciwatch#316), so ghcid
-is currently the only tool that does this.
+the proposal: in a multi-unit session only the active unit's `Main` is
+reachable from the prompt, and cabal makes the *first* target the active unit,
+so the test suite must be listed first (`cabal repl --enable-multi-repl
+test:foo-test lib:foo`) and run as `Main.main` (a bare `:main` fails on GHC
+9.14 and later); that is the kind of thing users currently have to discover by
+trial and error. And ghciwatch does not support multi-component sessions at
+all (MercuryTechnologies/ghciwatch#316), so ghcid is currently the only tool
+that does this.
 
 One small correction for the "Implementation Notes": the `--reload` flag on
 Cabal's `repl` command is unimplemented plumbing (cabal-install hard-wires it to
