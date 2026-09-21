@@ -17,35 +17,47 @@ Reloading in GHCi only recompiles the modules that changed and skips linking
 and process start-up, so the feedback loop is usually much shorter than
 rerunning ``cabal test``.
 
-This guide uses a package ``mylib`` with a library and a test suite
-``mylib-test``. Substitute your own package and component names.
+The example
+-----------
+
+This guide uses a package ``watched-pot`` with a library exposing the module
+``Pot`` and a test suite ``never-boils``. It lives in Cabal's own test suite
+at ``cabal-testsuite/PackageTests/MultiRepl/TestSuiteMain``, where CI checks
+that the session set up below can run the test suite.
+
+.. literalinclude:: ../cabal-testsuite/PackageTests/MultiRepl/TestSuiteMain/watched-pot.cabal
+    :language: cabal
+    :caption: watched-pot.cabal
+
+.. literalinclude:: ../cabal-testsuite/PackageTests/MultiRepl/TestSuiteMain/src/Pot.hs
+    :language: haskell
+    :caption: src/Pot.hs
+
+.. literalinclude:: ../cabal-testsuite/PackageTests/MultiRepl/TestSuiteMain/test/Main.hs
+    :language: haskell
+    :caption: test/Main.hs
 
 Load the library and the test suite together
 --------------------------------------------
 
 A test suite depends on the library, so loading both into one session needs
-GHCi's multiple home units support, which ``cabal repl`` exposes through the
-:option:`--enable-multi-repl` flag of :ref:`cabal repl <cabal-repl>`.
-
-.. note::
-
-    GHC 9.4 to 9.12 can load several units and report errors on reload, but
-    their GHCi cannot evaluate expressions from the loaded units or run
-    ``:main``: every attempt fails with ``Not in scope`` or ``Command is not
-    supported (yet) in multi-mode``. Running the test suite from a
-    multi-unit session as described below needs GHC 9.14 or later. With an
-    older GHC, use ghcid without ``--test`` to get fast error feedback, or
-    rerun the compiled test suite as described at the end of this guide.
+GHCi's multiple home units support, available since GHC 9.4, which ``cabal
+repl`` exposes through the :option:`--enable-multi-repl` flag of :ref:`cabal
+repl <cabal-repl>`. List the test suite first:
 
 .. code-block:: console
 
-    $ cabal repl --enable-multi-repl lib:mylib test:mylib-test
+    $ cabal repl --enable-multi-repl test:never-boils lib:watched-pot
+
+The order matters. Cabal makes the first target the *active unit* of the
+session, and the ``Main`` module of a component can only be reached from the
+prompt when that component is the active unit. Library modules such as
+``Pot`` can be reached whichever unit is active.
 
 Check with ``:show modules`` that the modules of both components are listed
-as loaded, and that they are loaded from source (``interpreted``), not from
-a compiled package. If the library modules are missing, the test suite was
-loaded against the installed library, and changes to the library will not be
-seen by ``:reload``.
+and loaded from source (``interpreted``). If ``Pot`` is missing, the test
+suite was loaded against the installed library, and changes to the library
+will not be seen by ``:reload``.
 
 To avoid passing the flag every time, enable it in ``cabal.project``:
 
@@ -56,20 +68,24 @@ To avoid passing the flag every time, enable it in ``cabal.project``:
 Run the test suite from the prompt
 ----------------------------------
 
-In a multi-unit session no module is in scope at the prompt, so a bare
-``:main`` reports that ``main`` is not in scope. Use the qualified name of
-the test suite's entry point instead:
+In a multi-unit session no module is in scope at the prompt, so on recent
+GHCs a bare ``:main`` reports that ``main`` is not in scope. The qualified
+name of the test suite's entry point works on every GHC since 9.4:
 
 .. code-block:: none
 
     ghci> Main.main
+    Watching the pot...
+    The watched pot never boils early.
 
 A failing test suite typically calls ``exitFailure``, which GHCi reports as
-``*** Exception: ExitFailure 1`` without leaving the session.
+``*** Exception: ExitFailure 1`` without leaving the session. Try it: change
+``100`` to ``101`` in ``src/Pot.hs``, ``:reload``, and run ``Main.main``
+again.
 
-If ``Main.main`` is not in scope, check the GHC version (see the note above)
-and ``:show modules``: the test suite's main module must be one of the
-loaded modules and must be called ``Main``.
+If ``Main.main`` is not in scope, the test suite was not the first target.
+Check the order of the targets and ``:show modules``: the test suite's main
+module must be one of the loaded modules and must be called ``Main``.
 
 Watch and rerun with ghcid
 --------------------------
@@ -80,7 +96,7 @@ after each reload:
 
 .. code-block:: console
 
-    $ ghcid --command 'cabal repl --enable-multi-repl lib:mylib test:mylib-test' \
+    $ ghcid --command 'cabal repl --enable-multi-repl test:never-boils lib:watched-pot' \
             --test Main.main --warnings
 
 * ``--command`` is how ghcid starts GHCi. Anything ``cabal repl`` accepts can
@@ -98,7 +114,7 @@ file at the project root, one per line, and start ghcid with no arguments:
 
 .. code-block:: none
 
-    --command=cabal repl --enable-multi-repl lib:mylib test:mylib-test
+    --command=cabal repl --enable-multi-repl test:never-boils lib:watched-pot
     --test=Main.main
     --warnings
 
@@ -111,8 +127,8 @@ example to run a subset of a tasty or hspec suite:
 
 .. code-block:: console
 
-    $ ghcid --command 'cabal repl --enable-multi-repl lib:mylib test:mylib-test' \
-            --setup ':set args --pattern Parser' --test Main.main --warnings
+    $ ghcid --command 'cabal repl --enable-multi-repl test:never-boils lib:watched-pot' \
+            --setup ':set args --pattern boils' --test Main.main --warnings
 
 Speeding up the test run
 ^^^^^^^^^^^^^^^^^^^^^^^^
@@ -125,7 +141,7 @@ the configuration of other packages:
 
 .. code-block:: console
 
-    $ cabal repl --enable-multi-repl --repl-options=-fobject-code lib:mylib test:mylib-test
+    $ cabal repl --enable-multi-repl --repl-options=-fobject-code test:never-boils lib:watched-pot
 
 This trades a slower reload for a faster test run. Try both on your project.
 
@@ -140,13 +156,13 @@ run pays for linking and for Cabal's own start-up:
 
 .. code-block:: console
 
-    $ watchexec --exts hs,cabal -- cabal test mylib-test
+    $ watchexec --exts hs,cabal -- cabal test never-boils
 
 or, with `entr <https://github.com/eradman/entr>`__:
 
 .. code-block:: console
 
-    $ find src test -name '*.hs' | entr -c cabal test mylib-test
+    $ find src test -name '*.hs' | entr -c cabal test never-boils
 
 Other watchers
 --------------
