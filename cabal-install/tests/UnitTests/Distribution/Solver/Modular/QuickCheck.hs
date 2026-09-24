@@ -207,9 +207,10 @@ tests =
               classify (v == Oracle.IsUnknown) "oracle out of fuel" $
                 classify (v == Oracle.IsSolvable) "solvable" $
                   classify (hasDep isSubLibDep test) "sub-library dependency" $
-                    classify (hasSetupDeps test) "setup dependencies" $
-                      (v /= Oracle.IsUnknown && noneReachedBackjumpLimit [r]) ==>
-                        isRight (resultPlan r) === (v == Oracle.IsSolvable)
+                    classify (hasDep isBuildToolDep test) "build-tool dependency" $
+                      classify (hasSetupDeps test) "setup dependencies" $
+                        (v /= Oracle.IsUnknown && noneReachedBackjumpLimit [r]) ==>
+                          isRight (resultPlan r) === (v == Oracle.IsSolvable)
   , testPropertyWithSeed "solver plan is a valid resolution under the oracle's validity check" $
       \test reorderGoals indepGoals prefVersion ->
         let r = solveWith reorderGoals indepGoals prefVersion test
@@ -276,6 +277,10 @@ tests =
     isSubLibDep ExSubLibAny{} = True
     isSubLibDep ExSubLibFix{} = True
     isSubLibDep _ = False
+
+    isBuildToolDep ExBuildToolAny{} = True
+    isBuildToolDep ExBuildToolFix{} = True
+    isBuildToolDep _ = False
 
     hasSetupDeps test =
       or
@@ -512,11 +517,13 @@ arbitraryComponentDeps pn db = do
   cds <-
     CD.fromList . dedupComponentNames . filter (isValid . fst)
       <$> boundedListOf 5 (arbitraryComponentDep db)
+  let ownExes = [name | (ComponentExe name, _) <- CD.toList cds]
+      cds' = fmap (dropInternalBuildTools ownExes) cds
   return $
-    if isCompleteComponentDeps cds
-      then cds
+    if isCompleteComponentDeps cds'
+      then cds'
       else -- Add a library if the ComponentDeps isn't complete.
-        CD.fromLibraryDeps (dependencies []) <> cds
+        CD.fromLibraryDeps (dependencies []) <> cds'
   where
     isValid :: Component -> Bool
     isValid (ComponentSubLib name) = name /= mkUnqualComponentName (unPN pn)
@@ -533,6 +540,22 @@ arbitraryComponentDeps pn db = do
     componentName (ComponentExe n) = Just n
     componentName (ComponentTest n) = Just n
     componentName (ComponentBench n) = Just n
+
+-- | Remove build-tool dependencies on executables with the same name as one
+-- of the package's own executables. Cabal's package checks treat those as
+-- internal and reject a version range that excludes the package itself.
+dropInternalBuildTools :: [UnqualComponentName] -> Dependencies -> Dependencies
+dropInternalBuildTools ownExes deps =
+  deps{depsExampleDependencies = mapMaybe go (depsExampleDependencies deps)}
+  where
+    go (ExFlagged f t e) = Just (ExFlagged f (dropInternalBuildTools ownExes t) (dropInternalBuildTools ownExes e))
+    go dep@(ExBuildToolAny _ exe)
+      | mkUnqualComponentName exe `elem` ownExes = Nothing
+      | otherwise = Just dep
+    go dep@(ExBuildToolFix _ exe _)
+      | mkUnqualComponentName exe `elem` ownExes = Nothing
+      | otherwise = Just dep
+    go dep = Just dep
 
 -- | Returns true if the ComponentDeps forms a complete package, i.e., it
 -- contains a library, exe, test, or benchmark.
@@ -598,9 +621,22 @@ arbitraryExDep db@(TestDb pkgs) level =
               ++ [ (\(PN pn, lib, PV v) -> ExSubLibFix pn lib v) <$> elements subLibs
                  | not (null subLibs)
                  ]
+      -- custom-setup only supports library dependencies.
+      exes =
+        [ (getName pkg, unUnqualComponentName name, getVersion pkg)
+        | pkg@(Right av) <- pkgs
+        , (ComponentExe name, _) <- CD.toList (exAvDeps av)
+        ]
+      buildTools =
+        [ (\(PN pn, exe, _) -> ExBuildToolAny pn exe) <$> elements exes
+        | not (null exes)
+        ]
+          ++ [ (\(PN pn, exe, PV v) -> ExBuildToolFix pn exe v) <$> elements exes
+             | not (null exes)
+             ]
    in oneof $
         case level of
-          NonSetupDep -> flag : other
+          NonSetupDep -> flag : other ++ buildTools
           SetupDep -> other
 
 arbitraryDeps :: TestDb -> Gen Dependencies
@@ -708,6 +744,8 @@ instance Arbitrary ExampleDependency where
   shrink (ExFix pn _) = [ExAny pn]
   shrink (ExSubLibAny _ _) = []
   shrink (ExSubLibFix pn lib _) = [ExSubLibAny pn lib]
+  shrink (ExBuildToolAny _ _) = []
+  shrink (ExBuildToolFix pn exe _) = [ExBuildToolAny pn exe]
   shrink (ExFlagged flag th el) =
     depsExampleDependencies th
       ++ depsExampleDependencies el

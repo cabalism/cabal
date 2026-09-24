@@ -33,9 +33,11 @@
 -- solver's plan must pass 'checkResolution'), and if the solver reports that
 -- there is no plan, the oracle must agree.
 --
+-- Build-tool dependencies of @P@ on an executable of @E@ live in the scope
+-- @Exe P E@ of the same namespace, again as in 'qualifyDeps'.
+--
 -- Not modelled: dependency cycles (the QuickCheck generator never produces
--- them), build-tool dependencies, pkg-config, language and extension
--- dependencies, and base shims.
+-- them), pkg-config, language and extension dependencies, and base shims.
 module UnitTests.Distribution.Solver.Modular.QuickCheck.Oracle
   ( -- * Reference resolver
     Namespace (..)
@@ -79,7 +81,7 @@ import Distribution.Simple.Utils (ordNub)
 import Distribution.Types.Flag (unFlagAssignment, unFlagName)
 import Distribution.Types.LibraryVisibility (LibraryVisibility (..))
 import Distribution.Types.UnitId (unUnitId)
-import Distribution.Types.UnqualComponentName (mkUnqualComponentName)
+import Distribution.Types.UnqualComponentName (mkUnqualComponentName, unUnqualComponentName)
 import Distribution.Version
   ( VersionRange
   , anyVersion
@@ -121,6 +123,8 @@ data Namespace
 data Qualifier
   = Toplevel
   | Setup ExamplePkgName
+  | -- | The build tools of the first package taken from the second.
+    Exe ExamplePkgName ExamplePkgName
   deriving (Eq, Ord, Show)
 
 type Scope = (Namespace, Qualifier)
@@ -186,6 +190,8 @@ data Dep
   = -- | A @build-depends@ on the main library ('Nothing') or a named
     -- sub-library of a package.
     DepLib ExamplePkgName (Maybe ExampleSubLibName) VersionRange
+  | -- | A @build-tool-depends@ on a named executable of a package.
+    DepExe ExamplePkgName ExampleExeName VersionRange
   | -- | An installed package's dependency on an exact installed unit.
     DepUnit ExamplePkgHash
   deriving (Eq, Show)
@@ -194,6 +200,7 @@ data Dep
 data Goal
   = Target QName
   | LibDep QName (Maybe ExampleSubLibName) VersionRange
+  | ExeDep QName ExampleExeName VersionRange
   | UnitDep Scope ExamplePkgHash
   deriving (Eq, Show)
 
@@ -235,14 +242,16 @@ usedFlags a = ordNub (concatMap (goDeps . snd) (CD.toList (exAvDeps a)))
     go (ExFlagged f t e) = f : goDeps t ++ goDeps e
     go _ = []
 
--- | The dependencies of a component under a flag assignment, or 'Nothing' when
--- the component is not buildable under that assignment.
+-- | The dependencies of a component of a package under a flag assignment, or
+-- 'Nothing' when the component is not buildable under that assignment.
 --
 -- Mirrors 'addBuildableCondition' in index conversion: a component contributes
 -- its dependencies only when every node reached under the assignment has
--- @buildable: True@.
-componentDeps :: Flags -> Dependencies -> Maybe [Dep]
-componentDeps flags deps
+-- @buildable: True@. Build-tool dependencies on the package's own executables
+-- are dropped ('isInternal'), and legacy @build-tools@ entries count only when
+-- they name a known tool ('desugarBuildTool').
+componentDeps :: ExampleAvailable -> Flags -> Dependencies -> Maybe [Dep]
+componentDeps a flags deps
   | not (depsIsBuildable deps) = Nothing
   | otherwise = concat <$> traverse go (depsExampleDependencies deps)
   where
@@ -251,8 +260,27 @@ componentDeps flags deps
     go (ExRange p lo hi) = Just [DepLib p Nothing (mkVersionRange lo hi)]
     go (ExSubLibAny p l) = Just [DepLib p (Just l) anyVersion]
     go (ExSubLibFix p l v) = Just [DepLib p (Just l) (thisVersion (mkSimpleVersion v))]
-    go (ExFlagged f t e) = componentDeps flags (if lookupFlag flags f then t else e)
+    go (ExBuildToolAny p e) = Just (exeDep p e anyVersion)
+    go (ExBuildToolFix p e v) = Just (exeDep p e (thisVersion (mkSimpleVersion v)))
+    go (ExLegacyBuildToolAny n) = Just (legacy n anyVersion)
+    go (ExLegacyBuildToolFix n v) = Just (legacy n (thisVersion (mkSimpleVersion v)))
+    go (ExFlagged f t e) = componentDeps a flags (if lookupFlag flags f then t else e)
     go dep = error ("Oracle.componentDeps: unsupported dependency " ++ show dep)
+
+    exeDep p e vr = [DepExe p e vr | p /= exAvName a]
+
+    legacy n vr
+      | n `elem` ownExes = []
+      | n `elem` knownBuildTools = [DepExe n n vr]
+      | otherwise = []
+
+    ownExes = [unUnqualComponentName e | (ComponentExe e, _) <- CD.toList (exAvDeps a)]
+
+-- | The legacy @build-tools@ names that Cabal knows how to map to a package
+-- ('Distribution.Simple.BuildToolDepends.desugarBuildToolSimple').
+knownBuildTools :: [String]
+knownBuildTools =
+  ["hscolour", "haddock", "happy", "alex", "hsc2hs", "c2hs", "cpphs", "hspec-discover"]
 
 -- | Whether a predicate holds for a component everywhere it can be reached,
 -- decided before solving.
@@ -310,8 +338,20 @@ providesLibrary cs lib (Source a) =
     comp = maybe ComponentLib (ComponentSubLib . mkUnqualComponentName) lib
     fixed = unqualifiedFlagConstraints cs (exAvName a)
 
--- | The dependencies introduced by choosing an instance: regular ones first,
--- setup ones second.
+-- | Can this instance provide a named executable for a @build-tool-depends@?
+--
+-- Installed packages never can (index conversion gives them no executables).
+-- A source package needs the executable to exist and not be statically
+-- unbuildable.
+providesExe :: [ExConstraint] -> ExampleExeName -> Instance -> Bool
+providesExe _ _ (Installed _) = False
+providesExe cs exe (Source a) =
+  case lookup (ComponentExe (mkUnqualComponentName exe)) (CD.toList (exAvDeps a)) of
+    Nothing -> False
+    Just deps -> staticBuildable (unqualifiedFlagConstraints cs (exAvName a)) deps /= Just False
+
+-- | The dependencies introduced by choosing an instance: regular ones (library
+-- and build-tool) first, setup ones second.
 --
 -- An installed package depends on exact installed units. A source package's
 -- library, sub-library, foreign-library and executable components are always
@@ -324,7 +364,7 @@ instanceDeps stanzas flags (Source a) =
   )
   where
     comps =
-      [ (comp, fromMaybe [] (componentDeps flags deps))
+      [ (comp, fromMaybe [] (componentDeps a flags deps))
       | (comp, deps) <- CD.toList (exAvDeps a)
       ]
     solved ComponentLib = True
@@ -336,14 +376,16 @@ instanceDeps stanzas flags (Source a) =
     solved ComponentSetup = False
 
 -- | Qualify the dependencies of a choice made at a qualified name: regular
--- dependencies inherit the scope, setup dependencies of @P@ go to @Setup P@
--- in the same namespace ('qualifyDeps').
+-- dependencies inherit the scope, setup dependencies of @P@ go to @Setup P@,
+-- and build-tool dependencies of @P@ on @E@ go to @Exe P E@, all in the same
+-- namespace ('qualifyDeps').
 choiceGoals :: QName -> Choice -> [Goal]
 choiceGoals ((ns, q), p) ch =
   map (goal (ns, q)) regular ++ map (goal (ns, Setup p)) setup
   where
     (regular, setup) = instanceDeps (chStanzas ch) (chFlags ch) (chInstance ch)
     goal s (DepLib n l vr) = LibDep (s, n) l vr
+    goal _ (DepExe e exe vr) = ExeDep ((ns, Exe p e), e) exe vr
     goal s (DepUnit h) = UnitDep s h
 
 -- | Does a choice satisfy an unqualified dependency?
@@ -354,12 +396,19 @@ satisfiesDep cs (DepLib n l vr) ch =
     && providesLibrary cs l inst
   where
     inst = chInstance ch
+satisfiesDep cs (DepExe e exe vr) ch =
+  instName inst == e
+    && withinRange (mkSimpleVersion (instVersion inst)) vr
+    && providesExe cs exe inst
+  where
+    inst = chInstance ch
 satisfiesDep _ (DepUnit h) ch = instHash (chInstance ch) == Just h
 
 -- | Does a choice satisfy a goal? Scopes are matched by the caller.
 satisfies :: [ExConstraint] -> Goal -> Choice -> Bool
 satisfies _ (Target (_, n)) ch = instName (chInstance ch) == n
 satisfies cs (LibDep (_, n) l vr) ch = satisfiesDep cs (DepLib n l vr) ch
+satisfies cs (ExeDep (_, e) exe vr) ch = satisfiesDep cs (DepExe e exe vr) ch
 satisfies cs (UnitDep _ h) ch = satisfiesDep cs (DepUnit h) ch
 
 {-------------------------------------------------------------------------------
@@ -373,7 +422,7 @@ scopeMatches (ScopeAnySetupQualifier pn) ((_, q), n) =
   unPackageName pn == n && isSetup q
   where
     isSetup (Setup _) = True
-    isSetup Toplevel = False
+    isSetup _ = False
 scopeMatches (ScopeTarget pn) ((ns, q), n) =
   unPackageName pn == n && q == Toplevel && namespaceMatches ns
   where
@@ -384,6 +433,7 @@ scopeMatches (ScopeQualified pq pn) ((_, q), n) =
   where
     qualifierMatches P.QualToplevel Toplevel = True
     qualifierMatches (P.QualSetup p) (Setup p') = unPackageName p == p'
+    qualifierMatches (P.QualExe p e) (Exe p' e') = unPackageName p == p' && unPackageName e == e'
     qualifierMatches _ _ = False
 
 versionConstraints :: [ExConstraint] -> QName -> [(ExConstraint, VersionRange)]
@@ -558,6 +608,7 @@ resolve fuel0 indep cs db targets =
     goalQName :: Goal -> Maybe QName
     goalQName (Target qn) = Just qn
     goalQName (LibDep qn _ _) = Just qn
+    goalQName (ExeDep qn _ _) = Just qn
     goalQName (UnitDep s h) = (\n -> (s, n)) <$> Map.lookup h byHash
 
     candidates :: State -> QName -> Goal -> [Choice]
@@ -667,6 +718,8 @@ data ResolvedPackage = ResolvedPackage
   -- ^ What the regular (non-setup) components depend on.
   , rpSetupDeps :: [ResolvedRef]
   -- ^ What the setup component depends on.
+  , rpExeDeps :: [ResolvedRef]
+  -- ^ The packages the regular components take build tools from.
   }
   deriving (Eq, Show)
 
@@ -696,7 +749,9 @@ data Problem
 -- taken to be the closure under regular edges of the /roots/: packages that
 -- nothing depends on. Every root is a target, so this closure lies within the
 -- top-level scope (one closure per root with independent goals). The setup
--- scope of a package is the closure of its setup edges under regular edges.
+-- scope of a package is the closure of its setup edges under regular edges,
+-- and its build-tool scope for each tool package is the closure of the
+-- build-tool edges to that package.
 -- Within each scope there must be one instance per name; every dependency of
 -- every package must be satisfied by one of its edges; constraints are
 -- checked per scope; and every package must lie in some scope.
@@ -731,7 +786,9 @@ checkResolution cs indep db targets plan =
           | otherwise =
               rp : go (Set.insert (rpRef rp) seen) (mapMaybe (`Map.lookup` byRef) (rpDeps rp) ++ rest)
 
-    referenced = Set.fromList (concatMap (\rp -> rpDeps rp ++ rpSetupDeps rp) plan)
+    referenced = Set.fromList (concatMap allEdges plan)
+
+    allEdges rp = rpDeps rp ++ rpSetupDeps rp ++ rpExeDeps rp
 
     -- Nothing depends on a root, so it can only be there as a target.
     roots = [rp | rp <- plan, rpRef rp `Set.notMember` referenced, rpName rp `elem` targets]
@@ -746,6 +803,11 @@ checkResolution cs indep db targets plan =
            | rp <- plan
            , not (null (rpSetupDeps rp))
            ]
+        ++ [ ((DefaultNamespace, Exe (rpName rp) e), closure (mapMaybe (`Map.lookup` byRef) refs))
+           | rp <- plan
+           , refs@(r : _) <- L.groupBy ((==) `on` rrName) (L.sortOn rrName (rpExeDeps rp))
+           , let e = rrName r
+           ]
 
     reached = Set.fromList [rpRef rp | (_, rps) <- scopes, rp <- rps]
 
@@ -759,17 +821,18 @@ checkResolution cs indep db targets plan =
           ]
 
     edgeProblems rp =
-      [UnknownReference (rpName rp) r | r <- rpDeps rp ++ rpSetupDeps rp, r `Map.notMember` byRef]
+      [UnknownReference (rpName rp) r | r <- allEdges rp, r `Map.notMember` byRef]
         ++ case toChoice rp of
           Nothing -> []
           Just ch ->
             let (regular, setup) = instanceDeps (chStanzas ch) (chFlags ch) (chInstance ch)
+                (exes, libs) = L.partition isExeDep regular
                 missing edges deps =
                   [ MissingDependency (rpName rp) d
                   | d <- deps
                   , not (any (satisfiesDep cs d) (mapMaybe (\r -> Map.lookup r byRef >>= toChoice) edges))
                   ]
-             in missing (rpDeps rp) regular ++ missing (rpSetupDeps rp) setup
+             in missing (rpDeps rp) libs ++ missing (rpExeDeps rp) exes ++ missing (rpSetupDeps rp) setup
 
     toChoice rp = do
       inst <- lookupInstance rp
@@ -807,6 +870,7 @@ fromSolverPlan = map conv . SolverInstallPlan.toList
             , rpStanzas = []
             , rpDeps = map ref (CD.nonSetupDeps (instSolverPkgLibDeps ipkg))
             , rpSetupDeps = map ref (CD.setupDeps (instSolverPkgLibDeps ipkg))
+            , rpExeDeps = map ref (CD.nonSetupDeps (instSolverPkgExeDeps ipkg))
             }
     conv (Configured spkg) =
       let PackageIdentifier pn v = packageId (solverPkgSource spkg)
@@ -818,6 +882,7 @@ fromSolverPlan = map conv . SolverInstallPlan.toList
             , rpStanzas = optStanzaSetToList (solverPkgStanzas spkg)
             , rpDeps = map ref (CD.nonSetupDeps (solverPkgLibDeps spkg))
             , rpSetupDeps = map ref (CD.setupDeps (solverPkgLibDeps spkg))
+            , rpExeDeps = map ref (CD.nonSetupDeps (solverPkgExeDeps spkg))
             }
 
     ref (PreExistingId (PackageIdentifier pn v) uid) =
@@ -841,14 +906,17 @@ toResolved res = Map.elems (Map.fromList [(rpRef rp, rp) | rp <- map conv (Map.t
         , rpInstalledHash = instHash inst
         , rpFlags = Map.toList (chFlags ch)
         , rpStanzas = chStanzas ch
-        , rpDeps = mapMaybe (ref (fst qn)) regular
+        , rpDeps = mapMaybe (ref (fst qn)) libs
         , rpSetupDeps = mapMaybe (ref (ns, Setup p)) setup
+        , rpExeDeps = mapMaybe (refExe p ns) exes
         }
       where
         inst = chInstance ch
         (regular, setup) = instanceDeps (chStanzas ch) (chFlags ch) inst
+        (exes, libs) = L.partition isExeDep regular
 
     ref s (DepLib n _ _) = choiceRef <$> Map.lookup (s, n) res
+    ref _ (DepExe _ _ _) = Nothing
     ref s (DepUnit h) =
       listToMaybe
         [ choiceRef ch
@@ -857,10 +925,17 @@ toResolved res = Map.elems (Map.fromList [(rpRef rp, rp) | rp <- map conv (Map.t
         , instHash (chInstance ch) == Just h
         ]
 
+    refExe p ns (DepExe e _ _) = choiceRef <$> Map.lookup ((ns, Exe p e), e) res
+    refExe _ _ _ = Nothing
+
     choiceRef ch =
       ResolvedRef (instName inst) (instVersion inst) (instHash inst)
       where
         inst = chInstance ch
+
+isExeDep :: Dep -> Bool
+isExeDep DepExe{} = True
+isExeDep _ = False
 
 {-------------------------------------------------------------------------------
   Unit tests pinning the intended semantics
@@ -921,6 +996,26 @@ solverCases =
   , SolverCase "choose the version that has the sub-library" False [] dbSubLibVersions ["A"] IsSolvable
   , SolverCase "choose the version whose sub-library is public" False [] dbSubLibVisibilities ["A"] IsSolvable
   , SolverCase "installed packages provide no sub-libraries" False [] [Right (exAv "A" 1 [ExSubLibAny "B" "sub-lib"]), Left (exInst "B" 1 "B-1-hash" [])] ["A"] IsUnsolvable
+  , -- Build-tool dependencies (Solver.hs "build-tool-depends" and "legacy build-tools").
+    SolverCase "simple exe dependency" False [] dbBuildTools ["A"] IsSolvable
+  , SolverCase "flagged exe dependency" False [] dbBuildTools ["B"] IsSolvable
+  , SolverCase "test suite exe dependency" False [ExStanzaConstraint (anyQ "C") [TestStanzas]] dbBuildTools ["C"] IsSolvable
+  , SolverCase "unknown exe" False [] dbBuildTools ["D"] IsUnsolvable
+  , SolverCase "unknown build tool package" False [] dbBuildTools ["E"] IsUnsolvable
+  , SolverCase "unknown flagged exe" False [] dbBuildTools ["F"] IsUnsolvable
+  , SolverCase "wrong exe for build tool package version" False [] dbBuildTools ["H"] IsUnsolvable
+  , SolverCase "installed packages provide no executables" False [] [Right (exAv "A" 1 [ExBuildToolAny "B" "exe"]), Left (exInst "B" 1 "B-1-hash" [])] ["A"] IsUnsolvable
+  , SolverCase "build tool versions must be consistent within one package" False [] dbTwoExes ["A"] IsUnsolvable
+  , SolverCase "two exes from one version" False [] dbTwoExesOneVersion ["A"] IsSolvable
+  , SolverCase "build-tool dependency with unbuildable library" False [flagFalse "B" "build-lib"] dbUnbuildableToolLib ["A"] IsSolvable
+  , SolverCase "build-tool dependency with unbuildable exe" False [flagFalse "B" "build-exe"] dbUnbuildableToolExe ["A"] IsUnsolvable
+  , SolverCase "build-tool dependency with exe that a flag could make unbuildable" False [] dbUnbuildableToolExe ["A"] IsSolvable
+  , SolverCase "build tool scope may differ from the library scope" False [] dbToolVsLib ["B"] IsSolvable
+  , SolverCase "known legacy build tool" False [] dbLegacy1 ["A"] IsSolvable
+  , SolverCase "known legacy build tool needs the exe of that name" False [] dbLegacy2 ["A"] IsUnsolvable
+  , SolverCase "unknown legacy build tool is ignored" False [] [Right (exAv "A" 1 [ExLegacyBuildToolAny "otherdude"])] ["A"] IsSolvable
+  , SolverCase "different versions of a legacy build tool" False [] dbLegacy4 ["C"] IsSolvable
+  , SolverCase "build tools on build tools" False [] dbLegacy6 ["A"] IsSolvable
   ]
   where
     anyQ = ScopeAnyQualifier . mkPackageName
@@ -990,6 +1085,7 @@ tests =
         , rpStanzas = []
         , rpDeps = deps
         , rpSetupDeps = []
+        , rpExeDeps = []
         }
 
     withSetup rp deps = rp{rpSetupDeps = deps}
@@ -1004,7 +1100,7 @@ tests =
   Example databases
 -------------------------------------------------------------------------------}
 
-dbChain, dbMissingVersion, dbTwoVersions, dbFlag, dbUnbuildableBranch, dbUnbuildableLib, dbInstalled, dbExeOnly, dbTestStanza, dbBadTestStanza, dbSetup, dbTwoSetupScopes, dbLinkedManualFlag, dbUnlinkedManualFlag, dbLinkedDeps, dbInstalledAndSource, dbPrivateSubLib, dbFlaggedSubLib, dbPublicSubLib, dbSubLibVersions, dbSubLibVisibilities :: ExampleDb
+dbChain, dbMissingVersion, dbTwoVersions, dbFlag, dbUnbuildableBranch, dbUnbuildableLib, dbInstalled, dbExeOnly, dbTestStanza, dbBadTestStanza, dbSetup, dbTwoSetupScopes, dbLinkedManualFlag, dbUnlinkedManualFlag, dbLinkedDeps, dbInstalledAndSource, dbPrivateSubLib, dbFlaggedSubLib, dbPublicSubLib, dbSubLibVersions, dbSubLibVisibilities, dbBuildTools, dbTwoExes, dbTwoExesOneVersion, dbUnbuildableToolLib, dbUnbuildableToolExe, dbToolVsLib, dbLegacy1, dbLegacy2, dbLegacy4, dbLegacy6 :: ExampleDb
 dbChain = [Right (exAv "A" 1 [ExAny "B"]), Right (exAv "B" 1 [])]
 dbMissingVersion = [Right (exAv "A" 1 [ExFix "B" 2]), Right (exAv "B" 1 [])]
 dbTwoVersions =
@@ -1094,6 +1190,69 @@ dbLinkedDeps =
   , Right (exAv "P" 1 [ExAny "Q"])
   , Right (exAv "Q" 1 [])
   , Right (exAv "Q" 2 [])
+  ]
+-- Solver.hs dbBuildTools.
+dbBuildTools =
+  [ Right (exAv "A" 1 [ExBuildToolAny "bt-pkg" "exe1"])
+  , Right (exAv "B" 1 [exFlagged "flagB" [ExAny "unknown"] [ExBuildToolAny "bt-pkg" "exe1"]])
+  , Right (exAv "C" 1 [] `withTest` exTest "testC" [ExBuildToolAny "bt-pkg" "exe1"])
+  , Right (exAv "D" 1 [ExBuildToolAny "bt-pkg" "unknown-exe"])
+  , Right (exAv "E" 1 [ExBuildToolAny "unknown-pkg" "exe1"])
+  , Right (exAv "F" 1 [exFlagged "flagF" [ExBuildToolAny "bt-pkg" "unknown-exe"] [ExAny "unknown"]])
+  , Right (exAv "H" 1 [ExBuildToolFix "bt-pkg" "exe1" 3])
+  , Right (exAv "bt-pkg" 4 [] `withExe` exExe "exe1" [])
+  , Right (exAv "bt-pkg" 3 [])
+  , Right (exAv "bt-pkg" 2 [] `withExe` exExe "exe1" [])
+  , Right (exAv "bt-pkg" 1 [])
+  ]
+-- Both executables come from the scope @Exe A B@, so they must come from one
+-- version of B.
+dbTwoExes =
+  [ Right (exAv "A" 1 [ExBuildToolFix "B" "exe1" 1, ExBuildToolFix "B" "exe2" 2])
+  , Right (exAv "B" 2 [] `withExes` [exExe "exe1" [], exExe "exe2" []])
+  , Right (exAv "B" 1 [] `withExes` [exExe "exe1" [], exExe "exe2" []])
+  ]
+dbTwoExesOneVersion =
+  [ Right (exAv "A" 1 [ExBuildToolAny "B" "exe1", ExBuildToolAny "B" "exe2"])
+  , Right (exAv "B" 1 [] `withExes` [exExe "exe1" [], exExe "exe2" []])
+  ]
+dbUnbuildableToolLib =
+  [ Right (exAv "A" 1 [ExBuildToolAny "B" "bt"])
+  , Right (exAv "B" 1 [ExFlagged "build-lib" (dependencies []) unbuildableDependencies] `withExe` exExe "bt" [])
+  ]
+dbUnbuildableToolExe =
+  [ Right (exAv "A" 1 [ExBuildToolAny "B" "bt"])
+  , Right (exAv "B" 1 [] `withExe` exExe "bt" [ExFlagged "build-exe" (dependencies []) unbuildableDependencies])
+  ]
+-- B needs A-2 as a library and the tool needs A-1, which is fine because the
+-- tool's dependencies live in the scope @Exe B alex@.
+dbToolVsLib =
+  [ Right (exAv "alex" 1 [ExFix "A" 1] `withExe` exExe "alex" [])
+  , Right (exAv "A" 1 [])
+  , Right (exAv "A" 2 [])
+  , Right (exAv "B" 1 [ExBuildToolFix "alex" "alex" 1, ExFix "A" 2])
+  ]
+-- Solver.hs dbLegacyBuildTools1, 2, 4 and 6.
+dbLegacy1 =
+  [ Right (exAv "alex" 1 [] `withExe` exExe "alex" [])
+  , Right (exAv "A" 1 [ExLegacyBuildToolAny "alex"])
+  ]
+dbLegacy2 =
+  [ Right (exAv "alex" 1 [] `withExe` exExe "other-exe" [])
+  , Right (exAv "other-package" 1 [] `withExe` exExe "alex" [])
+  , Right (exAv "A" 1 [ExLegacyBuildToolAny "alex"])
+  ]
+dbLegacy4 =
+  [ Right (exAv "alex" 1 [] `withExe` exExe "alex" [])
+  , Right (exAv "alex" 2 [] `withExe` exExe "alex" [])
+  , Right (exAv "A" 1 [ExLegacyBuildToolFix "alex" 1])
+  , Right (exAv "B" 1 [ExLegacyBuildToolFix "alex" 2])
+  , Right (exAv "C" 1 [ExAny "A", ExAny "B"])
+  ]
+dbLegacy6 =
+  [ Right (exAv "alex" 1 [] `withExe` exExe "alex" [])
+  , Right (exAv "happy" 1 [ExLegacyBuildToolAny "alex"] `withExe` exExe "happy" [])
+  , Right (exAv "A" 1 [ExLegacyBuildToolAny "happy"])
   ]
 dbPrivateSubLib =
   [ Right (exAv "A" 1 [ExSubLibAny "B" "sub-lib"])
