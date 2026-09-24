@@ -19,6 +19,7 @@ import Test.QuickCheck.Instances.Cabal ()
 import Test.Tasty (TestTree)
 import Test.Tasty.HUnit (testCase, (@?=))
 
+import Distribution.Solver.Types.Flag (FlagType (..))
 import Distribution.Types.Flag (FlagName)
 import Distribution.Utils.ShortText (ShortText, fromShortText)
 
@@ -215,9 +216,11 @@ tests =
                       classify (hasCyclicNames test) "cycle among package names" $
                         classify (hasDep isPkgConfigDep test) "pkg-config dependency" $
                           classify (hasDep isCompilerDep test) "extension or language dependency" $
-                            classify (hasSetupDeps test) "setup dependencies" $
-                              (v /= Oracle.IsUnknown && noneReachedBackjumpLimit [r]) ==>
-                                isRight (resultPlan r) === (v == Oracle.IsSolvable)
+                            classify (any isFlagConstraint (testConstraints test)) "flag constraint" $
+                              classify (hasManualFlag test) "manual flag" $
+                                classify (hasSetupDeps test) "setup dependencies" $
+                                  (v /= Oracle.IsUnknown && noneReachedBackjumpLimit [r]) ==>
+                                    isRight (resultPlan r) === (v == Oracle.IsSolvable)
   , testPropertyWithSeed "solver plan is a valid resolution under the oracle's validity check" $
       \test reorderGoals indepGoals prefVersion ->
         let r = solveWith reorderGoals indepGoals prefVersion test
@@ -305,6 +308,16 @@ tests =
     isCompilerDep ExExt{} = True
     isCompilerDep ExLang{} = True
     isCompilerDep _ = False
+
+    isFlagConstraint ExFlagConstraint{} = True
+    isFlagConstraint _ = False
+
+    hasManualFlag test =
+      or
+        [ exFlagType flag == Manual
+        | Right av <- unTestDb (testDb test)
+        , flag <- exAvFlags av
+        ]
 
     -- Whether the package names, with an edge for every dependency of any
     -- kind under any flag assignment, contain a cycle. A rough indicator that
@@ -519,9 +532,9 @@ instance Arbitrary SolverTest where
         pkgs = ordNub $ map fst pkgVersions
     Positive n <- arbitrary
     targets <- randomSubset n pkgs
-    constraints <- case pkgVersions of
+    constraints <- case unTestDb db of
       [] -> return []
-      _ -> boundedListOf 1 $ arbitraryConstraint pkgVersions
+      dbPkgs -> boundedListOf 2 $ arbitraryConstraint dbPkgs
     prefs <- case pkgVersions of
       [] -> return []
       _ -> boundedListOf 3 $ arbitraryPreference pkgVersions
@@ -613,8 +626,25 @@ instance Arbitrary TestDb where
   shrink (TestDb pkgs) = map TestDb $ shrink pkgs
 
 arbitraryExAv :: PN -> PV -> TestDb -> [(PN, PV)] -> Gen ExampleAvailable
-arbitraryExAv pn v db later =
-  (\cds -> ExAv (unPN pn) (unPV v) cds []) <$> arbitraryComponentDeps pn db later
+arbitraryExAv pn v db later = do
+  cds <- arbitraryComponentDeps pn db later
+  flags <- arbitraryFlagDeclarations cds
+  return (ExAv (unPN pn) (unPV v) cds flags)
+
+-- | Declare some of the flags a package uses, each as manual or automatic
+-- with a random default. Undeclared flags are automatic with default True.
+arbitraryFlagDeclarations :: ComponentDeps Dependencies -> Gen [ExFlag]
+arbitraryFlagDeclarations cds = do
+  names <- sublistOf (usedFlagNames cds)
+  traverse (\name -> ExFlag name <$> arbitrary <*> elements [Manual, Automatic]) names
+
+-- | The flags mentioned anywhere in a package's dependencies.
+usedFlagNames :: ComponentDeps Dependencies -> [ExampleFlagName]
+usedFlagNames = ordNub . concatMap (go . snd) . CD.toList
+  where
+    go deps = concatMap goDep (depsExampleDependencies deps)
+    goDep (ExFlagged f t e) = f : go t ++ go e
+    goDep _ = []
 
 arbitraryExInst :: PN -> PV -> [ExampleInstalled] -> Gen ExampleInstalled
 arbitraryExInst pn v pkgs = do
@@ -776,14 +806,17 @@ arbitraryDeps db later =
 arbitraryFlagName :: Gen String
 arbitraryFlagName = (: []) <$> elements ['A' .. 'E']
 
-arbitraryConstraint :: [(PN, PV)] -> Gen ExConstraint
+arbitraryConstraint :: [TestPackage] -> Gen ExConstraint
 arbitraryConstraint pkgs = do
-  (PN pn, v) <- elements pkgs
-  let anyQualifier = ScopeAnyQualifier (mkPackageName pn)
-  oneof
-    [ ExVersionConstraint anyQualifier <$> arbitraryVersionRange v
+  pkg <- elements pkgs
+  let PN pn = getName pkg
+      anyQualifier = ScopeAnyQualifier (mkPackageName pn)
+      flags = either (const []) (usedFlagNames . exAvDeps) pkg
+  oneof $
+    [ ExVersionConstraint anyQualifier <$> arbitraryVersionRange (getVersion pkg)
     , ExStanzaConstraint anyQualifier <$> sublistOf [TestStanzas, BenchStanzas]
     ]
+      ++ [ExFlagConstraint anyQualifier <$> elements flags <*> arbitrary | not (null flags)]
 
 arbitraryPreference :: [(PN, PV)] -> Gen ExPreference
 arbitraryPreference pkgs = do
@@ -856,7 +889,9 @@ instance Arbitrary ExampleInstalled where
 instance Arbitrary ExampleAvailable where
   arbitrary = error "arbitrary not implemented: ExampleAvailable"
 
-  shrink ea = [ea{exAvDeps = deps} | deps <- shrink (exAvDeps ea)]
+  shrink ea =
+    [ea{exAvDeps = deps} | deps <- shrink (exAvDeps ea)]
+      ++ [ea{exAvFlags = flags} | flags <- shrinkList shrinkNothing (exAvFlags ea)]
 
 instance (Arbitrary a, Monoid a) => Arbitrary (ComponentDeps a) where
   arbitrary = error "arbitrary not implemented: ComponentDeps"
