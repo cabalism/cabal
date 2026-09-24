@@ -205,8 +205,11 @@ tests =
             v = Oracle.verdict (oracleResolve indepGoals test)
          in counterexample (showResult 1 r ++ "oracle: " ++ show v) $
               classify (v == Oracle.IsUnknown) "oracle out of fuel" $
-                (v /= Oracle.IsUnknown && noneReachedBackjumpLimit [r]) ==>
-                  isRight (resultPlan r) === (v == Oracle.IsSolvable)
+                classify (v == Oracle.IsSolvable) "solvable" $
+                  classify (hasDep isSubLibDep test) "sub-library dependency" $
+                    classify (hasSetupDeps test) "setup dependencies" $
+                      (v /= Oracle.IsUnknown && noneReachedBackjumpLimit [r]) ==>
+                        isRight (resultPlan r) === (v == Oracle.IsSolvable)
   , testPropertyWithSeed "solver plan is a valid resolution under the oracle's validity check" $
       \test reorderGoals indepGoals prefVersion ->
         let r = solveWith reorderGoals indepGoals prefVersion test
@@ -256,6 +259,29 @@ tests =
 
     oracleFuel :: Int
     oracleFuel = 100000
+
+    -- Whether any source package in the test has a dependency of the given
+    -- kind, looking inside flag branches too.
+    hasDep :: (ExampleDependency -> Bool) -> SolverTest -> Bool
+    hasDep p test =
+      or
+        [ any (go . snd) (CD.toList (exAvDeps av))
+        | Right av <- unTestDb (testDb test)
+        ]
+      where
+        go deps = any goDep (depsExampleDependencies deps)
+        goDep dep@(ExFlagged _ t e) = p dep || go t || go e
+        goDep dep = p dep
+
+    isSubLibDep ExSubLibAny{} = True
+    isSubLibDep ExSubLibFix{} = True
+    isSubLibDep _ = False
+
+    hasSetupDeps test =
+      or
+        [ not (null (depsExampleDependencies (CD.setupDeps (exAvDeps av))))
+        | Right av <- unTestDb (testDb test)
+        ]
 
     oracleResolve (IndependentGoals indep) test =
       Oracle.resolve
@@ -527,12 +553,15 @@ arbitraryComponentDep db = do
   deps <- case comp of
     ComponentSetup -> smallListOf (arbitraryExDep db SetupDep)
     _ -> boundedListOf 5 (arbitraryExDep db NonSetupDep)
+  visibility <- case comp of
+    ComponentSubLib _ -> arbitrary
+    _ -> return LibraryVisibilityPublic
   return
     ( comp
     , Dependencies
         { depsExampleDependencies = deps
-        , -- TODO: Test different values for visibility and buildability.
-          depsVisibility = LibraryVisibilityPublic
+        , -- TODO: Test different values for buildability.
+          depsVisibility = visibility
         , depsIsBuildable = True
         }
     )
@@ -550,6 +579,11 @@ arbitraryExDep db@(TestDb pkgs) level =
       other =
         -- Package checks require dependencies on "base" to have bounds.
         let notBase = filter ((/= PN "base") . getName) pkgs
+            subLibs =
+              [ (getName pkg, unUnqualComponentName name, getVersion pkg)
+              | pkg@(Right av) <- pkgs
+              , (ComponentSubLib name, _) <- CD.toList (exAvDeps av)
+              ]
          in [ExAny . unPN <$> elements (map getName notBase) | not (null notBase)]
               ++ [
                    -- existing version
@@ -557,6 +591,12 @@ arbitraryExDep db@(TestDb pkgs) level =
                     in fixed <$> elements pkgs
                  , -- random version of an existing package
                    ExFix . unPN . getName <$> elements pkgs <*> (unPV <$> arbitrary)
+                 ]
+              ++ [ (\(PN pn, lib, _) -> ExSubLibAny pn lib) <$> elements subLibs
+                 | not (null subLibs)
+                 ]
+              ++ [ (\(PN pn, lib, PV v) -> ExSubLibFix pn lib v) <$> elements subLibs
+                 | not (null subLibs)
                  ]
    in oneof $
         case level of
@@ -666,6 +706,8 @@ instance Arbitrary ExampleDependency where
   shrink (ExAny _) = []
   shrink (ExFix "base" _) = [] -- preserve bounds on base
   shrink (ExFix pn _) = [ExAny pn]
+  shrink (ExSubLibAny _ _) = []
+  shrink (ExSubLibFix pn lib _) = [ExSubLibAny pn lib]
   shrink (ExFlagged flag th el) =
     depsExampleDependencies th
       ++ depsExampleDependencies el

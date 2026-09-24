@@ -34,8 +34,8 @@
 -- there is no plan, the oracle must agree.
 --
 -- Not modelled: dependency cycles (the QuickCheck generator never produces
--- them), build-tool dependencies, sub-library dependencies, pkg-config,
--- language and extension dependencies, and base shims.
+-- them), build-tool dependencies, pkg-config, language and extension
+-- dependencies, and base shims.
 module UnitTests.Distribution.Solver.Modular.QuickCheck.Oracle
   ( -- * Reference resolver
     Namespace (..)
@@ -77,7 +77,9 @@ import qualified Distribution.InstalledPackageInfo as IPI
 import Distribution.Package (PackageIdentifier (..), mkPackageName, packageId, unPackageName)
 import Distribution.Simple.Utils (ordNub)
 import Distribution.Types.Flag (unFlagAssignment, unFlagName)
+import Distribution.Types.LibraryVisibility (LibraryVisibility (..))
 import Distribution.Types.UnitId (unUnitId)
+import Distribution.Types.UnqualComponentName (mkUnqualComponentName)
 import Distribution.Version
   ( VersionRange
   , anyVersion
@@ -181,8 +183,9 @@ type Resolution = Map QName Choice
 
 -- | An unqualified dependency of an instance.
 data Dep
-  = -- | A @build-depends@ on the main library of a package.
-    DepLib ExamplePkgName VersionRange
+  = -- | A @build-depends@ on the main library ('Nothing') or a named
+    -- sub-library of a package.
+    DepLib ExamplePkgName (Maybe ExampleSubLibName) VersionRange
   | -- | An installed package's dependency on an exact installed unit.
     DepUnit ExamplePkgHash
   deriving (Eq, Show)
@@ -190,7 +193,7 @@ data Dep
 -- | Something that must be satisfied by the resolution, in a scope.
 data Goal
   = Target QName
-  | LibDep QName VersionRange
+  | LibDep QName (Maybe ExampleSubLibName) VersionRange
   | UnitDep Scope ExamplePkgHash
   deriving (Eq, Show)
 
@@ -243,27 +246,29 @@ componentDeps flags deps
   | not (depsIsBuildable deps) = Nothing
   | otherwise = concat <$> traverse go (depsExampleDependencies deps)
   where
-    go (ExAny p) = Just [DepLib p anyVersion]
-    go (ExFix p v) = Just [DepLib p (thisVersion (mkSimpleVersion v))]
-    go (ExRange p lo hi) = Just [DepLib p (mkVersionRange lo hi)]
+    go (ExAny p) = Just [DepLib p Nothing anyVersion]
+    go (ExFix p v) = Just [DepLib p Nothing (thisVersion (mkSimpleVersion v))]
+    go (ExRange p lo hi) = Just [DepLib p Nothing (mkVersionRange lo hi)]
+    go (ExSubLibAny p l) = Just [DepLib p (Just l) anyVersion]
+    go (ExSubLibFix p l v) = Just [DepLib p (Just l) (thisVersion (mkSimpleVersion v))]
     go (ExFlagged f t e) = componentDeps flags (if lookupFlag flags f then t else e)
     go dep = error ("Oracle.componentDeps: unsupported dependency " ++ show dep)
 
--- | Whether a component is buildable, decided before solving.
+-- | Whether a predicate holds for a component everywhere it can be reached,
+-- decided before solving.
 --
 -- Mirrors 'extractCondition' and 'testConditionForComponent': 'Just False'
--- when the component is unbuildable however the free flags are assigned,
--- 'Just True' when it is always buildable, and 'Nothing' when it depends on a
--- flag that no unqualified constraint fixes. The solver treats 'Nothing' as
--- buildable.
-staticBuildable :: Flags -> Dependencies -> Maybe Bool
-staticBuildable fixed deps
-  | not (depsIsBuildable deps) = Just False
+-- when the predicate fails however the free flags are assigned, 'Just True'
+-- when it always holds, and 'Nothing' when the answer depends on a flag that
+-- no unqualified constraint fixes.
+staticCondition :: (Dependencies -> Bool) -> Flags -> Dependencies -> Maybe Bool
+staticCondition p fixed deps
+  | not (p deps) = Just False
   | otherwise = conj (map branch (depsExampleDependencies deps))
   where
     branch (ExFlagged f t e) = case Map.lookup f fixed of
-      Just b -> staticBuildable fixed (if b then t else e)
-      Nothing -> case (staticBuildable fixed t, staticBuildable fixed e) of
+      Just b -> staticCondition p fixed (if b then t else e)
+      Nothing -> case (staticCondition p fixed t, staticCondition p fixed e) of
         (Just False, Just False) -> Just False
         (Just True, Just True) -> Just True
         _ -> Nothing
@@ -274,19 +279,36 @@ staticBuildable fixed deps
       | all (== Just True) bs = Just True
       | otherwise = Nothing
 
-mainLibrary :: ExampleAvailable -> Maybe Dependencies
-mainLibrary a = lookup ComponentLib (CD.toList (exAvDeps a))
+-- | The solver treats a component as buildable unless it is statically
+-- unbuildable.
+staticBuildable :: Flags -> Dependencies -> Maybe Bool
+staticBuildable = staticCondition depsIsBuildable
 
--- | Can this instance be the target of a @build-depends@?
+-- | The solver treats a sub-library as visible unless it is statically
+-- private. The DSL always makes the main library public.
+staticPrivate :: Flags -> Dependencies -> Maybe Bool
+staticPrivate = staticCondition ((== LibraryVisibilityPrivate) . depsVisibility)
+
+-- | Can this instance be the target of a @build-depends@ on its main library
+-- ('Nothing') or on a named sub-library?
 --
--- Installed packages always can. A source package needs a main library that
--- is not statically unbuildable (validation's
--- @PackageRequiresMissingComponent@ and @PackageRequiresUnbuildableComponent@).
-providesLibrary :: [ExConstraint] -> Instance -> Bool
-providesLibrary _ (Installed _) = True
-providesLibrary cs (Source a) = case mainLibrary a of
-  Nothing -> False
-  Just lib -> staticBuildable (unqualifiedFlagConstraints cs (exAvName a)) lib /= Just False
+-- Installed packages provide only their main library (index conversion does
+-- not yet handle installed sub-libraries). A source package needs the
+-- component to exist and to be neither statically unbuildable nor, for a
+-- sub-library, statically private (validation's
+-- @PackageRequiresMissingComponent@, @PackageRequiresUnbuildableComponent@
+-- and @PackageRequiresPrivateComponent@).
+providesLibrary :: [ExConstraint] -> Maybe ExampleSubLibName -> Instance -> Bool
+providesLibrary _ lib (Installed _) = isNothing lib
+providesLibrary cs lib (Source a) =
+  case lookup comp (CD.toList (exAvDeps a)) of
+    Nothing -> False
+    Just deps ->
+      staticBuildable fixed deps /= Just False
+        && (isNothing lib || staticPrivate fixed deps /= Just True)
+  where
+    comp = maybe ComponentLib (ComponentSubLib . mkUnqualComponentName) lib
+    fixed = unqualifiedFlagConstraints cs (exAvName a)
 
 -- | The dependencies introduced by choosing an instance: regular ones first,
 -- setup ones second.
@@ -321,15 +343,15 @@ choiceGoals ((ns, q), p) ch =
   map (goal (ns, q)) regular ++ map (goal (ns, Setup p)) setup
   where
     (regular, setup) = instanceDeps (chStanzas ch) (chFlags ch) (chInstance ch)
-    goal s (DepLib n vr) = LibDep (s, n) vr
+    goal s (DepLib n l vr) = LibDep (s, n) l vr
     goal s (DepUnit h) = UnitDep s h
 
 -- | Does a choice satisfy an unqualified dependency?
 satisfiesDep :: [ExConstraint] -> Dep -> Choice -> Bool
-satisfiesDep cs (DepLib n vr) ch =
+satisfiesDep cs (DepLib n l vr) ch =
   instName inst == n
     && withinRange (mkSimpleVersion (instVersion inst)) vr
-    && providesLibrary cs inst
+    && providesLibrary cs l inst
   where
     inst = chInstance ch
 satisfiesDep _ (DepUnit h) ch = instHash (chInstance ch) == Just h
@@ -337,7 +359,7 @@ satisfiesDep _ (DepUnit h) ch = instHash (chInstance ch) == Just h
 -- | Does a choice satisfy a goal? Scopes are matched by the caller.
 satisfies :: [ExConstraint] -> Goal -> Choice -> Bool
 satisfies _ (Target (_, n)) ch = instName (chInstance ch) == n
-satisfies cs (LibDep (_, n) vr) ch = satisfiesDep cs (DepLib n vr) ch
+satisfies cs (LibDep (_, n) l vr) ch = satisfiesDep cs (DepLib n l vr) ch
 satisfies cs (UnitDep _ h) ch = satisfiesDep cs (DepUnit h) ch
 
 {-------------------------------------------------------------------------------
@@ -535,7 +557,7 @@ resolve fuel0 indep cs db targets =
     -- depender broken).
     goalQName :: Goal -> Maybe QName
     goalQName (Target qn) = Just qn
-    goalQName (LibDep qn _) = Just qn
+    goalQName (LibDep qn _ _) = Just qn
     goalQName (UnitDep s h) = (\n -> (s, n)) <$> Map.lookup h byHash
 
     candidates :: State -> QName -> Goal -> [Choice]
@@ -826,7 +848,7 @@ toResolved res = Map.elems (Map.fromList [(rpRef rp, rp) | rp <- map conv (Map.t
         inst = chInstance ch
         (regular, setup) = instanceDeps (chStanzas ch) (chFlags ch) inst
 
-    ref s (DepLib n _) = choiceRef <$> Map.lookup (s, n) res
+    ref s (DepLib n _ _) = choiceRef <$> Map.lookup (s, n) res
     ref s (DepUnit h) =
       listToMaybe
         [ choiceRef ch
@@ -890,6 +912,15 @@ solverCases =
   , SolverCase "linked packages must resolve dependencies alike" False [ExVersionConstraint (ScopeTarget (mkPackageName "Q")) (thisVersion (mkSimpleVersion 2)), ExVersionConstraint (ScopeQualified (P.QualSetup (mkPackageName "T")) (mkPackageName "Q")) (thisVersion (mkSimpleVersion 1))] dbLinkedDeps ["T"] IsUnsolvable
   , SolverCase "linked packages resolve dependencies alike" False [ExVersionConstraint (ScopeTarget (mkPackageName "Q")) (thisVersion (mkSimpleVersion 2))] dbLinkedDeps ["T"] IsSolvable
   , SolverCase "installed and source instances of one version may coexist across scopes" False [] dbInstalledAndSource ["T"] IsSolvable
+  , -- Sub-library dependencies (Solver.hs "sub-library dependencies").
+    SolverCase "missing sub-library" False [] [Right (exAv "A" 1 [ExSubLibAny "B" "sub-lib"]), Right (exAv "B" 1 [])] ["A"] IsUnsolvable
+  , SolverCase "private sub-library" False [] dbPrivateSubLib ["A"] IsUnsolvable
+  , SolverCase "sub-library made private by a flag constraint" False [ExFlagConstraint (anyQ "B") "make-lib-private" True] dbFlaggedSubLib ["A"] IsUnsolvable
+  , SolverCase "sub-library is visible when only a flag choice could make it private" False [] dbFlaggedSubLib ["A"] IsSolvable
+  , SolverCase "public sub-library of an executable-only package" False [] dbPublicSubLib ["A"] IsSolvable
+  , SolverCase "choose the version that has the sub-library" False [] dbSubLibVersions ["A"] IsSolvable
+  , SolverCase "choose the version whose sub-library is public" False [] dbSubLibVisibilities ["A"] IsSolvable
+  , SolverCase "installed packages provide no sub-libraries" False [] [Right (exAv "A" 1 [ExSubLibAny "B" "sub-lib"]), Left (exInst "B" 1 "B-1-hash" [])] ["A"] IsUnsolvable
   ]
   where
     anyQ = ScopeAnyQualifier . mkPackageName
@@ -919,10 +950,13 @@ tests =
           checkResolution [] False dbChain ["A"] [] @?= [MissingTarget "A"]
       , testCase "rejects a dropped dependency" $
           checkResolution [] False dbChain ["A"] [src "A" 1 [] []]
-            @?= [MissingDependency "A" (DepLib "B" anyVersion)]
+            @?= [MissingDependency "A" (DepLib "B" Nothing anyVersion)]
       , testCase "rejects an edge to a package that is not in the plan" $
           checkResolution [] False dbChain ["A"] [src "A" 1 [] [b1]]
-            @?= [UnknownReference "A" b1, MissingDependency "A" (DepLib "B" anyVersion)]
+            @?= [UnknownReference "A" b1, MissingDependency "A" (DepLib "B" Nothing anyVersion)]
+      , testCase "rejects an edge to a version without the sub-library" $
+          checkResolution [] False dbSubLibVersions ["A"] [src "A" 1 [] [b2], src "B" 2 [] []]
+            @?= [MissingDependency "A" (DepLib "B" (Just "sub-lib-v1") anyVersion)]
       , testCase "rejects two versions of one package in one scope" $
           checkResolution [] False dbTwoVersions ["A", "C"] [src "A" 1 [] [b1], src "C" 1 [] [b2], src "B" 1 [] [], src "B" 2 [] []]
             @?= [MultipleVersions (DefaultNamespace, Toplevel) "B"]
@@ -931,14 +965,14 @@ tests =
             @?= []
       , testCase "rejects a flag whose branch is unsatisfied" $
           checkResolution [] False dbFlag ["A"] [src "A" 1 [("F", False)] [b1], src "B" 1 [] []]
-            @?= [MissingDependency "A" (DepLib "B" (thisVersion (mkSimpleVersion 9)))]
+            @?= [MissingDependency "A" (DepLib "B" Nothing (thisVersion (mkSimpleVersion 9)))]
       , testCase "rejects a violated version constraint" $
           let c = ExVersionConstraint (ScopeAnyQualifier (mkPackageName "B")) (notThisVersion (mkSimpleVersion 1))
            in checkResolution [c] False dbChain ["A"] [src "A" 1 [] [b1], src "B" 1 [] []]
                 @?= [ConstraintViolated "B" (show c)]
       , testCase "rejects an instance that is not in the database" $
           checkResolution [] False dbChain ["A"] [src "A" 1 [] [b7], src "B" 7 [] []]
-            @?= [UnknownInstance "B" 7, MissingDependency "A" (DepLib "B" anyVersion)]
+            @?= [UnknownInstance "B" 7, MissingDependency "A" (DepLib "B" Nothing anyVersion)]
       , testCase "rejects an unreachable package" $
           checkResolution [] False dbChain ["A"] [src "A" 1 [] [b1], src "B" 1 [] [], src "C" 1 [] []]
             @?= [UnreachablePackage "C"]
@@ -970,7 +1004,7 @@ tests =
   Example databases
 -------------------------------------------------------------------------------}
 
-dbChain, dbMissingVersion, dbTwoVersions, dbFlag, dbUnbuildableBranch, dbUnbuildableLib, dbInstalled, dbExeOnly, dbTestStanza, dbBadTestStanza, dbSetup, dbTwoSetupScopes, dbLinkedManualFlag, dbUnlinkedManualFlag, dbLinkedDeps, dbInstalledAndSource :: ExampleDb
+dbChain, dbMissingVersion, dbTwoVersions, dbFlag, dbUnbuildableBranch, dbUnbuildableLib, dbInstalled, dbExeOnly, dbTestStanza, dbBadTestStanza, dbSetup, dbTwoSetupScopes, dbLinkedManualFlag, dbUnlinkedManualFlag, dbLinkedDeps, dbInstalledAndSource, dbPrivateSubLib, dbFlaggedSubLib, dbPublicSubLib, dbSubLibVersions, dbSubLibVisibilities :: ExampleDb
 dbChain = [Right (exAv "A" 1 [ExAny "B"]), Right (exAv "B" 1 [])]
 dbMissingVersion = [Right (exAv "A" 1 [ExFix "B" 2]), Right (exAv "B" 1 [])]
 dbTwoVersions =
@@ -1060,6 +1094,33 @@ dbLinkedDeps =
   , Right (exAv "P" 1 [ExAny "Q"])
   , Right (exAv "Q" 1 [])
   , Right (exAv "Q" 2 [])
+  ]
+dbPrivateSubLib =
+  [ Right (exAv "A" 1 [ExSubLibAny "B" "sub-lib"])
+  , Right (exAvNoLibrary "B" 1 `withSubLibrary` exSubLib "sub-lib" [])
+  ]
+-- The sub-library is private at its root and public under the flag's False
+-- branch, so it is statically private only when a constraint sets the flag.
+dbFlaggedSubLib =
+  [ Right (exAv "A" 1 [ExSubLibAny "B" "sub-lib"])
+  , Right
+      ( exAvNoLibrary "B" 1
+          `withSubLibrary` exSubLib "sub-lib" [ExFlagged "make-lib-private" (dependencies []) publicDependencies]
+      )
+  ]
+dbPublicSubLib =
+  [ Right (exAv "A" 1 [ExSubLibAny "B" "sub-lib"])
+  , Right (exAvNoLibrary "B" 1 `withSubLibrary` ExSubLib "sub-lib" publicDependencies)
+  ]
+dbSubLibVersions =
+  [ Right (exAv "A" 1 [ExSubLibAny "B" "sub-lib-v1"])
+  , Right (exAv "B" 2 [] `withSubLibrary` ExSubLib "sub-lib-v2" publicDependencies)
+  , Right (exAv "B" 1 [] `withSubLibrary` ExSubLib "sub-lib-v1" publicDependencies)
+  ]
+dbSubLibVisibilities =
+  [ Right (exAv "A" 1 [ExSubLibAny "B" "sub-lib"])
+  , Right (exAv "B" 2 [] `withSubLibrary` ExSubLib "sub-lib" (dependencies []))
+  , Right (exAv "B" 1 [] `withSubLibrary` ExSubLib "sub-lib" publicDependencies)
   ]
 -- P-1 is installed and also available from source; the installed unit and
 -- the source package are different instances, so they need not be linked.
