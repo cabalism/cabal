@@ -6,6 +6,7 @@ import Distribution.Client.Compat.Prelude
 import Prelude ()
 
 import Control.Arrow ((&&&))
+import Data.Bifunctor (second)
 import Data.Either (lefts)
 import Data.Graph (SCC (..), stronglyConnComp)
 import Data.List (groupBy, isInfixOf)
@@ -623,7 +624,7 @@ arbitraryCompilerList pool =
   frequency
     [ (1, return Nothing)
     , (1, Just <$> sublistOf pool)
-    , (3, Just <$> ((take 1 pool ++) <$> sublistOf (drop 1 pool)))
+    , (3, Just . (take 1 pool ++) <$> sublistOf (drop 1 pool))
     ]
 
 shrinkCompilerList :: Maybe [a] -> [Maybe [a]]
@@ -650,7 +651,7 @@ shrinkPkgConfigDb Nothing = []
 shrinkPkgConfigDb (Just db) = Nothing : map Just (shrinkList shrinkNothing db)
 
 toPkgConfigDb :: [(String, Maybe Int)] -> PkgConfigDb
-toPkgConfigDb = pkgConfigDbFromList . map (\(name, version) -> (name, maybe "" show version))
+toPkgConfigDb = pkgConfigDbFromList . map (second (maybe "" show))
 
 -- | Collection of source and installed packages.
 newtype TestDb = TestDb {unTestDb :: ExampleDb}

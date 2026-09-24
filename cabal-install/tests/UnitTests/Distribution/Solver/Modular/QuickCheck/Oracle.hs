@@ -1,3 +1,5 @@
+{-# LANGUAGE TupleSections #-}
+
 -- | A reference resolver for the solver QuickCheck tests.
 --
 -- This module is written from the definition of a /resolution/ in the Package
@@ -681,16 +683,28 @@ nonReinstallable n =
 -- that may be chosen.
 instanceProblems :: Env -> ExampleDb -> [ExConstraint] -> QName -> Instance -> [Problem]
 instanceProblems env db cs qn inst =
-  [NonReinstallableSource n | Source _ <- [inst], nonReinstallable n, not (envAllowBootLibInstalls env)]
+  [ NonReinstallableSource n
+  | nonReinstallable n
+  , not (envAllowBootLibInstalls env)
+  , Source _ <- [inst]
+  ]
     ++ [ CannotReinstall n
-       | Source a <- [inst]
-       , envAvoidReinstalls env
-       , or [exInstName i == n && exInstVersion i == exAvVersion a | Left i <- db]
+       | envAvoidReinstalls env
+       , Source a <- [inst]
+       , or
+          [ exInstName i == n && exInstVersion i == exAvVersion a
+          | Left i <- db
+          ]
        ]
     ++ [ Shadowed n
-       | Installed i <- [inst]
-       , envShadowPkgs env
-       , let sameVersion = [exInstHash i' | Left i' <- db, exInstName i' == n, exInstVersion i' == exInstVersion i]
+       | envShadowPkgs env
+       , Installed i <- [inst]
+       , let sameVersion =
+              [ exInstHash i'
+              | Left i' <- db
+              , exInstName i' == n
+              , exInstVersion i' == exInstVersion i
+              ]
        , Just (exInstHash i) /= listToMaybe (reverse sameVersion)
        ]
     ++ [ ConstraintViolated n (show c)
@@ -773,7 +787,7 @@ resolve fuel0 env indep cs db targets =
     goalQName (Target qn) = Just qn
     goalQName (LibDep qn _ _) = Just qn
     goalQName (ExeDep qn _ _) = Just qn
-    goalQName (UnitDep s h) = (\n -> (s, n)) <$> Map.lookup h byHash
+    goalQName (UnitDep s h) = (s,) <$> Map.lookup h byHash
 
     candidates :: State -> QName -> Goal -> [Choice]
     candidates st qn@(_, n) g =
@@ -1133,7 +1147,7 @@ toResolved env res = Map.elems (Map.fromList [(rpRef rp, rp) | rp <- map conv (M
         (exes, libs) = L.partition isExeDep regular
 
     ref s (DepLib n _ _) = choiceRef <$> Map.lookup (s, n) res
-    ref _ (DepExe _ _ _) = Nothing
+    ref _ (DepExe{}) = Nothing
     ref _ (DepPkgConfig _ _) = Nothing
     ref _ (DepExtension _) = Nothing
     ref _ (DepLanguage _) = Nothing
