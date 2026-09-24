@@ -152,7 +152,9 @@ targetScope indep t = (if indep then Independent t else DefaultNamespace, Toplev
   Environment
 -------------------------------------------------------------------------------}
 
--- | What the build environment provides.
+-- | What the solver is told about the world beyond the package database and
+-- the constraints: the build environment, and the settings that change which
+-- plans are valid.
 data Env = Env
   { envPkgConfig :: Maybe [(String, Maybe Int)]
   -- ^ The pkg-config database: 'Nothing' when pkg-config is unavailable,
@@ -162,13 +164,27 @@ data Env = Env
   -- which case every extension counts as supported ('validateTree').
   , envLanguages :: Maybe [Language]
   -- ^ Likewise for languages.
+  , envAllowBootLibInstalls :: Bool
+  -- ^ Whether non-reinstallable packages such as @base@ may be built from
+  -- source. With the wired-in units unknown, allowing it just drops the
+  -- restriction ('dependOnWiredIns').
+  , envSolveExecutables :: Bool
+  -- ^ Whether build-tool dependencies are solved at all. When not, index
+  -- conversion drops them and executables are never checked.
   }
   deriving (Show)
 
 -- | The environment the QuickCheck tests use by default: pkg-config with no
 -- packages, and a compiler whose extensions and languages are unknown.
 defaultEnv :: Env
-defaultEnv = Env{envPkgConfig = Just [], envExtensions = Nothing, envLanguages = Nothing}
+defaultEnv =
+  Env
+    { envPkgConfig = Just []
+    , envExtensions = Nothing
+    , envLanguages = Nothing
+    , envAllowBootLibInstalls = False
+    , envSolveExecutables = True
+    }
 
 supportedExtension :: Env -> Extension -> Bool
 supportedExtension env e = maybe True (e `elem`) (envExtensions env)
@@ -440,10 +456,10 @@ providesExe cs exe (Source a) =
 -- An installed package depends on exact installed units. A source package's
 -- library, sub-library, foreign-library and executable components are always
 -- solved; test and benchmark components only when their stanza is enabled.
-instanceDeps :: [OptionalStanza] -> Flags -> Instance -> ([Dep], [Dep])
-instanceDeps _ _ (Installed i) = (map DepUnit (exInstBuildAgainst i), [])
-instanceDeps stanzas flags (Source a) =
-  ( filter (not . selfLib) (concat [deps | (comp, deps) <- comps, solved comp])
+instanceDeps :: Env -> [OptionalStanza] -> Flags -> Instance -> ([Dep], [Dep])
+instanceDeps _ _ _ (Installed i) = (map DepUnit (exInstBuildAgainst i), [])
+instanceDeps env stanzas flags (Source a) =
+  ( filter keep (concat [deps | (comp, deps) <- comps, solved comp])
   , -- A setup component has no build info, so no language or extension
     -- requirements; the DSL only allows package dependencies there anyway.
     filter (not . isEnvDep) (concat [deps | (ComponentSetup, deps) <- comps])
@@ -454,6 +470,8 @@ instanceDeps stanzas flags (Source a) =
     -- itself since that resolves to the setup scope.
     selfLib (DepLib p _ _) = p == exAvName a
     selfLib _ = False
+
+    keep dep = not (selfLib dep) && (envSolveExecutables env || not (isExeDep dep))
 
     comps =
       [ (comp, fromMaybe [] (componentDeps a flags deps))
@@ -471,11 +489,11 @@ instanceDeps stanzas flags (Source a) =
 -- dependencies inherit the scope, setup dependencies of @P@ go to @Setup P@,
 -- and build-tool dependencies of @P@ on @E@ go to @Exe P E@, all in the same
 -- namespace ('qualifyDeps').
-choiceGoals :: QName -> Choice -> [Goal]
-choiceGoals ((ns, q), p) ch =
+choiceGoals :: Env -> QName -> Choice -> [Goal]
+choiceGoals env ((ns, q), p) ch =
   mapMaybe (goal (ns, q)) regular ++ mapMaybe (goal (ns, Setup p)) setup
   where
-    (regular, setup) = instanceDeps (chStanzas ch) (chFlags ch) (chInstance ch)
+    (regular, setup) = instanceDeps env (chStanzas ch) (chFlags ch) (chInstance ch)
     goal s (DepLib n l vr) = Just (LibDep (s, n) l vr)
     goal _ (DepExe e exe vr) = Just (ExeDep ((ns, Exe p e), e) exe vr)
     goal s (DepUnit h) = Just (UnitDep s h)
@@ -626,9 +644,9 @@ nonReinstallable n =
 -- | Problems with choosing an instance at a qualified name, independent of
 -- the rest of the resolution. Version constraints apply to installed and
 -- source instances alike, and only to packages that are actually chosen.
-instanceProblems :: [ExConstraint] -> QName -> Instance -> [Problem]
-instanceProblems cs qn inst =
-  [NonReinstallableSource n | Source _ <- [inst], nonReinstallable n]
+instanceProblems :: Env -> [ExConstraint] -> QName -> Instance -> [Problem]
+instanceProblems env cs qn inst =
+  [NonReinstallableSource n | Source _ <- [inst], nonReinstallable n, not (envAllowBootLibInstalls env)]
     ++ [ ConstraintViolated n (show c)
        | (c, vr) <- versionConstraints cs qn
        , not (withinRange (mkSimpleVersion (instVersion inst)) vr)
@@ -640,9 +658,9 @@ instanceProblems cs qn inst =
 -- constraints that the chosen assignment does not respect. Installed
 -- packages have neither stanzas nor flags, so those constraints only apply
 -- to source instances.
-choiceProblems :: [ExConstraint] -> QName -> Choice -> [Problem]
-choiceProblems cs qn ch =
-  instanceProblems cs qn inst
+choiceProblems :: Env -> [ExConstraint] -> QName -> Choice -> [Problem]
+choiceProblems env cs qn ch =
+  instanceProblems env cs qn inst
     ++ [ ConstraintViolated n (show c)
        | c@(ExStanzaConstraint scope ss) <- cs
        , scopeMatches scope qn
@@ -715,7 +733,7 @@ resolve fuel0 env indep cs db targets =
     candidates st qn@(_, n) g =
       [ ch
       | inst <- Map.findWithDefault [] n instances
-      , null (instanceProblems cs qn inst)
+      , null (instanceProblems env cs qn inst)
       , flags <- assignments inst
       , let ch = Choice inst flags (stanzas inst)
       , satisfies cs g ch
@@ -733,7 +751,7 @@ resolve fuel0 env indep cs db targets =
     -- fails as soon as it is made.
     envProvides :: Choice -> Bool
     envProvides ch =
-      let (regular, setup) = instanceDeps (chStanzas ch) (chFlags ch) (chInstance ch)
+      let (regular, setup) = instanceDeps env (chStanzas ch) (chFlags ch) (chInstance ch)
        in all (envSatisfied env) (regular ++ setup)
 
     -- The same instance chosen in another scope forces an identical choice,
@@ -771,7 +789,7 @@ resolve fuel0 env indep cs db targets =
           | ((s', n'), ch') <- Map.toList (stRes st)
           , n' == n
           , instKey (chInstance ch') == instKey (chInstance ch)
-          , (g, g') <- zip (choiceGoals qn ch) (choiceGoals (s', n') ch')
+          , (g, g') <- zip (choiceGoals env qn ch) (choiceGoals env (s', n') ch')
           , Just a <- [goalQName g]
           , Just b <- [goalQName g']
           , a /= b
@@ -786,7 +804,7 @@ resolve fuel0 env indep cs db targets =
       Nothing -> []
       Just ch ->
         [ t
-        | g <- choiceGoals q ch
+        | g <- choiceGoals env q ch
         , Just t <- [goalQName g]
         , t `Map.member` stRes st
         ]
@@ -819,7 +837,7 @@ resolve fuel0 env indep cs db targets =
         tryEach qn f (ch : chs)
           | onCycle st' qn = tryEach qn (f - 1) chs
           | otherwise =
-              case go f st' (choiceGoals qn ch ++ gs) of
+              case go f st' (choiceGoals env qn ch ++ gs) of
                 Found r -> Found r
                 Starved -> Starved
                 NotFound f' -> tryEach qn f' chs
@@ -956,7 +974,7 @@ checkResolution env cs indep db targets plan =
         ++ concat
           [ case toChoice rp of
             Nothing -> [UnknownInstance (rpName rp) (rpVersion rp)]
-            Just ch -> choiceProblems cs (s, rpName rp) ch
+            Just ch -> choiceProblems env cs (s, rpName rp) ch
           | rp <- rps
           ]
 
@@ -965,7 +983,7 @@ checkResolution env cs indep db targets plan =
         ++ case toChoice rp of
           Nothing -> []
           Just ch ->
-            let (regular, setup) = instanceDeps (chStanzas ch) (chFlags ch) (chInstance ch)
+            let (regular, setup) = instanceDeps env (chStanzas ch) (chFlags ch) (chInstance ch)
                 (envs, pkgs) = L.partition isEnvDep regular
                 (exes, libs) = L.partition isExeDep pkgs
                 missing edges deps =
@@ -1040,8 +1058,8 @@ fromSolverPlan = map conv . SolverInstallPlan.toList
 
 -- | Describe an oracle resolution in the same terms, for checking the oracle
 -- against itself. Linked copies collapse into one package, as in a plan.
-toResolved :: Resolution -> [ResolvedPackage]
-toResolved res = Map.elems (Map.fromList [(rpRef rp, rp) | rp <- map conv (Map.toList res)])
+toResolved :: Env -> Resolution -> [ResolvedPackage]
+toResolved env res = Map.elems (Map.fromList [(rpRef rp, rp) | rp <- map conv (Map.toList res)])
   where
     conv (qn@((ns, _), p), ch) =
       ResolvedPackage
@@ -1056,7 +1074,7 @@ toResolved res = Map.elems (Map.fromList [(rpRef rp, rp) | rp <- map conv (Map.t
         }
       where
         inst = chInstance ch
-        (regular, setup) = instanceDeps (chStanzas ch) (chFlags ch) inst
+        (regular, setup) = instanceDeps env (chStanzas ch) (chFlags ch) inst
         (exes, libs) = L.partition isExeDep regular
 
     ref s (DepLib n _ _) = choiceRef <$> Map.lookup (s, n) res
@@ -1111,6 +1129,12 @@ withPkgConfig db c = c{scEnv = (scEnv c){envPkgConfig = db}}
 -- | A case with a compiler that supports the given extensions and languages.
 withCompiler :: [Extension] -> [Language] -> SolverCase -> SolverCase
 withCompiler exts langs c = c{scEnv = (scEnv c){envExtensions = Just exts, envLanguages = Just langs}}
+
+withBootLibInstalls :: SolverCase -> SolverCase
+withBootLibInstalls c = c{scEnv = (scEnv c){envAllowBootLibInstalls = True}}
+
+withoutExecutables :: SolverCase -> SolverCase
+withoutExecutables c = c{scEnv = (scEnv c){envSolveExecutables = False}}
 
 solverCases :: [SolverCase]
 solverCases =
@@ -1221,6 +1245,11 @@ solverCases =
   , sc "target scope constraint does not apply in a setup scope" False [ExVersionConstraint (ScopeTarget (mkPackageName "A")) (thisVersion (mkSimpleVersion 2))] dbSetup ["F"] IsSolvable
   , sc "conflicting flag constraints on one scope leave no value" False [ExFlagConstraint (ScopeAnyQualifier (mkPackageName "A")) "F" False, ExFlagConstraint (ScopeQualified P.QualToplevel (mkPackageName "A")) "F" True] dbFlag ["A"] IsUnsolvable
   , sc "target scope constraint applies under independent goals" True [ExVersionConstraint (ScopeTarget (mkPackageName "F")) (thisVersion (mkSimpleVersion 2))] dbSetup ["F"] IsUnsolvable
+  , -- Settings.
+    withBootLibInstalls $ sc "source base is selectable when boot library installs are allowed" False [] [Right (exAv "base" 1 [])] ["base"] IsSolvable
+  , withoutExecutables $ sc "build-tool dependencies are ignored when executables are not solved" False [] dbBuildTools ["D"] IsSolvable
+  , withoutExecutables $ sc "build-tool packages are not chosen when executables are not solved" False [] dbBuildTools ["E"] IsSolvable
+  , withoutExecutables $ sc "a cycle through a build-tool dependency disappears when executables are not solved" False [] dbToolCycle ["A"] IsSolvable
   ]
   where
     anyQ = ScopeAnyQualifier . mkPackageName
@@ -1244,7 +1273,7 @@ tests =
           for_ [c | c <- solverCases, scVerdict c == IsSolvable] $ \c ->
             case resolve fuel (scEnv c) (scIndependent c) (scConstraints c) (scDb c) (scTargets c) of
               Solvable res ->
-                checkResolution (scEnv c) (scConstraints c) (scIndependent c) (scDb c) (scTargets c) (toResolved res) @?= []
+                checkResolution (scEnv c) (scConstraints c) (scIndependent c) (scDb c) (scTargets c) (toResolved (scEnv c) res) @?= []
               other -> assertBool (scName c ++ ": expected a resolution, got " ++ show other) False
       , testCase "rejects a missing target" $
           checkResolution defaultEnv [] False dbChain ["A"] [] @?= [MissingTarget "A"]

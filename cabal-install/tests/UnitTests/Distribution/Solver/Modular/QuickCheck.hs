@@ -219,9 +219,11 @@ tests =
                             classify (any isFlagConstraint (testConstraints test)) "flag constraint" $
                               classify (any (not . isAnyQualifier . constraintScope) (testConstraints test)) "scoped constraint" $
                                 classify (hasManualFlag test) "manual flag" $
-                                  classify (hasSetupDeps test) "setup dependencies" $
-                                    (v /= Oracle.IsUnknown && noneReachedBackjumpLimit [r]) ==>
-                                      isRight (resultPlan r) === (v == Oracle.IsSolvable)
+                                  classify (testAllowBootLibInstalls test) "boot library installs allowed" $
+                                    classify (not (testSolveExecutables test)) "executables not solved" $
+                                      classify (hasSetupDeps test) "setup dependencies" $
+                                        (v /= Oracle.IsUnknown && noneReachedBackjumpLimit [r]) ==>
+                                          isRight (resultPlan r) === (v == Oracle.IsSolvable)
   , testPropertyWithSeed "solver plan is a valid resolution under the oracle's validity check" $
       \test reorderGoals indepGoals prefVersion ->
         let r = solveWith reorderGoals indepGoals prefVersion test
@@ -234,7 +236,7 @@ tests =
       \test indepGoals ->
         case oracleResolve indepGoals test of
           Oracle.Solvable res ->
-            let plan = Oracle.toResolved res
+            let plan = Oracle.toResolved (testEnv test) res
              in counterexample ("resolved: " ++ show plan) $
                   oracleCheck indepGoals test plan === []
           _ -> property True
@@ -249,6 +251,8 @@ tests =
                 , testPkgConfigDb = Oracle.envPkgConfig (Oracle.scEnv c)
                 , testExtensions = Oracle.envExtensions (Oracle.scEnv c)
                 , testLanguages = Oracle.envLanguages (Oracle.scEnv c)
+                , testAllowBootLibInstalls = Oracle.envAllowBootLibInstalls (Oracle.scEnv c)
+                , testSolveExecutables = Oracle.envSolveExecutables (Oracle.scEnv c)
                 }
             r =
               solveWith
@@ -280,6 +284,8 @@ tests =
         { Oracle.envPkgConfig = testPkgConfigDb test
         , Oracle.envExtensions = testExtensions test
         , Oracle.envLanguages = testLanguages test
+        , Oracle.envAllowBootLibInstalls = testAllowBootLibInstalls test
+        , Oracle.envSolveExecutables = testSolveExecutables test
         }
 
     -- Whether any source package in the test has a dependency of the given
@@ -431,10 +437,10 @@ solve enableBj fineGrainedConflicts reorder countConflicts indep prefOldest goal
             indep
             prefOldest
             reorder
-            (AllowBootLibInstalls False)
+            (AllowBootLibInstalls (testAllowBootLibInstalls test))
             OnlyConstrainedNone
             enableBj
-            (SolveExecutables True)
+            (SolveExecutables (testSolveExecutables test))
             (unVarOrdering <$> goalOrder)
             (testConstraints test)
             (testPreferences test)
@@ -510,6 +516,8 @@ data SolverTest = SolverTest
   -- ^ The extensions the compiler supports, or Nothing for unknown.
   , testLanguages :: Maybe [Language]
   -- ^ The languages the compiler supports, or Nothing for unknown.
+  , testAllowBootLibInstalls :: Bool
+  , testSolveExecutables :: Bool
   }
 
 -- | Pretty-print the test when quickcheck calls 'show'.
@@ -530,6 +538,10 @@ instance Show SolverTest where
             ++ show (testExtensions test)
             ++ ", testLanguages = "
             ++ show (testLanguages test)
+            ++ ", testAllowBootLibInstalls = "
+            ++ show (testAllowBootLibInstalls test)
+            ++ ", testSolveExecutables = "
+            ++ show (testSolveExecutables test)
             ++ "}"
      in maybe str valToStr $ parseValue str
 
@@ -549,7 +561,9 @@ instance Arbitrary SolverTest where
     pkgConfigDb <- arbitraryPkgConfigDb
     exts <- arbitraryCompilerList extensionPool
     langs <- arbitraryCompilerList languagePool
-    return (SolverTest db targets constraints prefs pkgConfigDb exts langs)
+    allowBootLibInstalls <- frequency [(3, return False), (1, return True)]
+    solveExecutables <- frequency [(3, return True), (1, return False)]
+    return (SolverTest db targets constraints prefs pkgConfigDb exts langs allowBootLibInstalls solveExecutables)
 
   shrink test =
     [test{testDb = db} | db <- shrink (testDb test)]
@@ -559,6 +573,8 @@ instance Arbitrary SolverTest where
       ++ [test{testPkgConfigDb = db} | db <- shrinkPkgConfigDb (testPkgConfigDb test)]
       ++ [test{testExtensions = exts} | exts <- shrinkCompilerList (testExtensions test)]
       ++ [test{testLanguages = langs} | langs <- shrinkCompilerList (testLanguages test)]
+      ++ [test{testAllowBootLibInstalls = False} | testAllowBootLibInstalls test]
+      ++ [test{testSolveExecutables = True} | not (testSolveExecutables test)]
 
 -- | The extensions and languages that dependencies and compilers draw from.
 extensionPool :: [Extension]
