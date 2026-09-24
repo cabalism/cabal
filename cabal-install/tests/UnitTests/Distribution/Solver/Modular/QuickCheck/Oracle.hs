@@ -97,8 +97,12 @@ import Distribution.Types.UnqualComponentName (mkUnqualComponentName, unUnqualCo
 import Distribution.Version
   ( VersionRange
   , anyVersion
+  , fromVersionIntervals
+  , isAnyVersion
+  , isNoVersion
   , notThisVersion
   , thisVersion
+  , toVersionIntervals
   , versionNumbers
   , withinRange
   )
@@ -110,7 +114,7 @@ import qualified Distribution.Solver.Types.ComponentDeps as CD
 import Distribution.Solver.Types.Flag (FlagType (..))
 import Distribution.Solver.Types.InstSolverPackage (InstSolverPackage (..))
 import Distribution.Solver.Types.OptionalStanza (OptionalStanza (..), optStanzaSetToList)
-import Distribution.Solver.Types.PackageConstraint (ConstraintScope (..))
+import Distribution.Solver.Types.PackageConstraint (ConstraintScope (..), scopeToPackageName)
 import qualified Distribution.Solver.Types.PackagePath as P
 import Distribution.Solver.Types.SolverId (SolverId (..))
 import Distribution.Solver.Types.SolverPackage (SolverPackage (..))
@@ -171,6 +175,9 @@ data Env = Env
   , envSolveExecutables :: Bool
   -- ^ Whether build-tool dependencies are solved at all. When not, index
   -- conversion drops them and executables are never checked.
+  , envOnlyConstrained :: Bool
+  -- ^ Whether only targets and version-constrained packages may be chosen
+  -- (@--reject-unconstrained-dependencies=all@).
   }
   deriving (Show)
 
@@ -184,6 +191,7 @@ defaultEnv =
     , envLanguages = Nothing
     , envAllowBootLibInstalls = False
     , envSolveExecutables = True
+    , envOnlyConstrained = False
     }
 
 supportedExtension :: Env -> Extension -> Bool
@@ -625,6 +633,21 @@ requiredStanzas cs qn a =
     , s `elem` availableStanzas a
     ]
 
+-- | Whether a package may be chosen at all in only-constrained mode: it must
+-- be a target or have a version constraint, in any scope, whose range is
+-- neither every version nor no version ('Solver.isVersionConstrained').
+-- Installed packages are not exempt.
+explicit :: Env -> [ExConstraint] -> [ExamplePkgName] -> ExamplePkgName -> Bool
+explicit env cs targets n =
+  not (envOnlyConstrained env)
+    || n `elem` targets
+    || or
+      [ not (isAnyVersion vr' || isNoVersion vr')
+      | ExVersionConstraint scope vr <- cs
+      , unPackageName (scopeToPackageName scope) == n
+      , let vr' = fromVersionIntervals (toVersionIntervals vr)
+      ]
+
 -- | Packages that can never be installed from source when the compiler's
 -- wired-in units are unknown and boot library installs are not allowed
 -- ('Distribution.Client.Dependency.nonReinstallablePackages').
@@ -732,7 +755,8 @@ resolve fuel0 env indep cs db targets =
     candidates :: State -> QName -> Goal -> [Choice]
     candidates st qn@(_, n) g =
       [ ch
-      | inst <- Map.findWithDefault [] n instances
+      | explicit env cs targets n
+      , inst <- Map.findWithDefault [] n instances
       , null (instanceProblems env cs qn inst)
       , flags <- assignments inst
       , let ch = Choice inst flags (stanzas inst)
@@ -892,6 +916,8 @@ data Problem
     CyclicPlan [ExamplePkgName]
   | ConstraintViolated ExamplePkgName String
   | NonReinstallableSource ExamplePkgName
+  | -- | Neither a target nor version-constrained, in only-constrained mode.
+    Unconstrained ExamplePkgName
   deriving (Eq, Show)
 
 -- | Check that a plan is a resolution of the given database and targets.
@@ -971,6 +997,7 @@ checkResolution env cs indep db targets plan =
 
     scopeProblems (s, rps) =
       [MultipleVersions s n | (n : _ : _) <- L.group (L.sort (map rpName rps))]
+        ++ [Unconstrained (rpName rp) | rp <- rps, not (explicit env cs targets (rpName rp))]
         ++ concat
           [ case toChoice rp of
             Nothing -> [UnknownInstance (rpName rp) (rpVersion rp)]
@@ -1136,6 +1163,9 @@ withBootLibInstalls c = c{scEnv = (scEnv c){envAllowBootLibInstalls = True}}
 withoutExecutables :: SolverCase -> SolverCase
 withoutExecutables c = c{scEnv = (scEnv c){envSolveExecutables = False}}
 
+withOnlyConstrained :: SolverCase -> SolverCase
+withOnlyConstrained c = c{scEnv = (scEnv c){envOnlyConstrained = True}}
+
 solverCases :: [SolverCase]
 solverCases =
   [ sc "chain of dependencies" False [] dbChain ["A"] IsSolvable
@@ -1250,6 +1280,14 @@ solverCases =
   , withoutExecutables $ sc "build-tool dependencies are ignored when executables are not solved" False [] dbBuildTools ["D"] IsSolvable
   , withoutExecutables $ sc "build-tool packages are not chosen when executables are not solved" False [] dbBuildTools ["E"] IsSolvable
   , withoutExecutables $ sc "a cycle through a build-tool dependency disappears when executables are not solved" False [] dbToolCycle ["A"] IsSolvable
+  , -- Only-constrained mode (Solver.hs "reject-unconstrained").
+    withOnlyConstrained $ sc "only-constrained: backtracking finds a plan within the targets" False [] dbOnlyConstrained ["A", "B"] IsSolvable
+  , withOnlyConstrained $ sc "only-constrained: a version-constrained dependency is allowed" False [ExVersionConstraint (anyQ "B") (thisVersion (mkSimpleVersion 1))] dbOnlyConstrained ["A"] IsSolvable
+  , withOnlyConstrained $ sc "only-constrained: a flag constraint is not enough" False [ExFlagConstraint (anyQ "B") "flag" False] dbOnlyConstrained ["A", "C"] IsUnsolvable
+  , withOnlyConstrained $ sc "only-constrained: an unconstrained dependency is rejected" False [] dbOnlyConstrained ["A"] IsUnsolvable
+  , withOnlyConstrained $ sc "only-constrained: an any-version constraint is not enough" False [ExVersionConstraint (anyQ "C") anyVersion] dbOnlyConstrained ["A"] IsUnsolvable
+  , withOnlyConstrained $ sc "only-constrained: installed dependencies are not exempt" False [] dbInstalled ["A"] IsUnsolvable
+  , withOnlyConstrained $ sc "only-constrained: a constrained installed dependency is allowed" False [ExVersionConstraint (anyQ "B") (thisVersion (mkSimpleVersion 1))] dbInstalled ["A"] IsSolvable
   ]
   where
     anyQ = ScopeAnyQualifier . mkPackageName
@@ -1339,7 +1377,7 @@ tests =
   Example databases
 -------------------------------------------------------------------------------}
 
-dbChain, dbMissingVersion, dbTwoVersions, dbFlag, dbUnbuildableBranch, dbUnbuildableLib, dbInstalled, dbExeOnly, dbTestStanza, dbBadTestStanza, dbSetup, dbTwoSetupScopes, dbLinkedManualFlag, dbUnlinkedManualFlag, dbLinkedDeps, dbInstalledAndSource, dbPrivateSubLib, dbFlaggedSubLib, dbPublicSubLib, dbSubLibVersions, dbSubLibVisibilities, dbBuildTools, dbTwoExes, dbTwoExesOneVersion, dbUnbuildableToolLib, dbUnbuildableToolExe, dbToolVsLib, dbLegacy1, dbLegacy2, dbLegacy4, dbLegacy6, dbCycles, dbSetupCycles, dbSetupSelfCycle, dbToolCycle, dbSelfDep, dbPkgConfig, dbExtensions, dbLanguages, dbBranchLanguage :: ExampleDb
+dbChain, dbMissingVersion, dbTwoVersions, dbFlag, dbUnbuildableBranch, dbUnbuildableLib, dbInstalled, dbExeOnly, dbTestStanza, dbBadTestStanza, dbSetup, dbTwoSetupScopes, dbLinkedManualFlag, dbUnlinkedManualFlag, dbLinkedDeps, dbInstalledAndSource, dbPrivateSubLib, dbFlaggedSubLib, dbPublicSubLib, dbSubLibVersions, dbSubLibVisibilities, dbBuildTools, dbTwoExes, dbTwoExesOneVersion, dbUnbuildableToolLib, dbUnbuildableToolExe, dbToolVsLib, dbLegacy1, dbLegacy2, dbLegacy4, dbLegacy6, dbCycles, dbSetupCycles, dbSetupSelfCycle, dbToolCycle, dbSelfDep, dbPkgConfig, dbExtensions, dbLanguages, dbBranchLanguage, dbOnlyConstrained :: ExampleDb
 dbChain = [Right (exAv "A" 1 [ExAny "B"]), Right (exAv "B" 1 [])]
 dbMissingVersion = [Right (exAv "A" 1 [ExFix "B" 2]), Right (exAv "B" 1 [])]
 dbTwoVersions =
@@ -1555,6 +1593,14 @@ dbLanguages =
 dbBranchLanguage =
   [ Right (exAv "A" 1 [ExLang Haskell2010, exFlagged "F" [ExLang Haskell98] [ExLang Haskell98]])
   , Right (exAv "B" 1 [exFlagged "F" [ExLang Haskell2010] [ExLang Haskell98]])
+  ]
+-- Solver.hs db17.
+dbOnlyConstrained =
+  [ Right (exAv "A" 1 [ExAny "C"])
+  , Right (exAv "A" 2 [ExAny "B"])
+  , Right (exAv "A" 3 [ExAny "C"])
+  , Right (exAv "B" 1 [])
+  , Right (exAv "C" 1 [ExAny "B"])
   ]
 dbPrivateSubLib =
   [ Right (exAv "A" 1 [ExSubLibAny "B" "sub-lib"])

@@ -221,9 +221,10 @@ tests =
                                 classify (hasManualFlag test) "manual flag" $
                                   classify (testAllowBootLibInstalls test) "boot library installs allowed" $
                                     classify (not (testSolveExecutables test)) "executables not solved" $
-                                      classify (hasSetupDeps test) "setup dependencies" $
-                                        (v /= Oracle.IsUnknown && noneReachedBackjumpLimit [r]) ==>
-                                          isRight (resultPlan r) === (v == Oracle.IsSolvable)
+                                      classify (testOnlyConstrained test) "only constrained" $
+                                        classify (hasSetupDeps test) "setup dependencies" $
+                                          (v /= Oracle.IsUnknown && noneReachedBackjumpLimit [r]) ==>
+                                            isRight (resultPlan r) === (v == Oracle.IsSolvable)
   , testPropertyWithSeed "solver plan is a valid resolution under the oracle's validity check" $
       \test reorderGoals indepGoals prefVersion ->
         let r = solveWith reorderGoals indepGoals prefVersion test
@@ -253,6 +254,7 @@ tests =
                 , testLanguages = Oracle.envLanguages (Oracle.scEnv c)
                 , testAllowBootLibInstalls = Oracle.envAllowBootLibInstalls (Oracle.scEnv c)
                 , testSolveExecutables = Oracle.envSolveExecutables (Oracle.scEnv c)
+                , testOnlyConstrained = Oracle.envOnlyConstrained (Oracle.scEnv c)
                 }
             r =
               solveWith
@@ -286,6 +288,7 @@ tests =
         , Oracle.envLanguages = testLanguages test
         , Oracle.envAllowBootLibInstalls = testAllowBootLibInstalls test
         , Oracle.envSolveExecutables = testSolveExecutables test
+        , Oracle.envOnlyConstrained = testOnlyConstrained test
         }
 
     -- Whether any source package in the test has a dependency of the given
@@ -438,7 +441,7 @@ solve enableBj fineGrainedConflicts reorder countConflicts indep prefOldest goal
             prefOldest
             reorder
             (AllowBootLibInstalls (testAllowBootLibInstalls test))
-            OnlyConstrainedNone
+            (if testOnlyConstrained test then OnlyConstrainedAll else OnlyConstrainedNone)
             enableBj
             (SolveExecutables (testSolveExecutables test))
             (unVarOrdering <$> goalOrder)
@@ -518,6 +521,7 @@ data SolverTest = SolverTest
   -- ^ The languages the compiler supports, or Nothing for unknown.
   , testAllowBootLibInstalls :: Bool
   , testSolveExecutables :: Bool
+  , testOnlyConstrained :: Bool
   }
 
 -- | Pretty-print the test when quickcheck calls 'show'.
@@ -542,6 +546,8 @@ instance Show SolverTest where
             ++ show (testAllowBootLibInstalls test)
             ++ ", testSolveExecutables = "
             ++ show (testSolveExecutables test)
+            ++ ", testOnlyConstrained = "
+            ++ show (testOnlyConstrained test)
             ++ "}"
      in maybe str valToStr $ parseValue str
 
@@ -563,7 +569,8 @@ instance Arbitrary SolverTest where
     langs <- arbitraryCompilerList languagePool
     allowBootLibInstalls <- frequency [(3, return False), (1, return True)]
     solveExecutables <- frequency [(3, return True), (1, return False)]
-    return (SolverTest db targets constraints prefs pkgConfigDb exts langs allowBootLibInstalls solveExecutables)
+    onlyConstrained <- frequency [(3, return False), (1, return True)]
+    return (SolverTest db targets constraints prefs pkgConfigDb exts langs allowBootLibInstalls solveExecutables onlyConstrained)
 
   shrink test =
     [test{testDb = db} | db <- shrink (testDb test)]
@@ -575,6 +582,7 @@ instance Arbitrary SolverTest where
       ++ [test{testLanguages = langs} | langs <- shrinkCompilerList (testLanguages test)]
       ++ [test{testAllowBootLibInstalls = False} | testAllowBootLibInstalls test]
       ++ [test{testSolveExecutables = True} | not (testSolveExecutables test)]
+      ++ [test{testOnlyConstrained = False} | testOnlyConstrained test]
 
 -- | The extensions and languages that dependencies and compilers draw from.
 extensionPool :: [Extension]
