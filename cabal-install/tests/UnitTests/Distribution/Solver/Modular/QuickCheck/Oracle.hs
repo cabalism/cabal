@@ -36,8 +36,13 @@
 -- Build-tool dependencies of @P@ on an executable of @E@ live in the scope
 -- @Exe P E@ of the same namespace, again as in 'qualifyDeps'.
 --
--- Not modelled: dependency cycles (the QuickCheck generator never produces
--- them), pkg-config, language and extension dependencies, and base shims.
+-- A resolution must be acyclic: the graph of qualified names with an edge
+-- for every dependency of every kind must have no cycle. This mirrors
+-- 'detectCyclesPhase'. A package's dependency on its own qualified name is not
+-- an edge, except for a setup dependency ('Builder.extendOpen').
+--
+-- Not modelled: pkg-config, language and extension dependencies, and base
+-- shims.
 module UnitTests.Distribution.Solver.Modular.QuickCheck.Oracle
   ( -- * Reference resolver
     Namespace (..)
@@ -71,6 +76,7 @@ module UnitTests.Distribution.Solver.Modular.QuickCheck.Oracle
 import Distribution.Client.Compat.Prelude
 import Prelude ()
 
+import Data.Graph (SCC (..), stronglyConnComp)
 import qualified Data.List as L
 import qualified Data.Map as Map
 import qualified Data.Set as Set
@@ -359,10 +365,16 @@ providesExe cs exe (Source a) =
 instanceDeps :: [OptionalStanza] -> Flags -> Instance -> ([Dep], [Dep])
 instanceDeps _ _ (Installed i) = (map DepUnit (exInstBuildAgainst i), [])
 instanceDeps stanzas flags (Source a) =
-  ( concat [deps | (comp, deps) <- comps, solved comp]
+  ( filter (not . selfLib) (concat [deps | (comp, deps) <- comps, solved comp])
   , concat [deps | (ComponentSetup, deps) <- comps]
   )
   where
+    -- The solver ignores a package's library dependency on itself, which
+    -- resolves to the same qualified name, but keeps a setup dependency on
+    -- itself since that resolves to the setup scope.
+    selfLib (DepLib p _ _) = p == exAvName a
+    selfLib _ = False
+
     comps =
       [ (comp, fromMaybe [] (componentDeps a flags deps))
       | (comp, deps) <- CD.toList (exAvDeps a)
@@ -672,6 +684,27 @@ resolve fuel0 indep cs db targets =
           Map.insertWith Set.union a (Set.singleton b) $
             Map.insertWith Set.union b (Set.singleton a) m
 
+    -- Chosen qualified names that a chosen qualified name depends on.
+    successors :: State -> QName -> [QName]
+    successors st q = case Map.lookup q (stRes st) of
+      Nothing -> []
+      Just ch ->
+        [ t
+        | g <- choiceGoals q ch
+        , Just t <- [goalQName g]
+        , t `Map.member` stRes st
+        ]
+
+    -- Does the qualified name lie on a dependency cycle? Checked right after
+    -- it is chosen, as 'findCycles' does.
+    onCycle :: State -> QName -> Bool
+    onCycle st qn = qn `Set.member` reach Set.empty (successors st qn)
+      where
+        reach seen [] = seen
+        reach seen (x : xs)
+          | x `Set.member` seen = reach seen xs
+          | otherwise = reach (Set.insert x seen) (successors st x ++ xs)
+
     go :: Int -> State -> [Goal] -> Search
     go _ st [] = Found (stRes st)
     go fuel st (g : gs)
@@ -687,11 +720,15 @@ resolve fuel0 indep cs db targets =
         fuel' = fuel - 1
 
         tryEach _ f [] = NotFound f
-        tryEach qn f (ch : chs) =
-          case go f (choose qn ch st) (choiceGoals qn ch ++ gs) of
-            Found r -> Found r
-            Starved -> Starved
-            NotFound f' -> tryEach qn f' chs
+        tryEach qn f (ch : chs)
+          | onCycle st' qn = tryEach qn (f - 1) chs
+          | otherwise =
+              case go f st' (choiceGoals qn ch ++ gs) of
+                Found r -> Found r
+                Starved -> Starved
+                NotFound f' -> tryEach qn f' chs
+          where
+            st' = choose qn ch st
 
 {-------------------------------------------------------------------------------
   Validity check
@@ -737,6 +774,8 @@ data Problem
     MissingDependency ExamplePkgName Dep
   | -- | A package that no target reaches.
     UnreachablePackage ExamplePkgName
+  | -- | Packages whose edges of any kind form a cycle.
+    CyclicPlan [ExamplePkgName]
   | ConstraintViolated ExamplePkgName String
   | NonReinstallableSource ExamplePkgName
   deriving (Eq, Show)
@@ -754,7 +793,8 @@ data Problem
 -- build-tool edges to that package.
 -- Within each scope there must be one instance per name; every dependency of
 -- every package must be satisfied by one of its edges; constraints are
--- checked per scope; and every package must lie in some scope.
+-- checked per scope; every package must lie in some scope; and the edges of
+-- all kinds must be acyclic, as 'SolverInstallPlan.problems' requires.
 --
 -- Minimality is deliberately not checked: the solver may enable stanzas or
 -- include packages that are not strictly needed, and that is still a
@@ -772,6 +812,9 @@ checkResolution cs indep db targets plan =
     ++ concatMap scopeProblems scopes
     ++ [UnreachablePackage (rpName rp) | rp <- plan, rpRef rp `Set.notMember` reached]
     ++ concatMap edgeProblems plan
+    ++ [ CyclicPlan (map rpName rps)
+       | CyclicSCC rps <- stronglyConnComp [(rp, rpRef rp, allEdges rp) | rp <- plan]
+       ]
   where
     byRef :: Map ResolvedRef ResolvedPackage
     byRef = Map.fromList [(rpRef rp, rp) | rp <- plan]
@@ -1016,6 +1059,18 @@ solverCases =
   , SolverCase "unknown legacy build tool is ignored" False [] [Right (exAv "A" 1 [ExLegacyBuildToolAny "otherdude"])] ["A"] IsSolvable
   , SolverCase "different versions of a legacy build tool" False [] dbLegacy4 ["C"] IsSolvable
   , SolverCase "build tools on build tools" False [] dbLegacy6 ["A"] IsSolvable
+  , -- Cycles (Solver.hs "Cycles").
+    SolverCase "simple cycle" False [] dbCycles ["A"] IsUnsolvable
+  , SolverCase "simple cycle with both packages as targets" False [] dbCycles ["A", "B"] IsUnsolvable
+  , SolverCase "cycle avoided by a flag choice" False [] dbCycles ["C"] IsSolvable
+  , SolverCase "cycle through a setup dependency" False [] dbSetupCycles ["A"] IsUnsolvable
+  , SolverCase "cycle through a setup dependency from the other end" False [] dbSetupCycles ["B"] IsUnsolvable
+  , SolverCase "setup cycle broken by an installed version" False [] dbSetupCycles ["C"] IsSolvable
+  , SolverCase "setup cycle avoided by choosing the installed version" False [] dbSetupCycles ["D"] IsSolvable
+  , SolverCase "setup cycle broken by an installed version, via a dependent" False [] dbSetupCycles ["E"] IsSolvable
+  , SolverCase "package whose setup depends on itself uses another version" False [] dbSetupSelfCycle ["target"] IsSolvable
+  , SolverCase "cycle through a build-tool dependency" False [] dbToolCycle ["A"] IsUnsolvable
+  , SolverCase "a package's dependency on itself is not a cycle" False [] dbSelfDep ["B"] IsSolvable
   ]
   where
     anyQ = ScopeAnyQualifier . mkPackageName
@@ -1068,6 +1123,11 @@ tests =
       , testCase "rejects an instance that is not in the database" $
           checkResolution [] False dbChain ["A"] [src "A" 1 [] [b7], src "B" 7 [] []]
             @?= [UnknownInstance "B" 7, MissingDependency "A" (DepLib "B" Nothing anyVersion)]
+      , testCase "rejects a cyclic plan" $
+          let db = [Right (exAv "A" 1 [ExAny "B"]), Right (exAv "B" 1 [ExAny "C"]), Right (exAv "C" 1 [ExAny "B"])]
+              c1 = ResolvedRef "C" 1 Nothing
+              plan = [src "A" 1 [] [b1], src "B" 1 [] [c1], src "C" 1 [] [b1]]
+           in [L.sort ns | CyclicPlan ns <- checkResolution [] False db ["A"] plan] @?= [["B", "C"]]
       , testCase "rejects an unreachable package" $
           checkResolution [] False dbChain ["A"] [src "A" 1 [] [b1], src "B" 1 [] [], src "C" 1 [] []]
             @?= [UnreachablePackage "C"]
@@ -1100,7 +1160,7 @@ tests =
   Example databases
 -------------------------------------------------------------------------------}
 
-dbChain, dbMissingVersion, dbTwoVersions, dbFlag, dbUnbuildableBranch, dbUnbuildableLib, dbInstalled, dbExeOnly, dbTestStanza, dbBadTestStanza, dbSetup, dbTwoSetupScopes, dbLinkedManualFlag, dbUnlinkedManualFlag, dbLinkedDeps, dbInstalledAndSource, dbPrivateSubLib, dbFlaggedSubLib, dbPublicSubLib, dbSubLibVersions, dbSubLibVisibilities, dbBuildTools, dbTwoExes, dbTwoExesOneVersion, dbUnbuildableToolLib, dbUnbuildableToolExe, dbToolVsLib, dbLegacy1, dbLegacy2, dbLegacy4, dbLegacy6 :: ExampleDb
+dbChain, dbMissingVersion, dbTwoVersions, dbFlag, dbUnbuildableBranch, dbUnbuildableLib, dbInstalled, dbExeOnly, dbTestStanza, dbBadTestStanza, dbSetup, dbTwoSetupScopes, dbLinkedManualFlag, dbUnlinkedManualFlag, dbLinkedDeps, dbInstalledAndSource, dbPrivateSubLib, dbFlaggedSubLib, dbPublicSubLib, dbSubLibVersions, dbSubLibVisibilities, dbBuildTools, dbTwoExes, dbTwoExesOneVersion, dbUnbuildableToolLib, dbUnbuildableToolExe, dbToolVsLib, dbLegacy1, dbLegacy2, dbLegacy4, dbLegacy6, dbCycles, dbSetupCycles, dbSetupSelfCycle, dbToolCycle, dbSelfDep :: ExampleDb
 dbChain = [Right (exAv "A" 1 [ExAny "B"]), Right (exAv "B" 1 [])]
 dbMissingVersion = [Right (exAv "A" 1 [ExFix "B" 2]), Right (exAv "B" 1 [])]
 dbTwoVersions =
@@ -1253,6 +1313,41 @@ dbLegacy6 =
   [ Right (exAv "alex" 1 [] `withExe` exExe "alex" [])
   , Right (exAv "happy" 1 [ExLegacyBuildToolAny "alex"] `withExe` exExe "happy" [])
   , Right (exAv "A" 1 [ExLegacyBuildToolAny "happy"])
+  ]
+-- Solver.hs db14.
+dbCycles =
+  [ Right (exAv "A" 1 [ExAny "B"])
+  , Right (exAv "B" 1 [ExAny "A"])
+  , Right (exAv "C" 1 [exFlagged "flagC" [ExAny "D"] [ExAny "E"]])
+  , Right (exAv "D" 1 [ExAny "C"])
+  , Right (exAv "E" 1 [])
+  ]
+-- Solver.hs db15.
+dbSetupCycles =
+  [ Right (exAv "A" 1 [] `withSetupDeps` [ExAny "B"])
+  , Right (exAv "B" 1 [ExAny "A"])
+  , Left (exInst "C" 1 "C-1-inst" [])
+  , Right (exAv "C" 2 [] `withSetupDeps` [ExAny "D"])
+  , Right (exAv "D" 1 [ExAny "C"])
+  , Right (exAv "E" 1 [ExFix "C" 2])
+  ]
+-- Solver.hs issue4161: time-2's setup script cannot be built with time-2.
+dbSetupSelfCycle =
+  [ Right (exAv "target" 1 [ExFix "time" 2])
+  , Right (exAv "time" 2 [] `withSetupDeps` [ExAny "time"])
+  , Right (exAv "time" 1 [])
+  ]
+-- B's dependencies inherit the scope of A's build tools, where A itself is
+-- needed again.
+dbToolCycle =
+  [ Right (exAv "A" 1 [ExBuildToolAny "B" "bt"])
+  , Right (exAv "B" 1 [ExAny "A"] `withExe` exExe "bt" [])
+  ]
+-- Solver.hs dbIssue3775: A's executable depends on A's own library.
+dbSelfDep =
+  [ Right (exAv "warp" 1 [])
+  , Right (exAv "A" 2 [ExFix "warp" 1] `withExe` exExe "warp" [ExAny "A"])
+  , Right (exAv "B" 2 [ExAny "A", ExAny "warp"])
   ]
 dbPrivateSubLib =
   [ Right (exAv "A" 1 [ExSubLibAny "B" "sub-lib"])
