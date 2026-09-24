@@ -14,6 +14,7 @@ module UnitTests.Distribution.Solver.Modular.DSL
   , ExampleVersionRange
   , ExamplePkgVersion
   , ExamplePkgName
+  , ExamplePkgHash
   , ExampleFlagName
   , ExFlag (..)
   , ExampleAvailable (..)

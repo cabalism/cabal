@@ -481,6 +481,7 @@ test-suite long-tests
     UnitTests.Distribution.Client.VCS
     UnitTests.Distribution.Solver.Modular.DSL
     UnitTests.Distribution.Solver.Modular.QuickCheck
+    UnitTests.Distribution.Solver.Modular.QuickCheck.Oracle
     UnitTests.Distribution.Solver.Modular.QuickCheck.Utils
     UnitTests.Options
 

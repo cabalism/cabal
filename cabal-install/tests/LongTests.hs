@@ -6,6 +6,7 @@ import qualified UnitTests.Distribution.Client.Described
 import qualified UnitTests.Distribution.Client.FileMonitor
 import qualified UnitTests.Distribution.Client.VCS
 import qualified UnitTests.Distribution.Solver.Modular.QuickCheck
+import qualified UnitTests.Distribution.Solver.Modular.QuickCheck.Oracle
 import UnitTests.Options
 
 main :: IO ()
@@ -20,6 +21,9 @@ tests =
     testGroup
       "Long-running tests"
       [ testGroup
+          "Solver oracle"
+          UnitTests.Distribution.Solver.Modular.QuickCheck.Oracle.tests
+      , testGroup
           "Solver QuickCheck"
           UnitTests.Distribution.Solver.Modular.QuickCheck.tests
       , testGroup "UnitTests.Distribution.Client.VCS" $

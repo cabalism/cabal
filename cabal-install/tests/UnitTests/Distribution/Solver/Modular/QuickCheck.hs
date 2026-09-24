@@ -11,7 +11,7 @@ import Data.List (groupBy, isInfixOf)
 
 import Text.Show.Pretty (parseValue, valToStr)
 
-import Test.QuickCheck (Arbitrary (..), Blind (..), Gen, Positive (..), counterexample, elements, frequency, listOf, oneof, shrinkList, shrinkNothing, shuffle, sublistOf, vectorOf, (===), (==>))
+import Test.QuickCheck (Arbitrary (..), Blind (..), Gen, Positive (..), classify, counterexample, elements, frequency, listOf, oneof, property, shrinkList, shrinkNothing, shuffle, sublistOf, vectorOf, (===), (==>))
 import Test.QuickCheck.Instances.Cabal ()
 import Test.Tasty (TestTree)
 
@@ -43,6 +43,7 @@ import Distribution.Version
 
 import Distribution.Simple.Utils (ordNub)
 import UnitTests.Distribution.Solver.Modular.DSL
+import qualified UnitTests.Distribution.Solver.Modular.QuickCheck.Oracle as Oracle
 import UnitTests.Distribution.Solver.Modular.QuickCheck.Utils
   ( ArbitraryOrd (..)
   , testPropertyWithSeed
@@ -194,8 +195,62 @@ tests =
          in counterexample (showResults r1 r2) $
               noneReachedBackjumpLimit [r1, r2] ==>
                 resultPlan r1 === resultPlan r2
+  , -- The reference oracle is a plain search written from the Package
+    -- Calculus definition of a resolution (see the Oracle module). It has no
+    -- heuristics, so it is compared with the solver in both directions. The
+    -- oracle only models the top-level qualifier, so these tests use databases
+    -- without setup dependencies and run without independent goals.
+    testPropertyWithSeed "solver agrees with the reference oracle on solvability" $
+      \(NoSetupTest test) reorderGoals ->
+        let r = solveNoSetup reorderGoals PreferInstalledOrLatest test
+            v = Oracle.verdict (oracleResolve test)
+         in counterexample (showResult 1 r ++ "oracle: " ++ show v) $
+              classify (v == Oracle.IsUnknown) "oracle out of fuel" $
+                (v /= Oracle.IsUnknown && noneReachedBackjumpLimit [r]) ==>
+                  isRight (resultPlan r) === (v == Oracle.IsSolvable)
+  , testPropertyWithSeed "solver plan is a valid resolution under the oracle's validity check" $
+      \(NoSetupTest test) reorderGoals prefVersion ->
+        let r = solveNoSetup reorderGoals prefVersion test
+         in case resultResolved r of
+              Left _ -> property True
+              Right plan ->
+                counterexample (showResult 1 r ++ "resolved: " ++ show plan) $
+                  oracleCheck test plan === []
+  , testPropertyWithSeed "oracle solution passes oracle validity check" $
+      \(NoSetupTest test) ->
+        case oracleResolve test of
+          Oracle.Solvable res ->
+            let plan = Oracle.toResolved res
+             in counterexample ("resolved: " ++ show plan) $ oracleCheck test plan === []
+          _ -> property True
   ]
   where
+    solveNoSetup reorderGoals prefVersion =
+      solve
+        (EnableBackjumping True)
+        (FineGrainedConflicts True)
+        reorderGoals
+        (CountConflicts True)
+        (IndependentGoals False)
+        prefVersion
+        Nothing
+
+    oracleFuel :: Int
+    oracleFuel = 100000
+
+    oracleResolve test =
+      Oracle.resolve
+        oracleFuel
+        (testConstraints test)
+        (unTestDb (testDb test))
+        (map unPN (testTargets test))
+
+    oracleCheck test =
+      Oracle.checkResolution
+        (testConstraints test)
+        (unTestDb (testDb test))
+        (map unPN (testTargets test))
+
     noneReachedBackjumpLimit :: [Result] -> Bool
     noneReachedBackjumpLimit =
       not . any (\r -> resultPlan r == Left BackjumpLimitReached)
@@ -273,7 +328,25 @@ solve enableBj fineGrainedConflicts reorder countConflicts indep prefOldest goal
             -- Force the result so that we check for internal errors when we check
             -- for success or failure. See D.C.Dependency.validateSolverResult.
             force $ either (Left . failure) (Right . extractInstallPlan) result
+        , resultResolved = either (Left . failure) (Right . Oracle.fromSolverPlan) result
         }
+
+-- | A 'SolverTest' without setup dependencies, so that the only qualifier is
+-- the top-level one and version uniqueness is global. This is the scope the
+-- reference oracle models.
+newtype NoSetupTest = NoSetupTest SolverTest
+
+instance Show NoSetupTest where
+  show (NoSetupTest test) = show test
+
+instance Arbitrary NoSetupTest where
+  arbitrary = NoSetupTest . stripSetupDeps <$> arbitrary
+
+  shrink (NoSetupTest test) = map (NoSetupTest . stripSetupDeps) (shrink test)
+
+stripSetupDeps :: SolverTest -> SolverTest
+stripSetupDeps test =
+  test{testDb = TestDb (Oracle.withoutSetupDeps (unTestDb (testDb test)))}
 
 -- | How to modify the order of the input targets.
 data TargetOrder = SameOrder | ReverseOrder
@@ -288,6 +361,9 @@ instance Arbitrary TargetOrder where
 data Result = Result
   { resultLog :: [String]
   , resultPlan :: Either Failure [(ExamplePkgName, ExamplePkgVersion)]
+  , resultResolved :: Either Failure [Oracle.ResolvedPackage]
+  -- ^ The same plan described for the reference oracle, including installed
+  -- packages and flag assignments. Not forced.
   }
 
 data Failure = BackjumpLimitReached | OtherFailure
