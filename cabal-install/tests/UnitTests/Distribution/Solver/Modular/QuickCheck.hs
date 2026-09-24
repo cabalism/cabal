@@ -14,6 +14,7 @@ import Text.Show.Pretty (parseValue, valToStr)
 import Test.QuickCheck (Arbitrary (..), Blind (..), Gen, Positive (..), classify, counterexample, elements, frequency, listOf, oneof, property, shrinkList, shrinkNothing, shuffle, sublistOf, vectorOf, (===), (==>))
 import Test.QuickCheck.Instances.Cabal ()
 import Test.Tasty (TestTree)
+import Test.Tasty.HUnit (testCase, (@?=))
 
 import Distribution.Types.Flag (FlagName)
 import Distribution.Utils.ShortText (ShortText, fromShortText)
@@ -197,57 +198,77 @@ tests =
                 resultPlan r1 === resultPlan r2
   , -- The reference oracle is a plain search written from the Package
     -- Calculus definition of a resolution (see the Oracle module). It has no
-    -- heuristics, so it is compared with the solver in both directions. The
-    -- oracle only models the top-level qualifier, so these tests use databases
-    -- without setup dependencies and run without independent goals.
+    -- heuristics, so it is compared with the solver in both directions.
     testPropertyWithSeed "solver agrees with the reference oracle on solvability" $
-      \(NoSetupTest test) reorderGoals ->
-        let r = solveNoSetup reorderGoals PreferInstalledOrLatest test
-            v = Oracle.verdict (oracleResolve test)
+      \test reorderGoals indepGoals ->
+        let r = solveWith reorderGoals indepGoals PreferInstalledOrLatest test
+            v = Oracle.verdict (oracleResolve indepGoals test)
          in counterexample (showResult 1 r ++ "oracle: " ++ show v) $
               classify (v == Oracle.IsUnknown) "oracle out of fuel" $
                 (v /= Oracle.IsUnknown && noneReachedBackjumpLimit [r]) ==>
                   isRight (resultPlan r) === (v == Oracle.IsSolvable)
   , testPropertyWithSeed "solver plan is a valid resolution under the oracle's validity check" $
-      \(NoSetupTest test) reorderGoals prefVersion ->
-        let r = solveNoSetup reorderGoals prefVersion test
+      \test reorderGoals indepGoals prefVersion ->
+        let r = solveWith reorderGoals indepGoals prefVersion test
          in case resultResolved r of
               Left _ -> property True
               Right plan ->
                 counterexample (showResult 1 r ++ "resolved: " ++ show plan) $
-                  oracleCheck test plan === []
+                  oracleCheck indepGoals test plan === []
   , testPropertyWithSeed "oracle solution passes oracle validity check" $
-      \(NoSetupTest test) ->
-        case oracleResolve test of
+      \test indepGoals ->
+        case oracleResolve indepGoals test of
           Oracle.Solvable res ->
             let plan = Oracle.toResolved res
-             in counterexample ("resolved: " ++ show plan) $ oracleCheck test plan === []
+             in counterexample ("resolved: " ++ show plan) $
+                  oracleCheck indepGoals test plan === []
           _ -> property True
+  , testCase "hand-written oracle cases agree with the solver" $
+      for_ Oracle.solverCases $ \c ->
+        let test =
+              SolverTest
+                { testDb = TestDb (Oracle.scDb c)
+                , testTargets = map PN (Oracle.scTargets c)
+                , testConstraints = Oracle.scConstraints c
+                , testPreferences = []
+                }
+            r =
+              solveWith
+                (ReorderGoals False)
+                (IndependentGoals (Oracle.scIndependent c))
+                PreferInstalledOrLatest
+                test
+            solvable = case resultPlan r of
+              Right _ -> Oracle.IsSolvable
+              Left _ -> Oracle.IsUnsolvable
+         in (Oracle.scName c, solvable) @?= (Oracle.scName c, Oracle.scVerdict c)
   ]
   where
-    solveNoSetup reorderGoals prefVersion =
+    solveWith reorderGoals indepGoals prefVersion =
       solve
         (EnableBackjumping True)
         (FineGrainedConflicts True)
         reorderGoals
         (CountConflicts True)
-        (IndependentGoals False)
+        indepGoals
         prefVersion
         Nothing
 
     oracleFuel :: Int
     oracleFuel = 100000
 
-    oracleResolve test =
+    oracleResolve (IndependentGoals indep) test =
       Oracle.resolve
         oracleFuel
+        indep
         (testConstraints test)
         (unTestDb (testDb test))
         (map unPN (testTargets test))
 
-    oracleCheck test =
+    oracleCheck (IndependentGoals indep) test =
       Oracle.checkResolution
         (testConstraints test)
+        indep
         (unTestDb (testDb test))
         (map unPN (testTargets test))
 
@@ -330,23 +351,6 @@ solve enableBj fineGrainedConflicts reorder countConflicts indep prefOldest goal
             force $ either (Left . failure) (Right . extractInstallPlan) result
         , resultResolved = either (Left . failure) (Right . Oracle.fromSolverPlan) result
         }
-
--- | A 'SolverTest' without setup dependencies, so that the only qualifier is
--- the top-level one and version uniqueness is global. This is the scope the
--- reference oracle models.
-newtype NoSetupTest = NoSetupTest SolverTest
-
-instance Show NoSetupTest where
-  show (NoSetupTest test) = show test
-
-instance Arbitrary NoSetupTest where
-  arbitrary = NoSetupTest . stripSetupDeps <$> arbitrary
-
-  shrink (NoSetupTest test) = map (NoSetupTest . stripSetupDeps) (shrink test)
-
-stripSetupDeps :: SolverTest -> SolverTest
-stripSetupDeps test =
-  test{testDb = TestDb (Oracle.withoutSetupDeps (unTestDb (testDb test)))}
 
 -- | How to modify the order of the input targets.
 data TargetOrder = SameOrder | ReverseOrder
