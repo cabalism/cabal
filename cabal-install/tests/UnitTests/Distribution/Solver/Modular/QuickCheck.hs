@@ -13,6 +13,7 @@ import qualified Data.List as L
 
 import Text.Show.Pretty (parseValue, valToStr)
 
+import Language.Haskell.Extension (Extension (..), KnownExtension (..), Language (..))
 import Test.QuickCheck (Arbitrary (..), Blind (..), Gen, Positive (..), classify, counterexample, elements, frequency, listOf, oneof, property, shrinkList, shrinkNothing, shuffle, sublistOf, vectorOf, (===), (==>))
 import Test.QuickCheck.Instances.Cabal ()
 import Test.Tasty (TestTree)
@@ -213,9 +214,10 @@ tests =
                     classify (hasDep isBuildToolDep test) "build-tool dependency" $
                       classify (hasCyclicNames test) "cycle among package names" $
                         classify (hasDep isPkgConfigDep test) "pkg-config dependency" $
-                          classify (hasSetupDeps test) "setup dependencies" $
-                            (v /= Oracle.IsUnknown && noneReachedBackjumpLimit [r]) ==>
-                              isRight (resultPlan r) === (v == Oracle.IsSolvable)
+                          classify (hasDep isCompilerDep test) "extension or language dependency" $
+                            classify (hasSetupDeps test) "setup dependencies" $
+                              (v /= Oracle.IsUnknown && noneReachedBackjumpLimit [r]) ==>
+                                isRight (resultPlan r) === (v == Oracle.IsSolvable)
   , testPropertyWithSeed "solver plan is a valid resolution under the oracle's validity check" $
       \test reorderGoals indepGoals prefVersion ->
         let r = solveWith reorderGoals indepGoals prefVersion test
@@ -241,6 +243,8 @@ tests =
                 , testConstraints = Oracle.scConstraints c
                 , testPreferences = []
                 , testPkgConfigDb = Oracle.envPkgConfig (Oracle.scEnv c)
+                , testExtensions = Oracle.envExtensions (Oracle.scEnv c)
+                , testLanguages = Oracle.envLanguages (Oracle.scEnv c)
                 }
             r =
               solveWith
@@ -267,7 +271,12 @@ tests =
     oracleFuel :: Int
     oracleFuel = 100000
 
-    testEnv test = Oracle.Env{Oracle.envPkgConfig = testPkgConfigDb test}
+    testEnv test =
+      Oracle.Env
+        { Oracle.envPkgConfig = testPkgConfigDb test
+        , Oracle.envExtensions = testExtensions test
+        , Oracle.envLanguages = testLanguages test
+        }
 
     -- Whether any source package in the test has a dependency of the given
     -- kind, looking inside flag branches too.
@@ -292,6 +301,10 @@ tests =
 
     isPkgConfigDep ExPkg{} = True
     isPkgConfigDep _ = False
+
+    isCompilerDep ExExt{} = True
+    isCompilerDep ExLang{} = True
+    isCompilerDep _ = False
 
     -- Whether the package names, with an edge for every dependency of any
     -- kind under any flag assignment, contain a cycle. A rough indicator that
@@ -383,8 +396,8 @@ solve enableBj fineGrainedConflicts reorder countConflicts indep prefOldest goal
         runProgress $
           exResolve
             (unTestDb (testDb test))
-            Nothing
-            Nothing
+            (testExtensions test)
+            (testLanguages test)
             Nothing
             (toPkgConfigDb <$> testPkgConfigDb test)
             (map unPN (testTargets test))
@@ -472,6 +485,10 @@ data SolverTest = SolverTest
   , testPreferences :: [ExPreference]
   , testPkgConfigDb :: Maybe [(String, Maybe Int)]
   -- ^ The pkg-config database, or Nothing for no pkg-config.
+  , testExtensions :: Maybe [Extension]
+  -- ^ The extensions the compiler supports, or Nothing for unknown.
+  , testLanguages :: Maybe [Language]
+  -- ^ The languages the compiler supports, or Nothing for unknown.
   }
 
 -- | Pretty-print the test when quickcheck calls 'show'.
@@ -488,6 +505,10 @@ instance Show SolverTest where
             ++ show (testPreferences test)
             ++ ", testPkgConfigDb = "
             ++ show (testPkgConfigDb test)
+            ++ ", testExtensions = "
+            ++ show (testExtensions test)
+            ++ ", testLanguages = "
+            ++ show (testLanguages test)
             ++ "}"
      in maybe str valToStr $ parseValue str
 
@@ -505,7 +526,9 @@ instance Arbitrary SolverTest where
       [] -> return []
       _ -> boundedListOf 3 $ arbitraryPreference pkgVersions
     pkgConfigDb <- arbitraryPkgConfigDb
-    return (SolverTest db targets constraints prefs pkgConfigDb)
+    exts <- arbitraryCompilerList extensionPool
+    langs <- arbitraryCompilerList languagePool
+    return (SolverTest db targets constraints prefs pkgConfigDb exts langs)
 
   shrink test =
     [test{testDb = db} | db <- shrink (testDb test)]
@@ -513,6 +536,31 @@ instance Arbitrary SolverTest where
       ++ [test{testConstraints = cs} | cs <- shrink (testConstraints test)]
       ++ [test{testPreferences = prefs} | prefs <- shrink (testPreferences test)]
       ++ [test{testPkgConfigDb = db} | db <- shrinkPkgConfigDb (testPkgConfigDb test)]
+      ++ [test{testExtensions = exts} | exts <- shrinkCompilerList (testExtensions test)]
+      ++ [test{testLanguages = langs} | langs <- shrinkCompilerList (testLanguages test)]
+
+-- | The extensions and languages that dependencies and compilers draw from.
+extensionPool :: [Extension]
+extensionPool =
+  [EnableExtension CPP, EnableExtension RankNTypes, DisableExtension CPP, UnknownExtension "custom"]
+
+languagePool :: [Language]
+languagePool = [Haskell98, Haskell2010, UnknownLanguage "Haskell3000"]
+
+-- | Usually a compiler supporting some of the pool (languages usually include
+-- Haskell98, which every component needs by default); occasionally a compiler
+-- whose support is unknown.
+arbitraryCompilerList :: [a] -> Gen (Maybe [a])
+arbitraryCompilerList pool =
+  frequency
+    [ (1, return Nothing)
+    , (1, Just <$> sublistOf pool)
+    , (3, Just <$> ((take 1 pool ++) <$> sublistOf (drop 1 pool)))
+    ]
+
+shrinkCompilerList :: Maybe [a] -> [Maybe [a]]
+shrinkCompilerList Nothing = []
+shrinkCompilerList (Just xs) = Nothing : map Just (shrinkList shrinkNothing xs)
 
 -- | The pkg-config package names that dependencies and databases draw from.
 pkgConfigNames :: [String]
@@ -699,6 +747,7 @@ arbitraryExDep db@(TestDb pkgs) later level =
                  ]
       -- custom-setup only supports library dependencies.
       pkgConfig = [ExPkg <$> ((,) <$> elements pkgConfigNames <*> elements [1 .. 3])]
+      compiler = [ExExt <$> elements extensionPool, ExLang <$> elements languagePool]
       -- custom-setup only supports library dependencies.
       exes =
         [ (getName pkg, unUnqualComponentName name, getVersion pkg)
@@ -714,7 +763,7 @@ arbitraryExDep db@(TestDb pkgs) later level =
              ]
    in oneof $
         case level of
-          NonSetupDep -> flag : other ++ buildTools ++ pkgConfig ++ laterDeps
+          NonSetupDep -> flag : other ++ buildTools ++ pkgConfig ++ compiler ++ laterDeps
           SetupDep -> other ++ laterDeps
 
 arbitraryDeps :: TestDb -> [(PN, PV)] -> Gen Dependencies
@@ -825,6 +874,8 @@ instance Arbitrary ExampleDependency where
   shrink (ExBuildToolAny _ _) = []
   shrink (ExBuildToolFix pn exe _) = [ExBuildToolAny pn exe]
   shrink (ExPkg _) = []
+  shrink (ExExt _) = []
+  shrink (ExLang _) = []
   shrink (ExFlagged flag th el) =
     depsExampleDependencies th
       ++ depsExampleDependencies el

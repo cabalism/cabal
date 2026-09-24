@@ -41,11 +41,12 @@
 -- 'detectCyclesPhase'. A package's dependency on its own qualified name is not
 -- an edge, except for a setup dependency ('Builder.extendOpen').
 --
--- Dependencies on the build environment (pkg-config packages) do not pick
--- packages; a choice whose evaluated dependencies need something the
--- environment lacks is simply not selectable, as in 'Validate.extend'.
+-- Dependencies on the build environment (pkg-config packages, and the
+-- languages and extensions the compiler supports) do not pick packages; a
+-- choice whose evaluated dependencies need something the environment lacks is
+-- simply not selectable, as in 'Validate.extend'.
 --
--- Not modelled: language and extension dependencies, and base shims.
+-- Not modelled: base shims.
 module UnitTests.Distribution.Solver.Modular.QuickCheck.Oracle
   ( -- * Reference resolver
     Env (..)
@@ -114,6 +115,7 @@ import qualified Distribution.Solver.Types.PackagePath as P
 import Distribution.Solver.Types.SolverId (SolverId (..))
 import Distribution.Solver.Types.SolverPackage (SolverPackage (..))
 
+import Language.Haskell.Extension (Extension (..), KnownExtension (..), Language (..))
 import Test.Tasty (TestTree, testGroup)
 import Test.Tasty.HUnit (assertBool, testCase, (@?=))
 
@@ -151,17 +153,28 @@ targetScope indep t = (if indep then Independent t else DefaultNamespace, Toplev
 -------------------------------------------------------------------------------}
 
 -- | What the build environment provides.
-newtype Env = Env
+data Env = Env
   { envPkgConfig :: Maybe [(String, Maybe Int)]
   -- ^ The pkg-config database: 'Nothing' when pkg-config is unavailable,
   -- otherwise the packages it lists, each with its version if known.
+  , envExtensions :: Maybe [Extension]
+  -- ^ The extensions the compiler supports, or 'Nothing' when unknown, in
+  -- which case every extension counts as supported ('validateTree').
+  , envLanguages :: Maybe [Language]
+  -- ^ Likewise for languages.
   }
   deriving (Show)
 
 -- | The environment the QuickCheck tests use by default: pkg-config with no
--- packages.
+-- packages, and a compiler whose extensions and languages are unknown.
 defaultEnv :: Env
-defaultEnv = Env{envPkgConfig = Just []}
+defaultEnv = Env{envPkgConfig = Just [], envExtensions = Nothing, envLanguages = Nothing}
+
+supportedExtension :: Env -> Extension -> Bool
+supportedExtension env e = maybe True (e `elem`) (envExtensions env)
+
+supportedLanguage :: Env -> Language -> Bool
+supportedLanguage env l = maybe True (l `elem`) (envLanguages env)
 
 -- | Mirrors 'pkgConfigPkgIsPresent' for a single-version requirement, and the
 -- rule that any requirement fails without pkg-config.
@@ -234,17 +247,25 @@ data Dep
     DepUnit ExamplePkgHash
   | -- | A @pkgconfig-depends@ on an exact version.
     DepPkgConfig String Int
+  | -- | An extension the component uses.
+    DepExtension Extension
+  | -- | A language the component uses.
+    DepLanguage Language
   deriving (Eq, Show)
 
 -- | Whether a dependency is on the environment rather than on a package.
 isEnvDep :: Dep -> Bool
 isEnvDep DepPkgConfig{} = True
+isEnvDep DepExtension{} = True
+isEnvDep DepLanguage{} = True
 isEnvDep _ = False
 
 -- | Does the environment satisfy a dependency? Package dependencies are not
 -- the environment's business and count as satisfied.
 envSatisfied :: Env -> Dep -> Bool
 envSatisfied env (DepPkgConfig n v) = pkgConfigPresent env n v
+envSatisfied env (DepExtension e) = supportedExtension env e
+envSatisfied env (DepLanguage l) = supportedLanguage env l
 envSatisfied _ _ = True
 
 -- | Something that must be satisfied by the resolution, in a scope.
@@ -300,24 +321,35 @@ usedFlags a = ordNub (concatMap (goDeps . snd) (CD.toList (exAvDeps a)))
 -- its dependencies only when every node reached under the assignment has
 -- @buildable: True@. Build-tool dependencies on the package's own executables
 -- are dropped ('isInternal'), and legacy @build-tools@ entries count only when
--- they name a known tool ('desugarBuildTool').
+-- they name a known tool ('desugarBuildTool'). A component that declares no
+-- language at its top level uses Haskell98 (the DSL's default build info).
 componentDeps :: ExampleAvailable -> Flags -> Dependencies -> Maybe [Dep]
-componentDeps a flags deps
-  | not (depsIsBuildable deps) = Nothing
-  | otherwise = concat <$> traverse go (depsExampleDependencies deps)
+componentDeps a flags = node True
   where
-    go (ExAny p) = Just [DepLib p Nothing anyVersion]
-    go (ExFix p v) = Just [DepLib p Nothing (thisVersion (mkSimpleVersion v))]
-    go (ExRange p lo hi) = Just [DepLib p Nothing (mkVersionRange lo hi)]
-    go (ExSubLibAny p l) = Just [DepLib p (Just l) anyVersion]
-    go (ExSubLibFix p l v) = Just [DepLib p (Just l) (thisVersion (mkSimpleVersion v))]
-    go (ExBuildToolAny p e) = Just (exeDep p e anyVersion)
-    go (ExBuildToolFix p e v) = Just (exeDep p e (thisVersion (mkSimpleVersion v)))
-    go (ExLegacyBuildToolAny n) = Just (legacy n anyVersion)
-    go (ExLegacyBuildToolFix n v) = Just (legacy n (thisVersion (mkSimpleVersion v)))
-    go (ExPkg (n, v)) = Just [DepPkgConfig n v]
-    go (ExFlagged f t e) = componentDeps a flags (if lookupFlag flags f then t else e)
-    go dep = error ("Oracle.componentDeps: unsupported dependency " ++ show dep)
+    node top deps
+      | not (depsIsBuildable deps) = Nothing
+      | otherwise = (implicit ++) . concat <$> traverse go (depsExampleDependencies deps)
+      where
+        implicit =
+          [ DepLanguage Haskell98
+          | top
+          , null [() | ExLang _ <- depsExampleDependencies deps]
+          ]
+        go (ExFlagged f t e) = node False (if lookupFlag flags f then t else e)
+        go dep = single dep
+    single (ExAny p) = Just [DepLib p Nothing anyVersion]
+    single (ExFix p v) = Just [DepLib p Nothing (thisVersion (mkSimpleVersion v))]
+    single (ExRange p lo hi) = Just [DepLib p Nothing (mkVersionRange lo hi)]
+    single (ExSubLibAny p l) = Just [DepLib p (Just l) anyVersion]
+    single (ExSubLibFix p l v) = Just [DepLib p (Just l) (thisVersion (mkSimpleVersion v))]
+    single (ExBuildToolAny p e) = Just (exeDep p e anyVersion)
+    single (ExBuildToolFix p e v) = Just (exeDep p e (thisVersion (mkSimpleVersion v)))
+    single (ExLegacyBuildToolAny n) = Just (legacy n anyVersion)
+    single (ExLegacyBuildToolFix n v) = Just (legacy n (thisVersion (mkSimpleVersion v)))
+    single (ExPkg (n, v)) = Just [DepPkgConfig n v]
+    single (ExExt e) = Just [DepExtension e]
+    single (ExLang l) = Just [DepLanguage l]
+    single dep = error ("Oracle.componentDeps: unsupported dependency " ++ show dep)
 
     exeDep p e vr = [DepExe p e vr | p /= exAvName a]
 
@@ -412,7 +444,9 @@ instanceDeps :: [OptionalStanza] -> Flags -> Instance -> ([Dep], [Dep])
 instanceDeps _ _ (Installed i) = (map DepUnit (exInstBuildAgainst i), [])
 instanceDeps stanzas flags (Source a) =
   ( filter (not . selfLib) (concat [deps | (comp, deps) <- comps, solved comp])
-  , concat [deps | (ComponentSetup, deps) <- comps]
+  , -- A setup component has no build info, so no language or extension
+    -- requirements; the DSL only allows package dependencies there anyway.
+    filter (not . isEnvDep) (concat [deps | (ComponentSetup, deps) <- comps])
   )
   where
     -- The solver ignores a package's library dependency on itself, which
@@ -446,6 +480,8 @@ choiceGoals ((ns, q), p) ch =
     goal _ (DepExe e exe vr) = Just (ExeDep ((ns, Exe p e), e) exe vr)
     goal s (DepUnit h) = Just (UnitDep s h)
     goal _ (DepPkgConfig _ _) = Nothing
+    goal _ (DepExtension _) = Nothing
+    goal _ (DepLanguage _) = Nothing
 
 -- | Does a choice satisfy an unqualified dependency?
 satisfiesDep :: [ExConstraint] -> Dep -> Choice -> Bool
@@ -463,6 +499,8 @@ satisfiesDep cs (DepExe e exe vr) ch =
     inst = chInstance ch
 satisfiesDep _ (DepUnit h) ch = instHash (chInstance ch) == Just h
 satisfiesDep _ (DepPkgConfig _ _) _ = False
+satisfiesDep _ (DepExtension _) _ = False
+satisfiesDep _ (DepLanguage _) _ = False
 
 -- | Does a choice satisfy a goal? Scopes are matched by the caller.
 satisfies :: [ExConstraint] -> Goal -> Choice -> Bool
@@ -1022,6 +1060,8 @@ toResolved res = Map.elems (Map.fromList [(rpRef rp, rp) | rp <- map conv (Map.t
     ref s (DepLib n _ _) = choiceRef <$> Map.lookup (s, n) res
     ref _ (DepExe _ _ _) = Nothing
     ref _ (DepPkgConfig _ _) = Nothing
+    ref _ (DepExtension _) = Nothing
+    ref _ (DepLanguage _) = Nothing
     ref s (DepUnit h) =
       listToMaybe
         [ choiceRef ch
@@ -1064,7 +1104,11 @@ sc name = SolverCase name defaultEnv
 
 -- | A case with a pkg-config database, or without pkg-config.
 withPkgConfig :: Maybe [(String, Maybe Int)] -> SolverCase -> SolverCase
-withPkgConfig db c = c{scEnv = Env{envPkgConfig = db}}
+withPkgConfig db c = c{scEnv = (scEnv c){envPkgConfig = db}}
+
+-- | A case with a compiler that supports the given extensions and languages.
+withCompiler :: [Extension] -> [Language] -> SolverCase -> SolverCase
+withCompiler exts langs c = c{scEnv = (scEnv c){envExtensions = Just exts, envLanguages = Just langs}}
 
 solverCases :: [SolverCase]
 solverCases =
@@ -1150,6 +1194,21 @@ solverCases =
   , withPkgConfig (Just [("pkgA", Nothing)]) $ sc "pkg-config package of unknown version satisfies any version" False [] dbPkgConfig ["A"] IsSolvable
   , withPkgConfig Nothing $ sc "no pkg-config fails any pkg-config dependency" False [] dbPkgConfig ["A"] IsUnsolvable
   , withPkgConfig Nothing $ sc "no pkg-config is fine when flags avoid the dependency" False [] dbPkgConfig ["D"] IsSolvable
+  , -- Extensions and languages (Solver.hs "Extensions" and "Languages").
+    withCompiler [EnableExtension CPP] [Haskell98] $ sc "unsupported extension" False [] dbExtensions ["A"] IsUnsolvable
+  , withCompiler [EnableExtension CPP] [Haskell98] $ sc "unsupported extension in a dependency" False [] dbExtensions ["B"] IsUnsolvable
+  , withCompiler [EnableExtension RankNTypes] [Haskell98] $ sc "supported extension" False [] dbExtensions ["A"] IsSolvable
+  , withCompiler [EnableExtension CPP, EnableExtension RankNTypes] [Haskell98] $ sc "supported extensions in dependencies" False [] dbExtensions ["C"] IsSolvable
+  , withCompiler [EnableExtension CPP, EnableExtension RankNTypes] [Haskell98] $ sc "disabling an extension is itself an extension" False [] dbExtensions ["D"] IsUnsolvable
+  , withCompiler [UnknownExtension "custom", EnableExtension CPP, EnableExtension RankNTypes] [Haskell98] $ sc "supported unknown extension" False [] dbExtensions ["E"] IsSolvable
+  , withCompiler [] [Haskell98] $ sc "unsupported language" False [] dbLanguages ["A"] IsUnsolvable
+  , withCompiler [] [Haskell98, Haskell2010] $ sc "supported language" False [] dbLanguages ["A"] IsSolvable
+  , withCompiler [] [Haskell98] $ sc "unsupported language in a dependency" False [] dbLanguages ["B"] IsUnsolvable
+  , withCompiler [] [Haskell98, Haskell2010, UnknownLanguage "Haskell3000"] $ sc "supported unknown language" False [] dbLanguages ["C"] IsSolvable
+  , withCompiler [] [Haskell2010] $ sc "every component needs Haskell98 unless it declares a language" False [] dbChain ["A"] IsUnsolvable
+  , withCompiler [] [Haskell2010] $ sc "a declared language replaces Haskell98" False [] dbLanguages ["A"] IsSolvable
+  , withCompiler [] [Haskell2010] $ sc "a language in a flag branch is required in addition" False [] dbBranchLanguage ["A"] IsUnsolvable
+  , withCompiler [] [Haskell98, Haskell2010] $ sc "a language in a flag branch can be avoided by the flag" False [] dbBranchLanguage ["B"] IsSolvable
   ]
   where
     anyQ = ScopeAnyQualifier . mkPackageName
@@ -1239,7 +1298,7 @@ tests =
   Example databases
 -------------------------------------------------------------------------------}
 
-dbChain, dbMissingVersion, dbTwoVersions, dbFlag, dbUnbuildableBranch, dbUnbuildableLib, dbInstalled, dbExeOnly, dbTestStanza, dbBadTestStanza, dbSetup, dbTwoSetupScopes, dbLinkedManualFlag, dbUnlinkedManualFlag, dbLinkedDeps, dbInstalledAndSource, dbPrivateSubLib, dbFlaggedSubLib, dbPublicSubLib, dbSubLibVersions, dbSubLibVisibilities, dbBuildTools, dbTwoExes, dbTwoExesOneVersion, dbUnbuildableToolLib, dbUnbuildableToolExe, dbToolVsLib, dbLegacy1, dbLegacy2, dbLegacy4, dbLegacy6, dbCycles, dbSetupCycles, dbSetupSelfCycle, dbToolCycle, dbSelfDep, dbPkgConfig :: ExampleDb
+dbChain, dbMissingVersion, dbTwoVersions, dbFlag, dbUnbuildableBranch, dbUnbuildableLib, dbInstalled, dbExeOnly, dbTestStanza, dbBadTestStanza, dbSetup, dbTwoSetupScopes, dbLinkedManualFlag, dbUnlinkedManualFlag, dbLinkedDeps, dbInstalledAndSource, dbPrivateSubLib, dbFlaggedSubLib, dbPublicSubLib, dbSubLibVersions, dbSubLibVisibilities, dbBuildTools, dbTwoExes, dbTwoExesOneVersion, dbUnbuildableToolLib, dbUnbuildableToolExe, dbToolVsLib, dbLegacy1, dbLegacy2, dbLegacy4, dbLegacy6, dbCycles, dbSetupCycles, dbSetupSelfCycle, dbToolCycle, dbSelfDep, dbPkgConfig, dbExtensions, dbLanguages, dbBranchLanguage :: ExampleDb
 dbChain = [Right (exAv "A" 1 [ExAny "B"]), Right (exAv "B" 1 [])]
 dbMissingVersion = [Right (exAv "A" 1 [ExFix "B" 2]), Right (exAv "B" 1 [])]
 dbTwoVersions =
@@ -1435,6 +1494,26 @@ dbPkgConfig =
   , Right (exAv "B" 2 [ExPkg ("pkgB", 2), ExAny "A"])
   , Right (exAv "C" 1 [ExAny "B"])
   , Right (exAv "D" 1 [exFlagged "flag1" [ExAny "A"] [], exFlagged "flag2" [] [ExAny "A"]])
+  ]
+-- Solver.hs dbExts1 and dbLangs1.
+dbExtensions =
+  [ Right (exAv "A" 1 [ExExt (EnableExtension RankNTypes)])
+  , Right (exAv "B" 1 [ExExt (EnableExtension CPP), ExAny "A"])
+  , Right (exAv "C" 1 [ExAny "B"])
+  , Right (exAv "D" 1 [ExExt (DisableExtension CPP), ExAny "B"])
+  , Right (exAv "E" 1 [ExExt (UnknownExtension "custom"), ExAny "C"])
+  ]
+dbLanguages =
+  [ Right (exAv "A" 1 [ExLang Haskell2010])
+  , Right (exAv "B" 1 [ExLang Haskell98, ExAny "A"])
+  , Right (exAv "C" 1 [ExLang (UnknownLanguage "Haskell3000"), ExAny "B"])
+  ]
+-- A declares Haskell2010 at its top level and Haskell98 under a flag that
+-- has no other effect, so the flag cannot help; B's flag chooses between the
+-- two languages.
+dbBranchLanguage =
+  [ Right (exAv "A" 1 [ExLang Haskell2010, exFlagged "F" [ExLang Haskell98] [ExLang Haskell98]])
+  , Right (exAv "B" 1 [exFlagged "F" [ExLang Haskell2010] [ExLang Haskell98]])
   ]
 dbPrivateSubLib =
   [ Right (exAv "A" 1 [ExSubLibAny "B" "sub-lib"])

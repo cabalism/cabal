@@ -556,13 +556,13 @@ exAvSrcPkg ex =
       :: [ExampleDependency]
       -> ( [ExampleDependency]
          , [Extension]
-         , Maybe Language
+         , [Language]
          , [(ExamplePkgName, ExamplePkgVersion)] -- pkg-config
          , [(ExamplePkgName, ExampleExeName, C.VersionRange)] -- build tools
          , [(ExamplePkgName, C.VersionRange)] -- legacy build tools
          )
     splitTopLevel [] =
-      ([], [], Nothing, [], [], [])
+      ([], [], [], [], [], [])
     splitTopLevel (ExBuildToolAny p e : deps) =
       let (other, exts, lang, pcpkgs, exes, legacyExes) = splitTopLevel deps
        in (other, exts, lang, pcpkgs, (p, e, C.anyVersion) : exes, legacyExes)
@@ -579,9 +579,8 @@ exAvSrcPkg ex =
       let (other, exts, lang, pcpkgs, exes, legacyExes) = splitTopLevel deps
        in (other, ext : exts, lang, pcpkgs, exes, legacyExes)
     splitTopLevel (ExLang lang : deps) =
-      case splitTopLevel deps of
-        (other, exts, Nothing, pcpkgs, exes, legacyExes) -> (other, exts, Just lang, pcpkgs, exes, legacyExes)
-        _ -> error "Only 1 Language dependency is supported"
+      let (other, exts, langs, pcpkgs, exes, legacyExes) = splitTopLevel deps
+       in (other, exts, lang : langs, pcpkgs, exes, legacyExes)
     splitTopLevel (ExPkg pkg : deps) =
       let (other, exts, lang, pcpkgs, exes, legacyExes) = splitTopLevel deps
        in (other, exts, lang, pkg : pcpkgs, exes, legacyExes)
@@ -627,13 +626,16 @@ exAvSrcPkg ex =
     -- the given function to generate each component.
     mkCondTree :: forall a. L.HasBuildInfo a => (C.LibraryVisibility -> C.BuildInfo -> a) -> Dependencies -> DependencyTree a
     mkCondTree mkComponent deps =
-      let (libraryDeps, exts, mlang, pcpkgs, buildTools, legacyBuildTools) = splitTopLevel (depsExampleDependencies deps)
+      let (libraryDeps, exts, langs, pcpkgs, buildTools, legacyBuildTools) = splitTopLevel (depsExampleDependencies deps)
           (directDeps, flaggedDeps) = splitDeps libraryDeps
           component = mkComponent (depsVisibility deps) bi
           bi =
             mempty
-              { C.otherExtensions = exts
-              , C.defaultLanguage = mlang
+              { C.otherExtensions = nub exts
+              , -- The first language is the default; any others are also
+                -- required, through 'otherLanguages'.
+                C.defaultLanguage = listToMaybe langs
+              , C.otherLanguages = nub (drop 1 langs)
               , C.buildToolDepends =
                   [ C.ExeDependency (C.mkPackageName p) (C.mkUnqualComponentName e) vr
                   | (p, e, vr) <- buildTools
