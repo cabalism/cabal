@@ -37,7 +37,8 @@ import Distribution.Solver.Types.OptionalStanza
 import Distribution.Solver.Types.PackageConstraint
 import qualified Distribution.Solver.Types.PackagePath as P
 import Distribution.Solver.Types.PkgConfigDb
-  ( pkgConfigDbFromList
+  ( PkgConfigDb
+  , pkgConfigDbFromList
   )
 import Distribution.Solver.Types.Settings
 import Distribution.Solver.Types.Variable
@@ -211,9 +212,10 @@ tests =
                   classify (hasDep isSubLibDep test) "sub-library dependency" $
                     classify (hasDep isBuildToolDep test) "build-tool dependency" $
                       classify (hasCyclicNames test) "cycle among package names" $
-                        classify (hasSetupDeps test) "setup dependencies" $
-                          (v /= Oracle.IsUnknown && noneReachedBackjumpLimit [r]) ==>
-                            isRight (resultPlan r) === (v == Oracle.IsSolvable)
+                        classify (hasDep isPkgConfigDep test) "pkg-config dependency" $
+                          classify (hasSetupDeps test) "setup dependencies" $
+                            (v /= Oracle.IsUnknown && noneReachedBackjumpLimit [r]) ==>
+                              isRight (resultPlan r) === (v == Oracle.IsSolvable)
   , testPropertyWithSeed "solver plan is a valid resolution under the oracle's validity check" $
       \test reorderGoals indepGoals prefVersion ->
         let r = solveWith reorderGoals indepGoals prefVersion test
@@ -238,6 +240,7 @@ tests =
                 , testTargets = map PN (Oracle.scTargets c)
                 , testConstraints = Oracle.scConstraints c
                 , testPreferences = []
+                , testPkgConfigDb = Oracle.envPkgConfig (Oracle.scEnv c)
                 }
             r =
               solveWith
@@ -264,6 +267,8 @@ tests =
     oracleFuel :: Int
     oracleFuel = 100000
 
+    testEnv test = Oracle.Env{Oracle.envPkgConfig = testPkgConfigDb test}
+
     -- Whether any source package in the test has a dependency of the given
     -- kind, looking inside flag branches too.
     hasDep :: (ExampleDependency -> Bool) -> SolverTest -> Bool
@@ -284,6 +289,9 @@ tests =
     isBuildToolDep ExBuildToolAny{} = True
     isBuildToolDep ExBuildToolFix{} = True
     isBuildToolDep _ = False
+
+    isPkgConfigDep ExPkg{} = True
+    isPkgConfigDep _ = False
 
     -- Whether the package names, with an edge for every dependency of any
     -- kind under any flag assignment, contain a cycle. A rough indicator that
@@ -318,6 +326,7 @@ tests =
     oracleResolve (IndependentGoals indep) test =
       Oracle.resolve
         oracleFuel
+        (testEnv test)
         indep
         (testConstraints test)
         (unTestDb (testDb test))
@@ -325,6 +334,7 @@ tests =
 
     oracleCheck (IndependentGoals indep) test =
       Oracle.checkResolution
+        (testEnv test)
         (testConstraints test)
         indep
         (unTestDb (testDb test))
@@ -376,7 +386,7 @@ solve enableBj fineGrainedConflicts reorder countConflicts indep prefOldest goal
             Nothing
             Nothing
             Nothing
-            (Just $ pkgConfigDbFromList [])
+            (toPkgConfigDb <$> testPkgConfigDb test)
             (map unPN (testTargets test))
             -- The backjump limit prevents individual tests from using
             -- too much time and memory.
@@ -460,6 +470,8 @@ data SolverTest = SolverTest
   , testTargets :: [PN]
   , testConstraints :: [ExConstraint]
   , testPreferences :: [ExPreference]
+  , testPkgConfigDb :: Maybe [(String, Maybe Int)]
+  -- ^ The pkg-config database, or Nothing for no pkg-config.
   }
 
 -- | Pretty-print the test when quickcheck calls 'show'.
@@ -474,6 +486,8 @@ instance Show SolverTest where
             ++ show (testConstraints test)
             ++ ", testPreferences = "
             ++ show (testPreferences test)
+            ++ ", testPkgConfigDb = "
+            ++ show (testPkgConfigDb test)
             ++ "}"
      in maybe str valToStr $ parseValue str
 
@@ -490,13 +504,37 @@ instance Arbitrary SolverTest where
     prefs <- case pkgVersions of
       [] -> return []
       _ -> boundedListOf 3 $ arbitraryPreference pkgVersions
-    return (SolverTest db targets constraints prefs)
+    pkgConfigDb <- arbitraryPkgConfigDb
+    return (SolverTest db targets constraints prefs pkgConfigDb)
 
   shrink test =
     [test{testDb = db} | db <- shrink (testDb test)]
       ++ [test{testTargets = targets} | targets <- shrink (testTargets test)]
       ++ [test{testConstraints = cs} | cs <- shrink (testConstraints test)]
       ++ [test{testPreferences = prefs} | prefs <- shrink (testPreferences test)]
+      ++ [test{testPkgConfigDb = db} | db <- shrinkPkgConfigDb (testPkgConfigDb test)]
+
+-- | The pkg-config package names that dependencies and databases draw from.
+pkgConfigNames :: [String]
+pkgConfigNames = ["pc-A", "pc-B", "pc-C"]
+
+-- | Usually a database listing some of the names, each with a version or an
+-- unknown version; occasionally no pkg-config at all.
+arbitraryPkgConfigDb :: Gen (Maybe [(String, Maybe Int)])
+arbitraryPkgConfigDb =
+  frequency
+    [ (1, return Nothing)
+    , (4, Just <$> (sublistOf pkgConfigNames >>= traverse withVersion))
+    ]
+  where
+    withVersion name = (,) name <$> frequency [(1, return Nothing), (3, Just <$> elements [1 .. 3])]
+
+shrinkPkgConfigDb :: Maybe [(String, Maybe Int)] -> [Maybe [(String, Maybe Int)]]
+shrinkPkgConfigDb Nothing = []
+shrinkPkgConfigDb (Just db) = Nothing : map Just (shrinkList shrinkNothing db)
+
+toPkgConfigDb :: [(String, Maybe Int)] -> PkgConfigDb
+toPkgConfigDb = pkgConfigDbFromList . map (\(name, version) -> (name, maybe "" show version))
 
 -- | Collection of source and installed packages.
 newtype TestDb = TestDb {unTestDb :: ExampleDb}
@@ -660,6 +698,8 @@ arbitraryExDep db@(TestDb pkgs) later level =
                  | not (null subLibs)
                  ]
       -- custom-setup only supports library dependencies.
+      pkgConfig = [ExPkg <$> ((,) <$> elements pkgConfigNames <*> elements [1 .. 3])]
+      -- custom-setup only supports library dependencies.
       exes =
         [ (getName pkg, unUnqualComponentName name, getVersion pkg)
         | pkg@(Right av) <- pkgs
@@ -674,7 +714,7 @@ arbitraryExDep db@(TestDb pkgs) later level =
              ]
    in oneof $
         case level of
-          NonSetupDep -> flag : other ++ buildTools ++ laterDeps
+          NonSetupDep -> flag : other ++ buildTools ++ pkgConfig ++ laterDeps
           SetupDep -> other ++ laterDeps
 
 arbitraryDeps :: TestDb -> [(PN, PV)] -> Gen Dependencies
@@ -784,6 +824,7 @@ instance Arbitrary ExampleDependency where
   shrink (ExSubLibFix pn lib _) = [ExSubLibAny pn lib]
   shrink (ExBuildToolAny _ _) = []
   shrink (ExBuildToolFix pn exe _) = [ExBuildToolAny pn exe]
+  shrink (ExPkg _) = []
   shrink (ExFlagged flag th el) =
     depsExampleDependencies th
       ++ depsExampleDependencies el

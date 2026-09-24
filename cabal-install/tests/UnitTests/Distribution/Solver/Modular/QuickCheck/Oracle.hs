@@ -41,11 +41,16 @@
 -- 'detectCyclesPhase'. A package's dependency on its own qualified name is not
 -- an edge, except for a setup dependency ('Builder.extendOpen').
 --
--- Not modelled: pkg-config, language and extension dependencies, and base
--- shims.
+-- Dependencies on the build environment (pkg-config packages) do not pick
+-- packages; a choice whose evaluated dependencies need something the
+-- environment lacks is simply not selectable, as in 'Validate.extend'.
+--
+-- Not modelled: language and extension dependencies, and base shims.
 module UnitTests.Distribution.Solver.Modular.QuickCheck.Oracle
   ( -- * Reference resolver
-    Namespace (..)
+    Env (..)
+  , defaultEnv
+  , Namespace (..)
   , Qualifier (..)
   , Scope
   , QName
@@ -142,6 +147,33 @@ targetScope :: Bool -> ExamplePkgName -> Scope
 targetScope indep t = (if indep then Independent t else DefaultNamespace, Toplevel)
 
 {-------------------------------------------------------------------------------
+  Environment
+-------------------------------------------------------------------------------}
+
+-- | What the build environment provides.
+newtype Env = Env
+  { envPkgConfig :: Maybe [(String, Maybe Int)]
+  -- ^ The pkg-config database: 'Nothing' when pkg-config is unavailable,
+  -- otherwise the packages it lists, each with its version if known.
+  }
+  deriving (Show)
+
+-- | The environment the QuickCheck tests use by default: pkg-config with no
+-- packages.
+defaultEnv :: Env
+defaultEnv = Env{envPkgConfig = Just []}
+
+-- | Mirrors 'pkgConfigPkgIsPresent' for a single-version requirement, and the
+-- rule that any requirement fails without pkg-config.
+pkgConfigPresent :: Env -> String -> Int -> Bool
+pkgConfigPresent env n v = case envPkgConfig env of
+  Nothing -> False
+  Just db -> case lookup n db of
+    Nothing -> False
+    Just Nothing -> True
+    Just (Just v') -> v' == v
+
+{-------------------------------------------------------------------------------
   Instances, choices and goals
 -------------------------------------------------------------------------------}
 
@@ -200,7 +232,20 @@ data Dep
     DepExe ExamplePkgName ExampleExeName VersionRange
   | -- | An installed package's dependency on an exact installed unit.
     DepUnit ExamplePkgHash
+  | -- | A @pkgconfig-depends@ on an exact version.
+    DepPkgConfig String Int
   deriving (Eq, Show)
+
+-- | Whether a dependency is on the environment rather than on a package.
+isEnvDep :: Dep -> Bool
+isEnvDep DepPkgConfig{} = True
+isEnvDep _ = False
+
+-- | Does the environment satisfy a dependency? Package dependencies are not
+-- the environment's business and count as satisfied.
+envSatisfied :: Env -> Dep -> Bool
+envSatisfied env (DepPkgConfig n v) = pkgConfigPresent env n v
+envSatisfied _ _ = True
 
 -- | Something that must be satisfied by the resolution, in a scope.
 data Goal
@@ -270,6 +315,7 @@ componentDeps a flags deps
     go (ExBuildToolFix p e v) = Just (exeDep p e (thisVersion (mkSimpleVersion v)))
     go (ExLegacyBuildToolAny n) = Just (legacy n anyVersion)
     go (ExLegacyBuildToolFix n v) = Just (legacy n (thisVersion (mkSimpleVersion v)))
+    go (ExPkg (n, v)) = Just [DepPkgConfig n v]
     go (ExFlagged f t e) = componentDeps a flags (if lookupFlag flags f then t else e)
     go dep = error ("Oracle.componentDeps: unsupported dependency " ++ show dep)
 
@@ -393,12 +439,13 @@ instanceDeps stanzas flags (Source a) =
 -- namespace ('qualifyDeps').
 choiceGoals :: QName -> Choice -> [Goal]
 choiceGoals ((ns, q), p) ch =
-  map (goal (ns, q)) regular ++ map (goal (ns, Setup p)) setup
+  mapMaybe (goal (ns, q)) regular ++ mapMaybe (goal (ns, Setup p)) setup
   where
     (regular, setup) = instanceDeps (chStanzas ch) (chFlags ch) (chInstance ch)
-    goal s (DepLib n l vr) = LibDep (s, n) l vr
-    goal _ (DepExe e exe vr) = ExeDep ((ns, Exe p e), e) exe vr
-    goal s (DepUnit h) = UnitDep s h
+    goal s (DepLib n l vr) = Just (LibDep (s, n) l vr)
+    goal _ (DepExe e exe vr) = Just (ExeDep ((ns, Exe p e), e) exe vr)
+    goal s (DepUnit h) = Just (UnitDep s h)
+    goal _ (DepPkgConfig _ _) = Nothing
 
 -- | Does a choice satisfy an unqualified dependency?
 satisfiesDep :: [ExConstraint] -> Dep -> Choice -> Bool
@@ -415,6 +462,7 @@ satisfiesDep cs (DepExe e exe vr) ch =
   where
     inst = chInstance ch
 satisfiesDep _ (DepUnit h) ch = instHash (chInstance ch) == Just h
+satisfiesDep _ (DepPkgConfig _ _) _ = False
 
 -- | Does a choice satisfy a goal? Scopes are matched by the caller.
 satisfies :: [ExConstraint] -> Goal -> Choice -> Bool
@@ -598,8 +646,8 @@ data State = State
 -- independent goals. There are no heuristics: goals are processed in the
 -- order they are introduced, and candidates are tried in database order with
 -- flags enumerated True (or default) first.
-resolve :: Int -> Bool -> [ExConstraint] -> ExampleDb -> [ExamplePkgName] -> OracleResult
-resolve fuel0 indep cs db targets =
+resolve :: Int -> Env -> Bool -> [ExConstraint] -> ExampleDb -> [ExamplePkgName] -> OracleResult
+resolve fuel0 env indep cs db targets =
   case go fuel0 (State Map.empty Map.empty) [Target (targetScope indep t, t) | t <- targets] of
     Found r -> Solvable r
     NotFound _ -> Unsolvable
@@ -631,6 +679,7 @@ resolve fuel0 indep cs db targets =
       , flags <- assignments inst
       , let ch = Choice inst flags (stanzas inst)
       , satisfies cs g ch
+      , envProvides ch
       , linkable st qn ch
       ]
       where
@@ -639,6 +688,13 @@ resolve fuel0 indep cs db targets =
         assignments (Installed _) = [Map.empty]
         assignments (Source a) =
           map Map.fromList (traverse (\f -> [(f, b) | b <- allowedFlagValues cs qn a f]) (usedFlags a))
+
+    -- A choice whose dependencies need something the environment lacks
+    -- fails as soon as it is made.
+    envProvides :: Choice -> Bool
+    envProvides ch =
+      let (regular, setup) = instanceDeps (chStanzas ch) (chFlags ch) (chInstance ch)
+       in all (envSatisfied env) (regular ++ setup)
 
     -- The same instance chosen in another scope forces an identical choice,
     -- and a linked qualified name that is already resolved forces the same
@@ -800,14 +856,15 @@ data Problem
 -- include packages that are not strictly needed, and that is still a
 -- resolution.
 checkResolution
-  :: [ExConstraint]
+  :: Env
+  -> [ExConstraint]
   -> Bool
   -- ^ independent goals
   -> ExampleDb
   -> [ExamplePkgName]
   -> [ResolvedPackage]
   -> [Problem]
-checkResolution cs indep db targets plan =
+checkResolution env cs indep db targets plan =
   [MissingTarget t | t <- targets, t `notElem` map rpName plan]
     ++ concatMap scopeProblems scopes
     ++ [UnreachablePackage (rpName rp) | rp <- plan, rpRef rp `Set.notMember` reached]
@@ -869,13 +926,17 @@ checkResolution cs indep db targets plan =
           Nothing -> []
           Just ch ->
             let (regular, setup) = instanceDeps (chStanzas ch) (chFlags ch) (chInstance ch)
-                (exes, libs) = L.partition isExeDep regular
+                (envs, pkgs) = L.partition isEnvDep regular
+                (exes, libs) = L.partition isExeDep pkgs
                 missing edges deps =
                   [ MissingDependency (rpName rp) d
                   | d <- deps
                   , not (any (satisfiesDep cs d) (mapMaybe (\r -> Map.lookup r byRef >>= toChoice) edges))
                   ]
-             in missing (rpDeps rp) libs ++ missing (rpExeDeps rp) exes ++ missing (rpSetupDeps rp) setup
+             in [MissingDependency (rpName rp) d | d <- envs, not (envSatisfied env d)]
+                  ++ missing (rpDeps rp) libs
+                  ++ missing (rpExeDeps rp) exes
+                  ++ missing (rpSetupDeps rp) setup
 
     toChoice rp = do
       inst <- lookupInstance rp
@@ -960,6 +1021,7 @@ toResolved res = Map.elems (Map.fromList [(rpRef rp, rp) | rp <- map conv (Map.t
 
     ref s (DepLib n _ _) = choiceRef <$> Map.lookup (s, n) res
     ref _ (DepExe _ _ _) = Nothing
+    ref _ (DepPkgConfig _ _) = Nothing
     ref s (DepUnit h) =
       listToMaybe
         [ choiceRef ch
@@ -988,6 +1050,7 @@ isExeDep _ = False
 -- give. The QuickCheck module runs these through the solver.
 data SolverCase = SolverCase
   { scName :: String
+  , scEnv :: Env
   , scIndependent :: Bool
   , scConstraints :: [ExConstraint]
   , scDb :: ExampleDb
@@ -995,82 +1058,98 @@ data SolverCase = SolverCase
   , scVerdict :: Verdict
   }
 
+-- | A case in the default environment.
+sc :: String -> Bool -> [ExConstraint] -> ExampleDb -> [ExamplePkgName] -> Verdict -> SolverCase
+sc name = SolverCase name defaultEnv
+
+-- | A case with a pkg-config database, or without pkg-config.
+withPkgConfig :: Maybe [(String, Maybe Int)] -> SolverCase -> SolverCase
+withPkgConfig db c = c{scEnv = Env{envPkgConfig = db}}
+
 solverCases :: [SolverCase]
 solverCases =
-  [ SolverCase "chain of dependencies" False [] dbChain ["A"] IsSolvable
-  , SolverCase "fixed version that does not exist" False [] dbMissingVersion ["A"] IsUnsolvable
-  , SolverCase "flag chooses a satisfiable branch" False [] dbFlag ["A"] IsSolvable
-  , SolverCase "flag constraint forces the unsatisfiable branch" False [flagFalse "A" "F"] dbFlag ["A"] IsUnsolvable
-  , SolverCase "unbuildable branch hides an unsatisfiable dependency" False [] dbUnbuildableBranch ["A"] IsSolvable
-  , SolverCase "flag-gated unbuildable library still provides a library" False [] dbUnbuildableBranch ["C"] IsSolvable
-  , SolverCase "statically unbuildable library cannot be depended on" False [] dbUnbuildableLib ["C"] IsUnsolvable
-  , SolverCase "statically unbuildable library can be a target" False [] dbUnbuildableLib ["A"] IsSolvable
-  , SolverCase "installed package built against installed unit" False [] dbInstalled ["A"] IsSolvable
-  , SolverCase "version constraint excludes the installed unit" False [ExVersionConstraint (anyQ "B") (notThisVersion (mkSimpleVersion 1))] dbInstalled ["A"] IsUnsolvable
-  , SolverCase "source base is not selectable" False [] [Right (exAv "base" 1 [])] ["base"] IsUnsolvable
-  , SolverCase "installed base is selectable" False [] [Left (exInst "base" 1 "base-1" [])] ["base"] IsSolvable
-  , SolverCase "dependency on an executable-only package" False [] dbExeOnly ["B"] IsUnsolvable
-  , SolverCase "executable-only package can be a target" False [] dbExeOnly ["A"] IsSolvable
-  , SolverCase "stanza constraint enables test dependencies" False [ExStanzaConstraint (anyQ "A") [TestStanzas]] dbTestStanza ["A"] IsSolvable
-  , SolverCase "stanza constraint makes test dependencies required" False [ExStanzaConstraint (anyQ "A") [TestStanzas]] dbBadTestStanza ["A"] IsUnsolvable
-  , SolverCase "test dependencies are optional without a constraint" False [] dbBadTestStanza ["A"] IsSolvable
-  , SolverCase "stanza constraint does not apply to an installed package" False [ExStanzaConstraint (anyQ "A") [TestStanzas]] dbInstalled ["A"] IsSolvable
-  , SolverCase "stanza constraint on a package without tests never fires" False [ExStanzaConstraint (anyQ "A") [TestStanzas]] dbChain ["A"] IsSolvable
+  [ sc "chain of dependencies" False [] dbChain ["A"] IsSolvable
+  , sc "fixed version that does not exist" False [] dbMissingVersion ["A"] IsUnsolvable
+  , sc "flag chooses a satisfiable branch" False [] dbFlag ["A"] IsSolvable
+  , sc "flag constraint forces the unsatisfiable branch" False [flagFalse "A" "F"] dbFlag ["A"] IsUnsolvable
+  , sc "unbuildable branch hides an unsatisfiable dependency" False [] dbUnbuildableBranch ["A"] IsSolvable
+  , sc "flag-gated unbuildable library still provides a library" False [] dbUnbuildableBranch ["C"] IsSolvable
+  , sc "statically unbuildable library cannot be depended on" False [] dbUnbuildableLib ["C"] IsUnsolvable
+  , sc "statically unbuildable library can be a target" False [] dbUnbuildableLib ["A"] IsSolvable
+  , sc "installed package built against installed unit" False [] dbInstalled ["A"] IsSolvable
+  , sc "version constraint excludes the installed unit" False [ExVersionConstraint (anyQ "B") (notThisVersion (mkSimpleVersion 1))] dbInstalled ["A"] IsUnsolvable
+  , sc "source base is not selectable" False [] [Right (exAv "base" 1 [])] ["base"] IsUnsolvable
+  , sc "installed base is selectable" False [] [Left (exInst "base" 1 "base-1" [])] ["base"] IsSolvable
+  , sc "dependency on an executable-only package" False [] dbExeOnly ["B"] IsUnsolvable
+  , sc "executable-only package can be a target" False [] dbExeOnly ["A"] IsSolvable
+  , sc "stanza constraint enables test dependencies" False [ExStanzaConstraint (anyQ "A") [TestStanzas]] dbTestStanza ["A"] IsSolvable
+  , sc "stanza constraint makes test dependencies required" False [ExStanzaConstraint (anyQ "A") [TestStanzas]] dbBadTestStanza ["A"] IsUnsolvable
+  , sc "test dependencies are optional without a constraint" False [] dbBadTestStanza ["A"] IsSolvable
+  , sc "stanza constraint does not apply to an installed package" False [ExStanzaConstraint (anyQ "A") [TestStanzas]] dbInstalled ["A"] IsSolvable
+  , sc "stanza constraint on a package without tests never fires" False [ExStanzaConstraint (anyQ "A") [TestStanzas]] dbChain ["A"] IsSolvable
   , -- Setup dependencies live in their own scope (Solver.hs db7).
-    SolverCase "setup dependency may differ in version from the library dependency" False [] dbSetup ["F"] IsSolvable
-  , SolverCase "setup dependency is chosen freely when the library is fixed" False [] dbSetup ["D"] IsSolvable
-  , SolverCase "setup dependency is not constrained by the top-level version" False [] dbSetup ["E"] IsSolvable
-  , SolverCase "two setup scopes may pick two versions" False [] dbTwoSetupScopes ["C", "D"] IsSolvable
-  , SolverCase "top-level scope must agree on one version" False [] dbTwoSetupScopes ["E", "F"] IsUnsolvable
-  , SolverCase "independent goals may pick two versions" True [] dbTwoSetupScopes ["E", "F"] IsSolvable
+    sc "setup dependency may differ in version from the library dependency" False [] dbSetup ["F"] IsSolvable
+  , sc "setup dependency is chosen freely when the library is fixed" False [] dbSetup ["D"] IsSolvable
+  , sc "setup dependency is not constrained by the top-level version" False [] dbSetup ["E"] IsSolvable
+  , sc "two setup scopes may pick two versions" False [] dbTwoSetupScopes ["C", "D"] IsSolvable
+  , sc "top-level scope must agree on one version" False [] dbTwoSetupScopes ["E", "F"] IsUnsolvable
+  , sc "independent goals may pick two versions" True [] dbTwoSetupScopes ["E", "F"] IsSolvable
   , -- The single instance restriction (Solver.hs dbLinkedSetupDepWithManualFlag).
-    SolverCase "linked setup dependency copies the top-level flag" False [ExFlagConstraint (ScopeQualified P.QualToplevel (mkPackageName "B")) "flag" False] dbLinkedManualFlag ["A"] IsSolvable
-  , SolverCase "linked setup dependency cannot have a conflicting flag" False [ExFlagConstraint (ScopeQualified P.QualToplevel (mkPackageName "B")) "flag" True, ExFlagConstraint (ScopeQualified (P.QualSetup (mkPackageName "A")) (mkPackageName "B")) "flag" False] dbLinkedManualFlag ["A"] IsUnsolvable
-  , SolverCase "unlinked setup dependency may have a different flag" False [ExFlagConstraint (ScopeQualified P.QualToplevel (mkPackageName "B")) "flag" True, ExFlagConstraint (ScopeQualified (P.QualSetup (mkPackageName "A")) (mkPackageName "B")) "flag" False] dbUnlinkedManualFlag ["A"] IsSolvable
-  , SolverCase "linked packages must resolve dependencies alike" False [ExVersionConstraint (ScopeTarget (mkPackageName "Q")) (thisVersion (mkSimpleVersion 2)), ExVersionConstraint (ScopeQualified (P.QualSetup (mkPackageName "T")) (mkPackageName "Q")) (thisVersion (mkSimpleVersion 1))] dbLinkedDeps ["T"] IsUnsolvable
-  , SolverCase "linked packages resolve dependencies alike" False [ExVersionConstraint (ScopeTarget (mkPackageName "Q")) (thisVersion (mkSimpleVersion 2))] dbLinkedDeps ["T"] IsSolvable
-  , SolverCase "installed and source instances of one version may coexist across scopes" False [] dbInstalledAndSource ["T"] IsSolvable
+    sc "linked setup dependency copies the top-level flag" False [ExFlagConstraint (ScopeQualified P.QualToplevel (mkPackageName "B")) "flag" False] dbLinkedManualFlag ["A"] IsSolvable
+  , sc "linked setup dependency cannot have a conflicting flag" False [ExFlagConstraint (ScopeQualified P.QualToplevel (mkPackageName "B")) "flag" True, ExFlagConstraint (ScopeQualified (P.QualSetup (mkPackageName "A")) (mkPackageName "B")) "flag" False] dbLinkedManualFlag ["A"] IsUnsolvable
+  , sc "unlinked setup dependency may have a different flag" False [ExFlagConstraint (ScopeQualified P.QualToplevel (mkPackageName "B")) "flag" True, ExFlagConstraint (ScopeQualified (P.QualSetup (mkPackageName "A")) (mkPackageName "B")) "flag" False] dbUnlinkedManualFlag ["A"] IsSolvable
+  , sc "linked packages must resolve dependencies alike" False [ExVersionConstraint (ScopeTarget (mkPackageName "Q")) (thisVersion (mkSimpleVersion 2)), ExVersionConstraint (ScopeQualified (P.QualSetup (mkPackageName "T")) (mkPackageName "Q")) (thisVersion (mkSimpleVersion 1))] dbLinkedDeps ["T"] IsUnsolvable
+  , sc "linked packages resolve dependencies alike" False [ExVersionConstraint (ScopeTarget (mkPackageName "Q")) (thisVersion (mkSimpleVersion 2))] dbLinkedDeps ["T"] IsSolvable
+  , sc "installed and source instances of one version may coexist across scopes" False [] dbInstalledAndSource ["T"] IsSolvable
   , -- Sub-library dependencies (Solver.hs "sub-library dependencies").
-    SolverCase "missing sub-library" False [] [Right (exAv "A" 1 [ExSubLibAny "B" "sub-lib"]), Right (exAv "B" 1 [])] ["A"] IsUnsolvable
-  , SolverCase "private sub-library" False [] dbPrivateSubLib ["A"] IsUnsolvable
-  , SolverCase "sub-library made private by a flag constraint" False [ExFlagConstraint (anyQ "B") "make-lib-private" True] dbFlaggedSubLib ["A"] IsUnsolvable
-  , SolverCase "sub-library is visible when only a flag choice could make it private" False [] dbFlaggedSubLib ["A"] IsSolvable
-  , SolverCase "public sub-library of an executable-only package" False [] dbPublicSubLib ["A"] IsSolvable
-  , SolverCase "choose the version that has the sub-library" False [] dbSubLibVersions ["A"] IsSolvable
-  , SolverCase "choose the version whose sub-library is public" False [] dbSubLibVisibilities ["A"] IsSolvable
-  , SolverCase "installed packages provide no sub-libraries" False [] [Right (exAv "A" 1 [ExSubLibAny "B" "sub-lib"]), Left (exInst "B" 1 "B-1-hash" [])] ["A"] IsUnsolvable
+    sc "missing sub-library" False [] [Right (exAv "A" 1 [ExSubLibAny "B" "sub-lib"]), Right (exAv "B" 1 [])] ["A"] IsUnsolvable
+  , sc "private sub-library" False [] dbPrivateSubLib ["A"] IsUnsolvable
+  , sc "sub-library made private by a flag constraint" False [ExFlagConstraint (anyQ "B") "make-lib-private" True] dbFlaggedSubLib ["A"] IsUnsolvable
+  , sc "sub-library is visible when only a flag choice could make it private" False [] dbFlaggedSubLib ["A"] IsSolvable
+  , sc "public sub-library of an executable-only package" False [] dbPublicSubLib ["A"] IsSolvable
+  , sc "choose the version that has the sub-library" False [] dbSubLibVersions ["A"] IsSolvable
+  , sc "choose the version whose sub-library is public" False [] dbSubLibVisibilities ["A"] IsSolvable
+  , sc "installed packages provide no sub-libraries" False [] [Right (exAv "A" 1 [ExSubLibAny "B" "sub-lib"]), Left (exInst "B" 1 "B-1-hash" [])] ["A"] IsUnsolvable
   , -- Build-tool dependencies (Solver.hs "build-tool-depends" and "legacy build-tools").
-    SolverCase "simple exe dependency" False [] dbBuildTools ["A"] IsSolvable
-  , SolverCase "flagged exe dependency" False [] dbBuildTools ["B"] IsSolvable
-  , SolverCase "test suite exe dependency" False [ExStanzaConstraint (anyQ "C") [TestStanzas]] dbBuildTools ["C"] IsSolvable
-  , SolverCase "unknown exe" False [] dbBuildTools ["D"] IsUnsolvable
-  , SolverCase "unknown build tool package" False [] dbBuildTools ["E"] IsUnsolvable
-  , SolverCase "unknown flagged exe" False [] dbBuildTools ["F"] IsUnsolvable
-  , SolverCase "wrong exe for build tool package version" False [] dbBuildTools ["H"] IsUnsolvable
-  , SolverCase "installed packages provide no executables" False [] [Right (exAv "A" 1 [ExBuildToolAny "B" "exe"]), Left (exInst "B" 1 "B-1-hash" [])] ["A"] IsUnsolvable
-  , SolverCase "build tool versions must be consistent within one package" False [] dbTwoExes ["A"] IsUnsolvable
-  , SolverCase "two exes from one version" False [] dbTwoExesOneVersion ["A"] IsSolvable
-  , SolverCase "build-tool dependency with unbuildable library" False [flagFalse "B" "build-lib"] dbUnbuildableToolLib ["A"] IsSolvable
-  , SolverCase "build-tool dependency with unbuildable exe" False [flagFalse "B" "build-exe"] dbUnbuildableToolExe ["A"] IsUnsolvable
-  , SolverCase "build-tool dependency with exe that a flag could make unbuildable" False [] dbUnbuildableToolExe ["A"] IsSolvable
-  , SolverCase "build tool scope may differ from the library scope" False [] dbToolVsLib ["B"] IsSolvable
-  , SolverCase "known legacy build tool" False [] dbLegacy1 ["A"] IsSolvable
-  , SolverCase "known legacy build tool needs the exe of that name" False [] dbLegacy2 ["A"] IsUnsolvable
-  , SolverCase "unknown legacy build tool is ignored" False [] [Right (exAv "A" 1 [ExLegacyBuildToolAny "otherdude"])] ["A"] IsSolvable
-  , SolverCase "different versions of a legacy build tool" False [] dbLegacy4 ["C"] IsSolvable
-  , SolverCase "build tools on build tools" False [] dbLegacy6 ["A"] IsSolvable
+    sc "simple exe dependency" False [] dbBuildTools ["A"] IsSolvable
+  , sc "flagged exe dependency" False [] dbBuildTools ["B"] IsSolvable
+  , sc "test suite exe dependency" False [ExStanzaConstraint (anyQ "C") [TestStanzas]] dbBuildTools ["C"] IsSolvable
+  , sc "unknown exe" False [] dbBuildTools ["D"] IsUnsolvable
+  , sc "unknown build tool package" False [] dbBuildTools ["E"] IsUnsolvable
+  , sc "unknown flagged exe" False [] dbBuildTools ["F"] IsUnsolvable
+  , sc "wrong exe for build tool package version" False [] dbBuildTools ["H"] IsUnsolvable
+  , sc "installed packages provide no executables" False [] [Right (exAv "A" 1 [ExBuildToolAny "B" "exe"]), Left (exInst "B" 1 "B-1-hash" [])] ["A"] IsUnsolvable
+  , sc "build tool versions must be consistent within one package" False [] dbTwoExes ["A"] IsUnsolvable
+  , sc "two exes from one version" False [] dbTwoExesOneVersion ["A"] IsSolvable
+  , sc "build-tool dependency with unbuildable library" False [flagFalse "B" "build-lib"] dbUnbuildableToolLib ["A"] IsSolvable
+  , sc "build-tool dependency with unbuildable exe" False [flagFalse "B" "build-exe"] dbUnbuildableToolExe ["A"] IsUnsolvable
+  , sc "build-tool dependency with exe that a flag could make unbuildable" False [] dbUnbuildableToolExe ["A"] IsSolvable
+  , sc "build tool scope may differ from the library scope" False [] dbToolVsLib ["B"] IsSolvable
+  , sc "known legacy build tool" False [] dbLegacy1 ["A"] IsSolvable
+  , sc "known legacy build tool needs the exe of that name" False [] dbLegacy2 ["A"] IsUnsolvable
+  , sc "unknown legacy build tool is ignored" False [] [Right (exAv "A" 1 [ExLegacyBuildToolAny "otherdude"])] ["A"] IsSolvable
+  , sc "different versions of a legacy build tool" False [] dbLegacy4 ["C"] IsSolvable
+  , sc "build tools on build tools" False [] dbLegacy6 ["A"] IsSolvable
   , -- Cycles (Solver.hs "Cycles").
-    SolverCase "simple cycle" False [] dbCycles ["A"] IsUnsolvable
-  , SolverCase "simple cycle with both packages as targets" False [] dbCycles ["A", "B"] IsUnsolvable
-  , SolverCase "cycle avoided by a flag choice" False [] dbCycles ["C"] IsSolvable
-  , SolverCase "cycle through a setup dependency" False [] dbSetupCycles ["A"] IsUnsolvable
-  , SolverCase "cycle through a setup dependency from the other end" False [] dbSetupCycles ["B"] IsUnsolvable
-  , SolverCase "setup cycle broken by an installed version" False [] dbSetupCycles ["C"] IsSolvable
-  , SolverCase "setup cycle avoided by choosing the installed version" False [] dbSetupCycles ["D"] IsSolvable
-  , SolverCase "setup cycle broken by an installed version, via a dependent" False [] dbSetupCycles ["E"] IsSolvable
-  , SolverCase "package whose setup depends on itself uses another version" False [] dbSetupSelfCycle ["target"] IsSolvable
-  , SolverCase "cycle through a build-tool dependency" False [] dbToolCycle ["A"] IsUnsolvable
-  , SolverCase "a package's dependency on itself is not a cycle" False [] dbSelfDep ["B"] IsSolvable
+    sc "simple cycle" False [] dbCycles ["A"] IsUnsolvable
+  , sc "simple cycle with both packages as targets" False [] dbCycles ["A", "B"] IsUnsolvable
+  , sc "cycle avoided by a flag choice" False [] dbCycles ["C"] IsSolvable
+  , sc "cycle through a setup dependency" False [] dbSetupCycles ["A"] IsUnsolvable
+  , sc "cycle through a setup dependency from the other end" False [] dbSetupCycles ["B"] IsUnsolvable
+  , sc "setup cycle broken by an installed version" False [] dbSetupCycles ["C"] IsSolvable
+  , sc "setup cycle avoided by choosing the installed version" False [] dbSetupCycles ["D"] IsSolvable
+  , sc "setup cycle broken by an installed version, via a dependent" False [] dbSetupCycles ["E"] IsSolvable
+  , sc "package whose setup depends on itself uses another version" False [] dbSetupSelfCycle ["target"] IsSolvable
+  , sc "cycle through a build-tool dependency" False [] dbToolCycle ["A"] IsUnsolvable
+  , sc "a package's dependency on itself is not a cycle" False [] dbSelfDep ["B"] IsSolvable
+  , -- pkg-config dependencies (Solver.hs "Pkg-config dependencies").
+    withPkgConfig (Just []) $ sc "pkg-config package missing" False [] dbPkgConfig ["A"] IsUnsolvable
+  , withPkgConfig (Just [("pkgA", Just 0)]) $ sc "pkg-config package too old" False [] dbPkgConfig ["A"] IsUnsolvable
+  , withPkgConfig (Just [("pkgA", Just 1), ("pkgB", Just 1)]) $ sc "pkg-config version chooses the package version" False [] dbPkgConfig ["C"] IsSolvable
+  , withPkgConfig (Just [("pkgA", Just 1), ("pkgB", Just 2)]) $ sc "pkg-config version chooses the other package version" False [] dbPkgConfig ["C"] IsSolvable
+  , withPkgConfig (Just [("pkgA", Nothing)]) $ sc "pkg-config package of unknown version satisfies any version" False [] dbPkgConfig ["A"] IsSolvable
+  , withPkgConfig Nothing $ sc "no pkg-config fails any pkg-config dependency" False [] dbPkgConfig ["A"] IsUnsolvable
+  , withPkgConfig Nothing $ sc "no pkg-config is fine when flags avoid the dependency" False [] dbPkgConfig ["D"] IsSolvable
   ]
   where
     anyQ = ScopeAnyQualifier . mkPackageName
@@ -1081,55 +1160,55 @@ tests =
   [ testGroup
       "resolve"
       ( [ testCase (scName c) $
-          verdict (resolve fuel (scIndependent c) (scConstraints c) (scDb c) (scTargets c)) @?= scVerdict c
+          verdict (resolve fuel (scEnv c) (scIndependent c) (scConstraints c) (scDb c) (scTargets c)) @?= scVerdict c
         | c <- solverCases
         ]
           ++ [ testCase "no fuel gives no verdict" $
-                verdict (resolve 0 False [] dbChain ["A"]) @?= IsUnknown
+                verdict (resolve 0 defaultEnv False [] dbChain ["A"]) @?= IsUnknown
              ]
       )
   , testGroup
       "checkResolution"
       [ testCase "accepts the oracle's own resolutions" $
           for_ [c | c <- solverCases, scVerdict c == IsSolvable] $ \c ->
-            case resolve fuel (scIndependent c) (scConstraints c) (scDb c) (scTargets c) of
+            case resolve fuel (scEnv c) (scIndependent c) (scConstraints c) (scDb c) (scTargets c) of
               Solvable res ->
-                checkResolution (scConstraints c) (scIndependent c) (scDb c) (scTargets c) (toResolved res) @?= []
+                checkResolution (scEnv c) (scConstraints c) (scIndependent c) (scDb c) (scTargets c) (toResolved res) @?= []
               other -> assertBool (scName c ++ ": expected a resolution, got " ++ show other) False
       , testCase "rejects a missing target" $
-          checkResolution [] False dbChain ["A"] [] @?= [MissingTarget "A"]
+          checkResolution defaultEnv [] False dbChain ["A"] [] @?= [MissingTarget "A"]
       , testCase "rejects a dropped dependency" $
-          checkResolution [] False dbChain ["A"] [src "A" 1 [] []]
+          checkResolution defaultEnv [] False dbChain ["A"] [src "A" 1 [] []]
             @?= [MissingDependency "A" (DepLib "B" Nothing anyVersion)]
       , testCase "rejects an edge to a package that is not in the plan" $
-          checkResolution [] False dbChain ["A"] [src "A" 1 [] [b1]]
+          checkResolution defaultEnv [] False dbChain ["A"] [src "A" 1 [] [b1]]
             @?= [UnknownReference "A" b1, MissingDependency "A" (DepLib "B" Nothing anyVersion)]
       , testCase "rejects an edge to a version without the sub-library" $
-          checkResolution [] False dbSubLibVersions ["A"] [src "A" 1 [] [b2], src "B" 2 [] []]
+          checkResolution defaultEnv [] False dbSubLibVersions ["A"] [src "A" 1 [] [b2], src "B" 2 [] []]
             @?= [MissingDependency "A" (DepLib "B" (Just "sub-lib-v1") anyVersion)]
       , testCase "rejects two versions of one package in one scope" $
-          checkResolution [] False dbTwoVersions ["A", "C"] [src "A" 1 [] [b1], src "C" 1 [] [b2], src "B" 1 [] [], src "B" 2 [] []]
+          checkResolution defaultEnv [] False dbTwoVersions ["A", "C"] [src "A" 1 [] [b1], src "C" 1 [] [b2], src "B" 1 [] [], src "B" 2 [] []]
             @?= [MultipleVersions (DefaultNamespace, Toplevel) "B"]
       , testCase "accepts two versions of one package in two scopes" $
-          checkResolution [] False dbSetup ["F"] [src "F" 1 [] [a2] `withSetup` [a1], src "A" 1 [] [], src "A" 2 [] []]
+          checkResolution defaultEnv [] False dbSetup ["F"] [src "F" 1 [] [a2] `withSetup` [a1], src "A" 1 [] [], src "A" 2 [] []]
             @?= []
       , testCase "rejects a flag whose branch is unsatisfied" $
-          checkResolution [] False dbFlag ["A"] [src "A" 1 [("F", False)] [b1], src "B" 1 [] []]
+          checkResolution defaultEnv [] False dbFlag ["A"] [src "A" 1 [("F", False)] [b1], src "B" 1 [] []]
             @?= [MissingDependency "A" (DepLib "B" Nothing (thisVersion (mkSimpleVersion 9)))]
       , testCase "rejects a violated version constraint" $
           let c = ExVersionConstraint (ScopeAnyQualifier (mkPackageName "B")) (notThisVersion (mkSimpleVersion 1))
-           in checkResolution [c] False dbChain ["A"] [src "A" 1 [] [b1], src "B" 1 [] []]
+           in checkResolution defaultEnv [c] False dbChain ["A"] [src "A" 1 [] [b1], src "B" 1 [] []]
                 @?= [ConstraintViolated "B" (show c)]
       , testCase "rejects an instance that is not in the database" $
-          checkResolution [] False dbChain ["A"] [src "A" 1 [] [b7], src "B" 7 [] []]
+          checkResolution defaultEnv [] False dbChain ["A"] [src "A" 1 [] [b7], src "B" 7 [] []]
             @?= [UnknownInstance "B" 7, MissingDependency "A" (DepLib "B" Nothing anyVersion)]
       , testCase "rejects a cyclic plan" $
           let db = [Right (exAv "A" 1 [ExAny "B"]), Right (exAv "B" 1 [ExAny "C"]), Right (exAv "C" 1 [ExAny "B"])]
               c1 = ResolvedRef "C" 1 Nothing
               plan = [src "A" 1 [] [b1], src "B" 1 [] [c1], src "C" 1 [] [b1]]
-           in [L.sort ns | CyclicPlan ns <- checkResolution [] False db ["A"] plan] @?= [["B", "C"]]
+           in [L.sort ns | CyclicPlan ns <- checkResolution defaultEnv [] False db ["A"] plan] @?= [["B", "C"]]
       , testCase "rejects an unreachable package" $
-          checkResolution [] False dbChain ["A"] [src "A" 1 [] [b1], src "B" 1 [] [], src "C" 1 [] []]
+          checkResolution defaultEnv [] False dbChain ["A"] [src "A" 1 [] [b1], src "B" 1 [] [], src "C" 1 [] []]
             @?= [UnreachablePackage "C"]
       ]
   ]
@@ -1160,7 +1239,7 @@ tests =
   Example databases
 -------------------------------------------------------------------------------}
 
-dbChain, dbMissingVersion, dbTwoVersions, dbFlag, dbUnbuildableBranch, dbUnbuildableLib, dbInstalled, dbExeOnly, dbTestStanza, dbBadTestStanza, dbSetup, dbTwoSetupScopes, dbLinkedManualFlag, dbUnlinkedManualFlag, dbLinkedDeps, dbInstalledAndSource, dbPrivateSubLib, dbFlaggedSubLib, dbPublicSubLib, dbSubLibVersions, dbSubLibVisibilities, dbBuildTools, dbTwoExes, dbTwoExesOneVersion, dbUnbuildableToolLib, dbUnbuildableToolExe, dbToolVsLib, dbLegacy1, dbLegacy2, dbLegacy4, dbLegacy6, dbCycles, dbSetupCycles, dbSetupSelfCycle, dbToolCycle, dbSelfDep :: ExampleDb
+dbChain, dbMissingVersion, dbTwoVersions, dbFlag, dbUnbuildableBranch, dbUnbuildableLib, dbInstalled, dbExeOnly, dbTestStanza, dbBadTestStanza, dbSetup, dbTwoSetupScopes, dbLinkedManualFlag, dbUnlinkedManualFlag, dbLinkedDeps, dbInstalledAndSource, dbPrivateSubLib, dbFlaggedSubLib, dbPublicSubLib, dbSubLibVersions, dbSubLibVisibilities, dbBuildTools, dbTwoExes, dbTwoExesOneVersion, dbUnbuildableToolLib, dbUnbuildableToolExe, dbToolVsLib, dbLegacy1, dbLegacy2, dbLegacy4, dbLegacy6, dbCycles, dbSetupCycles, dbSetupSelfCycle, dbToolCycle, dbSelfDep, dbPkgConfig :: ExampleDb
 dbChain = [Right (exAv "A" 1 [ExAny "B"]), Right (exAv "B" 1 [])]
 dbMissingVersion = [Right (exAv "A" 1 [ExFix "B" 2]), Right (exAv "B" 1 [])]
 dbTwoVersions =
@@ -1348,6 +1427,14 @@ dbSelfDep =
   [ Right (exAv "warp" 1 [])
   , Right (exAv "A" 2 [ExFix "warp" 1] `withExe` exExe "warp" [ExAny "A"])
   , Right (exAv "B" 2 [ExAny "A", ExAny "warp"])
+  ]
+-- Solver.hs dbPC1.
+dbPkgConfig =
+  [ Right (exAv "A" 1 [ExPkg ("pkgA", 1)])
+  , Right (exAv "B" 1 [ExPkg ("pkgB", 1), ExAny "A"])
+  , Right (exAv "B" 2 [ExPkg ("pkgB", 2), ExAny "A"])
+  , Right (exAv "C" 1 [ExAny "B"])
+  , Right (exAv "D" 1 [exFlagged "flag1" [ExAny "A"] [], exFlagged "flag2" [] [ExAny "A"]])
   ]
 dbPrivateSubLib =
   [ Right (exAv "A" 1 [ExSubLibAny "B" "sub-lib"])
