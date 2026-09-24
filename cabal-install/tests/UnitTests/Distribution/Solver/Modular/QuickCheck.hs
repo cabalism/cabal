@@ -217,10 +217,11 @@ tests =
                         classify (hasDep isPkgConfigDep test) "pkg-config dependency" $
                           classify (hasDep isCompilerDep test) "extension or language dependency" $
                             classify (any isFlagConstraint (testConstraints test)) "flag constraint" $
-                              classify (hasManualFlag test) "manual flag" $
-                                classify (hasSetupDeps test) "setup dependencies" $
-                                  (v /= Oracle.IsUnknown && noneReachedBackjumpLimit [r]) ==>
-                                    isRight (resultPlan r) === (v == Oracle.IsSolvable)
+                              classify (any (not . isAnyQualifier . constraintScope) (testConstraints test)) "scoped constraint" $
+                                classify (hasManualFlag test) "manual flag" $
+                                  classify (hasSetupDeps test) "setup dependencies" $
+                                    (v /= Oracle.IsUnknown && noneReachedBackjumpLimit [r]) ==>
+                                      isRight (resultPlan r) === (v == Oracle.IsSolvable)
   , testPropertyWithSeed "solver plan is a valid resolution under the oracle's validity check" $
       \test reorderGoals indepGoals prefVersion ->
         let r = solveWith reorderGoals indepGoals prefVersion test
@@ -311,6 +312,13 @@ tests =
 
     isFlagConstraint ExFlagConstraint{} = True
     isFlagConstraint _ = False
+
+    constraintScope (ExVersionConstraint scope _) = scope
+    constraintScope (ExFlagConstraint scope _ _) = scope
+    constraintScope (ExStanzaConstraint scope _) = scope
+
+    isAnyQualifier ScopeAnyQualifier{} = True
+    isAnyQualifier _ = False
 
     hasManualFlag test =
       or
@@ -809,14 +817,31 @@ arbitraryFlagName = (: []) <$> elements ['A' .. 'E']
 arbitraryConstraint :: [TestPackage] -> Gen ExConstraint
 arbitraryConstraint pkgs = do
   pkg <- elements pkgs
-  let PN pn = getName pkg
-      anyQualifier = ScopeAnyQualifier (mkPackageName pn)
-      flags = either (const []) (usedFlagNames . exAvDeps) pkg
+  scope <- arbitraryScope pkgs (getName pkg)
+  let flags = either (const []) (usedFlagNames . exAvDeps) pkg
   oneof $
-    [ ExVersionConstraint anyQualifier <$> arbitraryVersionRange (getVersion pkg)
-    , ExStanzaConstraint anyQualifier <$> sublistOf [TestStanzas, BenchStanzas]
+    [ ExVersionConstraint scope <$> arbitraryVersionRange (getVersion pkg)
+    , ExStanzaConstraint scope <$> sublistOf [TestStanzas, BenchStanzas]
     ]
-      ++ [ExFlagConstraint anyQualifier <$> elements flags <*> arbitrary | not (null flags)]
+      ++ [ExFlagConstraint scope <$> elements flags <*> arbitrary | not (null flags)]
+
+-- | A scope for a constraint on the named package: usually any qualifier,
+-- otherwise one of the target, top-level, setup, build-tool or any-setup
+-- scopes. The setup and build-tool scopes name some package in the database,
+-- whether or not that scope ever arises.
+arbitraryScope :: [TestPackage] -> PN -> Gen ConstraintScope
+arbitraryScope pkgs (PN pn) =
+  frequency
+    [ (5, return (ScopeAnyQualifier name))
+    , (1, return (ScopeTarget name))
+    , (1, return (ScopeQualified P.QualToplevel name))
+    , (1, (\p -> ScopeQualified (P.QualSetup p) name) <$> someName)
+    , (1, (\p -> ScopeQualified (P.QualExe p name) name) <$> someName)
+    , (1, return (ScopeAnySetupQualifier name))
+    ]
+  where
+    name = mkPackageName pn
+    someName = mkPackageName . unPN . getName <$> elements pkgs
 
 arbitraryPreference :: [(PN, PV)] -> Gen ExPreference
 arbitraryPreference pkgs = do

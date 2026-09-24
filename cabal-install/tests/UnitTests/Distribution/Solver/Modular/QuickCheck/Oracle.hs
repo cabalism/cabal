@@ -538,10 +538,11 @@ versionConstraints :: [ExConstraint] -> QName -> [(ExConstraint, VersionRange)]
 versionConstraints cs qn =
   [(c, vr) | c@(ExVersionConstraint scope vr) <- cs, scopeMatches scope qn]
 
--- | Flag constraints that apply to a qualified name.
-flagConstraints :: [ExConstraint] -> QName -> Flags
-flagConstraints cs qn =
-  Map.fromList [(f, b) | ExFlagConstraint scope f b <- cs, scopeMatches scope qn]
+-- | The values that flag constraints applying to a qualified name ask of a
+-- flag. Conflicting constraints leave no value.
+constrainedFlagValues :: [ExConstraint] -> QName -> ExampleFlagName -> [Bool]
+constrainedFlagValues cs qn f =
+  ordNub [b | ExFlagConstraint scope f' b <- cs, f' == f, scopeMatches scope qn]
 
 -- | Flag constraints with the any-qualifier scope. These are the only ones
 -- index conversion uses when deciding buildability statically.
@@ -555,15 +556,16 @@ unqualifiedFlagConstraints cs n =
 
 -- | The values a flag may take for a package in a scope.
 --
--- A flag constraint on the scope fixes the value. Otherwise an automatic flag
--- is free, and a manual flag may only be its default or a value that some
--- flag constraint on the package, in any scope, asks for
--- ('enforceManualFlags').
+-- Flag constraints on the scope fix the value, and conflicting ones rule out
+-- every value. Otherwise an automatic flag is free, and a manual flag may only
+-- be its default or a value that some flag constraint on the package, in any
+-- scope, asks for ('enforceManualFlags').
 allowedFlagValues :: [ExConstraint] -> QName -> ExampleAvailable -> ExampleFlagName -> [Bool]
 allowedFlagValues cs qn@(_, n) a f =
-  case Map.lookup f (flagConstraints cs qn) of
-    Just b -> [b]
-    Nothing -> case find ((== f) . exFlagName) (exAvFlags a) of
+  case constrainedFlagValues cs qn f of
+    [b] -> [b]
+    _ : _ -> []
+    [] -> case find ((== f) . exFlagName) (exAvFlags a) of
       Just flag
         | exFlagType flag == Manual ->
             ordNub (exFlagDefault flag : anyScopeValues)
@@ -1209,6 +1211,16 @@ solverCases =
   , withCompiler [] [Haskell2010] $ sc "a declared language replaces Haskell98" False [] dbLanguages ["A"] IsSolvable
   , withCompiler [] [Haskell2010] $ sc "a language in a flag branch is required in addition" False [] dbBranchLanguage ["A"] IsUnsolvable
   , withCompiler [] [Haskell98, Haskell2010] $ sc "a language in a flag branch can be avoided by the flag" False [] dbBranchLanguage ["B"] IsSolvable
+  , -- Constraint scopes.
+    sc "any-setup constraint applies to a setup dependency" False [ExVersionConstraint (ScopeAnySetupQualifier (mkPackageName "A")) (thisVersion (mkSimpleVersion 2))] dbSetup ["F"] IsUnsolvable
+  , sc "any-setup constraint does not apply at the top level" False [ExVersionConstraint (ScopeAnySetupQualifier (mkPackageName "A")) (thisVersion (mkSimpleVersion 1))] dbSetup ["F"] IsSolvable
+  , sc "build-tool scope constraint applies to the tool's dependencies" False [ExVersionConstraint (ScopeQualified (P.QualExe (mkPackageName "B") (mkPackageName "alex")) (mkPackageName "A")) (thisVersion (mkSimpleVersion 2))] dbToolVsLib ["B"] IsUnsolvable
+  , sc "build-tool scope constraint does not apply at the top level" False [ExVersionConstraint (ScopeQualified (P.QualExe (mkPackageName "B") (mkPackageName "alex")) (mkPackageName "A")) (thisVersion (mkSimpleVersion 1))] dbToolVsLib ["B"] IsSolvable
+  , sc "target scope constraint applies to the target" False [ExVersionConstraint (ScopeTarget (mkPackageName "F")) (thisVersion (mkSimpleVersion 2))] dbSetup ["F"] IsUnsolvable
+  , sc "target scope constraint applies at the top level even to a dependency" False [ExVersionConstraint (ScopeTarget (mkPackageName "A")) (thisVersion (mkSimpleVersion 1))] dbSetup ["F"] IsUnsolvable
+  , sc "target scope constraint does not apply in a setup scope" False [ExVersionConstraint (ScopeTarget (mkPackageName "A")) (thisVersion (mkSimpleVersion 2))] dbSetup ["F"] IsSolvable
+  , sc "conflicting flag constraints on one scope leave no value" False [ExFlagConstraint (ScopeAnyQualifier (mkPackageName "A")) "F" False, ExFlagConstraint (ScopeQualified P.QualToplevel (mkPackageName "A")) "F" True] dbFlag ["A"] IsUnsolvable
+  , sc "target scope constraint applies under independent goals" True [ExVersionConstraint (ScopeTarget (mkPackageName "F")) (thisVersion (mkSimpleVersion 2))] dbSetup ["F"] IsUnsolvable
   ]
   where
     anyQ = ScopeAnyQualifier . mkPackageName
