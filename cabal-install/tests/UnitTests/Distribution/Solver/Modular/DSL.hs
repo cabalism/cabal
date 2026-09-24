@@ -631,11 +631,11 @@ exAvSrcPkg ex =
           component = mkComponent (depsVisibility deps) bi
           bi =
             mempty
-              { C.otherExtensions = nub exts
+              { C.otherExtensions = ordNub exts
               , -- The first language is the default; any others are also
                 -- required, through 'otherLanguages'.
                 C.defaultLanguage = listToMaybe langs
-              , C.otherLanguages = nub (drop 1 langs)
+              , C.otherLanguages = ordNub (drop 1 langs)
               , C.buildToolDepends =
                   [ C.ExeDependency (C.mkPackageName p) (C.mkUnqualComponentName e) vr
                   | (p, e, vr) <- buildTools
