@@ -222,9 +222,12 @@ tests =
                                   classify (testAllowBootLibInstalls test) "boot library installs allowed" $
                                     classify (not (testSolveExecutables test)) "executables not solved" $
                                       classify (testOnlyConstrained test) "only constrained" $
-                                        classify (hasSetupDeps test) "setup dependencies" $
-                                          (v /= Oracle.IsUnknown && noneReachedBackjumpLimit [r]) ==>
-                                            isRight (resultPlan r) === (v == Oracle.IsSolvable)
+                                        classify (testAvoidReinstalls test) "avoid reinstalls" $
+                                          classify (testShadowPkgs test) "shadowing" $
+                                            classify (hasSameVersionInstances test) "installed and source or duplicate installed instances of one version" $
+                                              classify (hasSetupDeps test) "setup dependencies" $
+                                                (v /= Oracle.IsUnknown && noneReachedBackjumpLimit [r]) ==>
+                                                  isRight (resultPlan r) === (v == Oracle.IsSolvable)
   , testPropertyWithSeed "solver plan is a valid resolution under the oracle's validity check" $
       \test reorderGoals indepGoals prefVersion ->
         let r = solveWith reorderGoals indepGoals prefVersion test
@@ -255,6 +258,8 @@ tests =
                 , testAllowBootLibInstalls = Oracle.envAllowBootLibInstalls (Oracle.scEnv c)
                 , testSolveExecutables = Oracle.envSolveExecutables (Oracle.scEnv c)
                 , testOnlyConstrained = Oracle.envOnlyConstrained (Oracle.scEnv c)
+                , testAvoidReinstalls = Oracle.envAvoidReinstalls (Oracle.scEnv c)
+                , testShadowPkgs = Oracle.envShadowPkgs (Oracle.scEnv c)
                 }
             r =
               solveWith
@@ -289,6 +294,8 @@ tests =
         , Oracle.envAllowBootLibInstalls = testAllowBootLibInstalls test
         , Oracle.envSolveExecutables = testSolveExecutables test
         , Oracle.envOnlyConstrained = testOnlyConstrained test
+        , Oracle.envAvoidReinstalls = testAvoidReinstalls test
+        , Oracle.envShadowPkgs = testShadowPkgs test
         }
 
     -- Whether any source package in the test has a dependency of the given
@@ -321,6 +328,10 @@ tests =
 
     isFlagConstraint ExFlagConstraint{} = True
     isFlagConstraint _ = False
+
+    hasSameVersionInstances test =
+      let keys = map (getName &&& getVersion) (unTestDb (testDb test))
+       in length keys /= length (ordNub keys)
 
     constraintScope (ExVersionConstraint scope _) = scope
     constraintScope (ExFlagConstraint scope _ _) = scope
@@ -442,6 +453,8 @@ solve enableBj fineGrainedConflicts reorder countConflicts indep prefOldest goal
             reorder
             (AllowBootLibInstalls (testAllowBootLibInstalls test))
             (if testOnlyConstrained test then OnlyConstrainedAll else OnlyConstrainedNone)
+            (AvoidReinstalls (testAvoidReinstalls test))
+            (ShadowPkgs (testShadowPkgs test))
             enableBj
             (SolveExecutables (testSolveExecutables test))
             (unVarOrdering <$> goalOrder)
@@ -522,6 +535,8 @@ data SolverTest = SolverTest
   , testAllowBootLibInstalls :: Bool
   , testSolveExecutables :: Bool
   , testOnlyConstrained :: Bool
+  , testAvoidReinstalls :: Bool
+  , testShadowPkgs :: Bool
   }
 
 -- | Pretty-print the test when quickcheck calls 'show'.
@@ -548,6 +563,10 @@ instance Show SolverTest where
             ++ show (testSolveExecutables test)
             ++ ", testOnlyConstrained = "
             ++ show (testOnlyConstrained test)
+            ++ ", testAvoidReinstalls = "
+            ++ show (testAvoidReinstalls test)
+            ++ ", testShadowPkgs = "
+            ++ show (testShadowPkgs test)
             ++ "}"
      in maybe str valToStr $ parseValue str
 
@@ -570,7 +589,9 @@ instance Arbitrary SolverTest where
     allowBootLibInstalls <- frequency [(3, return False), (1, return True)]
     solveExecutables <- frequency [(3, return True), (1, return False)]
     onlyConstrained <- frequency [(3, return False), (1, return True)]
-    return (SolverTest db targets constraints prefs pkgConfigDb exts langs allowBootLibInstalls solveExecutables onlyConstrained)
+    avoidReinstalls <- frequency [(3, return False), (1, return True)]
+    shadowPkgs <- frequency [(3, return False), (1, return True)]
+    return (SolverTest db targets constraints prefs pkgConfigDb exts langs allowBootLibInstalls solveExecutables onlyConstrained avoidReinstalls shadowPkgs)
 
   shrink test =
     [test{testDb = db} | db <- shrink (testDb test)]
@@ -583,6 +604,8 @@ instance Arbitrary SolverTest where
       ++ [test{testAllowBootLibInstalls = False} | testAllowBootLibInstalls test]
       ++ [test{testSolveExecutables = True} | not (testSolveExecutables test)]
       ++ [test{testOnlyConstrained = False} | testOnlyConstrained test]
+      ++ [test{testAvoidReinstalls = False} | testAvoidReinstalls test]
+      ++ [test{testShadowPkgs = False} | testShadowPkgs test]
 
 -- | The extensions and languages that dependencies and compilers draw from.
 extensionPool :: [Extension]
@@ -646,14 +669,24 @@ instance Arbitrary TestDb where
     TestDb <$> shuffle (unTestDb db)
     where
       nextPkgs :: TestDb -> ([(PN, PV)], [[(PN, PV)]]) -> Gen TestDb
-      nextPkgs db (pkgs, later) = TestDb . (++ unTestDb db) <$> traverse (nextPkg db (concat later)) pkgs
+      nextPkgs db (pkgs, later) = TestDb . (++ unTestDb db) . concat <$> traverse (nextPkg db (concat later)) pkgs
 
-      nextPkg :: TestDb -> [(PN, PV)] -> (PN, PV) -> Gen TestPackage
+      -- Usually one instance per name and version; sometimes two, so that
+      -- avoid-reinstalls (installed and source) and shadowing (two installed
+      -- units) have something to act on.
+      nextPkg :: TestDb -> [(PN, PV)] -> (PN, PV) -> Gen [TestPackage]
       nextPkg db later (pn, v) = do
-        installed <- arbitrary
-        if installed
-          then Left <$> arbitraryExInst pn v (lefts $ unTestDb db)
-          else Right <$> arbitraryExAv pn v db later
+        kinds <-
+          frequency
+            [ (6, (: []) <$> arbitrary)
+            , (1, return [True, True])
+            , (1, return [True, False])
+            , (1, return [False, True])
+            ]
+        for kinds $ \installed ->
+          if installed
+            then Left <$> arbitraryExInst pn v (lefts $ unTestDb db)
+            else Right <$> arbitraryExAv pn v db later
 
   shrink (TestDb pkgs) = map TestDb $ shrink pkgs
 

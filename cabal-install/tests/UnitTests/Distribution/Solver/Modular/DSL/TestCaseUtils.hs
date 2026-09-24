@@ -277,6 +277,8 @@ runTest SolverTest{..} = withFrozenCallStack $ askOption $ \(OptionShowSolverLog
             (ReorderGoals False)
             testAllowBootLibInstalls
             testOnlyConstrained
+            (AvoidReinstalls False)
+            (ShadowPkgs False)
             testEnableBackjumping
             testSolveExecutables
             (sortGoals <$> testGoalOrder)

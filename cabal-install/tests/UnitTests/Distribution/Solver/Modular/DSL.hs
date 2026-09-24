@@ -802,6 +802,8 @@ exResolve
   -> ReorderGoals
   -> AllowBootLibInstalls
   -> OnlyConstrained
+  -> AvoidReinstalls
+  -> ShadowPkgs
   -> EnableBackjumping
   -> SolveExecutables
   -> Maybe (Variable P.QPN -> Variable P.QPN -> Ordering)
@@ -826,6 +828,8 @@ exResolve
   reorder
   allowBootLibInstalls
   onlyConstrained
+  avoidReinstalls
+  shadowPkgs
   enableBj
   solveExes
   goalOrder
@@ -877,6 +881,8 @@ exResolve
           $ setMaxBackjumps mbj
           $ setAllowBootLibInstalls allowBootLibInstalls
           $ setOnlyConstrained onlyConstrained
+          $ setAvoidReinstalls avoidReinstalls
+          $ setShadowPkgs shadowPkgs
           $ setEnableBackjumping enableBj
           $ setSolveExecutables solveExes
           $ setGoalOrder goalOrder

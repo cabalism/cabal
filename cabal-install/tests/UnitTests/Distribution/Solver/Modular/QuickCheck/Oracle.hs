@@ -178,6 +178,12 @@ data Env = Env
   , envOnlyConstrained :: Bool
   -- ^ Whether only targets and version-constrained packages may be chosen
   -- (@--reject-unconstrained-dependencies=all@).
+  , envAvoidReinstalls :: Bool
+  -- ^ Whether a source package may not be chosen when the same version is
+  -- installed ('Preference.avoidReinstalls').
+  , envShadowPkgs :: Bool
+  -- ^ Whether, of several installed units of one version, only the one the
+  -- installed package index lists first may be chosen ('convIPI'').
   }
   deriving (Show)
 
@@ -192,6 +198,8 @@ defaultEnv =
     , envAllowBootLibInstalls = False
     , envSolveExecutables = True
     , envOnlyConstrained = False
+    , envAvoidReinstalls = False
+    , envShadowPkgs = False
     }
 
 supportedExtension :: Env -> Extension -> Bool
@@ -667,9 +675,24 @@ nonReinstallable n =
 -- | Problems with choosing an instance at a qualified name, independent of
 -- the rest of the resolution. Version constraints apply to installed and
 -- source instances alike, and only to packages that are actually chosen.
-instanceProblems :: Env -> [ExConstraint] -> QName -> Instance -> [Problem]
-instanceProblems env cs qn inst =
+--
+-- The installed package index lists the units of one version in reverse
+-- database order, so with shadowing the last one in the database is the one
+-- that may be chosen.
+instanceProblems :: Env -> ExampleDb -> [ExConstraint] -> QName -> Instance -> [Problem]
+instanceProblems env db cs qn inst =
   [NonReinstallableSource n | Source _ <- [inst], nonReinstallable n, not (envAllowBootLibInstalls env)]
+    ++ [ CannotReinstall n
+       | Source a <- [inst]
+       , envAvoidReinstalls env
+       , or [exInstName i == n && exInstVersion i == exAvVersion a | Left i <- db]
+       ]
+    ++ [ Shadowed n
+       | Installed i <- [inst]
+       , envShadowPkgs env
+       , let sameVersion = [exInstHash i' | Left i' <- db, exInstName i' == n, exInstVersion i' == exInstVersion i]
+       , Just (exInstHash i) /= listToMaybe (reverse sameVersion)
+       ]
     ++ [ ConstraintViolated n (show c)
        | (c, vr) <- versionConstraints cs qn
        , not (withinRange (mkSimpleVersion (instVersion inst)) vr)
@@ -681,9 +704,9 @@ instanceProblems env cs qn inst =
 -- constraints that the chosen assignment does not respect. Installed
 -- packages have neither stanzas nor flags, so those constraints only apply
 -- to source instances.
-choiceProblems :: Env -> [ExConstraint] -> QName -> Choice -> [Problem]
-choiceProblems env cs qn ch =
-  instanceProblems env cs qn inst
+choiceProblems :: Env -> ExampleDb -> [ExConstraint] -> QName -> Choice -> [Problem]
+choiceProblems env db cs qn ch =
+  instanceProblems env db cs qn inst
     ++ [ ConstraintViolated n (show c)
        | c@(ExStanzaConstraint scope ss) <- cs
        , scopeMatches scope qn
@@ -757,7 +780,7 @@ resolve fuel0 env indep cs db targets =
       [ ch
       | explicit env cs targets n
       , inst <- Map.findWithDefault [] n instances
-      , null (instanceProblems env cs qn inst)
+      , null (instanceProblems env db cs qn inst)
       , flags <- assignments inst
       , let ch = Choice inst flags (stanzas inst)
       , satisfies cs g ch
@@ -918,6 +941,11 @@ data Problem
   | NonReinstallableSource ExamplePkgName
   | -- | Neither a target nor version-constrained, in only-constrained mode.
     Unconstrained ExamplePkgName
+  | -- | A source package whose version is installed, with avoid-reinstalls.
+    CannotReinstall ExamplePkgName
+  | -- | An installed unit hidden by another of the same version, with
+    -- shadowing.
+    Shadowed ExamplePkgName
   deriving (Eq, Show)
 
 -- | Check that a plan is a resolution of the given database and targets.
@@ -1001,7 +1029,7 @@ checkResolution env cs indep db targets plan =
         ++ concat
           [ case toChoice rp of
             Nothing -> [UnknownInstance (rpName rp) (rpVersion rp)]
-            Just ch -> choiceProblems env cs (s, rpName rp) ch
+            Just ch -> choiceProblems env db cs (s, rpName rp) ch
           | rp <- rps
           ]
 
@@ -1166,6 +1194,12 @@ withoutExecutables c = c{scEnv = (scEnv c){envSolveExecutables = False}}
 withOnlyConstrained :: SolverCase -> SolverCase
 withOnlyConstrained c = c{scEnv = (scEnv c){envOnlyConstrained = True}}
 
+withAvoidReinstalls :: SolverCase -> SolverCase
+withAvoidReinstalls c = c{scEnv = (scEnv c){envAvoidReinstalls = True}}
+
+withShadowPkgs :: SolverCase -> SolverCase
+withShadowPkgs c = c{scEnv = (scEnv c){envShadowPkgs = True}}
+
 solverCases :: [SolverCase]
 solverCases =
   [ sc "chain of dependencies" False [] dbChain ["A"] IsSolvable
@@ -1288,10 +1322,18 @@ solverCases =
   , withOnlyConstrained $ sc "only-constrained: an any-version constraint is not enough" False [ExVersionConstraint (anyQ "C") anyVersion] dbOnlyConstrained ["A"] IsUnsolvable
   , withOnlyConstrained $ sc "only-constrained: installed dependencies are not exempt" False [] dbInstalled ["A"] IsUnsolvable
   , withOnlyConstrained $ sc "only-constrained: a constrained installed dependency is allowed" False [ExVersionConstraint (anyQ "B") (thisVersion (mkSimpleVersion 1))] dbInstalled ["A"] IsSolvable
+  , -- Avoid-reinstalls and shadowing.
+    sc "a source package may replace an unusable installed unit" False [bNot1] dbReinstall ["A"] IsSolvable
+  , withAvoidReinstalls $ sc "avoid-reinstalls forbids replacing an installed version from source" False [bNot1] dbReinstall ["A"] IsUnsolvable
+  , withAvoidReinstalls $ sc "avoid-reinstalls still allows the installed unit" False [] dbReinstall ["A"] IsSolvable
+  , sc "either of two installed units of one version may be chosen" False [bNot1] dbShadowLastUsable ["A"] IsSolvable
+  , withShadowPkgs $ sc "shadowing keeps the unit listed last in the database" False [bNot1] dbShadowLastUsable ["A"] IsSolvable
+  , withShadowPkgs $ sc "shadowing hides the unit listed first in the database" False [bNot1] dbShadowFirstUsable ["A"] IsUnsolvable
   ]
   where
     anyQ = ScopeAnyQualifier . mkPackageName
     flagFalse n f = ExFlagConstraint (anyQ n) f False
+    bNot1 = ExVersionConstraint (anyQ "B") (notThisVersion (mkSimpleVersion 1))
 
 tests :: [TestTree]
 tests =
@@ -1377,7 +1419,7 @@ tests =
   Example databases
 -------------------------------------------------------------------------------}
 
-dbChain, dbMissingVersion, dbTwoVersions, dbFlag, dbUnbuildableBranch, dbUnbuildableLib, dbInstalled, dbExeOnly, dbTestStanza, dbBadTestStanza, dbSetup, dbTwoSetupScopes, dbLinkedManualFlag, dbUnlinkedManualFlag, dbLinkedDeps, dbInstalledAndSource, dbPrivateSubLib, dbFlaggedSubLib, dbPublicSubLib, dbSubLibVersions, dbSubLibVisibilities, dbBuildTools, dbTwoExes, dbTwoExesOneVersion, dbUnbuildableToolLib, dbUnbuildableToolExe, dbToolVsLib, dbLegacy1, dbLegacy2, dbLegacy4, dbLegacy6, dbCycles, dbSetupCycles, dbSetupSelfCycle, dbToolCycle, dbSelfDep, dbPkgConfig, dbExtensions, dbLanguages, dbBranchLanguage, dbOnlyConstrained :: ExampleDb
+dbChain, dbMissingVersion, dbTwoVersions, dbFlag, dbUnbuildableBranch, dbUnbuildableLib, dbInstalled, dbExeOnly, dbTestStanza, dbBadTestStanza, dbSetup, dbTwoSetupScopes, dbLinkedManualFlag, dbUnlinkedManualFlag, dbLinkedDeps, dbInstalledAndSource, dbPrivateSubLib, dbFlaggedSubLib, dbPublicSubLib, dbSubLibVersions, dbSubLibVisibilities, dbBuildTools, dbTwoExes, dbTwoExesOneVersion, dbUnbuildableToolLib, dbUnbuildableToolExe, dbToolVsLib, dbLegacy1, dbLegacy2, dbLegacy4, dbLegacy6, dbCycles, dbSetupCycles, dbSetupSelfCycle, dbToolCycle, dbSelfDep, dbPkgConfig, dbExtensions, dbLanguages, dbBranchLanguage, dbOnlyConstrained, dbReinstall, dbShadowLastUsable, dbShadowFirstUsable :: ExampleDb
 dbChain = [Right (exAv "A" 1 [ExAny "B"]), Right (exAv "B" 1 [])]
 dbMissingVersion = [Right (exAv "A" 1 [ExFix "B" 2]), Right (exAv "B" 1 [])]
 dbTwoVersions =
@@ -1602,6 +1644,19 @@ dbOnlyConstrained =
   , Right (exAv "B" 1 [])
   , Right (exAv "C" 1 [ExAny "B"])
   ]
+-- The installed A-1 was built against B-1; the constraint on B makes it
+-- unusable, so only the source A-1 can serve.
+dbReinstall =
+  let b = exInst "B" 1 "B-1-hash" []
+   in [Left (exInst "A" 1 "A-1-installed" [b]), Left b, Right (exAv "A" 1 [])]
+-- Two installed units of A-1; the one built against B-1 is unusable under
+-- the constraint on B. Shadowing keeps only the unit listed last.
+dbShadowLastUsable =
+  let b = exInst "B" 1 "B-1-hash" []
+   in [Left (exInst "A" 1 "A-1-needs-B" [b]), Left b, Left (exInst "A" 1 "A-1-standalone" [])]
+dbShadowFirstUsable =
+  let b = exInst "B" 1 "B-1-hash" []
+   in [Left (exInst "A" 1 "A-1-standalone" []), Left b, Left (exInst "A" 1 "A-1-needs-B" [b])]
 dbPrivateSubLib =
   [ Right (exAv "A" 1 [ExSubLibAny "B" "sub-lib"])
   , Right (exAvNoLibrary "B" 1 `withSubLibrary` exSubLib "sub-lib" [])
