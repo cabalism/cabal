@@ -58,16 +58,24 @@ main = do
     res <- fails $ cabal' "v2-test" ["q", flag]
     assertOutputContains "Cannot run tests for the target 'q'" res
 
-  -- The remaining X:tests target variants the X targets above. They fail but
-  -- they should succeed, shouldn't they?
-  cabalTest' "mixed-tests" $
-    fails $ cabal "v2-test" ["p:tests", "q:tests"]
+  -- The remaining X:tests target variants of the X targets above behave the
+  -- same as without the :tests filter.
+  cabalTest' "mixed-tests" $ do
+    res <- cabal' "v2-test" ["p:tests", "q:tests"]
+    assertOutputContains "No tests to run for the test suites in the package q-0.1" res
+    assertOutputDoesNotContain "No tests to run for the test suites in the package p-0.1" res
+    assertOutputContains "Test suite p-tests: PASS" res
 
-  cabalTest' "mixed-tests_+failflag" $
-    fails $ cabal "v2-test" ["p:tests", "q:tests", flag]
+  cabalTest' "mixed-tests_+failflag" $ do
+    res <- fails $ cabal' "v2-test" ["p:tests", "q:tests", flag]
+    assertOutputContains "Cannot run tests for the target 'q:tests'" res
+    assertOutputDoesNotContain "Test suite p-tests: PASS" res
 
-  cabalTest' "only-no-tests-tests" $
-    fails $ cabal "v2-test" ["q:tests"]
+  cabalTest' "only-no-tests-tests" $ do
+    res <- cabal' "v2-test" ["q:tests"]
+    assertOutputContains "No tests to run for the test suites in the package q-0.1" res
+    assertOutputDoesNotContain "Test suite p-tests" res
 
-  cabalTest' "only-no-tests-tests_+failflag" $
-    fails $ cabal "v2-test" ["q:tests", flag]
+  cabalTest' "only-no-tests-tests_+failflag" $ do
+    res <- fails $ cabal' "v2-test" ["q:tests", flag]
+    assertOutputContains "Cannot run tests for the target 'q:tests'" res
