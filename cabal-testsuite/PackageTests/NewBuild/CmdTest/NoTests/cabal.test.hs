@@ -57,3 +57,17 @@ main = do
   cabalTest' "only-no-tests_+failflag" $ do
     res <- fails $ cabal' "v2-test" ["q", flag]
     assertOutputContains "Cannot run tests for the target 'q'" res
+
+  -- The remaining X:tests target variants the X targets above. They fail but
+  -- they should succeed, shouldn't they?
+  cabalTest' "mixed-tests" $
+    fails $ cabal "v2-test" ["p:tests", "q:tests"]
+
+  cabalTest' "mixed-tests_+failflag" $
+    fails $ cabal "v2-test" ["p:tests", "q:tests", flag]
+
+  cabalTest' "only-no-tests-tests" $
+    fails $ cabal "v2-test" ["q:tests"]
+
+  cabalTest' "only-no-tests-tests_+failflag" $
+    fails $ cabal "v2-test" ["q:tests", flag]
