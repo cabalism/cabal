@@ -9,73 +9,97 @@ import Test.Cabal.Prelude
 flag :: String
 flag = "--test-fail-when-no-test-suites"
 
+-- The X:tests target variants of the X targets must behave the same as
+-- without the :tests filter, so the assertions are shared. Only the rendering
+-- of the target in the notice or error message differs.
+
+-- q is skipped with a notice, p is not, and the tests of p run.
+assertSkippedQRanP :: String -> String -> Result -> TestM ()
+assertSkippedQRanP q p res = do
+  assertOutputContains ("No tests to run for " ++ q) res
+  assertOutputDoesNotContain ("No tests to run for " ++ p) res
+  assertOutputContains "Test suite p-tests: PASS" res
+
+-- q having no tests is an error and the tests of p do not run.
+assertFailedQNotRanP :: String -> Result -> TestM ()
+assertFailedQNotRanP q res = do
+  assertOutputContains ("Cannot run tests for the target '" ++ q ++ "'") res
+  assertOutputDoesNotContain "Test suite p-tests: PASS" res
+
+-- Nothing is skipped and the tests of p run.
+assertSkippedNoneRanP :: Result -> TestM ()
+assertSkippedNoneRanP res = do
+  assertOutputDoesNotContain "No tests to run" res
+  assertOutputContains "Test suite p-tests: PASS" res
+
+-- q is skipped with a notice and the tests of p do not run.
+assertSkippedQNotRanP :: String -> Result -> TestM ()
+assertSkippedQNotRanP q res = do
+  assertOutputContains ("No tests to run for " ++ q) res
+  assertOutputDoesNotContain "Test suite p-tests" res
+
+-- q having no tests is an error.
+assertFailedQ :: String -> Result -> TestM ()
+assertFailedQ q res =
+  assertOutputContains ("Cannot run tests for the target '" ++ q ++ "'") res
+
 main = do
   -- Requesting both must skip q with a notice and still run the tests of p.
   cabalTest' "mixed" $ do
     res <- cabal' "v2-test" ["p", "q"]
-    assertOutputContains "No tests to run for the package q-0.1" res
-    assertOutputDoesNotContain "No tests to run for the package p-0.1" res
-    assertOutputContains "Test suite p-tests: PASS" res
+    assertSkippedQRanP "the package q-0.1" "the package p-0.1" res
+
+  -- Same with :tests.
+  cabalTest' "mixed-tests" $ do
+    res <- cabal' "v2-test" ["p:tests", "q:tests"]
+    assertSkippedQRanP "the test suites in the package q-0.1" "the test suites in the package p-0.1" res
 
   -- With the flag q having no tests triggers the error.
   cabalTest' "mixed_+failflag" $ do
     res <- fails $ cabal' "v2-test" ["p", "q", flag]
-    assertOutputContains "Cannot run tests for the target 'q'" res
-    assertOutputDoesNotContain "Test suite p-tests: PASS" res
+    assertFailedQNotRanP "q" res
+
+  -- Same with :tests.
+  cabalTest' "mixed-tests_+failflag" $ do
+    res <- fails $ cabal' "v2-test" ["p:tests", "q:tests", flag]
+    assertFailedQNotRanP "q:tests" res
 
   -- With "all" as target, the tests of p are found.
   cabalTest' "all" $ do
     res <- cabal' "v2-test" ["all"]
-    assertOutputDoesNotContain "No tests to run" res
-    assertOutputContains "Test suite p-tests: PASS" res
+    assertSkippedNoneRanP res
 
   -- Same thing even with the fail flag.
   cabalTest' "all_+failflag" $ do
     res <- cabal' "v2-test" ["all", flag]
-    assertOutputDoesNotContain "No tests to run" res
-    assertOutputContains "Test suite p-tests: PASS" res
+    assertSkippedNoneRanP res
 
   -- Same again with the :tests filter.
   cabalTest' "all-tests" $ do
     res <- cabal' "v2-test" ["all:tests"]
-    assertOutputDoesNotContain "No tests to run" res
-    assertOutputContains "Test suite p-tests: PASS" res
+    assertSkippedNoneRanP res
 
   -- No difference even with the fail flag.
   cabalTest' "all-tests_+failflag" $ do
     res <- cabal' "v2-test" ["all:tests", flag]
-    assertOutputDoesNotContain "No tests to run" res
-    assertOutputContains "Test suite p-tests: PASS" res
+    assertSkippedNoneRanP res
 
   -- When no target has tests, the command succeeds and reports skipped targets.
   cabalTest' "only-no-tests" $ do
     res <- cabal' "v2-test" ["q"]
-    assertOutputContains "No tests to run for the package q-0.1" res
-    assertOutputDoesNotContain "Test suite p-tests" res
+    assertSkippedQNotRanP "the package q-0.1" res
+
+  -- Same with :tests.
+  cabalTest' "only-no-tests-tests" $ do
+    res <- cabal' "v2-test" ["q:tests"]
+    assertSkippedQNotRanP "the test suites in the package q-0.1" res
 
   -- The fail flag causes the command to fail when no tests are found.
   cabalTest' "only-no-tests_+failflag" $ do
     res <- fails $ cabal' "v2-test" ["q", flag]
-    assertOutputContains "Cannot run tests for the target 'q'" res
+    assertFailedQ "q" res
 
-  -- The remaining X:tests target variants of the X targets above behave the
-  -- same as without the :tests filter.
-  cabalTest' "mixed-tests" $ do
-    res <- cabal' "v2-test" ["p:tests", "q:tests"]
-    assertOutputContains "No tests to run for the test suites in the package q-0.1" res
-    assertOutputDoesNotContain "No tests to run for the test suites in the package p-0.1" res
-    assertOutputContains "Test suite p-tests: PASS" res
-
-  cabalTest' "mixed-tests_+failflag" $ do
-    res <- fails $ cabal' "v2-test" ["p:tests", "q:tests", flag]
-    assertOutputContains "Cannot run tests for the target 'q:tests'" res
-    assertOutputDoesNotContain "Test suite p-tests: PASS" res
-
-  cabalTest' "only-no-tests-tests" $ do
-    res <- cabal' "v2-test" ["q:tests"]
-    assertOutputContains "No tests to run for the test suites in the package q-0.1" res
-    assertOutputDoesNotContain "Test suite p-tests" res
-
+  -- Same with :tests.
   cabalTest' "only-no-tests-tests_+failflag" $ do
     res <- fails $ cabal' "v2-test" ["q:tests", flag]
-    assertOutputContains "Cannot run tests for the target 'q:tests'" res
+    assertFailedQ "q:tests" res
