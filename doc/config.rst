@@ -72,6 +72,55 @@ Various environment variables affect ``cabal-install``.
     Note, the nix-style builds build directory (``dist-newstyle``)
     is not affected by this environment variable.
 
+``XDG_CONFIG_HOME``, ``XDG_CACHE_HOME``, ``XDG_STATE_HOME``
+
+    The base directories used when ``CABAL_DIR`` is unset; see
+    `directories`_.
+
+``GHC_PACKAGE_PATH``, ``GHCJS_PACKAGE_PATH``
+
+    If either is set, configuring a package with the corresponding compiler
+    fails, because the variable would override the package databases that
+    Cabal chose. Unset it before running ``cabal``.
+
+``PAGER``
+
+    The pager that ``cabal man`` shows the manual page with. Defaults to
+    ``less -R``.
+
+``CABAL_DIR`` is also read by the Cabal library itself, when a ``Setup.hs``
+script is run directly: it is the default installation prefix for
+``Setup.hs configure --user``, in place of ``~/.cabal``.
+
+Some commands set environment variables for the programs they run:
+
+``GHC_ENVIRONMENT``
+    Set by ``cabal exec`` to a package environment file that selects the
+    project's package databases and packages.
+
+``HASKELL_DIST_DIR``
+    Set for a package's ``Setup.hs`` to the build directory that ``cabal``
+    told it to use.
+
+``HPCTIXFILE``
+    Set for a test suite built with coverage enabled, to the ``.tix`` file
+    it should write.
+
+``LD_LIBRARY_PATH`` (``DYLD_LIBRARY_PATH`` on macOS)
+    Extended for test suites, benchmarks and ``cabal run`` with the
+    directories of the dynamic libraries they need.
+
+``PKG_CONFIG_ALLOW_SYSTEM_CFLAGS``, ``PKG_CONFIG_ALLOW_SYSTEM_LIBS``
+    Set to ``1`` for ``pkg-config``, so that it reports system include and
+    library directories too.
+
+``CABAL_FLAGS``, ``CABAL_FLAG_<flag>``, ``CC``, ``CXX``, ``CFLAGS``, ``CXXFLAGS``
+    Set for the ``configure`` script of a package with ``build-type:
+    Configure``; see :ref:`system-dependent parameters`.
+
+``CABAL_EXTERNAL_CABAL_PATH``
+    Set for :doc:`external commands <external-commands>`.
+
 .. _config-file-discovery:
 
 Configuration file discovery
