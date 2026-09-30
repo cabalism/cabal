@@ -1,0 +1,17 @@
+Check the package for common mistakes.
+
+Usage: cabal check [FLAGS]
+
+Expects a .cabal package file in the current directory.
+
+Some checks correspond to the requirements to packages on Hackage. If no
+`Error` is reported, Hackage should accept the package. If errors are present,
+`check` exits with 1 and Hackage will refuse the package.
+
+Flags for check:
+ -h, --help                   # Show this help text
+ -v[n], --verbose[=n]         # Control verbosity (n is 0--3, default
+                                verbosity level is 1)
+ -i WARNING or -iWARNING, --ignore=WARNING
+                              # ignore a specific warning (e.g.
+                                --ignore=missing-upper-bounds)

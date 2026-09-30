@@ -76,6 +76,7 @@ CABAL_V1_COMMANDS := \
 CABAL_COMMANDS := \
 	bench \
 	build \
+	check \
 	clean \
 	configure \
 	exec \
