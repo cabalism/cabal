@@ -71,11 +71,54 @@ Commands
      [legacy command aliases]
       No legacy commands are described.
 
+Every command with a ``v2-`` alias also has a ``new-`` alias, so
+``new-build`` is ``build`` too. The ``v1-`` commands (``v1-build``,
+``v1-install``, ``v1-configure`` and so on) are the legacy, single-package
+implementations that predate projects; they are not described in this guide.
+The deprecated ``cabal hscolour`` runs ``Setup.hs hscolour`` for the package
+in the current directory; use ``cabal haddock --haddock-hyperlink-source``
+instead. The hidden commands ``man``, which generates a manual page from the
+commands' help texts and shows it through ``$PAGER`` (``cabal man --raw``
+prints the page source instead), and ``act-as-setup`` and ``format``, which
+are for ``cabal``'s own use, are not listed by ``cabal help``.
+
 Common Arguments and Flags
 --------------------------
 
 Arguments and flags common to some or all commands are:
 
+Global flags
+^^^^^^^^^^^^
+
+Global flags go before the command name, as in
+``cabal --config-file=FILE build``. A command does not accept them after
+its name.
+
+.. option:: -V, --version
+
+    Print the version of ``cabal-install`` and of the Cabal library it was
+    built with.
+
+.. option:: --full-version
+
+    Like :option:`--version`, but also print the git revision, if known,
+    and the compiler and platform ``cabal`` was built with.
+
+.. option:: --numeric-version
+
+    Print just the version number of ``cabal-install``.
+
+.. option:: --config-file=FILE
+
+    Use *file* as the configuration file; see
+    :ref:`config-file-discovery`.
+
+.. option:: --ignore-expiry, --http-transport=TRANSPORT, --store-dir=DIR, --active-repositories=REPOS, --remote-repo-cache=DIR, --logs-dir=DIR
+
+    The command line variants of the :cfg-field:`ignore-expiry`,
+    :cfg-field:`http-transport`, :cfg-field:`store-dir`,
+    :cfg-field:`active-repositories`, :cfg-field:`remote-repo-cache` and
+    :cfg-field:`logs-dir` fields.
 
 .. option:: --default-user-config=file
 
@@ -85,6 +128,9 @@ Arguments and flags common to some or all commands are:
     global cabal ``config`` file so as to provide a default set of
     partial constraints to be used by projects, providing a way for
     users to peg themselves to stable package collections.
+
+Flags of many commands
+^^^^^^^^^^^^^^^^^^^^^^
 
 
 .. option:: --allow-newer[=DEPS], --allow-older[=DEPS]
@@ -223,22 +269,31 @@ A cabal command target can take any of the following forms:
 -  A package target: ``[pkg:]package``, which specifies that all enabled
    components of a package to be built. By default, test suites and
    benchmarks are *not* enabled, unless they are explicitly requested
-   (e.g., via ``--enable-tests``.)
+   (e.g., via ``--enable-tests``.) The package can be named by its name,
+   by the path of its directory or by the path of its ``.cabal`` file,
+   e.g. ``foo``, ``pkg:foo``, ``./foo`` or ``./foo/foo.cabal``.
 
 -  A component target: ``[package:][ctype:]component``, which specifies
    a specific component (e.g., a library, executable, test suite or
-   benchmark) to be built.
+   benchmark) to be built. Where valid ``ctype`` values are:
+
+     - ``lib``, ``library``,
+     - ``flib``, ``foreign-library``,
+     - ``exe``, ``executable``,
+     - ``test``, ``tst``, ``test-suite``,
+     - ``bench``, ``benchmark``.
 
 -  All packages: ``all``, which specifies all packages within the project.
 
 -  Components of a particular type: ``package:ctypes``, ``all:ctypes``:
-   which specifies all components of the given type. Where valid
-   ``ctypes`` are:
+   which specifies all components of the given type, or just ``ctypes``
+   for the components of that type in the package in the current
+   directory. Where valid ``ctypes`` are:
 
      - ``libs``, ``libraries``,
      - ``flibs``, ``foreign-libraries``,
      - ``exes``, ``executables``,
-     - ``tests``,
+     - ``tests``, ``test-suites``,
      - ``benches``, ``benchmarks``.
 
 -  A module target: ``[package:][component:]module`` or
@@ -252,6 +307,23 @@ A cabal command target can take any of the following forms:
 -  A script target: ``path/to/script``, which specifies the path to a script
    file. This is supported by ``build``, ``repl``, ``run``, ``list-bin``, and
    ``clean``. Script targets are not part of a package.
+
+The forms above are ambiguous when, for example, a package and a component
+share a name, or a component name is also a module name. Fully qualified
+forms, which begin with a colon, say exactly what each part is:
+
+-  ``:all`` and ``:all:ctypes`` for all packages or all components of a
+   type, and ``:cwd:ctypes`` for the components of that type in the package
+   in the current directory.
+
+-  ``:pkg:package`` for a package, and ``:pkg:package:ctypes`` for its
+   components of a type.
+
+-  ``:pkg:package:ctype:component`` for a component.
+
+-  ``:pkg:package:ctype:component:module:module`` and
+   ``:pkg:package:ctype:component:file:filepath`` for a module or file
+   within a component. ``mod`` may be written for ``module``.
 
 .. _command-group-global:
 
@@ -365,7 +437,9 @@ cabal init
 .. option:: -n, --non-interactive
 
     Enable non-interactive mode. This will attempt to infer project details from a user configuration,
-    from the contents of the project directory and, for the author's name and email, from ``git config``.
+    from the contents of the project directory, from ``git config`` for the author's name and email,
+    and from the compiler found on ``$PATH`` for the bounds on ``base``. Anything given by the
+    options below takes precedence over what is inferred.
 
 .. option:: --simple
 
@@ -376,8 +450,81 @@ cabal init
     Generate a short .cabal file, without extra empty fields or
     explanatory comments.
 
-See :ref:`init quickstart` for an overview on the command, and
-``cabal init --help`` for the complete list of options.
+.. option:: --no-comments
+
+    Do not generate explanatory comments in the ``.cabal`` file.
+
+.. option:: -q, --quiet
+
+    Do not generate log messages to stdout.
+
+.. option:: --overwrite
+
+    Overwrite any existing ``.cabal``, ``LICENSE`` or ``Setup.hs`` files
+    without warning.
+
+.. option:: --package-dir=DIRECTORY
+
+    Root directory of the package. Defaults to the current directory.
+
+The remaining options set the package properties and components that
+``cabal init`` would otherwise prompt for or infer:
+
+.. option:: -p PACKAGE, --package-name=PACKAGE
+            --version=VERSION
+            --cabal-version=CABALSPECVERSION
+            -l LICENSE, --license=LICENSE
+            -a NAME, --author=NAME
+            -e EMAIL, --email=EMAIL
+            -u URL, --homepage=URL
+            -s TEXT, --synopsis=TEXT
+            -c CATEGORY, --category=CATEGORY
+
+    The package name, initial version, ``cabal-version``, license, author,
+    maintainer email, homepage, synopsis and category.
+
+.. option:: -x FILE, --extra-source-file=FILE
+            --extra-doc-file=FILE
+
+    Files to list in :pkg-field:`extra-source-files` and
+    :pkg-field:`extra-doc-files`.
+
+.. option:: --lib, --exe, --libandexe
+
+    Generate a library, an executable, or both.
+
+.. option:: --tests
+            --test-dir=DIR
+
+    Also generate a test suite, standalone or for the library, with its
+    sources in *dir*.
+
+.. option:: --main-is=FILE
+            --application-dir=DIR
+            --source-dir=DIR
+
+    The main module of the executable, the directory of the executable's
+    sources and the directory of the library's sources.
+
+.. option:: --language=LANGUAGE
+            --extension=EXTENSION
+            -o MODULE, --expose-module=MODULE
+            -d DEPENDENCIES, --dependency=DEPENDENCIES
+            --build-tool=TOOL
+
+    The :pkg-field:`default-language`, an entry for
+    :pkg-field:`other-extensions`, a module to expose from the library, a
+    comma separated list of :pkg-field:`build-depends` entries and a
+    :pkg-field:`build-tool-depends` entry. ``--extension``,
+    ``--expose-module``, ``--dependency`` and ``--build-tool`` may be
+    repeated.
+
+.. option:: -w PATH, --with-compiler=PATH
+
+    The compiler whose version of ``base`` is used to infer the bounds on
+    ``base``.
+
+See :ref:`init quickstart` for an overview on the command.
 
 cabal fetch
 ^^^^^^^^^^^
@@ -670,31 +817,30 @@ Examples:
 
 ``cabal outdated`` supports the following flags:
 
-.. option:: --freeze-file
+.. option:: --freeze-file, --v1-freeze-file
 
-    Read dependency version bounds from the freeze file.
-
+    Read dependency version bounds from the v1-style freeze file
     (``cabal.config``) instead of the package description file
     (``$PACKAGENAME.cabal``).
 
-.. option:: --v2-freeze-file
+.. option:: --project-context, --v2-freeze-file, --new-freeze-file
 
     :since: 2.4
 
-    Read dependency version bounds from the v2-style freeze file
-    (by default, ``cabal.project.freeze``) instead of the package
-    description file. ``--new-freeze-file`` is an alias for this flag
-    that can be used with pre-2.4 ``cabal``.
+    Check the constraints of the project context, that is, those in
+    ``cabal.project``, its imports, ``cabal.project.local`` and the v2-style
+    freeze file ``cabal.project.freeze``, instead of the dependencies of the
+    package description files. ``--v2-freeze-file`` and ``--new-freeze-file``
+    are older names for the same flag.
 
 .. option:: --project-file=FILE
 
     :since: 2.4
 
-    Read dependency version bounds from the v2-style freeze file
-    related to the named project file (i.e., ``$PROJECTFILE.freeze``)
-    instead of the package description file. If multiple ``--project-file``
-    flags are provided, only the final one is considered. This flag
-    must only be passed in when ``--new-freeze-file`` is present.
+    With :option:`--project-context`, use the named project file and its
+    freeze file (``$PROJECTFILE.freeze``) instead of ``cabal.project``. If
+    multiple ``--project-file`` flags are provided, only the final one is
+    considered.
 
 .. option:: --simple-output
 
@@ -737,14 +883,16 @@ installed binaries, and so on.
 
     $ cabal path
     compiler-flavour: ghc
-    compiler-id: ghc-9.8.2
+    compiler-id: ghc-9.12.4
+    compiler-abi-tag: ghc-9.12.4-5301
     compiler-path: /home/alice/.ghcup/bin/ghc
-    cache-home: /home/alice/.cabal
-    remote-repo-cache: /home/alice/.cabal/packages
-    logs-dir: /home/alice/.cabal/logs
-    store-dir: /home/alice/.cabal/store
-    config-file: /home/alice/.cabal/config
-    installdir: /home/alice/.cabal/bin
+    compiler-store-path: /home/alice/.local/state/cabal/store/ghc-9.12.4-5301
+    cache-home: /home/alice/.cache/cabal
+    remote-repo-cache: /home/alice/.cache/cabal/packages
+    logs-dir: /home/alice/.cache/cabal/logs
+    store-dir: /home/alice/.local/state/cabal/store
+    config-file: /home/alice/.config/cabal/config
+    installdir: /home/alice/.local/bin
 
 Or using the json output:
 
@@ -755,18 +903,20 @@ Or using the json output:
 .. code-block:: json
 
     {
-      "cabal-version": "3.13.0.0",
+      "cabal-version": "3.16.0.0",
       "compiler": {
         "flavour": "ghc",
-        "id": "ghc-9.8.2",
-        "path": "/home/alice/.ghcup/bin/ghc"
+        "id": "ghc-9.12.4",
+        "abi-tag": "ghc-9.12.4-5301",
+        "path": "/home/alice/.ghcup/bin/ghc",
+        "store-path": "/home/alice/.local/state/cabal/store/ghc-9.12.4-5301"
       },
-      "cache-home": "/home/alice/.cabal",
-      "remote-repo-cache": "/home/alice/.cabal/packages",
-      "logs-dir": "/home/alice/.cabal/logs",
-      "store-dir": "/home/alice/.cabal/store",
-      "config-file": "/home/alice/.cabal/config",
-      "installdir": "/home/alice/.cabal/bin"
+      "cache-home": "/home/alice/.cache/cabal",
+      "remote-repo-cache": "/home/alice/.cache/cabal/packages",
+      "logs-dir": "/home/alice/.cache/cabal/logs",
+      "store-dir": "/home/alice/.local/state/cabal/store",
+      "config-file": "/home/alice/.config/cabal/config",
+      "installdir": "/home/alice/.local/bin"
     }
 
 If ``cabal path`` is passed a single option naming a path, then that
@@ -775,7 +925,7 @@ path will be printed *without* any label:
 ::
 
    $ cabal path --installdir
-   /home/alice/.cabal/bin
+   /home/alice/.local/bin
 
 While this interface is intended to be used for scripting, it is an experimental command.
 Scripting example:
@@ -784,6 +934,48 @@ Scripting example:
 
    $ ls $(cabal path --installdir)
    ...
+
+``cabal path`` accepts the following options. With no option, everything is
+printed; with several, each requested item is printed with its label.
+
+.. option:: --output-format=key-value|json
+
+    The output format. The default is ``key-value``.
+
+.. option:: --compiler-info
+
+    Print the compiler's flavour, id, ABI tag, path and the path of its
+    store directory.
+
+.. option:: --cache-home
+
+    Print the directory under which ``cabal`` keeps its caches.
+
+.. option:: --remote-repo-cache
+
+    Print the directory in which downloaded packages are cached.
+
+.. option:: --logs-dir
+
+    Print the directory in which build logs are kept.
+
+.. option:: --store-dir
+
+    Print the directory of the package store.
+
+.. option:: --config-file
+
+    Print the path of the configuration file.
+
+.. option:: --installdir
+
+    Print the directory in which ``cabal install`` places executables.
+
+The ``compiler-*`` items require the compiler to be found. What is reported
+reflects the project and configuration files in effect and options such as
+``--with-compiler``. Note that in ``cabal path`` the options above take no
+argument, so the directories themselves can only be changed through the
+configuration or project file, or the global ``--config-file`` option.
 
 cabal target
 ^^^^^^^^^^^^
@@ -1004,6 +1196,19 @@ the name does not contain an extension, you must reference it as ``./myenv``.
 You can learn more about how to use these environments in `this section of the
 GHC manual <https://downloads.haskell.org/~ghc/latest/docs/html/users_guide/packages.html#package-environments>`_.
 
+.. option:: --force-reinstalls
+
+    When a library being installed with ``--lib`` is already in the package
+    environment, replace that entry instead of failing. Without this
+    option, ``cabal install --lib`` refuses to install a package that the
+    environment already contains.
+
+Several other flags that ``cabal install --help`` lists, namely
+``--reinstall``, ``--avoid-reinstalls``, ``--upgrade-dependencies``,
+``--shadow-installed-packages`` and ``--root-cmd``, belong to the legacy
+``v1-install`` command. They are accepted by ``cabal install`` and the
+other project commands but have no effect there.
+
 cabal haddock
 ^^^^^^^^^^^^^
 
@@ -1013,6 +1218,16 @@ the specified packages within the project.
 If a target is not a library :cfg-field:`haddock-benchmarks`,
 :cfg-field:`haddock-executables`, :cfg-field:`haddock-internal`,
 :cfg-field:`haddock-tests` will be implied as necessary.
+
+With no target, the package in the current directory is documented. By
+default only the exposed modules of the library are covered; what is
+generated and where it goes is controlled by the ``haddock-*`` fields of the
+project file and their command line variants, see
+:ref:`Haddock options<haddock-options>`.
+
+``cabal haddock`` does not build documentation for dependencies. To have
+their documentation built when they are installed into the store, enable
+:cfg-field:`documentation`.
 
 .. option:: --open
 
@@ -1042,6 +1257,54 @@ you will have access to its quickjump index.
 
 The generated landing page will contain one tree of all modules per local
 package.
+
+The command is experimental and warns as much when run. It supports the
+following options:
+
+.. option:: --output[=DIRECTORY]
+
+    The directory in which to put the documentation. Defaults to
+    ``./haddocks``.
+
+.. option:: --hackage
+
+    Build documentation whose links to dependencies point at Hackage rather
+    than at local copies of their documentation. This is a short-cut for
+    ``--html-location=https://hackage.haskell.org/package/$pkg-$version/docs``.
+
+.. option:: --html-location=URL
+
+    Location of the HTML documentation for prerequisite packages, as a
+    template; see :cfg-field:`haddock-html-location`. Giving this option,
+    like ``--hackage``, links to the dependencies' documentation there
+    instead of building a self-contained directory.
+
+.. option:: --prologue[=PATH]
+
+    A file in Haddock markup whose contents are put on the landing page.
+
+.. option:: --hoogle
+
+    Also generate a Hoogle database.
+
+.. option:: --executables, --tests, --benchmarks, --foreign-libraries
+
+    Also run Haddock on the executables, test suites, benchmarks or foreign
+    libraries of the local packages. By default only libraries are
+    documented.
+
+.. option:: --all, --haddock-all
+
+    Run Haddock on all components of the local packages.
+
+.. option:: --internal
+
+    Include unexposed modules and unexported symbols.
+
+.. option:: --css=PATH, --hscolour-css=PATH, --resources-dir=DIR, --use-unicode
+
+    As for :cfg-field:`haddock-css`, :cfg-field:`haddock-hscolour-css`,
+    :cfg-field:`haddock-resources-dir` and :cfg-field:`haddock-use-unicode`.
 
 cabal clean
 ^^^^^^^^^^^
@@ -1343,7 +1606,9 @@ cabal bench
 they are up to date.
 
 ``cabal bench`` inherits flags of the ``bench`` subcommand of ``Setup.hs``,
-:ref:`see the corresponding section <setup-bench>`.
+:ref:`see the corresponding section <setup-bench>`. Arguments for the
+benchmark executables are given with :cfg-field:`benchmark-options`, as in
+``cabal bench --benchmark-options='--time-limit 5'``.
 
 cabal test
 ^^^^^^^^^^
@@ -1409,6 +1674,30 @@ cabal exec
 using the project's environment. That is, passing the right flags to compiler
 invocations and bringing the project's executables into scope.
 
+The project is built first, as ``cabal build all`` would. Then the command
+runs with:
+
+- ``PATH`` extended with the directories of the executables of the project
+  and of its dependencies;
+
+- the ``*_datadir`` environment variables of the project's packages set, so
+  that their data files are found;
+
+- for GHC, a temporary package environment file that selects the project's
+  package databases and packages, pointed to by the ``GHC_ENVIRONMENT``
+  environment variable, so that ``ghc``, ``ghci`` and ``runghc`` see the
+  project's dependencies. If the command is the project's configured
+  compiler, the equivalent ``-package-env`` flag is also passed to it.
+
+For example, ``cabal exec -- ghc -e 'Data.Map.empty'`` runs the configured
+``ghc`` with the project's ``containers`` in scope, and
+``cabal exec -- hlint src`` runs an ``hlint`` that the project depends on
+through :pkg-field:`build-tool-depends`.
+
+Options that configure the build, such as ``--with-compiler`` or
+``--enable-tests``, are accepted and take effect on the build. A ``--``
+separates them from the command.
+
 .. _command-group-ship:
 
 Sanity checks and shipping
@@ -1469,6 +1758,7 @@ A list of all warnings with their constructor:
 - ``unknown-extension``: unknown extensions.
 - ``languages-as-extensions``: languages listed as extensions.
 - ``deprecated-extensions``: deprecated extensions.
+- ``free-text-dotline``: a lone ``.`` on a line of a free text field, which is unnecessary and taken literally with ``cabal-version`` ≥ 3.0.
 - ``no-category``: missing ``category`` field.
 - ``no-maintainer``: missing ``maintainer`` field.
 - ``no-synopsis``: missing ``synopsis`` field.
@@ -1531,7 +1821,7 @@ A list of all warnings with their constructor:
 - ``test-cabal-ver``: ``test-suite`` used with ``cabal-version`` < 1.10.
 - ``default-language``: ``default-language`` used with ``cabal-version`` < 1.10.
 - ``no-default-language``: missing ``default-language``.
-- ``add-default-language``: suggested ``default-language``.
+- ``add-language``: suggested ``default-language``.
 - ``extra-doc-files``: ``extra-doc-files`` used with ``cabal-version`` < 1.18.
 - ``multilib``: multiple ``library`` sections with ``cabal-version`` < 2.0.
 - ``reexported-modules``: ``reexported-modules`` with ``cabal-version`` < 1.22.
@@ -1548,6 +1838,7 @@ A list of all warnings with their constructor:
 - ``dependencies-setup``: missing dependencies in ``custom-setup`` with ``cabal-version`` ≥ 1.24.
 - ``no-autogen-paths``: missing autogen ``Paths_*`` modules in ``autogen-modules`` (``cabal-version`` ≥ 2.0).
 - ``no-autogen-pinfo``: missing autogen ``PackageInfo_*`` modules in ``autogen-modules`` *and* ``exposed-modules``/``other-modules`` (``cabal-version`` ≥ 2.0).
+- ``autogen-guard``: autogen ``PackageInfo_*`` modules used with ``cabal-version`` < 3.12.
 - ``no-glob-match``: glob pattern not matching any file.
 - ``glob-no-extension``: glob pattern not matching any file because of lack of extension matching (`cabal-version` < 2.4).
 - ``glob-missing-dir``: glob pattern trying to match a missing directory.
