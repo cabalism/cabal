@@ -96,6 +96,14 @@ architecture and version information from, which will force some
 commands (update, sdist) to require ghc present where otherwise it
 would not be necessitated.
 
+Because the compiler is needed to resolve conditionals, it cannot be set
+inside one. A :cfg-field:`compiler`, :cfg-field:`with-compiler` or
+:cfg-field:`with-hc-pkg` field in a conditional block is an error.
+
+Imports must not form a cycle. A project file that imports itself, directly
+or through other imported files, is rejected with an error that lists the
+chain of imports.
+
 One use case for imports is to specify a `Stackage <https://www.stackage.org/>`
 snapshot, so that your cabal project can use the same set of packages as
 that snapshot. To use the ``lts-21.25`` resolver, you can write
@@ -346,6 +354,8 @@ Verbosity options
 
 .. cfg-field:: build-timings: boolean
                --build-timings
+    :synopsis: Log how long each build phase of each package takes.
+    :since: 3.20
 
     Log timing information to stdout, in the following format::
 
@@ -375,6 +385,7 @@ Job and concurrency options
                 --semaphore
                 --no-semaphore
     :synopsis: Use GHC's support for semaphore based parallelism.
+    :since: 3.12
 
     :default: False
 
@@ -854,6 +865,7 @@ Build options
                --disable-build-info
     :synopsis: Whether build information for each individual component should be
                written in a machine readable format.
+    :since: 3.8
 
     :default: ``False``
 
@@ -874,6 +886,40 @@ Build options
     .. note::
         The format and fields of the generated build information is currently experimental,
         in the future we might add or remove fields, depending on the needs of other tooling.
+
+.. cfg-field:: per-component: boolean
+               --enable-per-component
+               --disable-per-component
+    :synopsis: Build the components of a package separately when possible.
+
+    :default: ``True``
+
+    Configure and build each component of a package (library, executable,
+    test suite and so on) separately, so that only the components that are
+    needed get built. If ``False``, every package is configured and built
+    as a whole.
+
+    Whatever the setting, a package is built as a whole if its
+    :pkg-field:`build-type` is ``Custom``, ``Configure`` or ``Hooks``, or if
+    its :pkg-field:`cabal-version` is less than 1.8.
+
+    The command line variant of this flag is ``--enable-per-component`` and
+    ``--disable-per-component``.
+
+.. cfg-field:: multi-repl: boolean
+               --enable-multi-repl
+               --disable-multi-repl
+    :synopsis: Allow cabal repl to load more than one component.
+    :since: 3.12
+
+    :default: ``False``
+
+    Allow ``cabal repl`` to start a session with multiple components loaded
+    at once. This requires GHC 9.4 or later. If ``False``, only a single
+    component can be loaded.
+
+    The command line variant of this flag is ``--enable-multi-repl`` and
+    ``--disable-multi-repl``, which are options of ``cabal repl``.
 
 .. cfg-field:: logs-dir: directory
                --logs-dir=DIR
@@ -986,6 +1032,122 @@ Install options
 
     The command line variant of this field is ``--lib``.
 
+Installation directory options
+------------------------------
+
+These fields set the installation directories that local packages are
+configured with. They are the locations that a package's ``Paths_pkg``
+module reports, so they matter when preparing a build that will be copied
+somewhere else. They are top-level fields: they cannot go in a ``package``
+stanza, and they do not apply to packages built into the store, whose
+directories are fixed.
+
+Each value is a path template that may use the path variables listed under
+the ``Setup.hs configure`` option of the same name, such as ``$prefix`` and
+``$pkgid``, and each has a command line variant with that name, such as
+``--prefix=DIR``. None of them moves where ``cabal install`` puts
+executables; for that, see :cfg-field:`installdir`.
+
+.. cfg-field:: prefix: templated path
+               --prefix=DIR
+    :synopsis: Root of the installation.
+    :since: 3.10
+
+    The root of the installation. The other installation directories default
+    to subdirectories of it. See
+    :option:`runhaskell Setup.hs configure --prefix`.
+
+.. cfg-field:: bindir: templated path
+               --bindir=DIR
+    :synopsis: Installation directory for executables.
+    :since: 3.10
+
+    See :option:`runhaskell Setup.hs configure --bindir`.
+
+.. cfg-field:: libdir: templated path
+               --libdir=DIR
+    :synopsis: Installation directory for libraries.
+    :since: 3.10
+
+    See :option:`runhaskell Setup.hs configure --libdir`.
+
+.. cfg-field:: libsubdir: templated path
+               --libsubdir=DIR
+    :synopsis: Subdirectory of libdir in which libraries are installed.
+    :since: 3.10
+
+    See :option:`runhaskell Setup.hs configure --libsubdir`.
+
+.. cfg-field:: dynlibdir: templated path
+               --dynlibdir=DIR
+    :synopsis: Installation directory for dynamic libraries.
+    :since: 3.10
+
+    See :option:`runhaskell Setup.hs configure --dynlibdir`.
+
+.. cfg-field:: bytecodelibdir: templated path
+               --bytecodelibdir=DIR
+    :synopsis: Installation directory for bytecode libraries.
+    :since: 3.18
+
+    See :option:`runhaskell Setup.hs configure --bytecodelibdir`.
+
+.. cfg-field:: libexecdir: templated path
+               --libexecdir=DIR
+    :synopsis: Installation directory for private executables.
+    :since: 3.10
+
+    See :option:`runhaskell Setup.hs configure --libexecdir`.
+
+.. cfg-field:: libexecsubdir: templated path
+               --libexecsubdir=DIR
+    :synopsis: Subdirectory of libexecdir in which private executables are installed.
+    :since: 3.10
+
+    See :option:`runhaskell Setup.hs configure --libexecsubdir`.
+
+.. cfg-field:: datadir: templated path
+               --datadir=DIR
+    :synopsis: Installation directory for read-only data.
+    :since: 3.10
+
+    See :option:`runhaskell Setup.hs configure --datadir`.
+
+.. cfg-field:: datasubdir: templated path
+               --datasubdir=DIR
+    :synopsis: Subdirectory of datadir in which data files are installed.
+    :since: 3.10
+
+    See :option:`runhaskell Setup.hs configure --datasubdir`.
+
+.. cfg-field:: docdir: templated path
+               --docdir=DIR
+    :synopsis: Installation directory for documentation.
+    :since: 3.10
+
+    See :option:`runhaskell Setup.hs configure --docdir`.
+
+.. cfg-field:: htmldir: templated path
+               --htmldir=DIR
+    :synopsis: Installation directory for HTML documentation.
+    :since: 3.10
+
+    See :option:`runhaskell Setup.hs configure --htmldir`.
+
+.. cfg-field:: haddockdir: templated path
+               --haddockdir=DIR
+    :synopsis: Installation directory for Haddock interfaces.
+    :since: 3.10
+
+    The directory in which Haddock interface files are installed.
+
+.. cfg-field:: sysconfdir: templated path
+               --sysconfdir=DIR
+    :synopsis: Installation directory for configuration files.
+    :since: 3.10
+
+    See :option:`runhaskell Setup.hs configure --sysconfdir`.
+
 Package options
 ---------------
 
@@ -1029,7 +1191,7 @@ feature was added.
     external or local package) or for all packages (external and local).
 
     A ``package`` stanza can contain the configuration fields listed in this
-    section and ``<progname>-options``:
+    section, ``<progname>-options`` and ``<progname>-location``:
 
     ::
 
@@ -1037,9 +1199,12 @@ feature was added.
           flags: -some-flag
           profiling: True
           ghc-options: -Wall
+          happy-location: /opt/happy/bin/happy
 
     Program options are not extensively described in this documentation but a
     good amount of them can be found in the :ref:`build-info` section.
+    A ``<progname>-location`` field gives the path to the named program, for
+    any of the :ref:`known programs<program_options>`.
 
 .. cfg-section:: None
 
@@ -1435,6 +1600,7 @@ Dynamic linking options
                --enable-library-bytecode
                --disable-library-bytecode
     :synopsis: Build bytecode libraries.
+    :since: 3.18
 
     :default: False
 
@@ -1458,8 +1624,15 @@ Dynamic linking options
 
     :default: False
 
-    :strike:`Build a package which is relocatable.` (TODO: It is not
-    clear what this actually does, or if it works at all.)
+    Build a package which is relocatable, that is, one whose installed files
+    can be moved together to another location and still work. Executables
+    find their data files and shared libraries relative to their own
+    location, and the package is registered with paths relative to the
+    package database.
+
+    This is only supported with GHC, on Linux, macOS and FreeBSD, and it
+    requires every installation directory to be below the
+    :cfg-field:`prefix`; configuring the package fails otherwise.
 
     The command line variant of this flag is ``--enable-relocatable`` and
     ``--disable-relocatable``.
@@ -1522,6 +1695,17 @@ Foreign function interface options
     An extra directory to search for system libraries files.
 
     The command line variant of this flag is ``--extra-lib-dirs=DIR``,
+    which can be specified multiple times.
+
+.. cfg-field:: extra-lib-dirs-static: directories (comma or newline separated list)
+               --extra-lib-dirs-static=DIR
+    :synopsis: Adds library search directory for fully static executables.
+    :since: 3.8
+
+    An extra directory to search for system libraries files when linking
+    fully static executables (see :cfg-field:`executable-static`).
+
+    The command line variant of this flag is ``--extra-lib-dirs-static=DIR``,
     which can be specified multiple times.
 
 .. cfg-field:: extra-framework-dirs: directories (comma or newline separated list)
@@ -1660,6 +1844,24 @@ Profiling options
     The command line variant of this flag is
     ``--enable-library-profiling`` and ``--disable-library-profiling``.
 
+.. cfg-field:: profiling-shared: boolean
+               --enable-profiling-shared
+               --disable-profiling-shared
+    :synopsis: Build shared libraries with profiling enabled.
+    :since: 3.14
+
+    :default: False
+
+    Build shared libraries with profiling enabled. This needs a GHC that
+    comes with profiled dynamic libraries, which is GHC 9.12 or later.
+
+    You do not usually need to set this field: it is turned on for a package
+    when both :cfg-field:`profiling` and :cfg-field:`executable-dynamic` are
+    enabled and the compiler supports it.
+
+    The command line variant of this flag is
+    ``--enable-profiling-shared`` and ``--disable-profiling-shared``.
+
 .. cfg-field:: executable-profiling: boolean
                --enable-executable-profiling
                --disable-executable-profiling
@@ -1705,6 +1907,125 @@ Coverage options
 
     The command line variant of this flag is
     ``--enable-library-coverage`` and ``--disable-library-coverage``.
+
+Test and benchmark options
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+These fields control how test suites and benchmarks are run. They
+correspond to options of ``setup test`` and ``setup bench``; see
+:ref:`setup-test` and :ref:`setup-bench`.
+
+.. cfg-field:: test-log: templated path
+               --test-log=TEMPLATE
+    :synopsis: Name of the human-readable test log.
+
+    :default: ``$pkgid-$test-suite.log``
+
+    The template used to name human-readable test logs. The path is relative
+    to the ``test`` directory within the build directory of the package or
+    component. Template variables allowed are: ``$pkgid``, ``$compiler``,
+    ``$os``, ``$arch``, ``$abi``, ``$abitag``, ``$test-suite``, and
+    ``$result``.
+
+    The command line variant of this field is ``--test-log=TEMPLATE``.
+
+.. cfg-field:: test-machine-log: templated path
+               --test-machine-log=TEMPLATE
+    :synopsis: Name of the machine-readable test log.
+
+    :default: ``$pkgid.log``
+
+    The path to the machine-readable log, relative to the same ``test``
+    directory as :cfg-field:`test-log`. Template variables allowed are:
+    ``$pkgid``, ``$compiler``, ``$os``, ``$arch``, ``$abi``, ``$abitag``
+    and ``$result``.
+
+    The command line variant of this field is
+    ``--test-machine-log=TEMPLATE``.
+
+.. cfg-field:: test-show-details: always, never, failures, streaming, or direct
+               --test-show-details=FILTER
+    :synopsis: When to show the output of individual test cases.
+
+    :default: ``always``
+
+    Determines if the results of individual test cases are shown on the
+    terminal. May be ``always`` (always show), ``never`` (never show),
+    ``failures`` (show only failed results), ``streaming`` (show all
+    results in real time) and ``direct`` (same as ``streaming`` but no log
+    file and possibly prettier).
+
+    The default differs from that of ``setup test``, which is ``direct``.
+
+    The command line variant of this field is
+    ``--test-show-details=FILTER``.
+
+.. cfg-field:: test-keep-tix-files: boolean
+               --test-keep-tix-files
+    :synopsis: Keep .tix files between test runs.
+
+    :default: False
+
+    Keep the ``.tix`` files that HPC writes between test runs, rather than
+    deleting them. This is only relevant when :cfg-field:`coverage` is
+    enabled.
+
+    The command line variant of this field is ``--test-keep-tix-files``.
+
+.. cfg-field:: test-wrapper: path
+               --test-wrapper=FILE
+    :synopsis: Run test suites through a wrapper.
+
+    The wrapper script or application used to set up and tear down the test
+    execution context. The test executable path and test arguments are
+    passed as arguments to the wrapper and it is expected that the wrapper
+    will return the test's return code, as well as a copy of stdout/stderr.
+
+    The command line variant of this field is ``--test-wrapper=FILE``.
+
+.. cfg-field:: test-fail-when-no-test-suites: boolean
+               --test-fail-when-no-test-suites
+    :synopsis: Fail if there are no test suites to run.
+
+    :default: False
+
+    Exit with failure when no test suites are found.
+
+    The command line variant of this field is
+    ``--test-fail-when-no-test-suites``.
+
+.. cfg-field:: test-options: args (space separated)
+               --test-options=TEMPLATES
+               --test-option=TEMPLATE
+    :synopsis: Extra arguments for test executables.
+
+    Give extra options to the test executables. The options are split on
+    spaces; use double quotes to keep an option containing spaces together.
+    Each option is a template that may use ``$pkgid``, ``$compiler``,
+    ``$os``, ``$arch`` and ``$test-suite``.
+
+    ::
+
+        test-options: --quickcheck-tests=1000 "--pattern=my group"
+
+    The command line variant of this field is ``--test-options=TEMPLATES``.
+    There is also ``--test-option=TEMPLATE``, which passes its argument as a
+    single option without splitting it on spaces.
+
+.. cfg-field:: benchmark-options: args (space separated)
+               --benchmark-options=TEMPLATES
+               --benchmark-option=TEMPLATE
+    :synopsis: Extra arguments for benchmark executables.
+
+    Give extra options to the benchmark executables. The options are split
+    on spaces; use double quotes to keep an option containing spaces
+    together. Each option is a template that may use ``$pkgid``,
+    ``$compiler``, ``$os``, ``$arch`` and ``$benchmark``.
+
+    The command line variant of this field is
+    ``--benchmark-options=TEMPLATES``. There is also
+    ``--benchmark-option=TEMPLATE``, which passes its argument as a single
+    option without splitting it on spaces.
 
 Haddock options
 ^^^^^^^^^^^^^^^
@@ -1791,6 +2112,32 @@ running ``setup haddock``.
     If this option is omitted, the location for each package is obtained
     using the package tool (e.g. ``ghc-pkg``).
 
+.. cfg-field:: haddock-for-hackage: for-hackage or for-development
+               --haddock-for-hackage
+    :synopsis: Generate documentation suitable for upload to Hackage.
+
+    :default: ``for-development``
+
+    With ``for-hackage``, generate documentation that is suitable for upload
+    to Hackage. This is equivalent to setting :cfg-field:`haddock-hoogle`,
+    :cfg-field:`haddock-html`, :cfg-field:`haddock-hyperlink-source` and
+    :cfg-field:`haddock-quickjump`, with :cfg-field:`haddock-html-location`
+    set to ``/package/$pkg-$version/docs`` and
+    :cfg-field:`haddock-contents-location` set to ``/package/$pkg-$version``.
+
+    The command line variant of this field is ``--haddock-for-hackage``,
+    which takes no argument and selects ``for-hackage``.
+
+.. cfg-field:: haddock-foreign-libraries: boolean
+    :synopsis: Generate documentation for foreign libraries.
+
+    :default: False
+
+    Run haddock on all foreign libraries.
+
+    There is no command line variant of this field. It is also turned on by
+    :cfg-field:`haddock-all`.
+
 .. cfg-field:: haddock-executables: boolean
                --haddock-executables
     :synopsis: Generate documentation for executables.
@@ -1863,6 +2210,27 @@ running ``setup haddock``.
 
     A baked-in URL to be used as the location for the contents page.
 
+.. cfg-field:: haddock-index-location: URL
+    :synopsis: URL for a separately generated index page.
+    :since: 3.10
+
+    Use a separately generated HTML index at this location, instead of
+    generating one for each package. This is passed to ``haddock`` as the
+    ``--use-index`` flag.
+
+    There is no command line variant of this field.
+
+.. cfg-field:: haddock-base-url: URL
+               --haddock-base-url=URL
+    :synopsis: Base URL for static files.
+    :since: 3.10
+
+    The base URL from which the generated documentation loads Haddock's
+    static files, such as its stylesheets and scripts. This is passed to
+    ``haddock`` as the ``--base-url`` flag.
+
+    The command line variant of this field is ``--haddock-base-url=URL``.
+
 .. cfg-field:: haddock-keep-temp-files: boolean
     :synopsis: Keep temporary Haddock files.
 
@@ -1873,6 +2241,7 @@ running ``setup haddock``.
 .. cfg-field:: haddock-output-dir: DIR
                --haddock-output-dir=DIR
     :synopsis: Generate haddock documentation into this directory.
+    :since: 3.12
 
     Generate haddock documentation into this directory instead of the default
     location next to other build products.
@@ -1883,12 +2252,14 @@ running ``setup haddock``.
 .. cfg-field:: haddock-use-unicode: boolean
                --haddock-use-unicode
     :synopsis: Pass --use-unicode option to haddock.
+    :since: 3.14
 
     Generate HTML documentation which contains unicode characters.
 
 .. cfg-field:: haddock-resources-dir: DIR
                --haddock-resources-dir=DIR
     :synopsis: Location of Haddock's static/auxiliary files.
+    :since: 3.14
 
     Location of Haddock's static/auxiliary files. For Haddock distributed with
     GHC (or, more precisely, built within the GHC source tree), this path should
@@ -1917,6 +2288,21 @@ built. On the other hand, the following snippet:
         ghc-options: -Werror
 
 will apply ``-Werror`` to all packages, local and remote.
+
+.. cfg-section:: program-locations
+
+The paths of programs can be specified in the same two ways. A
+``program-locations`` stanza takes ``<progname>-location`` fields and applies
+to all local packages:
+
+::
+
+    program-locations
+        happy-location: /opt/happy/bin/happy
+
+A ``<progname>-location`` field in a ``package`` stanza applies to that
+package, or to all packages, local and remote, in ``package *``. The command
+line variant is ``--with-PROG=PATH``, for example ``--with-happy=PATH``.
 
 Advanced global options
 -----------------------
@@ -1983,6 +2369,27 @@ Advanced global options
 
     The command line variant of this flag is
     ``--remote-repo-cache=DIR``.
+
+.. cfg-field:: extra-prog-path-shared-only: PATH (newline or comma separated list)
+    :synopsis: Add directories to the program search path of cabal itself.
+
+    A list of directories to search for the programs that ``cabal`` runs on
+    behalf of the whole project, such as the compiler, the
+    :cfg-field:`http-transport` program and version control tools. It does
+    not affect how individual packages are configured; for that, see
+    :cfg-field:`extra-prog-path`.
+
+    There is no command line variant of this field.
+
+A project file can also declare package repositories, with ``repository``
+stanzas of the same form as in the ``cabal`` configuration file (see
+:ref:`repository-specification`). They are used in addition to the
+repositories declared there.
+
+::
+
+    repository my-local-repository
+      url: file+noindex:///absolute/path/to/directory
 
 Advanced solver options
 ^^^^^^^^^^^^^^^^^^^^^^^
@@ -2078,9 +2485,26 @@ Most users generally won't need these.
 
     :default: False
 
-    Do not defer flag choices. (TODO: Better documentation.)
+    Do not defer flag choices. By default the solver puts off choosing the
+    value of a package flag that is not marked :pkg-field:`flag:manual`
+    until it has made its other choices. With this field set, no flag choice
+    is deferred in this way, which was the behaviour of ``cabal-install``
+    1.20 and earlier.
 
     The command line variant of this field is ``--(no-)strong-flags``.
+
+.. cfg-field:: independent-goals: boolean
+               --independent-goals
+               --no-independent-goals
+    :synopsis: Solve for each target independently.
+
+    :default: False
+
+    Treat the packages the solver is asked to build as independent goals. If
+    several of them depend on the same package, a different version of it
+    can be chosen for each.
+
+    The command line variant of this field is ``--(no-)independent-goals``.
 
 .. cfg-field:: allow-boot-library-installs: boolean
                --allow-boot-library-installs
@@ -2104,8 +2528,10 @@ Most users generally won't need these.
     This field selects the version of the Cabal library which should be
     used to build packages. This option is intended primarily for
     internal development use (e.g., forcing a package to build with a
-    newer version of Cabal, to test a new version of Cabal.) (TODO:
-    Specify its semantics more clearly.)
+    newer version of Cabal, to test a new version of Cabal.)
+
+    The field is accepted, but it does not currently affect how the packages
+    of a project are built.
 
     The command line variant of this field is
     ``--cabal-lib-version=1.24.0.1``.
