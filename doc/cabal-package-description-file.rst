@@ -251,8 +251,15 @@ of field/value pairs, with a syntax roughly like mail message headers.
 
 -  Before Cabal 3.0, to get a blank line in a field value, use an indented "``.``"
 
+-  Fields whose names begin with ``x-`` are extension fields. They are
+   accepted in the package properties and in any section that takes build
+   information, and Cabal itself ignores them. They are available to custom
+   ``Setup.hs`` scripts through ``customFieldsPD`` and ``customFieldsBI``.
+
 The syntax of the value depends on the field. Field types include:
 
+*boolean*
+    ``True`` or ``False``. Case is not significant.
 *token*, *filename*, *directory*
     Either a sequence of one or more non-space non-comma characters, or
     a quoted string in Haskell 98 lexical syntax. The latter can be used
@@ -473,7 +480,7 @@ describe the package as a whole:
         import Distribution.Simple
         main = defaultMainWithHooks autoconfUserHooks
 
-    Build type ``Make`` is no longer supported.
+    Build type ``Make`` is no longer supported from ``cabal-version`` 3.18.
 
     For build type ``Custom``, the file ``Setup.hs`` can be customized,
     and will be used both by ``cabal`` and other tools.
@@ -783,6 +790,7 @@ describe the package as a whole:
     `system-dependent parameters`_.
 
 .. pkg-field:: extra-files: filename list
+    :since: 3.14
 
     A list of additional files to be included in source distributions built with :ref:`setup-sdist`.
     As with :pkg-field:`data-files` it can use a limited form of ``*`` wildcards in file names.
@@ -1133,23 +1141,24 @@ the :pkg-field:`test-module` field.
 
     The module exporting the ``tests`` symbol.
 
-.. pkg-field:: code-generators
+.. pkg-field:: code-generators: token list
+    :since: 3.8
 
     An optional list of preprocessors which can generate new modules
     for use in the test-suite.
 
- A list of executables (possibly brought into scope by
- :pkg-field:`build-tool-depends`) that are run after all other
- preprocessors. These executables are invoked as so: ``exe-name
- TARGETDIR [SOURCEDIRS] -- [GHCOPTIONS]``. The arguments are, in order a target dir for
- output, a sequence of all source directories with source files of
- local lib components that the given test stanza depends on, and
- following a double dash, all options cabal would pass to ghc for a
- build. They are expected to output a newline-separated list of
- generated modules which have been written to the targetdir
- (excepting, if written, the main module). This can
- be used for driving doctests and other discover-style tests generated
- from source code.
+    A list of executables (possibly brought into scope by
+    :pkg-field:`build-tool-depends`) that are run after all other
+    preprocessors. These executables are invoked as so: ``exe-name
+    TARGETDIR [SOURCEDIRS] -- [GHCOPTIONS]``. The arguments are, in order a target dir for
+    output, a sequence of all source directories with source files of
+    local lib components that the given test stanza depends on, and
+    following a double dash, all options cabal would pass to ghc for a
+    build. They are expected to output a newline-separated list of
+    generated modules which have been written to the targetdir
+    (excepting, if written, the main module). This can
+    be used for driving doctests and other discover-style tests generated
+    from source code.
 
 
 Example: Package using ``exitcode-stdio-1.0`` interface
@@ -1278,6 +1287,12 @@ standard output and error channels.
     :pkg-field:`hs-source-dirs`. This field is analogous to the ``main-is``
     field of an executable section; see that documentation for further
     information.
+
+.. pkg-field:: benchmark-module: identifier
+
+    The module exporting the benchmark, for benchmark interfaces that are
+    library-based. No such interface exists yet: the field is parsed, but
+    with the ``exitcode-stdio-1.0`` interface it is ignored with a warning.
 
 Example:
 """""""""""""""""""""""""""""""""""""""""""""""""""""""
@@ -1808,6 +1823,7 @@ system-dependent values for these fields.
     both the compile and link phases.
 
 .. pkg-field:: ghc-prof-shared-options: token list
+    :since: 3.14
 
     Additional options for GHC when the package is built as shared profiling
     library. The options specified via this field are combined with the
@@ -1815,7 +1831,7 @@ system-dependent values for these fields.
     both the compile and link phases.
 
     Note that if any :pkg-field:`ghc-shared-options` are set, the
-    ``-dynamic-too` option will never be passed to GHC, leading to all modules
+    ``-dynamic-too`` option will never be passed to GHC, leading to all modules
     being compiled twice (once to generate the ``.o`` files and another to
     generate the ``.dyn_o`` files).
 
@@ -1832,6 +1848,7 @@ system-dependent values for these fields.
    Like :pkg-field:`ghc-shared-options` but applies to GHCJS
 
 .. pkg-field:: ghcjs-prof-shared-options: token list
+   :since: 3.14
 
    Like :pkg-field:`ghc-prof-shared-options` but applies to GHCJS
 
@@ -1932,6 +1949,7 @@ system-dependent values for these fields.
     executables). Libraries will be passed as ``-optl-l<lib>`` flags to GHC.
 
 .. pkg-field:: extra-libraries-static: token list
+    :since: 3.8
 
     A list of extra libraries to link with (when linking fully static
     executables).
@@ -1966,17 +1984,30 @@ system-dependent values for these fields.
     executables). Directories will be passed as ``-optl-L<dir>`` flags to GHC.
 
 .. pkg-field:: extra-lib-dirs-static: directory list
+    :since: 3.8
 
     A list of directories to search for libraries (when linking fully static
     executables).
 
-.. pkg-field:: extra-library-flavours: notsure
+.. pkg-field:: extra-library-flavours: token list
+    :since: 3.0
 
-    TBW
+    A list of suffixes naming extra flavours of the static library that are
+    to be installed alongside it. For each suffix ``<f>``, the file
+    ``libHS<unit-id><f>.a`` is copied from the build directory next to
+    ``libHS<unit-id>.a``, and likewise ``lib<name><f>.a`` for each name in
+    :pkg-field:`extra-bundled-libraries`. Cabal does not build these files:
+    the package must produce them, for example with a ``Configure`` or
+    ``Custom`` build type. This is mainly used by GHC's own RTS package,
+    whose library comes in threaded, debugging and profiling flavours such
+    as ``_debug`` and ``_p``.
 
-.. pkg-field:: extra-dynamic-library-flavours: notsure
+.. pkg-field:: extra-dynamic-library-flavours: token list
+    :since: 3.0
 
-    TBW
+    Like :pkg-field:`extra-library-flavours`, but for shared libraries: for
+    each suffix, the correspondingly named shared library is installed
+    alongside the ordinary one.
 
 .. pkg-field:: cc-options: token list
 
@@ -1986,6 +2017,7 @@ system-dependent values for these fields.
     setup described in the section on `system-dependent parameters`_.
 
 .. pkg-field:: jspp-options: token list
+    :since: 3.16
 
     Command-line arguments for pre-processing JS code. Applies to pre-processed
     Haskell source like .js. Flags here will be passed as ``-optJSP`` flags to GHC.
@@ -2563,21 +2595,40 @@ The following tests are currently supported.
     it so that in particular ``os(windows)`` works on all
     implementations. If the canonicalised os names match, this test
     evaluates to true, otherwise false. The match is case-insensitive.
+
+    The known names are ``linux``, ``windows``, ``osx``, ``freebsd``,
+    ``openbsd``, ``netbsd``, ``dragonfly``, ``solaris``, ``aix``, ``hpux``,
+    ``irix``, ``halvm``, ``hurd``, ``ios``, ``android``, ``ghcjs``, ``wasi``
+    and ``haiku``. The aliases ``mingw32`` and ``win32`` (for ``windows``),
+    ``darwin`` (``osx``), ``gnu`` (``hurd``), ``kfreebsdgnu`` (``freebsd``),
+    ``solaris2`` (``solaris``) and ``linux-android`` (``android``) are also
+    accepted. Any other name only matches an operating system that Cabal
+    does not know and that reports that name.
 :samp:`arch({name})`
     Tests if the current architecture is *name*. *name* should be the name of
-    one of the nullary constructors of ``Distribution.System.Arch`` (e.g.
-    ``x86_64``, ``aarch64`` or ``i386``), otherwise it will be treated as an
-    'other architecture' of the given *name*. It will be compared with
+    one of the nullary constructors of ``Distribution.System.Arch``, in
+    lower case, otherwise it will be treated as an 'other architecture' of
+    the given *name*. It will be compared with
     ``Distribution.System.buildArch``, which is derived from
-    ``System.Info.arch`` (certain architectures are treated as synonymous; e.g.
-    ``aarch64`` / ``arm64`` or ``ppc`` / ``powerpc`` are not
-    distinguished). For a match, this test evaluates to true, otherwise false.
-    The match is case-insensitive.
+    ``System.Info.arch``. For a match, this test evaluates to true,
+    otherwise false. The match is case-insensitive.
+
+    The known names are ``i386``, ``x86_64``, ``ppc``, ``ppc64``,
+    ``ppc64le``, ``sparc``, ``sparc64``, ``arm``, ``aarch64``, ``mips``,
+    ``sh``, ``ia64``, ``s390``, ``s390x``, ``alpha``, ``hppa``, ``rs6000``,
+    ``m68k``, ``vax``, ``riscv64``, ``loongarch64``, ``javascript`` and
+    ``wasm32``. Aliases such as ``arm64`` or ``powerpc`` are not accepted
+    here, even though Cabal recognises them when reading
+    ``System.Info.arch``; write ``aarch64`` and ``ppc`` instead.
 :samp:`impl({compiler})`
     Tests for the configured Haskell implementation. An optional version
     constraint may be specified (for example ``impl(ghc >= 6.6.1)``). If
     the configured implementation is of the right type and matches the
     version constraint, then this evaluates to true, otherwise false.
+
+    The known compiler names are ``ghc``, ``ghcjs``, ``nhc98``, ``yhc``,
+    ``hugs``, ``hbc``, ``helium``, ``jhc``, ``lhc``, ``uhc``, ``eta`` and
+    ``mhs``.
     The match is case-insensitive.
 
     Note that including a version constraint in an ``impl`` test causes
@@ -2735,9 +2786,21 @@ Starting with Cabal-2.2 it's possible to use common build info stanzas.
 
 .. pkg-section:: None
 
-.. pkg-field:: import: token-list
+.. pkg-field:: import: token list
+    :since: 2.2
 
-    TBW
+    The names of the :pkg-section:`common` stanzas whose fields are to be
+    included in this section, separated by commas. The imported fields are
+    merged with those of the section in the order the stanzas are listed,
+    followed by the section's own fields; for list-valued fields such as
+    :pkg-field:`build-depends` the values are concatenated, for
+    single-valued fields such as :pkg-field:`default-language` the
+    section's own value wins, and :pkg-field:`buildable` is the conjunction
+    of all the values.
+
+    ``import`` must be the first field of the section, and the common
+    stanzas it names must be defined earlier in the file. Since Cabal 3.0 it
+    is also allowed inside a conditional block.
 
 
 .. _pkg-author-source:
@@ -3422,29 +3485,6 @@ a few options:
    adding a :pkg-section:`custom-setup` stanza with a
    :pkg-field:`custom-setup:setup-depends` field to ensure that your setup
    script does not break with future dependency versions.
-
-   -  The ``--with-hc-pkg``, ``--prefix``, ``--bindir``, ``--libdir``,
-      ``--dynlibdir``, ``--datadir``, ``--libexecdir`` and ``--sysconfdir`` options to
-      the ``configure`` command are passed on to the ``configure``
-      script. In addition the value of the ``--with-compiler`` option is
-      passed in a ``--with-hc`` option and all options specified with
-      ``--configure-option=`` are passed on.
-
-   -  The ``--destdir`` option to the ``copy`` command becomes a setting
-      of a ``destdir`` variable on the invocation of ``make copy``. The
-      supplied ``Makefile`` should provide a ``copy`` target, which will
-      probably look like this:
-
-      .. code-block:: make
-
-          copy :
-                  $(MAKE) install prefix=$(destdir)/$(prefix) \
-                                  bindir=$(destdir)/$(bindir) \
-                                  libdir=$(destdir)/$(libdir) \
-                                  dynlibdir=$(destdir)/$(dynlibdir) \
-                                  datadir=$(destdir)/$(datadir) \
-                                  libexecdir=$(destdir)/$(libexecdir) \
-                                  sysconfdir=$(destdir)/$(sysconfdir) \
 
 -  Finally, with the :pkg-field:`build-type` ``Custom``, you can also write your
    own setup script from scratch, and you may use the Cabal

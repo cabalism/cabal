@@ -25,11 +25,16 @@ relative to the respective preceding *published* version.
 * License fields use identifiers from SPDX License List version
   ``3.28 2026-02-20``.
 
+* The :pkg-field:`build-type` field no longer accepts ``Make``.
+
 ``cabal-version: 3.16``
 -----------------------
 
 * License fields use identifiers from SPDX License List version
   ``3.26 2025-06-10``.
+
+* Added field :pkg-field:`jspp-options` for passing options to the
+  JavaScript preprocessor.
 
 ``cabal-version: 3.14``
 -----------------------
@@ -37,6 +42,10 @@ relative to the respective preceding *published* version.
 * Added field :pkg-field:`extra-files` for specifying extra files to be included
   in ``sdist`` without adding any other semantics (compare,
   :pkg-field:`extra-source-files` is tracked by ``cabal build``).
+
+* Added fields :pkg-field:`ghc-prof-shared-options` and
+  :pkg-field:`ghcjs-prof-shared-options` for passing options when building
+  shared profiling libraries.
 
 * License fields use identifiers from SPDX License List version
   ``3.25 2024-08-19``.
