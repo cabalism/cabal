@@ -93,6 +93,20 @@ The following options are understood by all commands:
     stack printing (these are only supported if Cabal
     is built with a sufficiently recent GHC.)
 
+.. option:: --working-dir=DIR
+
+    Run as if started in *dir*: the package description and all relative
+    paths are taken relative to it.
+
+.. option:: --keep-temp-files
+
+    Keep the temporary files and directories that are normally deleted
+    once a step is complete.
+
+The setup script itself, with no command, also accepts ``-V``/``--version``,
+``--full-version`` and ``--numeric-version``, which print the version of
+the Cabal library it was built with.
+
 The various commands and the additional options they support are
 described below. In the simple build infrastructure, any other options
 will be reported as errors.
@@ -383,6 +397,14 @@ path options:
     ``$datasubdir``, ``$docdir``, ``$pkgid``, ``$pkg``, ``$version``,
     ``$compiler``, ``$os``, ``$arch``, ``$abi``, ``$abitag``
 
+.. option:: --haddockdir=DIR
+
+    Haddock interface files are installed relative to this directory.
+    By default this is ``$htmldir``.
+
+    *dir* may contain the same path variables as :option:`--htmldir`,
+    and ``$htmldir``.
+
 .. option:: --program-prefix=PREFIX
 
     Prepend *prefix* to installed program names.
@@ -598,6 +620,13 @@ Building Test Suites
 .. option:: --disable-coverage
 
     (default) Do not enable Haskell Program Coverage.
+
+.. option:: --coverage-for=UNITID
+
+    Also include the installed library with this unit ID in the coverage
+    report of the test suites, provided it was built with coverage
+    enabled. Can be repeated. ``cabal-install`` uses this to cover the
+    other libraries of the same package when building per component.
 
 Miscellaneous options
 ^^^^^^^^^^^^^^^^^^^^^
@@ -916,6 +945,11 @@ Miscellaneous options
     An extra directory to search for system libraries files. You can use
     this flag multiple times to get a list of directories.
 
+.. option:: --extra-lib-dirs-static=PATH
+
+    Like :option:`--extra-lib-dirs`, but used when linking fully static
+    executables (see :option:`--enable-executable-static`).
+
 .. option:: --extra-framework-dirs=PATH
 
     An extra directory to search for frameworks (OS X only). You can use
@@ -955,6 +989,32 @@ Miscellaneous options
     simple) dependency solver. This is useful for programmatic use of
     Cabal's API, where you want to error if you didn't specify enough
     :option:`--dependency` flags.
+
+.. option:: --allow-depending-on-private-libs
+
+    Allow :pkg-field:`build-depends` to name sublibraries of other packages
+    that are not public (see :pkg-field:`library:visibility`). The caller
+    is then responsible for checking visibility; ``cabal-install`` uses
+    this internally.
+
+.. option:: --ignore-build-tools
+
+    Do not require the programs named in :pkg-field:`build-tool-depends`
+    and :pkg-field:`build-tools` to be found in order to configure.
+
+.. option:: --instantiate-with=NAME=MOD
+
+    For a Backpack package, instantiate the signature *name* with the
+    module *mod*, given as ``unit-id:Module``, for example
+    ``Database=mysql-0.1.0.0:Database.MySQL``. Can be repeated. See
+    :ref:`Backpack`.
+
+.. option:: --enable-deterministic, --disable-deterministic
+
+    Do not include a hash of the dependencies and flags in the component
+    IDs that Cabal generates, so that the same package configures to the
+    same IDs every time. Used by Cabal's test suite; ``cabal-install``
+    supplies its own IDs, so this has no effect there.
 
 
 .. option:: -c CONSTRAINT or -cCONSTRAINT, --constraint=CONSTRAINT
@@ -1203,6 +1263,23 @@ This command takes the following options:
     :option:`--contents-location` equal to ``/package/$pkg-$version``,
     :option:`--hyperlink-source`, and :option:`--quickjump`.
 
+.. option:: --index-location=url
+
+    Use a separately generated HTML index at *url* instead of generating
+    one for the package. Passed to Haddock_ as ``--use-index``.
+
+.. option:: --base-url=url
+
+    The base URL from which the generated pages load Haddock_'s static
+    files, such as its stylesheets and scripts. Passed to Haddock_ as
+    ``--base-url``.
+
+.. option:: --output-dir=dir
+
+    Generate the documentation into *dir* instead of the default location
+    under the build directory. This option is provided as a technology
+    preview and is subject to change.
+
 .. _setup-hscolour:
 
 runhaskell Setup.hs hscolour
@@ -1325,6 +1402,12 @@ This command takes the following options:
     registrations: this can occur if internal/convenience libraries are
     used. These configuration file names are sorted so that they can be
     registered in order.
+
+.. option:: --print-ipid
+
+    Also print the installed package ID (the unit ID) computed for the
+    package's public library. This is useful for tools that need to refer
+    to the package in the package database afterwards.
 
 .. option:: --inplace
 
@@ -1450,6 +1533,17 @@ the package.
    passed as arguments to the wrapper and it is expected that the wrapper
    will return the test's return code, as well as a copy of stdout/stderr.
 
+.. option:: --keep-tix-files
+
+    Keep the ``.tix`` files that HPC writes between test runs, rather
+    than deleting them. Only relevant when the package was configured
+    with :option:`runhaskell Setup.hs configure --enable-coverage`.
+
+.. option:: --fail-when-no-test-suites
+
+    Exit with failure when the package has no test suites to run, instead
+    of succeeding with nothing to do.
+
 .. _setup-bench:
 
 runhaskell Setup.hs bench
@@ -1496,6 +1590,16 @@ This command takes the following option:
 
     Append today's date (in "YYYYMMDD" format) to the version number for
     the generated source package. The original package is unaffected.
+
+.. option:: --output-directory=DIR
+
+    Copy the files of the source distribution into *dir* instead of
+    creating a tarball.
+
+.. option:: --list-sources=FILE
+
+    Do not create a distribution; just write the list of the files that
+    would go into it, one per line, to *file*.
 
 
 .. include:: references.inc
@@ -1556,3 +1660,10 @@ Flags for repl:
 .. option:: --repl-options=FLAG
 
     Use the option(s) for the repl.
+
+.. option:: --repl-multi-file=DIR
+
+    Instead of starting the REPL, write the flags that would be passed to
+    it into files in *dir*, one per component. ``cabal repl`` uses this to
+    collect the flags of each component of a multi-component session
+    before starting a single GHCi.

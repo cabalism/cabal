@@ -2027,6 +2027,8 @@ correspond to options of ``setup test`` and ``setup bench``; see
     ``--benchmark-option=TEMPLATE``, which passes its argument as a single
     option without splitting it on spaces.
 
+.. _haddock-options:
+
 Haddock options
 ^^^^^^^^^^^^^^^
 
@@ -2232,11 +2234,15 @@ running ``setup haddock``.
     The command line variant of this field is ``--haddock-base-url=URL``.
 
 .. cfg-field:: haddock-keep-temp-files: boolean
-    :synopsis: Keep temporary Haddock files.
+               --keep-temp-files
+    :synopsis: Keep temporary files.
 
-    Keep temporary files.
+    Keep the temporary files and directories that are normally deleted
+    once a step is complete, such as the ones used when running Haddock.
+    Despite its name, the field applies to every build step, not only to
+    Haddock.
 
-    There is no command line variant of this flag.
+    The command line variant of this field is ``--keep-temp-files``.
 
 .. cfg-field:: haddock-output-dir: DIR
                --haddock-output-dir=DIR
