@@ -265,7 +265,7 @@ The syntax of the value depends on the field. Field types include:
 *identifier*
     A letter followed by zero or more alphanumerics or underscores.
 *compiler*
-    A compiler flavor (one of: ``GHC``, ``UHC`` or ``LHC``)
+    A compiler flavor (such as ``GHC``, ``GHCJS``, ``UHC``, ``LHC`` or ``MHS``)
     followed by a version range. For example, ``GHC ==6.10.3``, or
     ``LHC >=0.6 && <0.8``.
 
@@ -1546,7 +1546,7 @@ system-dependent values for these fields.
        :pkg-field:`executable:main-is` fields.
 
 .. pkg-field:: hs-source-dir: directory list
-    :deprecated: 2.0
+    :deprecated: 1.2
     :removed: 3.0
 
     :default: ``.``
@@ -2570,7 +2570,7 @@ The following tests are currently supported.
     'other architecture' of the given *name*. It will be compared with
     ``Distribution.System.buildArch``, which is derived from
     ``System.Info.arch`` (certain architectures are treated as synonymous; e.g.
-    ``aarch64`` / ``arm64`` or ``powerpc64`` / ``powerpc64le`` are not
+    ``aarch64`` / ``arm64`` or ``ppc`` / ``powerpc`` are not
     distinguished). For a match, this test evaluates to true, otherwise false.
     The match is case-insensitive.
 :samp:`impl({compiler})`

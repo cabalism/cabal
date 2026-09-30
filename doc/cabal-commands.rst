@@ -33,7 +33,7 @@ Commands
      [project configuration]
       configure              Add extra project configuration.
       freeze                 Freeze dependencies.
-      gen-bounds             Generate dependency bounds.
+      gen-bounds             Generate dependency bounds for packages in the project.
       outdated               Check for outdated dependencies.
       path                   Query for simple project information.
       target                 Target a subset of all targets.
@@ -241,11 +241,13 @@ A cabal command target can take any of the following forms:
      - ``tests``,
      - ``benches``, ``benchmarks``.
 
--  A module target: ``[package:][ctype:]module``, which specifies that the
-   component of which the given module is a part of will be built.
+-  A module target: ``[package:][component:]module`` or
+   ``ctype:component:module``, which specifies that the component of which the
+   given module is a part of will be built.
 
--  A filepath target: ``[package:][ctype:]filepath``, which specifies that the
-   component of which the given filepath is a part of will be built.
+-  A filepath target: ``[package:][component:]filepath`` or
+   ``ctype:component:filepath``, which specifies that the component of which
+   the given filepath is a part of will be built.
 
 -  A script target: ``path/to/script``, which specifies the path to a script
    file. This is supported by ``build``, ``repl``, ``run``, ``list-bin``, and
@@ -263,11 +265,10 @@ cabal user-config
 cabal preferences. It is very useful when you are e.g. first configuring
 ``cabal`` on a new machine.
 
-- ``cabal user-config init`` creates a new configuration file.
-
-  .. option:: --config-file=PATH
-
-      Specify config file path. (default: ``~/.cabal/config``).
+- ``cabal user-config init`` creates a new configuration file, at the location
+  given by :ref:`config-file-discovery`. To create it somewhere else, pass the
+  global option ``--config-file=PATH`` before the command, as in
+  ``cabal --config-file=PATH user-config init``.
 
   .. option:: -f, --force
 
@@ -363,8 +364,8 @@ cabal init
 
 .. option:: -n, --non-interactive
 
-    Enable non-interactive mode. This will attempt to infer project details from a user configuration
-    or from basic environment variables, such as $PATH.
+    Enable non-interactive mode. This will attempt to infer project details from a user configuration,
+    from the contents of the project directory and, for the author's name and email, from ``git config``.
 
 .. option:: --simple
 
@@ -449,12 +450,11 @@ The ``cabal get`` command supports the following options:
 
 .. option:: --only-package-description, --package-description-only
 
-    Unpack the original pristine tarball, rather than updating the
-    ``.cabal`` file with the latest revision from the package archive.
+    Unpack only the package description file.
 
+.. option:: -R REPOSITORY, --repository=REPOSITORY
 
-.. option:: -R, --repository-name
-   Package repository from which the package is to be fetched.
+    Package repository from which the package is to be fetched.
 
 .. _command-group-config:
 
@@ -712,7 +712,7 @@ Examples:
 
     Don't warn about outdated dependency version bounds for the packages in this list.
 
-.. option:: --minor[PKGS]
+.. option:: --minor[=PKGS]
 
     Ignore major version bumps for these packages.
 
@@ -1013,6 +1013,14 @@ the specified packages within the project.
 If a target is not a library :cfg-field:`haddock-benchmarks`,
 :cfg-field:`haddock-executables`, :cfg-field:`haddock-internal`,
 :cfg-field:`haddock-tests` will be implied as necessary.
+
+.. option:: --open
+
+    When generating HTML documentation, attempt to open it in a browser
+    when complete. This will use ``xdg-open`` on Linux and BSD systems,
+    ``open`` on macOS, and ``start`` on Windows.
+
+    This option can only be specified from the command line.
 
 cabal haddock-project
 ^^^^^^^^^^^^^^^^^^^^^
@@ -1709,8 +1717,9 @@ to Hackage.
 
         password-command: sh -c "grep hackage ~/secrets | cut -d : -f 2"
 
-.. option:: -R, --repository-name
-     Package repository to which the package is to be uploaded.
+.. option:: -R REPOSITORY, --repository=REPOSITORY
+
+    Package repository to which the package is to be uploaded.
 
 cabal report
 ^^^^^^^^^^^^
@@ -1731,8 +1740,8 @@ cabal report
 
     Your Hackage password.
 
+.. option:: -R REPOSITORY, --repository=REPOSITORY
 
-.. option:: -R, --repository-name
-   Package repository to which the report is to be uploaded.
+    Package repository to which the report is to be uploaded.
 
 .. include:: references.inc

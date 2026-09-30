@@ -169,7 +169,6 @@ files of a package:
 .. option:: -g, --ghc
             --ghcjs
             --uhc
-            --haskell-suite
 
     Specify which Haskell implementation to use to build the package. At
     most one of these flags may be given. If none is given, the
@@ -1405,7 +1404,7 @@ the package.
     The directory where Cabal puts generated build files (default:
     ``dist``). Test logs will be located in the ``test`` subdirectory.
 
-.. option:: --test-log=TEMPLATE
+.. option:: --log=TEMPLATE
 
     The template used to name human-readable test logs; the path is
     relative to ``dist/test``. By default, logs are named according to
@@ -1414,14 +1413,14 @@ the package.
     variables allowed are: ``$pkgid``, ``$compiler``, ``$os``,
     ``$arch``, ``$abi``, ``$abitag``, ``$test-suite``, and ``$result``.
 
-.. option:: --test-machine-log=TEMPLATE
+.. option:: --machine-log=TEMPLATE
 
     The path to the machine-readable log, relative to ``dist/test``. The
     default template is ``$pkgid.log``. Template variables allowed are:
     ``$pkgid``, ``$compiler``, ``$os``, ``$arch``, ``$abi``, ``$abitag``
     and ``$result``.
 
-.. option:: --test-show-details=FILTER
+.. option:: --show-details=FILTER
 
     Determines if the results of individual test cases are shown on the
     terminal. May be ``always`` (always show), ``never`` (never show),

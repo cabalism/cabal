@@ -82,8 +82,8 @@ The configuration file location is determined as follows:
 1. If option ``--config-file`` is given, use it;
 2. otherwise, if ``$CABAL_CONFIG`` is set use it;
 3. otherwise, if ``$CABAL_DIR`` is set use ``$CABAL_DIR/config``;
-4. otherwise, if ``~/.cabal`` exists, and is a directory, use
-   ``~/.cabal/config``;
+4. otherwise, if ``~/.cabal`` exists, and is a directory, and
+   ``$XDG_CONFIG_HOME/cabal/config`` does not exist, use ``~/.cabal/config``;
 5. otherwise use ``config`` in ``$XDG_CONFIG_HOME/cabal``, which
    defaults to ``~/.config/cabal`` on Unix.
 

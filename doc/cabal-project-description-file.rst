@@ -879,20 +879,25 @@ Build options
                --logs-dir=DIR
     :synopsis: Directory to store build logs.
 
-    :default: ``~/.cabal/logs``
+    :default: ``$XDG_CACHE_HOME/cabal/logs`` (see :ref:`directories`)
 
-    :strike:`The location where build logs for packages are stored.`
-    Not implemented yet.
+    The location where build logs for packages are stored. When building
+    with more than one job, packages built into the store are logged to
+    ``$compiler/$libname.log`` under this directory, unless
+    :cfg-field:`build-log` says otherwise.
 
-    The command line variant of this flag is ``--logs-dir=DIR``.
+    The command line variant of this flag is the global option
+    ``--logs-dir=DIR``, which goes before the command name.
 
 .. cfg-field:: build-summary: template filepath
                --build-summary=TEMPLATE
     :synopsis: Build summaries location.
 
-    :default: ``~/.cabal/logs/build.log``
+    :default: ``$XDG_CACHE_HOME/cabal/logs/build.log`` (see :ref:`directories`)
 
-    :strike:`The file to save build summaries.` Not implemented yet.
+    The file to save build summaries. A summary of each package built is
+    appended to this file. The default is set by the ``build-summary`` field
+    of the generated ``cabal`` configuration file.
 
     Valid variables which can be used in the path are ``$pkgid``,
     ``$compiler``, ``$os`` and ``$arch``.
@@ -960,15 +965,15 @@ Install options
     The command line variant of this field is ``--installdir=DIR``.
 
 .. cfg-field:: symlink-bindir: directory
-               --symlink-bindir=DIR
     :synopsis: Add symlinks to installed executables into this directory.
 
     :default: unset
 
-    This is a legacy option. Prefer :cfg-field:`installdir` for current
-    ``cabal install`` workflows.
+    This is a legacy option that ``cabal install`` no longer uses. Use
+    :cfg-field:`installdir` instead.
 
-    The command line variant of this field is ``--symlink-bindir=DIR``.
+    The command line variant, ``--symlink-bindir=DIR``, is only accepted by
+    the legacy ``v1-install`` command.
 
 .. cfg-field:: lib: boolean
                --lib
@@ -1031,7 +1036,7 @@ feature was added.
         package awesome-package
           flags: -some-flag
           profiling: True
-          cxx-options: -Wall
+          ghc-options: -Wall
 
     Program options are not extensively described in this documentation but a
     good amount of them can be found in the :ref:`build-info` section.
@@ -1445,8 +1450,9 @@ Dynamic linking options
     The command line variant of this flag is
     ``--enable-library-bytecode`` and ``--disable-library-bytecode``.
 
-.. cfg-field:: relocatable:
-               --relocatable
+.. cfg-field:: relocatable: boolean
+               --enable-relocatable
+               --disable-relocatable
     :synopsis: Build relocatable package.
     :since: 1.22
 
@@ -1455,7 +1461,8 @@ Dynamic linking options
     :strike:`Build a package which is relocatable.` (TODO: It is not
     clear what this actually does, or if it works at all.)
 
-    The command line variant of this flag is ``--relocatable``.
+    The command line variant of this flag is ``--enable-relocatable`` and
+    ``--disable-relocatable``.
 
 Static linking options
 ^^^^^^^^^^^^^^^^^^^^^^
@@ -1768,18 +1775,18 @@ running ``setup haddock``.
     prerequisite packages. The substitutions are applied to the template
     to obtain a location for each package, which will be used by
     hyperlinks in the generated documentation. For example, the
-    following command generates links pointing at Hackage pages:
+    following field generates links pointing at Hackage pages:
 
     ::
 
-        html-location: http://hackage.haskell.org/packages/archive/$pkg/latest/doc/html
+        haddock-html-location: http://hackage.haskell.org/packages/archive/$pkg/latest/doc/html
 
     If passed on the command line,
     the argument may be quoted to prevent substitution by the shell.
 
     ::
 
-        --html-location='http://hackage.haskell.org/packages/archive/$pkg/latest/doc/html'
+        --haddock-html-location='http://hackage.haskell.org/packages/archive/$pkg/latest/doc/html'
 
     If this option is omitted, the location for each package is obtained
     using the package tool (e.g. ``ghc-pkg``).
@@ -1838,9 +1845,10 @@ running ``setup haddock``.
 
     :default: False
 
-    Generated hyperlinked source code using `HsColour`_, and have
-    Haddock documentation link to it.
-    This is equivalent to running ``haddock`` with the ``--hyperlinked-source`` flag.
+    Generate hyperlinked source code, and have Haddock documentation link to
+    it. This is equivalent to running ``haddock`` with the
+    ``--hyperlinked-source`` flag. `HsColour`_ is only used instead with
+    versions of Haddock older than 2.17.
 
 .. cfg-field:: haddock-hscolour-css: PATH
                --haddock-hscolour-css=PATH
@@ -1886,14 +1894,6 @@ running ``setup haddock``.
     GHC (or, more precisely, built within the GHC source tree), this path should
     be automatically inferred. For Haddock built from source, however, this path
     should likely be explicitly set for every Haddock invocation.
-
-.. cfg-field:: open: boolean
-               --open
-    :synopsis: Open generated documentation in-browser.
-
-    When generating HTML documentation, attempt to open it in a browser
-    when complete. This will use ``xdg-open`` on Linux and BSD systems,
-    ``open`` on macOS, and ``start`` on Windows.
 
 Program options
 ^^^^^^^^^^^^^^^
@@ -1976,7 +1976,7 @@ Advanced global options
                --remote-repo-cache=DIR
     :synopsis: Location of packages cache.
 
-    :default: ``~/.cabal/packages``
+    :default: ``$XDG_CACHE_HOME/cabal/packages`` (see :ref:`directories`)
 
     The location where packages downloaded from remote repositories will be
     cached.
@@ -2134,7 +2134,7 @@ Most users generally won't need these.
     :synopsis: Specify how to pick package versions
     :since:    3.20
 
-    :default:  installed
+    :default:  ``installed-or-latest``
 
     By default, when solver has a choice of multiple versions of the same
     package, it will first try to derive a build plan with the latest version,
