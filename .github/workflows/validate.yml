@@ -132,6 +132,24 @@ jobs:
         continue-on-error: true
         run: cabal install --ignore-project hackage-repo-tool
 
+      # Needed by the SMT oracle in cabal-install:long-tests. Like the tool
+      # above it is not essential: without z3 those tests are skipped.
+      # It tests the solver, which does not depend on the platform, so one
+      # platform is enough.
+      - name: "LINUX: Install Z3"
+        if: runner.os == 'Linux'
+        continue-on-error: true
+        env:
+          Z3_RELEASE: z3-4.13.3-x64-glibc-2.35
+          Z3_SHA256: 32c7377026733c9d7b33c21cd77a68f50ba682367207b031a6bfd80140a8722f
+        run: |
+          cd "$RUNNER_TEMP"
+          curl -sSfL -o z3.zip "https://github.com/Z3Prover/z3/releases/download/${Z3_RELEASE%%-x64*}/$Z3_RELEASE.zip"
+          echo "$Z3_SHA256  z3.zip" | sha256sum -c
+          unzip -q z3.zip
+          echo "$RUNNER_TEMP/$Z3_RELEASE/bin" >> "$GITHUB_PATH"
+          "$RUNNER_TEMP/$Z3_RELEASE/bin/z3" --version
+
       # Needed by cabal-testsuite/PackageTests/Configure/setup.test.hs
       - name: "MAC: Install Autotools"
         if: runner.os == 'macOS'
