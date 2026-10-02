@@ -67,6 +67,23 @@ module UnitTests.Distribution.Solver.Modular.QuickCheck.Oracle
   , verdict
   , resolve
 
+    -- * Package semantics
+  , Flags
+  , targetScope
+  , instName
+  , instKey
+  , usedFlags
+  , instanceDeps
+  , envSatisfied
+  , qualifiedGoals
+  , choiceGoals
+  , satisfies
+  , allowedFlagValues
+  , availableStanzas
+  , requiredStanzas
+  , explicit
+  , instanceProblems
+
     -- * Validity check
   , ResolvedRef (..)
   , ResolvedPackage (..)
@@ -508,8 +525,15 @@ instanceDeps env stanzas flags (Source a) =
 -- and build-tool dependencies of @P@ on @E@ go to @Exe P E@, all in the same
 -- namespace ('qualifyDeps').
 choiceGoals :: Env -> QName -> Choice -> [Goal]
-choiceGoals env ((ns, q), p) ch =
-  mapMaybe (goal (ns, q)) regular ++ mapMaybe (goal (ns, Setup p)) setup
+choiceGoals env qn ch = regular ++ setup
+  where
+    (regular, setup) = qualifiedGoals env qn ch
+
+-- | The goals of 'choiceGoals', with those of the regular dependencies kept
+-- apart from those of the setup dependencies.
+qualifiedGoals :: Env -> QName -> Choice -> ([Goal], [Goal])
+qualifiedGoals env ((ns, q), p) ch =
+  (mapMaybe (goal (ns, q)) regular, mapMaybe (goal (ns, Setup p)) setup)
   where
     (regular, setup) = instanceDeps env (chStanzas ch) (chFlags ch) (chInstance ch)
     goal s (DepLib n l vr) = Just (LibDep (s, n) l vr)

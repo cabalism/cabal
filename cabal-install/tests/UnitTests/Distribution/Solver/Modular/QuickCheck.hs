@@ -1,6 +1,6 @@
 {-# OPTIONS_GHC -Wno-orphans #-}
 
-module UnitTests.Distribution.Solver.Modular.QuickCheck (tests) where
+module UnitTests.Distribution.Solver.Modular.QuickCheck (tests, smtTests) where
 
 import Distribution.Client.Compat.Prelude
 import Prelude ()
@@ -15,7 +15,7 @@ import qualified Data.List as L
 import Text.Show.Pretty (parseValue, valToStr)
 
 import Language.Haskell.Extension (Extension (..), KnownExtension (..), Language (..))
-import Test.QuickCheck (Arbitrary (..), Blind (..), Gen, Positive (..), classify, counterexample, elements, frequency, listOf, oneof, property, shrinkList, shrinkNothing, shuffle, sublistOf, vectorOf, (===), (==>))
+import Test.QuickCheck (Arbitrary (..), Blind (..), Gen, Positive (..), classify, counterexample, elements, frequency, ioProperty, listOf, oneof, property, shrinkList, shrinkNothing, shuffle, sublistOf, vectorOf, (===), (==>))
 import Test.QuickCheck.Instances.Cabal ()
 import Test.Tasty (TestTree)
 import Test.Tasty.HUnit (testCase, (@?=))
@@ -51,6 +51,7 @@ import Distribution.Version
 import Distribution.Simple.Utils (ordNub)
 import UnitTests.Distribution.Solver.Modular.DSL
 import qualified UnitTests.Distribution.Solver.Modular.QuickCheck.Oracle as Oracle
+import qualified UnitTests.Distribution.Solver.Modular.QuickCheck.Oracle.SMT as SMT
 import UnitTests.Distribution.Solver.Modular.QuickCheck.Utils
   ( ArbitraryOrd (..)
   , testPropertyWithSeed
@@ -274,31 +275,6 @@ tests =
          in (Oracle.scName c, solvable) @?= (Oracle.scName c, Oracle.scVerdict c)
   ]
   where
-    solveWith reorderGoals indepGoals prefVersion =
-      solve
-        (EnableBackjumping True)
-        (FineGrainedConflicts True)
-        reorderGoals
-        (CountConflicts True)
-        indepGoals
-        prefVersion
-        Nothing
-
-    oracleFuel :: Int
-    oracleFuel = 100000
-
-    testEnv test =
-      Oracle.Env
-        { Oracle.envPkgConfig = testPkgConfigDb test
-        , Oracle.envExtensions = testExtensions test
-        , Oracle.envLanguages = testLanguages test
-        , Oracle.envAllowBootLibInstalls = testAllowBootLibInstalls test
-        , Oracle.envSolveExecutables = testSolveExecutables test
-        , Oracle.envOnlyConstrained = testOnlyConstrained test
-        , Oracle.envAvoidReinstalls = testAvoidReinstalls test
-        , Oracle.envShadowPkgs = testShadowPkgs test
-        }
-
     -- Whether any source package in the test has a dependency of the given
     -- kind, looking inside flag branches too.
     hasDep :: (ExampleDependency -> Bool) -> SolverTest -> Bool
@@ -378,43 +354,116 @@ tests =
         | Right av <- unTestDb (testDb test)
         ]
 
-    oracleResolve (IndependentGoals indep) test =
-      Oracle.resolve
-        oracleFuel
-        (testEnv test)
-        indep
-        (testConstraints test)
-        (unTestDb (testDb test))
-        (map unPN (testTargets test))
-
-    oracleCheck (IndependentGoals indep) test =
-      Oracle.checkResolution
-        (testEnv test)
-        (testConstraints test)
-        indep
-        (unTestDb (testDb test))
-        (map unPN (testTargets test))
-
-    noneReachedBackjumpLimit :: [Result] -> Bool
-    noneReachedBackjumpLimit =
-      not . any (\r -> resultPlan r == Left BackjumpLimitReached)
-
     showResults :: Result -> Result -> String
     showResults r1 r2 = showResult 1 r1 ++ showResult 2 r2
-
-    showResult :: Int -> Result -> String
-    showResult n result =
-      unlines $
-        ["", "Run " ++ show n ++ ":"]
-          ++ resultLog result
-          ++ ["result: " ++ show (resultPlan result)]
 
     implies :: Bool -> Bool -> Bool
     implies x y = not x || y
 
-    isRight :: Either a b -> Bool
-    isRight (Right _) = True
-    isRight _ = False
+-- | The same comparisons with the SMT oracle in place of the reference oracle,
+-- given the path to Z3. It has no fuel to run out of, so it also gives a
+-- verdict where the reference oracle gives none, and the two are compared
+-- with each other.
+smtTests :: FilePath -> [TestTree]
+smtTests z3 =
+  [ testPropertyWithSeed "solver agrees with the SMT oracle on solvability" $
+      \test reorderGoals indepGoals -> ioProperty $ do
+        v <- Oracle.verdict <$> smtResolve indepGoals test
+        let r = solveWith reorderGoals indepGoals PreferInstalledOrLatest test
+        pure $
+          counterexample (showResult 1 r ++ "SMT oracle: " ++ show v) $
+            classify (v == Oracle.IsUnknown) "no answer from z3" $
+              classify (v == Oracle.IsSolvable) "solvable" $
+                classify (Oracle.verdict (oracleResolve indepGoals test) == Oracle.IsUnknown) "reference oracle out of fuel" $
+                  (v /= Oracle.IsUnknown && noneReachedBackjumpLimit [r]) ==>
+                    isRight (resultPlan r) === (v == Oracle.IsSolvable)
+  , testPropertyWithSeed "SMT oracle agrees with the reference oracle on solvability" $
+      \test indepGoals -> ioProperty $ do
+        v <- Oracle.verdict <$> smtResolve indepGoals test
+        let v' = Oracle.verdict (oracleResolve indepGoals test)
+        pure $
+          (v /= Oracle.IsUnknown && v' /= Oracle.IsUnknown) ==>
+            v === v'
+  , testPropertyWithSeed "SMT oracle solution passes oracle validity check" $
+      \test indepGoals -> ioProperty $ do
+        result <- smtResolve indepGoals test
+        pure $ case result of
+          Oracle.Solvable res ->
+            let plan = Oracle.toResolved (testEnv test) res
+             in counterexample ("resolved: " ++ show plan) $
+                  oracleCheck indepGoals test plan === []
+          _ -> property True
+  ]
+  where
+    smtResolve (IndependentGoals indep) test =
+      SMT.resolve
+        z3
+        (testEnv test)
+        indep
+        (testConstraints test)
+        (unTestDb (testDb test))
+        (map unPN (testTargets test))
+
+solveWith :: ReorderGoals -> IndependentGoals -> PreferVersion -> SolverTest -> Result
+solveWith reorderGoals indepGoals prefVersion =
+  solve
+    (EnableBackjumping True)
+    (FineGrainedConflicts True)
+    reorderGoals
+    (CountConflicts True)
+    indepGoals
+    prefVersion
+    Nothing
+
+oracleFuel :: Int
+oracleFuel = 100000
+
+testEnv :: SolverTest -> Oracle.Env
+testEnv test =
+  Oracle.Env
+    { Oracle.envPkgConfig = testPkgConfigDb test
+    , Oracle.envExtensions = testExtensions test
+    , Oracle.envLanguages = testLanguages test
+    , Oracle.envAllowBootLibInstalls = testAllowBootLibInstalls test
+    , Oracle.envSolveExecutables = testSolveExecutables test
+    , Oracle.envOnlyConstrained = testOnlyConstrained test
+    , Oracle.envAvoidReinstalls = testAvoidReinstalls test
+    , Oracle.envShadowPkgs = testShadowPkgs test
+    }
+
+oracleResolve :: IndependentGoals -> SolverTest -> Oracle.OracleResult
+oracleResolve (IndependentGoals indep) test =
+  Oracle.resolve
+    oracleFuel
+    (testEnv test)
+    indep
+    (testConstraints test)
+    (unTestDb (testDb test))
+    (map unPN (testTargets test))
+
+oracleCheck :: IndependentGoals -> SolverTest -> [Oracle.ResolvedPackage] -> [Oracle.Problem]
+oracleCheck (IndependentGoals indep) test =
+  Oracle.checkResolution
+    (testEnv test)
+    (testConstraints test)
+    indep
+    (unTestDb (testDb test))
+    (map unPN (testTargets test))
+
+noneReachedBackjumpLimit :: [Result] -> Bool
+noneReachedBackjumpLimit =
+  not . any (\r -> resultPlan r == Left BackjumpLimitReached)
+
+showResult :: Int -> Result -> String
+showResult n result =
+  unlines $
+    ["", "Run " ++ show n ++ ":"]
+      ++ resultLog result
+      ++ ["result: " ++ show (resultPlan result)]
+
+isRight :: Either a b -> Bool
+isRight (Right _) = True
+isRight _ = False
 
 newtype VarOrdering = VarOrdering
   { unVarOrdering :: Variable P.QPN -> Variable P.QPN -> Ordering
