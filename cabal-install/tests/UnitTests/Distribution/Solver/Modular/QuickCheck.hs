@@ -368,10 +368,11 @@ smtTests :: FilePath -> [TestTree]
 smtTests z3 =
   [ testPropertyWithSeed "solver agrees with the SMT oracle on solvability" $
       \test reorderGoals indepGoals -> ioProperty $ do
-        v <- Oracle.verdict <$> smtResolve indepGoals test
+        (result, conflict) <- smtResolve indepGoals test
         let r = solveWith reorderGoals indepGoals PreferInstalledOrLatest test
+            v = Oracle.verdict result
         pure $
-          counterexample (showResult 1 r ++ "SMT oracle: " ++ show v) $
+          counterexample (showResult 1 r ++ "SMT oracle: " ++ show v ++ "\n" ++ SMT.showConflict conflict) $
             classify (v == Oracle.IsUnknown) "no answer from z3" $
               classify (v == Oracle.IsSolvable) "solvable" $
                 classify (Oracle.verdict (oracleResolve indepGoals test) == Oracle.IsUnknown) "reference oracle out of fuel" $
@@ -379,14 +380,16 @@ smtTests z3 =
                     isRight (resultPlan r) === (v == Oracle.IsSolvable)
   , testPropertyWithSeed "SMT oracle agrees with the reference oracle on solvability" $
       \test indepGoals -> ioProperty $ do
-        v <- Oracle.verdict <$> smtResolve indepGoals test
-        let v' = Oracle.verdict (oracleResolve indepGoals test)
+        (result, conflict) <- smtResolve indepGoals test
+        let v = Oracle.verdict result
+            v' = Oracle.verdict (oracleResolve indepGoals test)
         pure $
-          (v /= Oracle.IsUnknown && v' /= Oracle.IsUnknown) ==>
-            v === v'
+          counterexample (SMT.showConflict conflict) $
+            (v /= Oracle.IsUnknown && v' /= Oracle.IsUnknown) ==>
+              v === v'
   , testPropertyWithSeed "SMT oracle solution passes oracle validity check" $
       \test indepGoals -> ioProperty $ do
-        result <- smtResolve indepGoals test
+        (result, _) <- smtResolve indepGoals test
         pure $ case result of
           Oracle.Solvable res ->
             let plan = Oracle.toResolved (testEnv test) res
