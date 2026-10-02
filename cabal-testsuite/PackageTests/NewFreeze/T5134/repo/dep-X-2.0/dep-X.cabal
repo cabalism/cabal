@@ -1,0 +1,18 @@
+cabal-version:   3.0
+name:            dep-X
+version:         2.0
+license:         NONE
+build-type:      Simple
+
+flag flag-f
+    default: True
+    manual:  False
+
+library
+    exposed-modules:  X
+    hs-source-dirs:   src
+    default-language: Haskell2010
+
+    -- This version can only be built with the flag off.
+    if flag(flag-f)
+        build-depends: unknown-dep
