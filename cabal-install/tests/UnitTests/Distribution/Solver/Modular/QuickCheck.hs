@@ -15,10 +15,11 @@ import qualified Data.List as L
 import Text.Show.Pretty (parseValue, valToStr)
 
 import Language.Haskell.Extension (Extension (..), KnownExtension (..), Language (..))
-import Test.QuickCheck (Arbitrary (..), Blind (..), Gen, Positive (..), classify, counterexample, elements, frequency, listOf, oneof, property, shrinkList, shrinkNothing, shuffle, sublistOf, vectorOf, (===), (==>))
+import Test.QuickCheck (Arbitrary (..), Blind (..), Gen, Positive (..), classify, conjoin, counterexample, elements, forAllBlind, frequency, listOf, oneof, property, shrinkList, shrinkNothing, shuffle, sublistOf, vectorOf, (===), (==>))
 import Test.QuickCheck.Instances.Cabal ()
 import Test.Tasty (TestTree)
-import Test.Tasty.HUnit (testCase, (@?=))
+import Test.Tasty.ExpectedFailure (expectFailBecause)
+import Test.Tasty.HUnit (assertBool, assertFailure, testCase, (@?=))
 
 import Distribution.Solver.Types.Flag (FlagType (..))
 import Distribution.Types.Flag (FlagName)
@@ -160,6 +161,84 @@ tests =
          in counterexample (showResults r1 r2) $
               noneReachedBackjumpLimit [r1, r2] ==>
                 isRight (resultPlan r1) === isRight (resultPlan r2)
+  , -- The next properties change the problem in a way that can only make it
+    -- easier, or only harder, and check that the solver's answer follows.
+    -- Each checks every such change to the generated problem, except that
+    -- there are too many dependencies to try removing each one.
+    testPropertyWithSeed "removing a dependency does not break a solvable problem" $
+      \test reorderGoals indepGoals ->
+        forAllBlind (take 10 <$> shuffle (withLooserDependency test)) $ \changed ->
+          staysSolvable reorderGoals indepGoals test (const changed)
+  , testPropertyWithSeed "removing a constraint does not break a solvable problem" $
+      \test reorderGoals indepGoals ->
+        staysSolvable reorderGoals indepGoals test (const (withoutConstraint test))
+  , testPropertyWithSeed "removing the packages that are not in the plan does not break a solvable problem" $
+      \test reorderGoals indepGoals ->
+        staysSolvable reorderGoals indepGoals test (\plan -> [restrictToPlan plan test])
+  , testPropertyWithSeed "freezing the versions in the plan does not break a solvable problem" $
+      \test reorderGoals indepGoals ->
+        staysSolvable reorderGoals indepGoals test (\plan -> [withConstraints (freezeVersions plan) test])
+  , testPropertyWithSeed "freezing the versions and flags in the plan does not break a solvable problem" $
+      \test reorderGoals indepGoals ->
+        staysSolvable reorderGoals indepGoals test $ \plan ->
+          [withConstraints (freezeVersions plan ++ freezeFlags plan) test | flagsAgree plan]
+  , -- Without that condition the property does not hold. T needs B-1 with the
+    -- flag on as a library and B-2 with the flag off for its setup, and a
+    -- flag constraint on B at the top level can only describe one of them.
+    expectFailBecause "#3502: a flag constraint cannot describe two instances of a package" $
+      testCase "freezing the flags of either instance of a package does not break a solvable problem" $
+        let test =
+              SolverTest
+                { testDb =
+                    TestDb
+                      [ Right (exAv "T" 1 [ExFix "B" 1] `withSetupDeps` [ExFix "B" 2])
+                      , Right (exAv "B" 1 [exFlagged "F" [] [ExFix "missing" 1]])
+                      , Right (exAv "B" 2 [exFlagged "F" [ExFix "missing" 1] []])
+                      ]
+                , testTargets = [PN "T"]
+                , testConstraints = []
+                , testPreferences = []
+                , testPkgConfigDb = Just []
+                , testExtensions = Nothing
+                , testLanguages = Nothing
+                , testAllowBootLibInstalls = False
+                , testSolveExecutables = True
+                , testOnlyConstrained = False
+                , testAvoidReinstalls = False
+                , testShadowPkgs = False
+                }
+            solve' = solveWith (ReorderGoals False) (IndependentGoals False) PreferInstalledOrLatest
+            r1 = solve' test
+         in case resultResolved r1 of
+              Left _ -> assertFailure ("no plan to freeze" ++ showResults r1 r1)
+              Right plan -> do
+                L.sort (map fst (flagAssignments plan "B")) @?= [1, 2]
+                for_ (flagAssignments plan "B") $ \(v, flags) ->
+                  let r2 = solve' (withConstraints (freezeVersions plan ++ freezeFlagsOf "B" flags) test)
+                   in assertBool
+                        ("frozen with the flags of B-" ++ show v ++ showResults r1 r2)
+                        (isRight (resultPlan r2))
+  , testPropertyWithSeed "removing a package does not fix an unsolvable problem" $
+      \test reorderGoals indepGoals ->
+        let r1 = solveWith reorderGoals indepGoals PreferInstalledOrLatest test
+         in resultPlan r1 == Left OtherFailure ==>
+              conjoin
+                [ counterexample (show test' ++ showResults r1 r2) $
+                  not (isRight (resultPlan r2))
+                | test' <- withoutPackage test
+                , let r2 = solveWith reorderGoals indepGoals PreferInstalledOrLatest test'
+                ]
+  , -- The solver tries the choices that remain in the same order, so the plan
+    -- it found first is still the one it finds first. As above, this needs a
+    -- goal order that does not depend on the choices available.
+    testPropertyWithSeed
+      "removing the packages that are not in the plan does not change the plan (with static goal order)"
+      $ \test indepGoals ->
+        samePlan indepGoals test (\plan -> [restrictToPlan plan test])
+  , testPropertyWithSeed
+      "freezing the versions in the plan does not change the plan (with static goal order)"
+      $ \test indepGoals ->
+        samePlan indepGoals test (\plan -> [withConstraints (freezeVersions plan) test])
   , -- The next two tests use --no-count-conflicts, because the goal order used
     -- with --count-conflicts depends on the total set of conflicts seen by the
     -- solver. The solver explores more of the tree and encounters more
@@ -283,6 +362,43 @@ tests =
         indepGoals
         prefVersion
         Nothing
+
+    -- If the test is solvable then so is every one of the tests made from it
+    -- and its plan. A run that reaches the backjump limit is not counted
+    -- against the solver.
+    staysSolvable reorderGoals indepGoals test changes =
+      let r1 = solveWith reorderGoals indepGoals PreferInstalledOrLatest test
+          changed = either (const []) changes (resultResolved r1)
+       in isRight (resultPlan r1) ==>
+            classify (null changed) "nothing to change" $
+              conjoin
+                [ counterexample (show test' ++ showResults r1 r2) $
+                  resultPlan r2 /= Left OtherFailure
+                | test' <- changed
+                , let r2 = solveWith reorderGoals indepGoals PreferInstalledOrLatest test'
+                ]
+
+    -- If the test is solvable then every one of the tests made from it and
+    -- its plan has the same plan, when the goal order is static.
+    samePlan indepGoals test changes =
+      let r1 = solveStatic test
+          changed = either (const []) changes (resultResolved r1)
+          solveStatic =
+            solve
+              (EnableBackjumping True)
+              (FineGrainedConflicts True)
+              (ReorderGoals False)
+              (CountConflicts False)
+              indepGoals
+              PreferInstalledOrLatest
+              Nothing
+       in isRight (resultPlan r1) ==>
+            conjoin
+              [ counterexample (show test' ++ showResults r1 r2) $
+                resultPlan r2 == Left BackjumpLimitReached || resultPlan r2 == resultPlan r1
+              | test' <- changed
+              , let r2 = solveStatic test'
+              ]
 
     oracleFuel :: Int
     oracleFuel = 100000
@@ -607,6 +723,160 @@ instance Arbitrary SolverTest where
       ++ [test{testOnlyConstrained = False} | testOnlyConstrained test]
       ++ [test{testAvoidReinstalls = False} | testAvoidReinstalls test]
       ++ [test{testShadowPkgs = False} | testShadowPkgs test]
+
+{-------------------------------------------------------------------------------
+  Changes to a test that can only make it easier or only make it harder
+-------------------------------------------------------------------------------}
+
+-- | Every way to take one element out of a list, with what is on either side.
+picks :: [a] -> [([a], a, [a])]
+picks xs = [(before, x, after) | (before, x : after) <- zip (L.inits xs) (L.tails xs)]
+
+-- | Every way to remove one dependency of a source package, or to drop the
+-- version from one.
+--
+-- A language is never removed: a component that declares none uses
+-- Haskell98, so that would add a requirement. A flagged dependency is never
+-- removed whole, only loosened inside: a declared flag has to stay in use,
+-- and the branches also say whether the component is buildable and visible.
+-- The version of a dependency on base stays, as package checks require one.
+withLooserDependency :: SolverTest -> [SolverTest]
+withLooserDependency test =
+  [ test{testDb = TestDb (before ++ Right av{exAvDeps = cds} : after)}
+  | (before, Right av, after) <- picks (unTestDb (testDb test))
+  , (before', (comp, deps), after') <- picks (CD.toList (exAvDeps av))
+  , deps' <- looser deps
+  , let cds = CD.fromList (before' ++ (comp, deps') : after')
+  ]
+  where
+    looser :: Dependencies -> [Dependencies]
+    looser deps =
+      [ deps{depsExampleDependencies = before ++ replacement ++ after}
+      | (before, dep, after) <- picks (depsExampleDependencies deps)
+      , replacement <- [[] | removable dep] ++ map (: []) (looserDep dep)
+      ]
+
+    removable ExFlagged{} = False
+    removable ExLang{} = False
+    removable _ = True
+
+    looserDep (ExFix pn _) = [ExAny pn | pn /= "base"]
+    looserDep (ExSubLibFix pn lib _) = [ExSubLibAny pn lib]
+    looserDep (ExBuildToolFix pn exe _) = [ExBuildToolAny pn exe]
+    looserDep (ExFlagged flag th el) =
+      [ExFlagged flag th' el | th' <- looser th]
+        ++ [ExFlagged flag th el' | el' <- looser el]
+    looserDep _ = []
+
+-- | Every way to remove one constraint.
+--
+-- A version constraint stays in only-constrained mode, where it is what lets
+-- the package be chosen at all. A constraint on a manual flag stays too: a
+-- manual flag may only differ from its default where some constraint on the
+-- package asks for the value.
+withoutConstraint :: SolverTest -> [SolverTest]
+withoutConstraint test =
+  [ test{testConstraints = before ++ after}
+  | (before, c, after) <- picks (testConstraints test)
+  , removable c
+  ]
+  where
+    removable ExVersionConstraint{} = not (testOnlyConstrained test)
+    removable ExStanzaConstraint{} = True
+    removable (ExFlagConstraint scope flag _) =
+      (unPackageName (scopeToPackageName scope), flag) `notElem` manualFlags
+
+    manualFlags =
+      [ (exAvName av, exFlagName flag)
+      | Right av <- unTestDb (testDb test)
+      , flag <- exAvFlags av
+      , exFlagType flag == Manual
+      ]
+
+-- | Every way to remove one package from the database.
+--
+-- An installed package stays when reinstalls are avoided or installed
+-- packages shadow each other: removing it would let another instance of its
+-- version be chosen.
+withoutPackage :: SolverTest -> [SolverTest]
+withoutPackage test =
+  [ test{testDb = TestDb (before ++ after)}
+  | (before, pkg, after) <- picks (unTestDb (testDb test))
+  , removable pkg
+  ]
+  where
+    removable (Left _) = not (testAvoidReinstalls test || testShadowPkgs test)
+    removable (Right _) = True
+
+-- | Remove the packages that are not in the plan from the database.
+restrictToPlan :: [Oracle.ResolvedPackage] -> SolverTest -> SolverTest
+restrictToPlan plan test =
+  test{testDb = TestDb (filter inPlan (unTestDb (testDb test)))}
+  where
+    inPlan (Left inst) =
+      (exInstName inst, exInstVersion inst, Just (exInstHash inst)) `elem` refs
+    inPlan (Right av) =
+      (exAvName av, exAvVersion av, Nothing) `elem` refs
+
+    refs = [(Oracle.rpName rp, Oracle.rpVersion rp, Oracle.rpInstalledHash rp) | rp <- plan]
+
+withConstraints :: [ExConstraint] -> SolverTest -> SolverTest
+withConstraints cs test = test{testConstraints = testConstraints test ++ cs}
+
+-- | The version constraints that @cabal freeze@ writes for a plan
+-- ('Distribution.Client.CmdFreeze.projectFreezeConstraints'): each package,
+-- in any scope, is one of its versions in the plan.
+freezeVersions :: [Oracle.ResolvedPackage] -> [ExConstraint]
+freezeVersions plan =
+  [ ExVersionConstraint (ScopeAnyQualifier (mkPackageName pn)) (foldr unionVersionRanges noVersion versions)
+  | pn <- ordNub (map Oracle.rpName plan)
+  , let versions =
+          [ thisVersion (mkSimpleVersion (Oracle.rpVersion rp))
+          | rp <- plan
+          , Oracle.rpName rp == pn
+          ]
+  ]
+
+-- | The flag constraints that @cabal freeze@ writes for a plan: each package
+-- at the top level has the flags of one of its source instances in the plan.
+freezeFlags :: [Oracle.ResolvedPackage] -> [ExConstraint]
+freezeFlags plan =
+  concat
+    [ freezeFlagsOf pn flags
+    | pn <- ordNub (map Oracle.rpName plan)
+    , (_, flags) <- take 1 (reverse (flagAssignments plan pn))
+    ]
+
+freezeFlagsOf :: ExamplePkgName -> [(ExampleFlagName, Bool)] -> [ExConstraint]
+freezeFlagsOf pn flags =
+  [ ExFlagConstraint (ScopeQualified P.QualToplevel (mkPackageName pn)) flag value
+  | (flag, value) <- flags
+  ]
+
+-- | Whether the source instances of each package in the plan give the same
+-- value to every flag they share. When they do not, the flags of one instance
+-- are not those of another, and 'freezeFlags' does not describe the plan.
+flagsAgree :: [Oracle.ResolvedPackage] -> Bool
+flagsAgree plan =
+  and
+    [ value == value'
+    | pn <- ordNub (map Oracle.rpName plan)
+    , (_, (_, flags), others) <- picks (flagAssignments plan pn)
+    , (flag, value) <- flags
+    , (_, flags') <- others
+    , Just value' <- [lookup flag flags']
+    ]
+
+-- | The flag assignments of the source instances of a package in a plan, each
+-- with the version of the instance.
+flagAssignments :: [Oracle.ResolvedPackage] -> ExamplePkgName -> [(ExamplePkgVersion, [(ExampleFlagName, Bool)])]
+flagAssignments plan pn =
+  [ (Oracle.rpVersion rp, Oracle.rpFlags rp)
+  | rp <- plan
+  , Oracle.rpName rp == pn
+  , isNothing (Oracle.rpInstalledHash rp)
+  , not (null (Oracle.rpFlags rp))
+  ]
 
 -- | The extensions and languages that dependencies and compilers draw from.
 extensionPool :: [Extension]
