@@ -972,8 +972,12 @@ instance Arbitrary ExampleInstalled where
 instance Arbitrary ExampleAvailable where
   arbitrary = error "arbitrary not implemented: ExampleAvailable"
 
+  -- A flag that is declared has to be used, so a declaration goes when the
+  -- last dependency that uses its flag does.
   shrink ea =
-    [ea{exAvDeps = deps} | deps <- shrink (exAvDeps ea)]
+    [ ea{exAvDeps = deps, exAvFlags = filter ((`elem` usedFlagNames deps) . exFlagName) (exAvFlags ea)}
+    | deps <- shrink (exAvDeps ea)
+    ]
       ++ [ea{exAvFlags = flags} | flags <- shrinkList shrinkNothing (exAvFlags ea)]
 
 instance (Arbitrary a, Monoid a) => Arbitrary (ComponentDeps a) where
