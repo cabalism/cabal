@@ -643,6 +643,28 @@ requiredStanzas cs qn a =
     , s `elem` availableStanzas a
     ]
 
+-- | The sets of stanzas that are worth enabling for a source package in a
+-- scope, smallest first.
+--
+-- The stanzas that constraints on the scope require are always enabled. The
+-- solver may enable others, which only adds dependencies, unless the single
+-- instance restriction links the choice to a copy in a scope that requires
+-- them. So the stanzas to try in addition are those that some constraint on
+-- the package requires in any scope.
+allowedStanzaSets :: [ExConstraint] -> QName -> ExampleAvailable -> [[OptionalStanza]]
+allowedStanzaSets cs qn@(_, n) a = map (required ++) (L.subsequences elsewhere)
+  where
+    required = requiredStanzas cs qn a
+    elsewhere =
+      ordNub
+        [ s
+        | ExStanzaConstraint scope ss <- cs
+        , unPackageName (scopeToPackageName scope) == n
+        , s <- ss
+        , s `elem` availableStanzas a
+        , s `notElem` required
+        ]
+
 -- | Whether a package may be chosen at all in only-constrained mode: it must
 -- be a target or have a version constraint, in any scope, whose range is
 -- neither every version nor no version ('Solver.isVersionConstrained').
@@ -763,7 +785,7 @@ data State = State
 -- it runs out the result is 'OutOfFuel'. The second says whether targets are
 -- independent goals. There are no heuristics: goals are processed in the
 -- order they are introduced, and candidates are tried in database order with
--- flags enumerated True (or default) first.
+-- flags enumerated True (or default) first and the fewest stanzas first.
 resolve :: Int -> Env -> Bool -> [ExConstraint] -> ExampleDb -> [ExamplePkgName] -> OracleResult
 resolve fuel0 env indep cs db targets =
   case go fuel0 (State Map.empty Map.empty) [Target (targetScope indep t, t) | t <- targets] of
@@ -796,14 +818,15 @@ resolve fuel0 env indep cs db targets =
       , inst <- Map.findWithDefault [] n instances
       , null (instanceProblems env db cs qn inst)
       , flags <- assignments inst
-      , let ch = Choice inst flags (stanzas inst)
+      , stanzas <- stanzaSets inst
+      , let ch = Choice inst flags stanzas
       , satisfies cs g ch
       , envProvides ch
       , linkable st qn ch
       ]
       where
-        stanzas (Installed _) = []
-        stanzas (Source a) = requiredStanzas cs qn a
+        stanzaSets (Installed _) = [[]]
+        stanzaSets (Source a) = allowedStanzaSets cs qn a
         assignments (Installed _) = [Map.empty]
         assignments (Source a) =
           map Map.fromList (traverse (\f -> [(f, b) | b <- allowedFlagValues cs qn a f]) (usedFlags a))
@@ -1249,6 +1272,8 @@ solverCases =
   , sc "linked packages must resolve dependencies alike" False [ExVersionConstraint (ScopeTarget (mkPackageName "Q")) (thisVersion (mkSimpleVersion 2)), ExVersionConstraint (ScopeQualified (P.QualSetup (mkPackageName "T")) (mkPackageName "Q")) (thisVersion (mkSimpleVersion 1))] dbLinkedDeps ["T"] IsUnsolvable
   , sc "linked packages resolve dependencies alike" False [ExVersionConstraint (ScopeTarget (mkPackageName "Q")) (thisVersion (mkSimpleVersion 2))] dbLinkedDeps ["T"] IsSolvable
   , sc "installed and source instances of one version may coexist across scopes" False [] dbInstalledAndSource ["T"] IsSolvable
+  , sc "linked setup dependency enables the stanza that the top-level copy requires" False [ExStanzaConstraint (ScopeQualified P.QualToplevel (mkPackageName "P")) [TestStanzas]] dbLinkedStanza ["T"] IsSolvable
+  , sc "linked setup dependency takes on the test dependencies of the top-level copy" False [ExStanzaConstraint (ScopeQualified P.QualToplevel (mkPackageName "P")) [TestStanzas], ExVersionConstraint (ScopeQualified (P.QualSetup (mkPackageName "T")) (mkPackageName "Q")) (notThisVersion (mkSimpleVersion 1))] dbLinkedStanza ["T"] IsUnsolvable
   , -- Sub-library dependencies (Solver.hs "sub-library dependencies").
     sc "missing sub-library" False [] [Right (exAv "A" 1 [ExSubLibAny "B" "sub-lib"]), Right (exAv "B" 1 [])] ["A"] IsUnsolvable
   , sc "private sub-library" False [] dbPrivateSubLib ["A"] IsUnsolvable
@@ -1433,7 +1458,7 @@ tests =
   Example databases
 -------------------------------------------------------------------------------}
 
-dbChain, dbMissingVersion, dbTwoVersions, dbFlag, dbUnbuildableBranch, dbUnbuildableLib, dbInstalled, dbExeOnly, dbTestStanza, dbBadTestStanza, dbSetup, dbTwoSetupScopes, dbLinkedManualFlag, dbUnlinkedManualFlag, dbLinkedDeps, dbInstalledAndSource, dbPrivateSubLib, dbFlaggedSubLib, dbPublicSubLib, dbSubLibVersions, dbSubLibVisibilities, dbBuildTools, dbTwoExes, dbTwoExesOneVersion, dbUnbuildableToolLib, dbUnbuildableToolExe, dbToolVsLib, dbLegacy1, dbLegacy2, dbLegacy4, dbLegacy6, dbCycles, dbSetupCycles, dbSetupSelfCycle, dbToolCycle, dbSelfDep, dbPkgConfig, dbExtensions, dbLanguages, dbBranchLanguage, dbOnlyConstrained, dbReinstall, dbShadowLastUsable, dbShadowFirstUsable :: ExampleDb
+dbChain, dbMissingVersion, dbTwoVersions, dbFlag, dbUnbuildableBranch, dbUnbuildableLib, dbInstalled, dbExeOnly, dbTestStanza, dbBadTestStanza, dbSetup, dbTwoSetupScopes, dbLinkedManualFlag, dbUnlinkedManualFlag, dbLinkedDeps, dbLinkedStanza, dbInstalledAndSource, dbPrivateSubLib, dbFlaggedSubLib, dbPublicSubLib, dbSubLibVersions, dbSubLibVisibilities, dbBuildTools, dbTwoExes, dbTwoExesOneVersion, dbUnbuildableToolLib, dbUnbuildableToolExe, dbToolVsLib, dbLegacy1, dbLegacy2, dbLegacy4, dbLegacy6, dbCycles, dbSetupCycles, dbSetupSelfCycle, dbToolCycle, dbSelfDep, dbPkgConfig, dbExtensions, dbLanguages, dbBranchLanguage, dbOnlyConstrained, dbReinstall, dbShadowLastUsable, dbShadowFirstUsable :: ExampleDb
 dbChain = [Right (exAv "A" 1 [ExAny "B"]), Right (exAv "B" 1 [])]
 dbMissingVersion = [Right (exAv "A" 1 [ExFix "B" 2]), Right (exAv "B" 1 [])]
 dbTwoVersions =
@@ -1523,6 +1548,14 @@ dbLinkedDeps =
   , Right (exAv "P" 1 [ExAny "Q"])
   , Right (exAv "Q" 1 [])
   , Right (exAv "Q" 2 [])
+  ]
+-- T uses P-1 both as a library and as a setup dependency, so the two copies
+-- of P-1 are linked and must agree on whether P's test suite, which needs Q,
+-- is enabled.
+dbLinkedStanza =
+  [ Right (exAv "T" 1 [ExFix "P" 1] `withSetupDeps` [ExFix "P" 1])
+  , Right (exAv "P" 1 [] `withTest` exTest "test" [ExAny "Q"])
+  , Right (exAv "Q" 1 [])
   ]
 -- Solver.hs dbBuildTools.
 dbBuildTools =
