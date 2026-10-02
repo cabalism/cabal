@@ -1,0 +1,18 @@
+# cabal v2-update
+Downloading the latest package list from test-local-repo
+# cabal v2-build
+Resolving dependencies...
+Build profile: -w ghc-<GHCVER> -O1
+In order, the following would be built:
+ - dep-X-1.0 (lib) (requires build)
+ - dep-X-2.0 (lib) (requires build)
+ - pkg-A-0.1.0.0 (lib:pkg-A) (first run)
+# cabal v2-freeze
+Wrote freeze file: <ROOT>/cabal.project.freeze
+# cabal v2-build
+Resolving dependencies...
+Build profile: -w ghc-<GHCVER> -O1
+In order, the following would be built:
+ - dep-X-1.0 (lib) (requires build)
+ - dep-X-2.0 (lib) (requires build)
+ - pkg-A-0.1.0.0 (lib:pkg-A) (first run)

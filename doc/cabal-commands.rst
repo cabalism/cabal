@@ -537,6 +537,10 @@ something like this:
                  QuickCheck +templatehaskell,
                  -- etc...
 
+A build plan can have more than one instance of a package, for example one
+version as a library dependency and another as a setup dependency. The freeze
+file then allows each of those versions, and records a flag only when every
+instance gives it the same value.
 
 For end-user executables, it is recommended that you distribute the
 ``cabal.project.freeze`` file in your source repository so that all

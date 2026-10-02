@@ -50,7 +50,9 @@ import Distribution.Package
   )
 import Distribution.PackageDescription
   ( FlagAssignment
+  , mkFlagAssignment
   , nullFlagAssignment
+  , unFlagAssignment
   )
 import Distribution.Simple.Flag (pattern Flag)
 import Distribution.Simple.Utils
@@ -69,6 +71,7 @@ import Distribution.Version
   )
 
 import qualified Data.Map as Map
+import qualified Data.Set as Set
 
 import Distribution.Client.Errors
 import Distribution.Simple.Command
@@ -207,6 +210,11 @@ projectFreezeConstraints plan =
   -- constraint would apply to both instances). We do however keep flag
   -- constraints of local packages.
   --
+  -- A flag constraint applies to the top-level instance of a package, and we
+  -- cannot tell which instance that is. So when the solution has several
+  -- instances of a package we only constrain the flags that they all give
+  -- the same value. See https://github.com/haskell/cabal/issues/5134.
+  --
   deleteLocalPackagesVersionConstraints
     (Map.unionWith (++) versionConstraints flagConstraints)
   where
@@ -247,13 +255,30 @@ projectFreezeConstraints plan =
 
     flagAssignments :: Map PackageName FlagAssignment
     flagAssignments =
-      Map.fromList
-        [ (pkgname, flags)
-        | InstallPlan.Configured elab <- InstallPlan.toList plan
-        , let flags = elabFlagAssignment elab
-              pkgname = packageName elab
-        , not (nullFlagAssignment flags)
+      Map.filter (not . nullFlagAssignment) $
+        Map.map agreedFlags $
+          Map.fromListWith
+            (++)
+            [ (packageName elab, [elabFlagAssignment elab])
+            | InstallPlan.Configured elab <- InstallPlan.toList plan
+            ]
+
+    -- The flags that are given one value only.
+    agreedFlags :: [FlagAssignment] -> FlagAssignment
+    agreedFlags assignments =
+      mkFlagAssignment
+        [ (flag, value)
+        | (flag, values) <- Map.toList flagValues
+        , [value] <- [Set.toList values]
         ]
+      where
+        flagValues =
+          Map.fromListWith
+            Set.union
+            [ (flag, Set.singleton value)
+            | assignment <- assignments
+            , (flag, value) <- unFlagAssignment assignment
+            ]
 
     -- As described above, remove the version constraints on local packages,
     -- but leave any flag constraints.
