@@ -539,8 +539,9 @@ something like this:
 
 A build plan can have more than one instance of a package, for example one
 version as a library dependency and another as a setup dependency. The freeze
-file then allows each of those versions, and records a flag only when every
-instance gives it the same value.
+file then allows each of those versions, and records the flags of the instance
+that is a library dependency. If the package is only a setup or a build tool
+dependency, it records a flag only when every instance gives it the same value.
 
 For end-user executables, it is recommended that you distribute the
 ``cabal.project.freeze`` file in your source repository so that all

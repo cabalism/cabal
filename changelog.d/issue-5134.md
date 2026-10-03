@@ -1,5 +1,5 @@
 ---
-synopsis: Freeze only the flags that all instances of a package agree on
+synopsis: Freeze the flags of the top-level instance of a package
 packages: [cabal-install]
 issues: 5134
 prs: 0000
@@ -11,5 +11,6 @@ wrote the flags of one of them as a constraint on the package. That constraint
 applies to the top-level instance, so when the instances needed different
 values for a flag the freeze file could make the project unsolvable.
 
-`cabal freeze` now leaves out a flag when the instances of a package in the
-plan give it different values, and still writes the flags they agree on.
+`cabal freeze` now writes the flags of the top-level instance. When no
+instance of a package is at the top level, it writes only the flags that the
+instances agree on.

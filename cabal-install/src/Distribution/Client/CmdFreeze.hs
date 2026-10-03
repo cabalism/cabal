@@ -28,6 +28,7 @@ import Distribution.Client.ProjectConfig
   )
 import Distribution.Client.ProjectOrchestration
 import Distribution.Client.ProjectPlanning
+import Distribution.Client.ProjectPlanning.Types (elabLibDependencies)
 import Distribution.Client.Targets
   ( UserConstraint (..)
   , UserConstraintScope (..)
@@ -43,8 +44,12 @@ import Distribution.Solver.Types.PackageConstraint
 import Distribution.Client.Setup
   ( GlobalFlags
   )
+import Distribution.Client.Types.ConfiguredId (ConfiguredId (confInstId))
+import Distribution.Compat.Graph (nodeKey)
 import Distribution.Package
   ( PackageName
+  , UnitId
+  , newSimpleUnitId
   , packageName
   , packageVersion
   )
@@ -210,15 +215,11 @@ projectFreezeConstraints plan =
   -- constraint would apply to both instances). We do however keep flag
   -- constraints of local packages.
   --
-  -- A flag constraint applies to the top-level instance of a package, and we
-  -- do not work out which instance that is. So when the solution has several
-  -- instances of a package we only constrain the flags that they all give
-  -- the same value, which leaves a flag they disagree on unconstrained. See
-  -- https://github.com/haskell/cabal/issues/5134.
-  --
-  -- TODO: The top-level instances are those that the local packages reach
-  -- through library dependencies alone. Constraining the flags of those
-  -- would leave no flag of a top-level instance unconstrained.
+  -- A flag constraint applies to the top-level instance of a package, so
+  -- when the solution has several instances of a package we constrain the
+  -- flags of the top-level one. If none of them is at the top level, or more
+  -- than one is, we only constrain the flags that they all give the same
+  -- value. See https://github.com/haskell/cabal/issues/5134.
   --
   deleteLocalPackagesVersionConstraints
     (Map.unionWith (++) versionConstraints flagConstraints)
@@ -261,12 +262,46 @@ projectFreezeConstraints plan =
     flagAssignments :: Map PackageName FlagAssignment
     flagAssignments =
       Map.filter (not . nullFlagAssignment) $
-        Map.map agreedFlags $
+        Map.map (agreedFlags . preferTopLevel) $
           Map.fromListWith
             (++)
-            [ (packageName elab, [elabFlagAssignment elab])
+            [ (packageName elab, [(elabUnitId elab `Set.member` topLevel, elabFlagAssignment elab)])
             | InstallPlan.Configured elab <- InstallPlan.toList plan
             ]
+
+    -- The flags of the instances that are at the top level, or of all the
+    -- instances if none is.
+    preferTopLevel :: [(Bool, FlagAssignment)] -> [FlagAssignment]
+    preferTopLevel instances =
+      case [flags | (True, flags) <- instances] of
+        [] -> map snd instances
+        flags -> flags
+
+    -- The instances at the top level are those that the roots of the plan
+    -- reach through library dependencies alone, leaving out those that are
+    -- only reached through a setup or a build tool dependency. The roots are
+    -- the local packages and anything else that nothing depends on.
+    topLevel :: Set UnitId
+    topLevel = closure Set.empty roots
+      where
+        roots =
+          [ nodeKey pkg
+          | pkg <- InstallPlan.toList plan
+          , isLocal pkg || null (InstallPlan.revDirectDeps plan (nodeKey pkg))
+          ]
+
+        isLocal (InstallPlan.Configured elab) = elabLocalToProject elab
+        isLocal _ = False
+
+        closure seen [] = seen
+        closure seen (uid : uids)
+          | uid `Set.member` seen = closure seen uids
+          | otherwise = closure (Set.insert uid seen) (libraryDeps uid ++ uids)
+
+        libraryDeps uid = case InstallPlan.lookup plan uid of
+          Just (InstallPlan.Configured elab) ->
+            map (newSimpleUnitId . confInstId . fst) (elabLibDependencies elab)
+          _ -> []
 
     -- The flags that are given one value only.
     agreedFlags :: [FlagAssignment] -> FlagAssignment

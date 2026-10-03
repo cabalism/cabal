@@ -1,0 +1,10 @@
+cabal-version:   3.0
+name:            tool-T
+version:         1.0
+license:         NONE
+build-type:      Simple
+
+executable tool-t
+    main-is:          Main.hs
+    build-depends:    dep-Y == 1.0, base
+    default-language: Haskell2010
