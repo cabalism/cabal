@@ -211,9 +211,14 @@ projectFreezeConstraints plan =
   -- constraints of local packages.
   --
   -- A flag constraint applies to the top-level instance of a package, and we
-  -- cannot tell which instance that is. So when the solution has several
+  -- do not work out which instance that is. So when the solution has several
   -- instances of a package we only constrain the flags that they all give
-  -- the same value. See https://github.com/haskell/cabal/issues/5134.
+  -- the same value, which leaves a flag they disagree on unconstrained. See
+  -- https://github.com/haskell/cabal/issues/5134.
+  --
+  -- TODO: The top-level instances are those that the local packages reach
+  -- through library dependencies alone. Constraining the flags of those
+  -- would leave no flag of a top-level instance unconstrained.
   --
   deleteLocalPackagesVersionConstraints
     (Map.unionWith (++) versionConstraints flagConstraints)
