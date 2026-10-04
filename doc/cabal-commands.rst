@@ -539,9 +539,25 @@ something like this:
 
 A build plan can have more than one instance of a package, for example one
 version as a library dependency and another as a setup dependency. The freeze
-file then allows each of those versions, and records the flags of the instance
-that is a library dependency. If the package is only a setup or a build tool
-dependency, it records a flag only when every instance gives it the same value.
+file then has a constraint that allows each of those versions in any scope,
+followed by constraints that say which version is used at the top level and
+which by setup scripts:
+
+::
+
+    constraints: any.pkg ==1.0 || ==2.0,
+                 pkg ==1.0,
+                 setup.pkg ==2.0,
+                 pkg +some-flag,
+                 setup.pkg -some-flag,
+                 -- etc...
+
+When the setup scripts of different packages need different versions, the
+constraint names the package, as in ``foo:setup.pkg ==2.0``. The flags of the
+top-level instance and of setup dependencies are recorded in the same way.
+The dependencies of build tools cannot be named in a constraint, so if the
+package is only a build tool dependency the file records its flags only when
+every instance gives them the same value.
 
 For end-user executables, it is recommended that you distribute the
 ``cabal.project.freeze`` file in your source repository so that all
