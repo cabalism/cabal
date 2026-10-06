@@ -61,6 +61,7 @@ module Distribution.Simple.Utils
   , ignoreSigPipe
 
     -- * running programs
+    -- $rawSystem
   , rawSystemExit
   , rawSystemExitCode
   , rawSystemProc
@@ -903,13 +904,36 @@ exceptionWithCallStackPrefix stack verbosity s =
 
 -- -----------------------------------------------------------------------------
 -- rawSystem variants
+
+-- $rawSystem
 --
--- These all use 'Distribution.Compat.Process.proc' to ensure we
--- consistently use process jobs on Windows and Ctrl-C delegation
--- on Unix.
+-- The @rawSystem*@ functions all run a program. They use
+-- 'Distribution.Compat.Process.proc' to ensure we consistently use process
+-- jobs on Windows and Ctrl-C delegation on Unix, and they take care of
+-- logging command execution.
 --
--- Additionally, they take care of logging command execution.
+-- Their arguments follow these conventions:
 --
+-- * The 'Verbosity' decides how the command is logged. Unless a function
+--   takes handles for them, the command's @stdout@ and @stderr@ go to the
+--   handles of the 'Verbosity'.
+--
+-- * The program is a 'FilePath', either a path to an executable or the name
+--   of a program to search for on the @PATH@.
+--
+-- * The arguments are a @[String]@ to pass to the program.
+--
+-- * A working directory of 'Nothing' inherits the working directory of the
+--   current process.
+--
+-- * An environment is a list of variable name and value pairs. It is the
+--   whole environment for the command, replacing rather than extending the
+--   environment of the current process. An environment of 'Nothing' inherits
+--   it.
+--
+-- * Handles passed for the standard streams are closed once the process has
+--   been created, except for the standard handles of the current process and
+--   the handles of the 'Verbosity'.
 
 -- | Helper to use with one of the 'rawSystem' variants, and exit
 -- unless the command completes successfully.
@@ -944,19 +968,14 @@ logCommand verbosity cp = do
 -- with the same exit code if the command fails.
 --
 -- The command inherits the environment and @stdin@ of the current process.
--- Its @stdout@ and @stderr@ go to the handles of the 'Verbosity'.
 rawSystemExit
   :: Verbosity
-  -- ^ Verbosity for logging the command, and the source of the handles
-  -- used for the command's @stdout@ and @stderr@.
   -> Maybe (SymbolicPath CWD (Dir Pkg))
-  -- ^ Working directory for the command, or 'Nothing' to inherit the
-  -- working directory of the current process.
+  -- ^ Working directory
   -> FilePath
-  -- ^ Program to run, either a path to an executable or the name of a
-  -- program to search for on the @PATH@.
+  -- ^ Program
   -> [String]
-  -- ^ Arguments to pass to the program.
+  -- ^ Arguments
   -> IO ()
 rawSystemExit verbosity mbWorkDir path args =
   withFrozenCallStack $
@@ -966,27 +985,18 @@ rawSystemExit verbosity mbWorkDir path args =
 -- | Execute the given command with the given arguments, returning
 -- the command's exit code.
 --
--- The command inherits the @stdin@ of the current process. Its @stdout@ and
--- @stderr@ go to the handles of the 'Verbosity'.
+-- The command inherits the @stdin@ of the current process.
 rawSystemExitCode
   :: Verbosity
-  -- ^ Verbosity for logging the command, and the source of the handles
-  -- used for the command's @stdout@ and @stderr@.
   -> Maybe (SymbolicPath CWD (Dir to))
-  -- ^ Working directory for the command, or 'Nothing' to inherit the
-  -- working directory of the current process.
+  -- ^ Working directory
   -> FilePath
-  -- ^ Program to run, either a path to an executable or the name of a
-  -- program to search for on the @PATH@.
+  -- ^ Program
   -> [String]
-  -- ^ Arguments to pass to the program.
+  -- ^ Arguments
   -> Maybe [(String, String)]
-  -- ^ Environment for the command as a list of variable name and value
-  -- pairs, or 'Nothing' to inherit the environment of the current process.
-  -- This is the whole environment, it replaces rather than extends the
-  -- inherited one.
+  -- ^ Environment
   -> IO ExitCode
-  -- ^ The exit code of the command.
 rawSystemExitCode verbosity mbWorkDir path args menv =
   withFrozenCallStack
     ( fst
@@ -1002,23 +1012,9 @@ rawSystemExitCode verbosity mbWorkDir path args menv =
           Nothing
     )
 
--- | Execute the given command with the given arguments, returning
--- the command's exit code.
---
--- Create the process argument with 'Distribution.Compat.Process.proc'
--- to ensure consistent options with other 'rawSystem' functions in this
--- module.
-rawSystemProc
-  :: Verbosity
-  -- ^ Verbosity for logging the command.
-  -> Process.CreateProcess
-  -- ^ Description of the process to create; the command, its arguments,
-  -- working directory, environment and standard streams. Any handles given
-  -- with 'Process.UseHandle' are closed once the process has been created,
-  -- except for the standard handles of the current process and the handles
-  -- of the 'Verbosity'.
-  -> IO ExitCode
-  -- ^ The exit code of the command.
+-- | Like 'rawSystemProcAction', but without an action to run while the
+-- command is running.
+rawSystemProc :: Verbosity -> Process.CreateProcess -> IO ExitCode
 rawSystemProc verbosity cp = withFrozenCallStack $ do
   (exitcode, _) <- rawSystemProcAction verbosity cp $ \_ _ _ -> return ()
   return exitcode
@@ -1033,13 +1029,9 @@ rawSystemProc verbosity cp = withFrozenCallStack $ do
 -- module.
 rawSystemProcAction
   :: Verbosity
-  -- ^ Verbosity for logging the command.
   -> Process.CreateProcess
-  -- ^ Description of the process to create; the command, its arguments,
-  -- working directory, environment and standard streams. Any handles given
-  -- with 'Process.UseHandle' are closed once the process has been created,
-  -- except for the standard handles of the current process and the handles
-  -- of the 'Verbosity'.
+  -- ^ The process to create; the program, arguments, working directory,
+  -- environment and standard streams.
   -> (Maybe Handle -> Maybe Handle -> Maybe Handle -> IO a)
   -- ^ Action to perform after the process is created, but before waiting for
   -- it to finish. It is given handles for our end of the command's @stdin@,
@@ -1114,88 +1106,49 @@ compatWithCreateProcess verbosity cp action =
 fromCreatePipe :: Maybe Handle -> Handle
 fromCreatePipe = fromMaybe (error "fromCreatePipe: Nothing")
 
--- | Execute the given command with the given arguments and
--- environment, exiting with the same exit code if the command fails.
---
--- The command inherits the working directory and @stdin@ of the current
--- process. Its @stdout@ and @stderr@ go to the handles of the 'Verbosity'.
+-- | Like 'rawSystemExitWithEnvCwd', but inheriting the working directory of
+-- the current process.
 rawSystemExitWithEnv
   :: Verbosity
-  -- ^ Verbosity for logging the command, and the source of the handles
-  -- used for the command's @stdout@ and @stderr@.
   -> FilePath
-  -- ^ Program to run, either a path to an executable or the name of a
-  -- program to search for on the @PATH@.
   -> [String]
-  -- ^ Arguments to pass to the program.
   -> [(String, String)]
-  -- ^ Environment for the command as a list of variable name and value
-  -- pairs. This is the whole environment, it replaces rather than extends
-  -- the environment of the current process.
   -> IO ()
 rawSystemExitWithEnv verbosity =
   rawSystemExitWithEnvCwd verbosity Nothing
 
--- | Like 'rawSystemExitWithEnv', but setting a working directory.
+-- | Execute the given command with the given arguments, environment and
+-- working directory, exiting with the same exit code if the command fails.
+--
+-- The command inherits the @stdin@ of the current process.
 rawSystemExitWithEnvCwd
   :: Verbosity
-  -- ^ Verbosity for logging the command, and the source of the handles
-  -- used for the command's @stdout@ and @stderr@.
   -> Maybe (SymbolicPath CWD (Dir to))
-  -- ^ Working directory for the command, or 'Nothing' to inherit the
-  -- working directory of the current process.
+  -- ^ Working directory
   -> FilePath
-  -- ^ Program to run, either a path to an executable or the name of a
-  -- program to search for on the @PATH@.
+  -- ^ Program
   -> [String]
-  -- ^ Arguments to pass to the program.
+  -- ^ Arguments
   -> [(String, String)]
-  -- ^ Environment for the command as a list of variable name and value
-  -- pairs. This is the whole environment, it replaces rather than extends
-  -- the environment of the current process.
+  -- ^ Environment
   -> IO ()
 rawSystemExitWithEnvCwd verbosity mbWorkDir path args env =
   withFrozenCallStack $
     maybeExit $
       rawSystemExitCode verbosity mbWorkDir path args (Just env)
 
--- | Execute the given command with the given arguments, returning
--- the command's exit code.
---
--- Optional arguments allow setting working directory, environment
--- and input and output handles.
---
--- Handles given for @stdin@, @stdout@ and @stderr@ are closed once the process
--- has been created, except for the standard handles of the current process and
--- the handles of the 'Verbosity'.
+-- | Like 'rawSystemIOWithEnvAndAction', but without an action to run while
+-- the command is running.
 rawSystemIOWithEnv
   :: Verbosity
-  -- ^ Verbosity for logging the command, and the source of the default
-  -- handles for the command's @stdout@ and @stderr@.
   -> FilePath
-  -- ^ Program to run, either a path to an executable or the name of a
-  -- program to search for on the @PATH@.
   -> [String]
-  -- ^ Arguments to pass to the program.
   -> Maybe FilePath
-  -- ^ Working directory for the command, or 'Nothing' to inherit the
-  -- working directory of the current process.
   -> Maybe [(String, String)]
-  -- ^ Environment for the command as a list of variable name and value
-  -- pairs, or 'Nothing' to inherit the environment of the current process.
-  -- This is the whole environment, it replaces rather than extends the
-  -- inherited one.
   -> Maybe Handle
-  -- ^ Handle to use as the command's @stdin@, or 'Nothing' to inherit the
-  -- @stdin@ of the current process.
   -> Maybe Handle
-  -- ^ Handle to use as the command's @stdout@, or 'Nothing' to use the
-  -- output handle of the 'Verbosity'.
   -> Maybe Handle
-  -- ^ Handle to use as the command's @stderr@, or 'Nothing' to use the
-  -- error handle of the 'Verbosity'.
   -> IO ExitCode
-  -- ^ The exit code of the command.
 rawSystemIOWithEnv verbosity path args mcwd menv inp out err = withFrozenCallStack $ do
   (exitcode, _) <-
     rawSystemIOWithEnvAndAction
@@ -1219,27 +1172,16 @@ rawSystemIOWithEnv verbosity path args mcwd menv inp out err = withFrozenCallSta
 --
 -- Optional arguments allow setting working directory, environment
 -- and input and output handles.
---
--- Handles given for @stdin@, @stdout@ and @stderr@ are closed once the process
--- has been created, except for the standard handles of the current process and
--- the handles of the 'Verbosity'.
 rawSystemIOWithEnvAndAction
   :: Verbosity
-  -- ^ Verbosity for logging the command, and the source of the default
-  -- handles for the command's @stdout@ and @stderr@.
   -> FilePath
-  -- ^ Program to run, either a path to an executable or the name of a
-  -- program to search for on the @PATH@.
+  -- ^ Program
   -> [String]
-  -- ^ Arguments to pass to the program.
+  -- ^ Arguments
   -> Maybe FilePath
-  -- ^ Working directory for the command, or 'Nothing' to inherit the
-  -- working directory of the current process.
+  -- ^ Working directory
   -> Maybe [(String, String)]
-  -- ^ Environment for the command as a list of variable name and value
-  -- pairs, or 'Nothing' to inherit the environment of the current process.
-  -- This is the whole environment, it replaces rather than extends the
-  -- inherited one.
+  -- ^ Environment
   -> (Maybe Handle -> Maybe Handle -> Maybe Handle -> IO a)
   -- ^ Action to perform after the process is created, but before
   -- 'Process.waitForProcess'. Its arguments are for pipes to the command's
@@ -1247,14 +1189,11 @@ rawSystemIOWithEnvAndAction
   -- pipes, they are always 'Nothing'. To communicate with the command, use
   -- the handles passed as the following arguments.
   -> Maybe Handle
-  -- ^ Handle to use as the command's @stdin@, or 'Nothing' to inherit the
-  -- @stdin@ of the current process.
+  -- ^ @stdin@, or 'Nothing' to inherit the @stdin@ of the current process
   -> Maybe Handle
-  -- ^ Handle to use as the command's @stdout@, or 'Nothing' to use the
-  -- output handle of the 'Verbosity'.
+  -- ^ @stdout@, or 'Nothing' for the output handle of the 'Verbosity'
   -> Maybe Handle
-  -- ^ Handle to use as the command's @stderr@, or 'Nothing' to use the
-  -- error handle of the 'Verbosity'.
+  -- ^ @stderr@, or 'Nothing' for the error handle of the 'Verbosity'
   -> IO (ExitCode, a)
   -- ^ The exit code of the command and the result of the action.
 rawSystemIOWithEnvAndAction verbosity path args mcwd menv action inp out err =
@@ -1293,12 +1232,10 @@ rawSystemStdout
   :: forall mode
    . KnownIODataMode mode
   => Verbosity
-  -- ^ Verbosity for logging the command.
   -> FilePath
-  -- ^ Program to run, either a path to an executable or the name of a
-  -- program to search for on the @PATH@.
+  -- ^ Program
   -> [String]
-  -- ^ Arguments to pass to the program.
+  -- ^ Arguments
   -> IO mode
   -- ^ Everything the command wrote to @stdout@, as text or binary depending
   -- on the @mode@ type picked by the caller. What it wrote to @stderr@ is
@@ -1328,20 +1265,14 @@ rawSystemStdout verbosity path args = withFrozenCallStack $ do
 rawSystemStdInOut
   :: KnownIODataMode mode
   => Verbosity
-  -- ^ Verbosity for logging the command.
   -> FilePath
-  -- ^ Program to run, either a path to an executable or the name of a
-  -- program to search for on the @PATH@.
+  -- ^ Program
   -> [String]
-  -- ^ Arguments to pass to the program.
+  -- ^ Arguments
   -> Maybe FilePath
-  -- ^ Working directory for the command, or 'Nothing' to inherit the
-  -- working directory of the current process.
+  -- ^ Working directory
   -> Maybe [(String, String)]
-  -- ^ Environment for the command as a list of variable name and value
-  -- pairs, or 'Nothing' to inherit the environment of the current process.
-  -- This is the whole environment, it replaces rather than extends the
-  -- inherited one.
+  -- ^ Environment
   -> Maybe IOData
   -- ^ Input to write to the command's @stdin@, as text or binary depending
   -- on the constructor used. With 'Nothing' the command's @stdin@ is closed
