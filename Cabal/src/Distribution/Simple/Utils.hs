@@ -918,10 +918,15 @@ maybeExit cmd = do
   exitcode <- cmd
   unless (exitcode == ExitSuccess) $ exitWith exitcode
 
--- | Log a command execution (that's typically about to happen)
--- at info level, and log working directory and environment overrides
--- at debug level if specified.
-logCommand :: Verbosity -> Process.CreateProcess -> IO ()
+-- | Log a command execution (that's typically about to happen) at info level,
+-- and log the working directory and the whole environment at debug level, if
+-- specified.
+logCommand
+  :: Verbosity
+  -> Process.CreateProcess
+  -- ^ The process about to be created. Its command, working directory and
+  -- environment are logged.
+  -> IO ()
 logCommand verbosity cp = do
   infoNoWrap verbosity $
     "Running: " <> case Process.cmdspec cp of
