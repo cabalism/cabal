@@ -106,6 +106,8 @@ There are a number of limitations that come with this approach however; please
 see :ref:`How can I have a reproducible set of versions for my dependencies?<how reproducible>` for
 more information.
 
+.. _specifying-local-packages:
+
 Specifying the local packages
 -----------------------------
 
@@ -120,6 +122,25 @@ expects to find one) package in the current directory:
 .. code-block:: cabal
 
         packages: ./*.cabal
+
+Several project files may list a source for the same package: a
+``source-repository-package`` in ``cabal.project`` and a directory under
+``packages`` in ``cabal.project.local``, say, or a repository in an imported
+file and another in the file that imports it. Cabal reads every source, then
+keeps one per package name: the one listed at the strongest *position*.
+``cabal.project.local`` and its imports outrank ``cabal.project``,
+``cabal.project.freeze`` and their imports, and within a layer a file nearer
+the root of the imports outranks the files it imports (the same positions as
+for :cfg-field:`override-constraints`). The sources that lost are reported::
+
+    cabal project has multiple sources for foo:
+      using ../foo from cabal.project.local
+      ignoring https://github.com/example/foo.git from cabal.project
+
+Two different sources for one package at the same position are an error. The
+same source listed twice, such as ``packages: .`` in both ``cabal.project`` and
+``cabal.project.local``, counts once. Packages named by
+:cfg-field:`extra-packages` are not sources and take no part in this.
 
 The following top-level options specify what the local packages of a
 project are:
@@ -250,6 +271,12 @@ Since version 3.4, cabal-install creates tarballs for each package coming from a
 packages). It gathers the names of the packages from the appropriate ``.cabal``
 file in the version control repository, and allows their use just like Hackage
 or locally defined packages.
+
+Because the package name is only known once the repository has been fetched,
+a stanza in ``cabal.project.local``, or in a file nearer the root of the
+imports, replaces one for the same package elsewhere only after both have been
+fetched; see :ref:`Specifying the local packages <specifying-local-packages>`
+for the rule.
 
 There is no command line variant of this stanza.
 
