@@ -253,7 +253,17 @@ If both land, the two features are complementary:
 - `override-constraints` is a precise replacement for one property of one package, and isn't tied to a particular
   import.
 
+### Relation to package sources
+
+Positions are not specific to constraints. A companion proposal, `proposal-override-packages.md`,
+uses the same layers and depths to choose between several sources for one package, so that a
+`source-repository-package` or a `packages` directory in `cabal.project.local` replaces a source for
+the same package in `cabal.project`, and a source in a project file replaces one in a file it
+imports (#8463). The two proposals share `pathPosition` and nothing else: constraints are resolved
+before fetching anything, sources only after every source has been fetched and read.
+
 ## Alternatives Considered
+
 
 - **Last wins, based on order.**
   - Simple to state, and it is how single-valued fields such as `optimization:` already combine, both within a file
