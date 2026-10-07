@@ -1,0 +1,8 @@
+cabal-version: 2.2
+name:          uses-foo
+version:       0.1.0.0
+build-type:    Simple
+
+library
+  build-depends:    base, foo
+  default-language: Haskell2010

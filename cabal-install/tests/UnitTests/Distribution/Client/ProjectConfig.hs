@@ -50,6 +50,9 @@ import Distribution.Solver.Types.Settings
 import Distribution.Client.ProjectConfig
 import Distribution.Client.ProjectConfig.Legacy
 import Distribution.Client.ProjectConfig.Override
+import Distribution.Client.ProjectConfig.Sources
+import Distribution.Solver.Types.SourcePackage (SourcePackage (..))
+
 import Distribution.Version (mkVersion, thisVersion)
 
 import UnitTests.Distribution.Client.ArbitraryInstances
@@ -91,6 +94,7 @@ tests =
   , testGetProjectRootUsability
   , testFindProjectRoot
   , testOverrideConstraints
+  , testPackageSources
   ]
 
 testGetProjectRootUsability :: TestTree
@@ -217,7 +221,7 @@ roundtrip_legacytypes :: ProjectConfig -> Property
 roundtrip_legacytypes =
   roundtrip
     convertToLegacyProjectConfig
-    convertLegacyProjectConfig
+    (convertLegacyProjectConfig projectConfigPackageProvenance)
 
 prop_roundtrip_legacytypes_all :: ProjectConfig -> Property
 prop_roundtrip_legacytypes_all config =
@@ -263,7 +267,7 @@ prop_roundtrip_legacytypes_specific config =
 
 roundtrip_printparse :: ProjectConfig -> Property
 roundtrip_printparse config =
-  case fmap convertLegacyProjectConfig (parseLegacyProjectConfig "unused" (toUTF8BS str)) of
+  case fmap (convertLegacyProjectConfig projectConfigPackageProvenance) (parseLegacyProjectConfig "unused" (toUTF8BS str)) of
     ParseOk _ x ->
       counterexample ("shown:\n" ++ str) $
         x `ediffEq` config{projectConfigProvenance = mempty}
@@ -291,10 +295,10 @@ prop_roundtrip_printparse_packages
 prop_roundtrip_printparse_packages pkglocstrs1 pkglocstrs2 repos named =
   roundtrip_printparse
     mempty
-      { projectPackages = map getPackageLocationString pkglocstrs1
-      , projectPackagesOptional = map getPackageLocationString pkglocstrs2
-      , projectPackagesRepo = repos
-      , projectPackagesNamed = named
+      { projectPackages = map (withPackageProvenance . getPackageLocationString) pkglocstrs1
+      , projectPackagesOptional = map (withPackageProvenance . getPackageLocationString) pkglocstrs2
+      , projectPackagesRepo = map withPackageProvenance repos
+      , projectPackagesNamed = map withPackageProvenance named
       }
 
 prop_roundtrip_printparse_buildonly :: ProjectConfigBuildOnly -> Property
@@ -410,10 +414,10 @@ prop_roundtrip_printparse_RelaxDeps' rdep =
 
 instance Arbitrary ProjectConfig where
   arbitrary =
-    (ProjectConfig . map getPackageLocationString <$> arbitrary)
-      <*> (map getPackageLocationString <$> arbitrary)
-      <*> shortListOf 3 arbitrary
-      <*> arbitrary
+    (ProjectConfig . map (withPackageProvenance . getPackageLocationString) <$> arbitrary)
+      <*> (map (withPackageProvenance . getPackageLocationString) <$> arbitrary)
+      <*> (map withPackageProvenance <$> shortListOf 3 arbitrary)
+      <*> (map withPackageProvenance <$> arbitrary)
       <*> arbitrary
       <*> arbitrary
       <*> arbitrary
@@ -440,10 +444,10 @@ instance Arbitrary ProjectConfig where
       , projectConfigAllPackages = x9
       } =
       [ ProjectConfig
-        { projectPackages = x0'
-        , projectPackagesOptional = x1'
-        , projectPackagesRepo = x2'
-        , projectPackagesNamed = x3'
+        { projectPackages = map withPackageProvenance x0'
+        , projectPackagesOptional = map withPackageProvenance x1'
+        , projectPackagesRepo = map withPackageProvenance x2'
+        , projectPackagesNamed = map withPackageProvenance x3'
         , projectConfigBuildOnly = x4'
         , projectConfigShared = x5'
         , projectConfigProvenance = x6'
@@ -455,10 +459,18 @@ instance Arbitrary ProjectConfig where
         }
       | ((x0', x1', x2', x3'), (x4', x5', x6', x7', x8', x9')) <-
           shrink
-            ( (x0, x1, x2, x3)
+            ( (map fst x0, map fst x1, map fst x2, map fst x3)
             , (x4, x5, x6, x7, fmap NonMEmpty (getMapMappend x8), x9)
             )
       ]
+
+-- | The provenance given to every package entry in generated configs. The
+-- legacy printer drops it, so round trips need a fixed value to restore.
+projectConfigPackageProvenance :: ProjectConfigProvenance
+projectConfigPackageProvenance = Explicit nullProjectConfigPath
+
+withPackageProvenance :: a -> (a, ProjectConfigProvenance)
+withPackageProvenance = (,projectConfigPackageProvenance)
 
 newtype PackageLocationString = PackageLocationString {getPackageLocationString :: String}
   deriving (Show)
@@ -1158,3 +1170,73 @@ testOverrideConstraints =
 
     sortOnShow :: [(UserConstraint, ConstraintSource)] -> [String]
     sortOnShow = sort . map show
+
+testPackageSources :: TestTree
+testPackageSources =
+  testGroup
+    "package-sources"
+    [ testCase "one source per package is the identity" $
+        resolve [(foo02 "./foo", [root]), (bar "./bar", [root])]
+          @?= Right ([foo02 "./foo", bar "./bar"], [])
+    , testCase "cabal.project.local beats cabal.project" $
+        resolve [(foo02 "./foo", [root]), (foo03 "../foo", [local])]
+          @?= Right ([foo03 "../foo"], [SourceReplaced fooName (fooSrc03 "../foo", [local]) [(fooSrc02 "./foo", [root])]])
+    , testCase "the root beats an import" $
+        resolve [(foo03 "./foo", [imported]), (foo02 "../foo", [root])]
+          @?= Right ([foo02 "../foo"], [SourceReplaced fooName (fooSrc02 "../foo", [root]) [(fooSrc03 "./foo", [imported])]])
+    , testCase "an import of cabal.project.local beats cabal.project" $
+        resolve [(foo02 "./foo", [root]), (foo03 "../foo", [localImport])]
+          @?= Right ([foo03 "../foo"], [SourceReplaced fooName (fooSrc03 "../foo", [localImport]) [(fooSrc02 "./foo", [root])]])
+    , testCase "the implicit project counts as a root project file" $
+        resolve [(foo02 "./foo", [Implicit]), (foo03 "../foo", [local])]
+          @?= Right ([foo03 "../foo"], [SourceReplaced fooName (fooSrc03 "../foo", [local]) [(fooSrc02 "./foo", [Implicit])]])
+    , testCase "different sources at the same position conflict" $
+        resolve [(foo02 "./foo", [root]), (foo02 "./foo-copy", [root])]
+          @?= Left (SourceConflict fooName [(fooSrc02 "./foo", [root]), (fooSrc02 "./foo-copy", [root])])
+    , testCase "different versions at the same position conflict" $
+        resolve [(foo02 "./foo", [imported]), (foo03 "./foo-3", [sibling])]
+          @?= Left (SourceConflict fooName [(fooSrc02 "./foo", [imported]), (fooSrc03 "./foo-3", [sibling])])
+    , testCase "an identical source listed twice merges silently" $
+        resolve [(foo02 "./foo", [root]), (foo02 "./foo", [local])]
+          @?= Right ([foo02 "./foo"], [])
+    , testCase "a source takes the strongest of its provenances" $
+        resolve [(foo02 "./foo", [root, local]), (foo03 "../foo", [root])]
+          @?= Right ([foo02 "./foo"], [SourceReplaced fooName (fooSrc02 "./foo", [root, local]) [(fooSrc03 "../foo", [root])]])
+    , testCase "a source with no provenance is kept and does not compete" $
+        resolve [(foo02 "./foo", []), (foo03 "../foo", [root])]
+          @?= Right ([foo02 "./foo", foo03 "../foo"], [])
+    , testCase "named packages pass through" $
+        resolve [(named, [root]), (foo02 "./foo", [root]), (foo03 "../foo", [local])]
+          @?= Right ([named, foo03 "../foo"], [SourceReplaced fooName (fooSrc03 "../foo", [local]) [(fooSrc02 "./foo", [root])]])
+    , testCase "the result does not depend on input order" $
+        let sources = [(foo02 "./foo", [root]), (bar "./bar", [imported]), (foo03 "../foo", [local]), (bar "../bar", [root])]
+            asSet = fmap (\(kept, notes) -> (sort (map show kept), sort (map show notes)))
+         in asSet (resolve (reverse sources)) @?= asSet (resolve sources)
+    ]
+  where
+    resolve = resolveDuplicateSourcePackages
+
+    fooName = mkPackageName "foo"
+
+    path p ps = Explicit (ProjectConfigPath (p :| ps))
+    root = path "cabal.project" []
+    imported = path "a.config" ["cabal.project"]
+    sibling = path "b.config" ["cabal.project"]
+    local = path "cabal.project.local" []
+    localImport = path "local.config" ["cabal.project.local"]
+
+    srcpkg :: String -> [Int] -> FilePath -> UnresolvedSourcePackage
+    srcpkg name version dir =
+      SourcePackage
+        { srcpkgPackageId = PackageIdentifier (mkPackageName name) (mkVersion version)
+        , srcpkgDescription = emptyGenericPackageDescription
+        , srcpkgSource = LocalUnpackedPackage dir
+        , srcpkgDescrOverride = Nothing
+        }
+
+    fooSrc02 = srcpkg "foo" [0, 2]
+    fooSrc03 = srcpkg "foo" [0, 3]
+    foo02 = SpecificSourcePackage . fooSrc02
+    foo03 = SpecificSourcePackage . fooSrc03
+    bar = SpecificSourcePackage . srcpkg "bar" [1]
+    named = NamedPackage fooName []
