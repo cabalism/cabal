@@ -1,21 +1,21 @@
 import Test.Cabal.Prelude
-import Data.List (isInfixOf)
 
+-- Two directories hold the same package, listed in the same project file, so
+-- neither outranks the other and cabal refuses to pick one. A source in
+-- cabal.project.local would outrank them both; see
+-- PackageTests/ProjectConfig/OverridePackages.
+--
 -- output contains filepaths into /tmp, so we only match parts of the output
 main = cabalTest . recordMode DoNotRecord $ do
       liftIO $ skipIfWindows "\\r\\n confused with \\n"
 
       let msg = unlines
-            [ "cabal project has multiple sources for pkg-one-0.1:"
-            , "  .*/pkg-one"
-            , "  .*/pkg-two"
-            , "the choice of source that will be used is undefined."
+            [ "cabal project has different sources for pkg-one at the same position:"
+            , "  .*/pkg-one from cabal.project"
+            , "  .*/pkg-two from cabal.project"
             ]
 
-      normal <- cabal' "configure" ["-v1", "pkg-one"]
-      assertOutputMatches msg normal
-
-      quiet <- cabal' "configure" ["-v0", "pkg-one"]
-      assertOutputDoesNotMatch msg quiet
+      r <- fails $ cabal' "configure" ["-v1", "pkg-one"]
+      assertOutputMatches msg r
 
       return ()
