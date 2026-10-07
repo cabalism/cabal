@@ -14,6 +14,7 @@ module Distribution.Client.ProjectConfig.Override
   ( -- * Positions
     Layer (..)
   , Position (..)
+  , pathPosition
   , constraintPosition
 
     -- * Resolution
@@ -75,6 +76,14 @@ data Position = Position
   }
   deriving (Eq, Ord, Show)
 
+-- | The position of a project file: 'LayerLocal' when the root of its import
+-- chain is @cabal.project.local@, otherwise 'LayerProject', at the depth of the
+-- import chain.
+pathPosition :: ProjectConfigPath -> Position
+pathPosition path@(ProjectConfigPath p) =
+  let layer = if takeExtension (projectConfigPathRoot path) == ".local" then LayerLocal else LayerProject
+   in Position layer (NE.length p - 1)
+
 -- | The position of a constraint, or 'Nothing' for constraints outside the
 -- position system: those cabal adds itself, and those with no known source.
 -- These are never replaced and never replace anything.
@@ -82,9 +91,7 @@ constraintPosition :: ConstraintSource -> Maybe Position
 constraintPosition = \case
   ConstraintSourceCommandlineFlag -> Just (Position LayerCommandLine 0)
   ConstraintSourceUserTarget -> Just (Position LayerCommandLine 0)
-  ConstraintSourceProjectConfig path@(ProjectConfigPath p) ->
-    let layer = if takeExtension (projectConfigPathRoot path) == ".local" then LayerLocal else LayerProject
-     in Just (Position layer (NE.length p - 1))
+  ConstraintSourceProjectConfig path -> Just (pathPosition path)
   ConstraintSourceMainConfig _ -> Just (Position LayerGlobal 0)
   ConstraintSourceUserConfig _ -> Just (Position LayerGlobal 0)
   _ -> Nothing

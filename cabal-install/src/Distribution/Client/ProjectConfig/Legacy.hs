@@ -336,7 +336,7 @@ parseProjectSkeleton cacheDir httpTransport verbosity projectDir source (Project
     -- they were imported from.
     fieldsToConfig :: ProjectConfigPath -> [ParseUtils.Field] -> ParseResult ProjectConfig
     fieldsToConfig sourceConfigPath xs =
-      addProvenance sourceConfigPath . convertLegacyProjectConfig
+      addProvenance sourceConfigPath . convertLegacyProjectConfig (Explicit sourceConfigPath)
         <$> parseLegacyProjectConfigFields sourceConfigPath xs
 
     addProvenance :: ProjectConfigPath -> ProjectConfig -> ProjectConfig
@@ -563,9 +563,11 @@ convertLegacyGlobalConfig
 
 -- | Convert the project config from the legacy types to the 'ProjectConfig'
 -- and associated types. See 'LegacyProjectConfig' for an explanation of the
--- approach.
-convertLegacyProjectConfig :: LegacyProjectConfig -> ProjectConfig
+-- approach. The legacy types do not record which file a package entry came
+-- from, so the caller supplies the provenance for all of them.
+convertLegacyProjectConfig :: ProjectConfigProvenance -> LegacyProjectConfig -> ProjectConfig
 convertLegacyProjectConfig
+  provenance
   LegacyProjectConfig
     { legacyPackages
     , legacyPackagesOptional
@@ -591,10 +593,10 @@ convertLegacyProjectConfig
     , legacySpecificConfig
     } =
     ProjectConfig
-      { projectPackages = legacyPackages
-      , projectPackagesOptional = legacyPackagesOptional
-      , projectPackagesRepo = legacyPackagesRepo
-      , projectPackagesNamed = legacyPackagesNamed
+      { projectPackages = map withProvenance legacyPackages
+      , projectPackagesOptional = map withProvenance legacyPackagesOptional
+      , projectPackagesRepo = map withProvenance legacyPackagesRepo
+      , projectPackagesNamed = map withProvenance legacyPackagesNamed
       , projectConfigBuildOnly = configBuildOnly
       , projectConfigShared = configPackagesShared
       , projectConfigProvenance = mempty
@@ -603,6 +605,8 @@ convertLegacyProjectConfig
       , projectConfigSpecificPackage = fmap perPackage legacySpecificConfig
       }
     where
+      withProvenance x = (x, provenance)
+
       configAllPackages = convertLegacyPerPackageFlags g i h t b
         where
           LegacyPackageConfig g i h t b = legacyAllConfig
@@ -898,10 +902,10 @@ convertToLegacyProjectConfig
     , projectConfigSpecificPackage
     } =
     LegacyProjectConfig
-      { legacyPackages = projectPackages
-      , legacyPackagesOptional = projectPackagesOptional
-      , legacyPackagesRepo = projectPackagesRepo
-      , legacyPackagesNamed = projectPackagesNamed
+      { legacyPackages = map fst projectPackages
+      , legacyPackagesOptional = map fst projectPackagesOptional
+      , legacyPackagesRepo = map fst projectPackagesRepo
+      , legacyPackagesNamed = map fst projectPackagesNamed
       , legacySharedConfig = convertToLegacySharedConfig projectConfig
       , legacyAllConfig =
           convertToLegacyPerPackageConfig

@@ -65,19 +65,19 @@ import Distribution.Utils.NubList
   )
 import Distribution.Verbosity
 
-projectPackages :: Lens' ProjectConfig [String]
+projectPackages :: Lens' ProjectConfig [(String, ProjectConfigProvenance)]
 projectPackages f s = fmap (\x -> s{T.projectPackages = x}) (f (T.projectPackages s))
 {-# INLINEABLE projectPackages #-}
 
-projectPackagesOptional :: Lens' ProjectConfig [String]
+projectPackagesOptional :: Lens' ProjectConfig [(String, ProjectConfigProvenance)]
 projectPackagesOptional f s = fmap (\x -> s{T.projectPackagesOptional = x}) (f (T.projectPackagesOptional s))
 {-# INLINEABLE projectPackagesOptional #-}
 
-projectPackagesRepo :: Lens' ProjectConfig [SourceRepoList]
+projectPackagesRepo :: Lens' ProjectConfig [(SourceRepoList, ProjectConfigProvenance)]
 projectPackagesRepo f s = fmap (\x -> s{T.projectPackagesRepo = x}) (f (T.projectPackagesRepo s))
 {-# INLINEABLE projectPackagesRepo #-}
 
-projectPackagesNamed :: Lens' ProjectConfig [PackageVersionConstraint]
+projectPackagesNamed :: Lens' ProjectConfig [(PackageVersionConstraint, ProjectConfigProvenance)]
 projectPackagesNamed f s = fmap (\x -> s{T.projectPackagesNamed = x}) (f (T.projectPackagesNamed s))
 {-# INLINEABLE projectPackagesNamed #-}
 

@@ -187,6 +187,8 @@ library
         Distribution.Client.ProjectConfig.Lens
         Distribution.Client.ProjectConfig.Override
         Distribution.Client.ProjectConfig.Parsec
+        Distribution.Client.ProjectConfig.Sources
+
         Distribution.Client.ProjectConfig.Types
         Distribution.Client.ProjectFlags
         Distribution.Client.ProjectOrchestration

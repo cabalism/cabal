@@ -17,7 +17,9 @@ import Distribution.Client.ProjectConfig.Types (PackageConfig (..), ProjectConfi
 import Distribution.Client.Utils.Parsec
 import Distribution.Compat.Prelude
 import Distribution.FieldGrammar
+import Distribution.Parsec (Parsec (..))
 import Distribution.Simple.Flag
+
 import Distribution.Simple.InstallDirs
 import Distribution.Solver.Types.ConstraintSource (ConstraintSource (..))
 import Distribution.Solver.Types.ProjectConfigPath
@@ -26,10 +28,16 @@ import Distribution.Types.PackageVersionConstraint (PackageVersionConstraint (..
 
 projectConfigFieldGrammar :: ProjectConfigPath -> [String] -> ParsecFieldGrammar' ProjectConfig
 projectConfigFieldGrammar source knownPrograms = do
-  projectPackages <- monoidalFieldAla "packages" (alaList' FSep Token) L.projectPackages
-  projectPackagesOptional <- monoidalFieldAla "optional-packages" (alaList' FSep Token) L.projectPackagesOptional
+  projectPackages <-
+    monoidalFieldAla "packages" (alaList' FSep ProjectPackageToken) L.projectPackages
+      ^^^ fmap (map (\(pkg, _) -> (pkg, Explicit source)))
+  projectPackagesOptional <-
+    monoidalFieldAla "optional-packages" (alaList' FSep ProjectPackageToken) L.projectPackagesOptional
+      ^^^ fmap (map (\(pkg, _) -> (pkg, Explicit source)))
   let projectPackagesRepo = mempty
-  projectPackagesNamed <- monoidalFieldAla "extra-packages" formatPackageVersionConstraints L.projectPackagesNamed
+  projectPackagesNamed <-
+    monoidalFieldAla "extra-packages" (alaList' CommaVCat ProjectPackageNamed) L.projectPackagesNamed
+      ^^^ fmap (map (\(pkg, _) -> (pkg, Explicit source)))
   projectConfigBuildOnly <- blurFieldGrammar L.projectConfigBuildOnly projectConfigBuildOnlyFieldGrammar
   projectConfigShared <- blurFieldGrammar L.projectConfigShared (projectConfigSharedFieldGrammar source)
   let projectConfigProvenance = Set.singleton (Explicit source)
@@ -40,6 +48,23 @@ projectConfigFieldGrammar source knownPrograms = do
 
 formatPackageVersionConstraints :: [PackageVersionConstraint] -> List CommaVCat (Identity PackageVersionConstraint) PackageVersionConstraint
 formatPackageVersionConstraints = alaList CommaVCat
+
+-- | A @packages@ or @optional-packages@ entry paired with its provenance. The
+-- grammar has no access to the file being parsed, so the provenance is
+-- 'Implicit' when parsed and set afterwards, as 'ProjectConstraints' does for
+-- its 'ConstraintSource'. These wrappers live here rather than in
+-- "Distribution.Client.Utils.Newtypes" because that module cannot import
+-- 'ProjectConfigProvenance' without an import cycle.
+newtype ProjectPackageToken = ProjectPackageToken (String, ProjectConfigProvenance)
+
+instance Parsec ProjectPackageToken where
+  parsec = (\(Token pkg) -> ProjectPackageToken (pkg, Implicit)) <$> parsec
+
+-- | An @extra-packages@ entry paired with its provenance; see 'ProjectPackageToken'.
+newtype ProjectPackageNamed = ProjectPackageNamed (PackageVersionConstraint, ProjectConfigProvenance)
+
+instance Parsec ProjectPackageNamed where
+  parsec = (\pkg -> ProjectPackageNamed (pkg, Implicit)) <$> parsec
 
 projectConfigBuildOnlyFieldGrammar :: ParsecFieldGrammar' ProjectConfigBuildOnly
 projectConfigBuildOnlyFieldGrammar = do

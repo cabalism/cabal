@@ -184,7 +184,7 @@ parseProjectSkeleton cacheDir httpTransport verbosity projectDir source (Project
       let (fs, sectionGroups) = partitionFields xs
           sections = concat sectionGroups
       config <- parseFieldGrammarCheckingStanzas cabalSpec fs (projectConfigFieldGrammar sourceConfigPath (knownProgramNames programDb)) stanzas
-      config' <- view stateConfig <$> execStateT (goSections programDb sections) (SectionS config)
+      config' <- view stateConfig <$> execStateT (goSections sourceConfigPath programDb sections) (SectionS config)
       return config'
     modifiesCompiler :: ProjectConfig -> Bool
     modifiesCompiler pc = isSet projectConfigHcFlavor || isSet projectConfigHcPath || isSet projectConfigHcPkg
@@ -222,16 +222,16 @@ stateConfig :: Lens' SectionS ProjectConfig
 stateConfig f (SectionS cfg) = SectionS <$> f cfg
 {-# INLINEABLE stateConfig #-}
 
-goSections :: ProgramDb -> [Section Position] -> SectionParser src ()
-goSections programDb = traverse_ (parseSection programDb)
+goSections :: ProjectConfigPath -> ProgramDb -> [Section Position] -> SectionParser src ()
+goSections sourceConfigPath programDb = traverse_ (parseSection sourceConfigPath programDb)
 
-parseSection :: ProgramDb -> Section Position -> SectionParser src ()
-parseSection programDb (MkSection (Name pos name) args secFields)
+parseSection :: ProjectConfigPath -> ProgramDb -> Section Position -> SectionParser src ()
+parseSection sourceConfigPath programDb (MkSection (Name pos name) args secFields)
   | name == "source-repository-package" = do
       verifyNullSubsections
       verifyNullSectionArgs
       srp <- lift $ parseFieldGrammar cabalSpec fields sourceRepositoryPackageGrammar
-      stateConfig . L.projectPackagesRepo %= (<> [srp])
+      stateConfig . L.projectPackagesRepo %= (<> [(srp, Explicit sourceConfigPath)])
   | name == "program-options" = do
       verifyNullSubsections
       verifyNullSectionArgs

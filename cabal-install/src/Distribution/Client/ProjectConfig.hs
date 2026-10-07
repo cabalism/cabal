@@ -54,6 +54,7 @@ module Distribution.Client.ProjectConfig
   , BadPackageLocationMatch (..)
   , findProjectPackages
   , fetchAndReadSourcePackages
+  , fetchAndReadSourcePackagesTagged
 
     -- * Resolving configuration
   , projectConfigWithBuilderRepoContext
@@ -790,7 +791,7 @@ defaultImplicitProjectConfig :: ProjectConfig
 defaultImplicitProjectConfig =
   mempty
     { -- We expect a package in the current directory.
-      projectPackages = ["./*.cabal"]
+      projectPackages = [("./*.cabal", Implicit)]
     , projectConfigProvenance = Set.singleton Implicit
     }
 
@@ -1218,27 +1219,34 @@ renderBadPackageLocationMatch bplm = case bplm of
       ++ "' contains multiple "
       ++ ".cabal files (which is not currently supported)."
 
--- | Determines the location of all packages mentioned in the project configuration.
+-- | Determines the location of all packages mentioned in the project
+-- configuration. Each location is paired with the project file that listed it.
 --
 -- Throws 'BadPackageLocations'.
 findProjectPackages
   :: DistDirLayout
   -> ProjectConfig
-  -> Rebuild [ProjectPackageLocation]
+  -> Rebuild [(ProjectPackageLocation, ProjectConfigProvenance)]
 findProjectPackages
   DistDirLayout{distProjectRootDirectory}
   ProjectConfig{..} = do
     requiredPkgs <- findPackageLocations True projectPackages
     optionalPkgs <- findPackageLocations False projectPackagesOptional
-    let repoPkgs = map ProjectPackageRemoteRepo projectPackagesRepo
-        namedPkgs = map ProjectPackageNamed projectPackagesNamed
+    let repoPkgs = [(ProjectPackageRemoteRepo repo, provenance) | (repo, provenance) <- projectPackagesRepo]
+        namedPkgs = [(ProjectPackageNamed named, provenance) | (named, provenance) <- projectPackagesNamed]
 
     return (concat [requiredPkgs, optionalPkgs, repoPkgs, namedPkgs])
     where
-      findPackageLocations :: Bool -> [String] -> Rebuild [ProjectPackageLocation]
-      findPackageLocations required pkglocstr = do
+      findPackageLocations
+        :: Bool
+        -> [(String, ProjectConfigProvenance)]
+        -> Rebuild [(ProjectPackageLocation, ProjectConfigProvenance)]
+      findPackageLocations required pkglocstrs = do
         (problems, pkglocs) <-
-          partitionEithers <$> traverse (findPackageLocation required) pkglocstr
+          partitionEithers
+            <$> traverse
+              (\(pkglocstr, provenance) -> fmap (map (\loc -> (loc, provenance))) <$> findPackageLocation required pkglocstr)
+              pkglocstrs
         unless (null problems) $
           liftIO $
             throwIO $
@@ -1423,7 +1431,30 @@ fetchAndReadSourcePackages
   -> ProjectConfigBuildOnly
   -> [ProjectPackageLocation]
   -> Rebuild [PackageSpecifier (SourcePackage UnresolvedPkgLoc)]
-fetchAndReadSourcePackages
+fetchAndReadSourcePackages verbosity distDirLayout compiler projectConfigShared projectConfigBuildOnly pkgLocations =
+  map fst
+    <$> fetchAndReadSourcePackagesTagged
+      verbosity
+      distDirLayout
+      compiler
+      projectConfigShared
+      projectConfigBuildOnly
+      [(location, ()) | location <- pkgLocations]
+
+-- | As 'fetchAndReadSourcePackages', but each location carries a tag, such as
+-- the project file that listed it, and each package comes back with the tags
+-- of the locations it was read from. A package from a source repository has
+-- one tag per @source-repository-package@ stanza that names that repository,
+-- since identical stanzas are fetched once.
+fetchAndReadSourcePackagesTagged
+  :: Verbosity
+  -> DistDirLayout
+  -> Maybe Compiler
+  -> ProjectConfigShared
+  -> ProjectConfigBuildOnly
+  -> [(ProjectPackageLocation, tag)]
+  -> Rebuild [(PackageSpecifier (SourcePackage UnresolvedPkgLoc), [tag])]
+fetchAndReadSourcePackagesTagged
   verbosity
   distDirLayout
   compiler
@@ -1432,15 +1463,15 @@ fetchAndReadSourcePackages
   pkgLocations = do
     pkgsLocalDirectory <-
       sequenceA
-        [ readSourcePackageLocalDirectory verbosity dir cabalFile
-        | location <- pkgLocations
+        [ tagged tag <$> readSourcePackageLocalDirectory verbosity dir cabalFile
+        | (location, tag) <- pkgLocations
         , (dir, cabalFile) <- projectPackageLocal location
         ]
 
     pkgsLocalTarball <-
       sequenceA
-        [ readSourcePackageLocalTarball verbosity path
-        | ProjectPackageLocalTarball path <- pkgLocations
+        [ tagged tag <$> readSourcePackageLocalTarball verbosity path
+        | (ProjectPackageLocalTarball path, tag) <- pkgLocations
         ]
 
     pkgsRemoteTarball <- do
@@ -1451,27 +1482,40 @@ fetchAndReadSourcePackages
             progPathExtra
             preferredHttpTransport
       sequenceA
-        [ fetchAndReadSourcePackageRemoteTarball
-          verbosity
-          distDirLayout
-          getTransport
-          uri
-        | ProjectPackageRemoteTarball uri <- pkgLocations
+        [ tagged tag
+          <$> fetchAndReadSourcePackageRemoteTarball
+            verbosity
+            distDirLayout
+            getTransport
+            uri
+        | (ProjectPackageRemoteTarball uri, tag) <- pkgLocations
         ]
 
-    pkgsRemoteRepo <-
-      syncAndReadSourcePackagesRemoteRepos
-        verbosity
-        distDirLayout
-        compiler
-        projectConfigShared
-        projectConfigBuildOnly
-        (fromFlag (projectConfigOfflineMode projectConfigBuildOnly))
-        [repo | ProjectPackageRemoteRepo repo <- pkgLocations]
+    pkgsRemoteRepo <- do
+      let repos = [(repo, tag) | (ProjectPackageRemoteRepo repo, tag) <- pkgLocations]
+      pkgs <-
+        syncAndReadSourcePackagesRemoteRepos
+          verbosity
+          distDirLayout
+          compiler
+          projectConfigShared
+          projectConfigBuildOnly
+          (fromFlag (projectConfigOfflineMode projectConfigBuildOnly))
+          (map fst repos)
+      -- A package read from a repository records the fanned-out repository it
+      -- came from, so it can be matched back to every stanza naming that repository.
+      return
+        [ (pkg, tags)
+        | pkg <- pkgs
+        , let tags = case pkg of
+                SpecificSourcePackage SourcePackage{srcpkgSource = RemoteSourceRepoPackage repo _} ->
+                  [tag | (repoList, tag) <- repos, repo `elem` NE.toList (srpFanOut repoList)]
+                _ -> []
+        ]
 
     let pkgsNamed =
-          [ NamedPackage pkgname [PackagePropertyVersion verrange]
-          | ProjectPackageNamed (PackageVersionConstraint pkgname verrange) <- pkgLocations
+          [ tagged tag (NamedPackage pkgname [PackagePropertyVersion verrange])
+          | (ProjectPackageNamed (PackageVersionConstraint pkgname verrange), tag) <- pkgLocations
           ]
 
     return $
@@ -1483,6 +1527,8 @@ fetchAndReadSourcePackages
         , pkgsNamed
         ]
     where
+      tagged tag pkg = (pkg, [tag])
+
       projectPackageLocal (ProjectPackageLocalDirectory dir file) = [(dir, file)]
       projectPackageLocal (ProjectPackageLocalCabalFile file) = [(dir, file)]
         where

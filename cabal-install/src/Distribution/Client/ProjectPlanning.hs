@@ -108,7 +108,6 @@ import Text.PrettyPrint
   , text
   , vcat
   , ($$)
-  , ($+$)
   )
 import Prelude ()
 
@@ -123,6 +122,11 @@ import Distribution.Client.PackageHash
 import Distribution.Client.ProjectConfig
 import Distribution.Client.ProjectConfig.Import (docProjectConfigFiles)
 import Distribution.Client.ProjectConfig.Legacy
+import Distribution.Client.ProjectConfig.Sources
+  ( reportSourceNotes
+  , resolveDuplicateSourcePackages
+  , sourceErrorMsg
+  )
 import Distribution.Client.ProjectConfig.Types (defaultProjectFileParser)
 import Distribution.Client.ProjectPlanOutput
 import Distribution.Client.ProjectPlanning.SetupPolicy
@@ -138,7 +142,7 @@ import Distribution.Client.SetupWrapper
 import Distribution.Client.Store
 import Distribution.Client.Targets (userToPackageConstraint)
 import Distribution.Client.Types
-import Distribution.Client.Utils (concatMapM, duplicatesBy, incVersion)
+import Distribution.Client.Utils (concatMapM, incVersion)
 
 import qualified Distribution.Client.BuildReports.Storage as BuildReports
 import qualified Distribution.Client.IndexUtils as IndexUtils
@@ -451,7 +455,7 @@ rebuildProjectConfig
             createDirectoryIfMissingVerbose verbosity True distProjectCacheDirectory
 
           sourcePackages <-
-            fetchAndReadSourcePackages
+            fetchAndReadSourcePackagesTagged
               verbosity
               distDirLayout
               compiler
@@ -459,20 +463,12 @@ rebuildProjectConfig
               projectConfigBuildOnly
               pkgLocations
 
-          case duplicatesBy (comparing srcpkgPackageId) [pkg | SpecificSourcePackage pkg <- sourcePackages] of
-            [] -> return ()
-            duplicateSourcePkgs ->
-              liftIO $
-                noticeDoc verbosity $
-                  vcat
-                    [ text "cabal project has multiple sources for"
-                      <+> (pretty (srcpkgPackageId (head dupeGroup)) <> text ":")
-                      $+$ Disp.nest 2 (vcat [pretty (srcpkgSource srcpkg) | srcpkg <- toList dupeGroup])
-                      $+$ text "the choice of source that will be used is undefined."
-                    | dupeGroup <- duplicateSourcePkgs
-                    ]
-
-          return sourcePackages
+          -- Where several sources provide a package of the same name, the one
+          -- listed at the strongest position is used and the others are
+          -- dropped, before the solver sees them.
+          liftIO $ case resolveDuplicateSourcePackages sourcePackages of
+            Left err -> dieWithException verbosity (PackageSourcesConflict (sourceErrorMsg err))
+            Right (kept, notes) -> kept <$ reportSourceNotes verbosity notes
 
       informAboutConfigFiles projectConfig = do
         cwd <- getCurrentDirectory

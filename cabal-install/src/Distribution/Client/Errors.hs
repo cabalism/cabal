@@ -187,6 +187,7 @@ data CabalInstallException
   | ProjectConfigParseFailure ProjectConfigParseError
   | ProjectConfigNoPackages FilePath
   | OverrideConstraintsError String
+  | PackageSourcesConflict String
   deriving (Show)
 
 exceptionCodeCabalInstall :: CabalInstallException -> Int
@@ -345,6 +346,7 @@ exceptionCodeCabalInstall e = case e of
   ProjectConfigParseFailure{} -> 7167
   ProjectConfigNoPackages{} -> 7168
   OverrideConstraintsError{} -> 7169
+  PackageSourcesConflict{} -> 7170
 
 exceptionMessageCabalInstall :: CabalInstallException -> String
 exceptionMessageCabalInstall e = case e of
@@ -887,6 +889,7 @@ exceptionMessageCabalInstall e = case e of
       , "or 'optional-packages', but neither was specified."
       ]
   OverrideConstraintsError msg -> msg
+  PackageSourcesConflict msg -> msg
 
 instance Exception (VerboseException CabalInstallException) where
   displayException :: VerboseException CabalInstallException -> [Char]

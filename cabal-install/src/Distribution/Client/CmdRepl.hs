@@ -322,7 +322,8 @@ resolveProjectTarget flags@NixStyleFlags{extraFlags = ReplFlags{..}} targetStrin
       -- We could have picked 'all' even for a single package project with
       -- multi-repl but that is not as specific.
       let projectFile = projectConfigProjectFile . projectConfigShared $ projectConfig ctx
-      let pkgs = projectPackages $ projectConfig ctx
+      let pkgs = map fst . projectPackages $ projectConfig ctx
+
       case pkgs of
         [pkg] | pkg `notElem` targetStrings -> do
           retargetNotice ("package '" ++ pkg ++ "'")

@@ -127,19 +127,20 @@ newtype ProjectConfigToParse = ProjectConfigToParse BS.ByteString
 -- features then the gap between configuration as written in the config file
 -- and resolved settings we actually use will become even bigger.
 data ProjectConfig = ProjectConfig
-  { projectPackages :: [String]
+  { projectPackages :: [(String, ProjectConfigProvenance)]
   -- ^ Packages in this project, including local dirs, local .cabal files
   -- local and remote tarballs. When these are file globs, they must
-  -- match at least one package.
-  , projectPackagesOptional :: [String]
+  -- match at least one package. Each entry is paired with the project file
+  -- that lists it, as constraints are paired with their 'ConstraintSource'.
+  , projectPackagesOptional :: [(String, ProjectConfigProvenance)]
   -- ^ Like 'projectConfigPackageGlobs' but /optional/ in the sense that
   -- file globs are allowed to match nothing. The primary use case for
   -- this is to be able to say @optional-packages: */@ to automagically
   -- pick up deps that we unpack locally without erroring when
   -- there aren't any.
-  , projectPackagesRepo :: [SourceRepoList]
+  , projectPackagesRepo :: [(SourceRepoList, ProjectConfigProvenance)]
   -- ^ Packages in this project from remote source repositories.
-  , projectPackagesNamed :: [PackageVersionConstraint]
+  , projectPackagesNamed :: [(PackageVersionConstraint, ProjectConfigProvenance)]
   -- ^ Packages in this project from hackage repositories.
   , -- See respective types for an explanation of what these
     -- values are about:
