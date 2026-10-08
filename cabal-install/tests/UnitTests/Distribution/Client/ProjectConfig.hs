@@ -5,6 +5,7 @@
 module UnitTests.Distribution.Client.ProjectConfig (tests) where
 
 import Control.Monad
+import Data.Bifunctor (first)
 import Data.Either (isRight)
 import Data.Foldable (for_)
 import Data.List (intercalate, isPrefixOf, sort, (\\))
@@ -1162,7 +1163,7 @@ testOverrideConstraints =
     anyHashable = UserConstraint (UserAnyQualifier hashable)
     topLevel = UserConstraint (UserQualified UserQualToplevel hashable)
     anyFoo = UserConstraint (UserAnyQualifier foo)
-    flagsOf = PackagePropertyFlags . mkFlagAssignment . map (\(n, b) -> (mkFlagName n, b))
+    flagsOf = PackagePropertyFlags . mkFlagAssignment . map (first mkFlagName)
 
     pin133 src = (anyHashable (version [1, 4, 3, 0]), src)
     pin132 src = (anyHashable (version [1, 4, 2, 0]), src)
