@@ -1,6 +1,7 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE TupleSections #-}
 {-# OPTIONS_GHC -Wno-unused-matches #-}
 
 -- | Handling project configuration.
@@ -1245,7 +1246,7 @@ findProjectPackages
         (problems, pkglocs) <-
           partitionEithers
             <$> traverse
-              (\(pkglocstr, provenance) -> fmap (map (\loc -> (loc, provenance))) <$> findPackageLocation required pkglocstr)
+              (\(pkglocstr, provenance) -> fmap (map (,provenance)) <$> findPackageLocation required pkglocstr)
               pkglocstrs
         unless (null problems) $
           liftIO $
