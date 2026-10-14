@@ -1,0 +1,11 @@
+import Distribution.Fields.Parser
+import qualified Data.ByteString.Char8 as B8
+:set -XOverloadedStrings
+putStrLn "--- brace field, no comment (parses on master and here):"
+print (either (const "ERROR") (const "OK") (readFields "foo:\n{\n bar\n}\n"))
+putStrLn "--- brace field, comment between name and {:"
+print (readFields "foo:\n-- c\n{\n bar\n}\n")
+putStrLn "--- inside braces section, comment before field's {:"
+print (readFields "x { foo:\n -- c\n { bar } }\n")
+putStrLn "--- same without the comment:"
+print (either (const "ERROR") (const "OK") (readFields "x { foo:\n { bar } }\n"))
