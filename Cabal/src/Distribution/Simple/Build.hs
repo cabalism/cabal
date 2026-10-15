@@ -172,7 +172,7 @@ build_setupHooks
         distPref = fromFlag $ buildDistPref flags
     checkSemaphoreSupport verbosity (compiler lbi) flags
 
-    targets <- readTargetInfos verbosity pkg_descr lbi (buildTargets flags)
+    targets <- wholeComponentTargets verbosity =<< readTargetInfos verbosity pkg_descr lbi (buildTargets flags)
 
     let componentsToBuild = neededTargetsInBuildOrder' pkg_descr lbi (map nodeKey targets)
     info verbosity $
@@ -362,7 +362,7 @@ repl_setupHooks
         verbosity = mkVerbosity verbHandles $ fromFlag (replVerbosity flags)
 
     target <-
-      readTargetInfos verbosity pkg_descr lbi args >>= \case
+      readTargetInfos verbosity pkg_descr lbi args >>= wholeComponentTargets verbosity >>= \case
         -- This seems DEEPLY questionable.
         [] -> case allTargetsInBuildOrder' pkg_descr lbi of
           (target : _) -> return target

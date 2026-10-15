@@ -647,7 +647,7 @@ buildLib verbHandles flags numJobs pkg lbi lib clbi =
     PreBuildComponentInputs
       { buildingWhat = BuildNormal flags
       , localBuildInfo = lbi
-      , targetInfo = TargetInfo clbi (CLib lib)
+      , targetInfo = TargetInfo clbi (CLib lib) Nothing
       }
 
 replLib
@@ -664,7 +664,7 @@ replLib verbHandles flags numJobs pkg lbi lib clbi =
     PreBuildComponentInputs
       { buildingWhat = BuildRepl flags
       , localBuildInfo = lbi
-      , targetInfo = TargetInfo clbi (CLib lib)
+      , targetInfo = TargetInfo clbi (CLib lib) Nothing
       }
 
 -- | Start a REPL without loading any source files.
@@ -709,7 +709,7 @@ buildFLib v numJobs pkg lbi flib clbi =
                   mempty{setupVerbosity = toFlag $ verbosityFlags v}
               }
       , localBuildInfo = lbi
-      , targetInfo = TargetInfo clbi (CFLib flib)
+      , targetInfo = TargetInfo clbi (CFLib flib) Nothing
       }
 
 replFLib
@@ -726,7 +726,7 @@ replFLib verbHandles replFlags njobs pkg lbi flib clbi =
     PreBuildComponentInputs
       { buildingWhat = BuildRepl replFlags
       , localBuildInfo = lbi
-      , targetInfo = TargetInfo clbi (CFLib flib)
+      , targetInfo = TargetInfo clbi (CFLib flib) Nothing
       }
 
 -- | Build an executable with GHC.
@@ -748,7 +748,7 @@ buildExe v njobs pkg lbi exe clbi =
                   mempty{setupVerbosity = toFlag $ verbosityFlags v}
               }
       , localBuildInfo = lbi
-      , targetInfo = TargetInfo clbi (CExe exe)
+      , targetInfo = TargetInfo clbi (CExe exe) Nothing
       }
 
 replExe
@@ -765,7 +765,7 @@ replExe verbHandles replFlags njobs pkg lbi exe clbi =
     PreBuildComponentInputs
       { buildingWhat = BuildRepl replFlags
       , localBuildInfo = lbi
-      , targetInfo = TargetInfo clbi (CExe exe)
+      , targetInfo = TargetInfo clbi (CExe exe) Nothing
       }
 
 -- | Extracts a String representing a hash of the ABI of a built

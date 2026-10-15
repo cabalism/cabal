@@ -111,7 +111,7 @@ registerWithHandles verbHandles pkg_descr lbi0 flags = do
   -- configure, we legitimately need to install internal libraries
   -- so that we can get them.  So just unconditionally install.
   let verbosity = mkVerbosity verbHandles (fromFlag $ registerVerbosity flags)
-  targets <- readTargetInfos verbosity pkg_descr lbi0 $ registerTargets flags
+  targets <- wholeComponentTargets verbosity =<< readTargetInfos verbosity pkg_descr lbi0 (registerTargets flags)
 
   -- It's important to register in build order, because ghc-pkg
   -- will complain if a dependency is not registered.

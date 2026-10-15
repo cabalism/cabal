@@ -378,6 +378,7 @@ mkTargetInfo pkg_descr _lbi clbi =
         getComponent
           pkg_descr
           (componentLocalName clbi)
+    , targetSub = Nothing
     }
 
 -- | Return all 'TargetInfo's associated with 'ComponentName'.

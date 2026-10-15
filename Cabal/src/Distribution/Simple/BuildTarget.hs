@@ -12,7 +12,7 @@
 module Distribution.Simple.BuildTarget
   ( -- * Main interface
     readTargetInfos
-  , readTargetInfosWithSubTargets
+  , wholeComponentTargets
   , readBuildTargets -- in case you don't have LocalBuildInfo
 
     -- * Build targets
@@ -78,21 +78,23 @@ readTargetInfos verbosity pkg_descr lbi args = do
   build_targets <- readBuildTargets verbosity pkg_descr args
   checkBuildTargets verbosity pkg_descr lbi build_targets
 
--- | Like 'readTargetInfos', but module and file targets are kept rather than
--- dropped with a warning. Each component appears once, paired with the
--- modules and files requested within it; an empty list means the whole
--- component. See 'checkBuildTargetsWithSubTargets'.
+-- | Drop the module and file targets, warning about each, for commands that
+-- only process whole components.
 --
 -- @since 3.20.0.0
-readTargetInfosWithSubTargets
-  :: Verbosity
-  -> PackageDescription
-  -> LocalBuildInfo
-  -> [String]
-  -> IO [(TargetInfo, [Either ModuleName FilePath])]
-readTargetInfosWithSubTargets verbosity pkg_descr lbi args = do
-  build_targets <- readBuildTargets verbosity pkg_descr args
-  checkBuildTargetsWithSubTargets verbosity pkg_descr lbi build_targets
+wholeComponentTargets :: Verbosity -> [TargetInfo] -> IO [TargetInfo]
+wholeComponentTargets verbosity targets =
+  for targets $ \target -> case targetSub target of
+    Nothing -> return target
+    Just t -> do
+      warn verbosity $
+        "Ignoring '"
+          ++ either prettyShow id t
+          ++ ". The whole "
+          ++ showComponentName (componentLocalName (targetCLBI target))
+          ++ " will be processed. (Support for "
+          ++ "module and file targets has not been implemented yet.)"
+      return target{targetSub = Nothing}
 
 -- ------------------------------------------------------------
 
@@ -1046,8 +1048,8 @@ caseFold = lowercase
 
 -- | Check that the given build targets are valid in the current context.
 --
--- Also swizzle into a more convenient form. Module and file targets are
--- dropped with a warning; see 'checkBuildTargetsWithSubTargets' to keep them.
+-- Also swizzle into a more convenient form. A module or file target is kept
+-- in 'targetSub'; see 'wholeComponentTargets' to drop it.
 checkBuildTargets
   :: Verbosity
   -> PackageDescription
@@ -1056,60 +1058,10 @@ checkBuildTargets
   -> IO [TargetInfo]
 checkBuildTargets _ pkg_descr lbi [] =
   return (allTargetsInBuildOrder' pkg_descr lbi)
-checkBuildTargets verbosity pkg_descr lbi targets = do
-  enabled <- checkEnabledBuildTargets verbosity pkg_descr lbi targets
-
-  for_ [(c, t) | (c, Just t) <- enabled] $ \(c, t) ->
-    warn verbosity $
-      "Ignoring '"
-        ++ either prettyShow id t
-        ++ ". The whole "
-        ++ showComponentName c
-        ++ " will be processed. (Support for "
-        ++ "module and file targets has not been implemented yet.)"
-
-  -- Pick out the actual CLBIs for each of these cnames
-  for enabled $ \(cname, _) -> componentTargetInfo pkg_descr lbi cname
-
--- | Like 'checkBuildTargets', but keeps the module and file targets instead of
--- dropping them. Each component appears once, paired with the modules and
--- files requested within it. An empty list means the whole component, and a
--- whole-component target subsumes any module or file targets for the same
--- component.
---
--- @since 3.20.0.0
-checkBuildTargetsWithSubTargets
-  :: Verbosity
-  -> PackageDescription
-  -> LocalBuildInfo
-  -> [BuildTarget]
-  -> IO [(TargetInfo, [Either ModuleName FilePath])]
-checkBuildTargetsWithSubTargets _ pkg_descr lbi [] =
-  return [(target, []) | target <- allTargetsInBuildOrder' pkg_descr lbi]
-checkBuildTargetsWithSubTargets verbosity pkg_descr lbi targets = do
-  enabled <- checkEnabledBuildTargets verbosity pkg_descr lbi targets
-  for (ordNub (map fst enabled)) $ \cname -> do
-    target <- componentTargetInfo pkg_descr lbi cname
-    let subtargets = [t | (cname', t) <- enabled, cname' == cname]
-    return
-      ( target
-      , if Nothing `elem` subtargets
-          then []
-          else ordNub (catMaybes subtargets)
-      )
-
--- | The component of each target, with its module or file if it has one,
--- after checking that the component is enabled.
-checkEnabledBuildTargets
-  :: Verbosity
-  -> PackageDescription
-  -> LocalBuildInfo
-  -> [BuildTarget]
-  -> IO [(ComponentName, Maybe (Either ModuleName FilePath))]
-checkEnabledBuildTargets
+checkBuildTargets
   verbosity
   pkg_descr
-  LocalBuildInfo{componentEnabledSpec = enabledComps}
+  lbi@(LocalBuildInfo{componentEnabledSpec = enabledComps})
   targets = do
     let (enabled, disabled) =
           partitionEithers
@@ -1122,8 +1074,17 @@ checkEnabledBuildTargets
             ]
 
     case disabled of
-      [] -> return enabled
+      [] -> return ()
       ((cname, reason) : _) -> dieWithException verbosity $ CheckBuildTargets $ formatReason (showComponentName cname) reason
+
+    -- Pick out the actual CLBIs for each of these cnames
+    enabled' <- for enabled $ \(cname, sub) -> do
+      case componentNameTargets' pkg_descr lbi cname of
+        [] -> error "checkBuildTargets: nothing enabled"
+        [target] -> return target{targetSub = sub}
+        _targets -> error "checkBuildTargets: multiple copies enabled"
+
+    return enabled'
     where
       swizzleTarget (BuildTargetComponent c) = (c, Nothing)
       swizzleTarget (BuildTargetModule c m) = (c, Just (Left m))
@@ -1153,11 +1114,3 @@ checkEnabledBuildTargets
           ++ ". Re-run configure "
           ++ "with the argument "
           ++ cn
-
--- | The 'TargetInfo' of an enabled component.
-componentTargetInfo :: PackageDescription -> LocalBuildInfo -> ComponentName -> IO TargetInfo
-componentTargetInfo pkg_descr lbi cname =
-  case componentNameTargets' pkg_descr lbi cname of
-    [] -> error "checkBuildTargets: nothing enabled"
-    [target] -> return target
-    _targets -> error "checkBuildTargets: multiple copies enabled"

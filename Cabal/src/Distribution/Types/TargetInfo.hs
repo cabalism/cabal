@@ -7,6 +7,7 @@ module Distribution.Types.TargetInfo
 import Distribution.Compat.Prelude
 import Prelude ()
 
+import Distribution.ModuleName (ModuleName)
 import Distribution.Types.Component
 import Distribution.Types.ComponentLocalBuildInfo
 import Distribution.Types.UnitId
@@ -21,11 +22,11 @@ import Distribution.Compat.Graph (IsNode (..))
 data TargetInfo = TargetInfo
   { targetCLBI :: ComponentLocalBuildInfo
   , targetComponent :: Component
-  -- TODO: BuildTargets supporting parsing these is dumb,
-  -- we don't have support for compiling single modules or
-  -- file paths. Accommodating it now is premature
-  -- generalization.  Figure it out later.
-  -- targetSub       :: Maybe (Either ModuleName FilePath)
+  , targetSub :: Maybe (Either ModuleName FilePath)
+  -- ^ The module or file of the component that was targeted, if any. Only
+  -- haddock acts on it so far; other commands process the whole component.
+  --
+  -- @since 3.20.0.0
   }
   deriving (Generic, Show)
 

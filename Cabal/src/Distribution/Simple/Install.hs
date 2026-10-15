@@ -117,7 +117,7 @@ install_setupHooks
   lbi
   flags = do
     checkHasLibsOrExes
-    targets <- readTargetInfos verbosity pkg_descr lbi (copyTargets flags)
+    targets <- wholeComponentTargets verbosity =<< readTargetInfos verbosity pkg_descr lbi (copyTargets flags)
 
     copyPackage verbosity pkg_descr lbi distPref copydest
 

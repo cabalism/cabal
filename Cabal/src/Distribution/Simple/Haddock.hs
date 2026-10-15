@@ -37,6 +37,7 @@ import qualified Distribution.Simple.GHC as GHC
 import Data.Semigroup (All (..), Any (..))
 import Distribution.Backpack (OpenModule)
 import Distribution.Backpack.DescribeUnitId
+import Distribution.Compat.Graph (IsNode (..))
 import Distribution.InstalledPackageInfo (InstalledPackageInfo)
 import qualified Distribution.InstalledPackageInfo as InstalledPackageInfo
 import qualified Distribution.ModuleName as ModuleName
@@ -331,15 +332,20 @@ haddock_setupHooks
           suffixes
           (defaultHscolourFlags <> haddockToHscolour flags)
 
-    -- Module and file targets narrow the run to those modules of their
-    -- component, see 'selectSourceFiles' and 'narrowToModules'.
-    targets <- readTargetInfosWithSubTargets verbosity pkg_descr lbi (haddockTargets flags)
+    targets <- readTargetInfos verbosity pkg_descr lbi (haddockTargets flags)
 
     let
+      -- Each component once, with the modules and files targeted within it.
+      -- These narrow the run to those modules, see 'selectSourceFiles' and
+      -- 'narrowToModules'. A whole-component target subsumes them.
       targets' =
         case targets of
           [] -> [(target, []) | target <- allTargetsInBuildOrder' pkg_descr lbi]
-          _ -> targets
+          _ ->
+            [ (target, if Nothing `elem` subs then [] else ordNub (catMaybes subs))
+            | target <- nubBy ((==) `on` nodeKey) targets
+            , let subs = [targetSub t | t <- targets, nodeKey t == nodeKey target]
+            ]
 
     internalPackageDB <-
       createInternalPackageDB verbosity lbi (flag $ setupDistPref . haddockCommonFlags)
