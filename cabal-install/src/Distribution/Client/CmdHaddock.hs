@@ -63,12 +63,14 @@ import Distribution.Simple.Setup
 import Distribution.Simple.Utils
   ( dieWithException
   , notice
+  , ordNub
   , wrapText
   )
 import Distribution.Verbosity
   ( normal
   )
 
+import qualified Data.Map as Map
 import Distribution.Client.Errors
 import qualified System.Exit (exitSuccess)
 
@@ -101,6 +103,10 @@ haddockCommand =
           ++ pname
           ++ " v2-haddock pkgname"
           ++ "    Build documentation for the package named pkgname\n"
+          ++ "  "
+          ++ pname
+          ++ " v2-haddock Foo.Bar"
+          ++ "    Build the documentation page of the module Foo.Bar only\n"
     , commandOptions = nixStyleOptions haddockOptions
     , commandDefaultFlags = defaultNixStyleFlags (ClientHaddockFlags (Flag False))
     }
@@ -183,12 +189,13 @@ haddockAction relFlags targetStrings globalFlags = do
             Nothing
             targetSelectors
 
-      let elaboratedPlan' =
+      let targets' = keepSubComponentTargets targets
+          elaboratedPlan' =
             pruneInstallPlanToTargets
               TargetActionHaddock
-              targets
+              targets'
               elaboratedPlan
-      return (elaboratedPlan', targets)
+      return (elaboratedPlan', targets')
 
   printPlan verbosity baseCtx buildCtx
 
@@ -263,6 +270,27 @@ selectPackageTargets haddockFlags targetSelector targets
     isRequested _ ExeKind = fromFlagOrDefault False (haddockExecutables haddockFlags)
     isRequested _ TestKind = fromFlagOrDefault False (haddockTestSuites haddockFlags)
     isRequested _ BenchKind = fromFlagOrDefault False (haddockBenchmarks haddockFlags)
+
+-- | Target resolution widens a module or file target to its whole component
+-- because no @Setup.hs@ build command supports anything narrower. The haddock
+-- command does, so where a component was selected only through module or file
+-- targets, put those back from the target selectors kept alongside: haddock
+-- then documents just those modules of the component.
+keepSubComponentTargets :: TargetsMap -> TargetsMap
+keepSubComponentTargets = Map.map (concatMap keep)
+  where
+    keep (ComponentTarget cname WholeComponent, selectors)
+      | Just subs <- traverse subComponentTarget (toList selectors)
+      , WholeComponent `notElem` subs =
+          ordNub
+            [ (ComponentTarget cname sub, selector :| [])
+            | (sub, selector) <- zip subs (toList selectors)
+            ]
+    keep target = [target]
+
+    subComponentTarget (TargetComponent _ _ sub) = Just sub
+    subComponentTarget (TargetComponentUnknown _ _ sub) = Just sub
+    subComponentTarget _ = Nothing
 
 -- | For a 'TargetComponent' 'TargetSelector', check if the component can be
 -- selected.

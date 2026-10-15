@@ -83,8 +83,9 @@ import Distribution.Version
 
 import Data.Bool (bool)
 import Data.Either (lefts, rights)
+import Data.List (stripPrefix)
 import System.Directory (doesDirectoryExist, doesFileExist)
-import System.FilePath (isAbsolute, joinPath, normalise, splitDirectories)
+import System.FilePath (dropExtension, isAbsolute, joinPath, normalise, splitDirectories)
 import System.IO (hClose, hPutStrLn, hSetEncoding, utf8)
 
 -- ------------------------------------------------------------------------------
@@ -330,18 +331,20 @@ haddock_setupHooks
           suffixes
           (defaultHscolourFlags <> haddockToHscolour flags)
 
-    targets <- readTargetInfos verbosity pkg_descr lbi (haddockTargets flags)
+    -- Module and file targets narrow the run to those modules of their
+    -- component, see 'selectSourceFiles' and 'narrowToModules'.
+    targets <- readTargetInfosWithSubTargets verbosity pkg_descr lbi (haddockTargets flags)
 
     let
       targets' =
         case targets of
-          [] -> allTargetsInBuildOrder' pkg_descr lbi
+          [] -> [(target, []) | target <- allTargetsInBuildOrder' pkg_descr lbi]
           _ -> targets
 
     internalPackageDB <-
       createInternalPackageDB verbosity lbi (flag $ setupDistPref . haddockCommonFlags)
 
-    (mons, _mbIPI) <- (\f -> foldM f ([], installedPkgs lbi) targets') $ \(monsAcc, index) target -> do
+    (mons, _mbIPI) <- (\f -> foldM f ([], installedPkgs lbi) targets') $ \(monsAcc, index) (target, subtargets) -> do
       curDir <- absoluteWorkingDirLBI lbi
       let
         component = targetComponent target
@@ -376,6 +379,7 @@ haddock_setupHooks
                   pkg_descr
                   exe
                   commonArgs
+                  subtargets
               runHaddock
                 verbosity
                 mbWorkDir
@@ -415,6 +419,7 @@ haddock_setupHooks
                 pkg_descr
                 lib
                 commonArgs
+                subtargets
             runHaddock
               verbosity
               mbWorkDir
@@ -470,6 +475,7 @@ haddock_setupHooks
                       pkg_descr
                       flib
                       commonArgs
+                      subtargets
                   runHaddock
                     verbosity
                     mbWorkDir
@@ -496,6 +502,7 @@ haddock_setupHooks
                   pkg_descr
                   test
                   commonArgs
+                  subtargets
               runHaddock
                 verbosity
                 mbWorkDir
@@ -520,6 +527,7 @@ haddock_setupHooks
                   pkg_descr
                   bench
                   commonArgs
+                  subtargets
               runHaddock
                 verbosity
                 mbWorkDir
@@ -755,9 +763,12 @@ fromLibrary
   -> Library
   -> HaddockArgs
   -- ^ common args
+  -> [Either ModuleName.ModuleName FilePath]
+  -- ^ modules or files to restrict the run to, none for all
   -> IO HaddockArgs
-fromLibrary verbosity haddockArtifactsDirs lbi clbi htmlTemplate haddockTarget pkg_descr lib commonArgs = do
-  inFiles <- map snd `fmap` getLibSourceFiles verbosity lbi lib clbi
+fromLibrary verbosity haddockArtifactsDirs lbi clbi htmlTemplate haddockTarget pkg_descr lib commonArgs subtargets = do
+  sources <- selectSourceFiles verbosity (libBuildInfo lib) subtargets =<< getLibSourceFiles verbosity lbi lib clbi
+  let inFiles = map snd sources
   args <-
     mkHaddockArgs
       verbosity
@@ -790,7 +801,7 @@ fromLibrary verbosity haddockArtifactsDirs lbi clbi htmlTemplate haddockTarget p
               (LSubLibName _, Flag url) -> Flag $ ".." </> url
               (_, a) -> a
           }
-  return args''
+  return $ narrowToModules subtargets sources args''
 
 fromExecutable
   :: Verbosity
@@ -806,9 +817,12 @@ fromExecutable
   -> Executable
   -> HaddockArgs
   -- ^ common args
+  -> [Either ModuleName.ModuleName FilePath]
+  -- ^ modules or files to restrict the run to, none for all
   -> IO HaddockArgs
-fromExecutable verbosity haddockArtifactsDirs lbi clbi htmlTemplate haddockTarget pkg_descr exe commonArgs = do
-  inFiles <- map snd `fmap` getExeSourceFiles verbosity lbi exe clbi
+fromExecutable verbosity haddockArtifactsDirs lbi clbi htmlTemplate haddockTarget pkg_descr exe commonArgs subtargets = do
+  sources <- selectSourceFiles verbosity (buildInfo exe) subtargets =<< getExeSourceFiles verbosity lbi exe clbi
+  let inFiles = map snd sources
   args <-
     mkHaddockArgs
       verbosity
@@ -826,7 +840,7 @@ fromExecutable verbosity haddockArtifactsDirs lbi clbi htmlTemplate haddockTarge
                   haddockDirName haddockTarget pkg_descr
                     </> unUnqualComponentName (exeName exe)
             }
-  return
+  return . narrowToModules subtargets sources $
     args'
       { argTitle = Flag $ unUnqualComponentName $ exeName exe
       , -- we need to accommodate `argOutputDir`
@@ -855,9 +869,12 @@ fromTest
   -> TestSuite
   -> HaddockArgs
   -- ^ common args
+  -> [Either ModuleName.ModuleName FilePath]
+  -- ^ modules or files to restrict the run to, none for all
   -> IO HaddockArgs
-fromTest verbosity haddockArtifactsDirs lbi clbi htmlTemplate haddockTarget pkg_descr test commonArgs = do
-  inFiles <- map snd `fmap` getTestSourceFiles verbosity lbi test clbi
+fromTest verbosity haddockArtifactsDirs lbi clbi htmlTemplate haddockTarget pkg_descr test commonArgs subtargets = do
+  sources <- selectSourceFiles verbosity (testBuildInfo test) subtargets =<< getTestSourceFiles verbosity lbi test clbi
+  let inFiles = map snd sources
   args <-
     mkHaddockArgs
       verbosity
@@ -875,7 +892,7 @@ fromTest verbosity haddockArtifactsDirs lbi clbi htmlTemplate haddockTarget pkg_
                   haddockDirName haddockTarget pkg_descr
                     </> unUnqualComponentName (testName test)
             }
-  return
+  return . narrowToModules subtargets sources $
     args'
       { argTitle = Flag $ prettyShow (packageName pkg_descr)
       , argComponentName = Flag $ prettyShow (packageName pkg_descr) ++ ":" ++ unUnqualComponentName (testName test)
@@ -905,9 +922,12 @@ fromBenchmark
   -> Benchmark
   -> HaddockArgs
   -- ^ common args
+  -> [Either ModuleName.ModuleName FilePath]
+  -- ^ modules or files to restrict the run to, none for all
   -> IO HaddockArgs
-fromBenchmark verbosity haddockArtifactsDirs lbi clbi htmlTemplate haddockTarget pkg_descr bench commonArgs = do
-  inFiles <- map snd `fmap` getBenchmarkSourceFiles verbosity lbi bench clbi
+fromBenchmark verbosity haddockArtifactsDirs lbi clbi htmlTemplate haddockTarget pkg_descr bench commonArgs subtargets = do
+  sources <- selectSourceFiles verbosity (benchmarkBuildInfo bench) subtargets =<< getBenchmarkSourceFiles verbosity lbi bench clbi
+  let inFiles = map snd sources
   args <-
     mkHaddockArgs
       verbosity
@@ -925,7 +945,7 @@ fromBenchmark verbosity haddockArtifactsDirs lbi clbi htmlTemplate haddockTarget
                   haddockDirName haddockTarget pkg_descr
                     </> unUnqualComponentName (benchmarkName bench)
             }
-  return
+  return . narrowToModules subtargets sources $
     args'
       { argTitle = Flag $ prettyShow (packageName pkg_descr)
       , argComponentName = Flag $ prettyShow (packageName pkg_descr) ++ ":" ++ unUnqualComponentName (benchmarkName bench)
@@ -955,9 +975,12 @@ fromForeignLib
   -> ForeignLib
   -> HaddockArgs
   -- ^ common args
+  -> [Either ModuleName.ModuleName FilePath]
+  -- ^ modules or files to restrict the run to, none for all
   -> IO HaddockArgs
-fromForeignLib verbosity haddockArtifactsDirs lbi clbi htmlTemplate haddockTarget pkg_descr flib commonArgs = do
-  inFiles <- map snd `fmap` getFLibSourceFiles verbosity lbi flib clbi
+fromForeignLib verbosity haddockArtifactsDirs lbi clbi htmlTemplate haddockTarget pkg_descr flib commonArgs subtargets = do
+  sources <- selectSourceFiles verbosity (foreignLibBuildInfo flib) subtargets =<< getFLibSourceFiles verbosity lbi flib clbi
+  let inFiles = map snd sources
   args <-
     mkHaddockArgs
       verbosity
@@ -975,7 +998,7 @@ fromForeignLib verbosity haddockArtifactsDirs lbi clbi htmlTemplate haddockTarge
                   haddockDirName haddockTarget pkg_descr
                     </> unUnqualComponentName (foreignLibName flib)
             }
-  return
+  return . narrowToModules subtargets sources $
     args'
       { argTitle = Flag $ unUnqualComponentName $ foreignLibName flib
       , -- we need to accommodate `argOutputDir`
@@ -989,6 +1012,70 @@ fromForeignLib verbosity haddockArtifactsDirs lbi clbi htmlTemplate haddockTarge
           Flag url -> Flag $ ".." </> url
           NoFlag -> NoFlag
       }
+
+-- | Restrict the source files of a component to the modules and files
+-- requested for it. No requests means every file.
+--
+-- A file is matched to a module by its path, with or without an extension
+-- and with or without one of the component's source directories in front
+-- (@src/Foo/Bar@ is how @cabal-install@ passes a file target). The found
+-- source path is also accepted as is, which covers a @main-is@ file whose
+-- name is not its module name.
+selectSourceFiles
+  :: Verbosity
+  -> BuildInfo
+  -> [Either ModuleName.ModuleName FilePath]
+  -> [(ModuleName.ModuleName, SymbolicPath Pkg File)]
+  -> IO [(ModuleName.ModuleName, SymbolicPath Pkg File)]
+selectSourceFiles _ _ [] sources = return sources
+selectSourceFiles verbosity bi subtargets sources = do
+  selected <- for subtargets $ \subtarget ->
+    case filter (matches subtarget) sources of
+      [] -> do
+        warn verbosity $
+          "Ignoring '"
+            ++ either prettyShow id subtarget
+            ++ "', it is not a Haskell module of this component."
+        return []
+      ss -> return ss
+  return (ordNub (concat selected))
+  where
+    matches (Left m) (m', _) = m == m'
+    matches (Right f) (m, path) =
+      m `elem` fileModules f
+        || dropExtension (normalise f) == dropExtension (getSymbolicPath path)
+
+    fileModules f =
+      [ m
+      | let stem = splitDirectories (dropExtension (normalise f))
+      , dir <- [] : map (splitDirectories . normalise . getSymbolicPath) (hsSourceDirs bi)
+      , Just rest <- [stripPrefix dir stem]
+      , Just m <- [simpleParsec (intercalate "." rest)]
+      ]
+
+-- | When a run is restricted to some modules of a component, only the pages
+-- of those modules (and of the home modules they import, which haddock
+-- processes as well) should be rewritten in the component's documentation
+-- directory. So the contents and index pages are left alone by pointing
+-- haddock at the existing ones, the @.haddock@ interface file is not
+-- rewritten, and the quickjump index is not regenerated, as each of these
+-- would otherwise describe only the selected modules. A selected module is
+-- also not hidden, so that an @other-modules@ entry can be documented
+-- without @--internal@.
+narrowToModules
+  :: [Either ModuleName.ModuleName FilePath]
+  -> [(ModuleName.ModuleName, SymbolicPath Pkg File)]
+  -> HaddockArgs
+  -> HaddockArgs
+narrowToModules [] _ args = args
+narrowToModules _ sources args =
+  args
+    { argInterfaceFile = NoFlag
+    , argQuickJump = Flag False
+    , argContents = Flag $ fromFlagOrDefault "index.html" (argContents args)
+    , argIndex = Flag $ fromFlagOrDefault "doc-index.html" (argIndex args)
+    , argHideModules = fmap (filter (`notElem` map fst sources)) (argHideModules args)
+    }
 
 compToExe :: Component -> Maybe Executable
 compToExe comp =

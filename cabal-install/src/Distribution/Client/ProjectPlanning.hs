@@ -3348,6 +3348,8 @@ nubComponentTargets =
 
     -- Actually the reality is that no current version of Cabal's Setup.hs
     -- build command actually support building specific files or modules.
+    -- (The haddock command does, and "Distribution.Client.CmdHaddock"
+    -- restores the sub-component targets from the target selectors.)
     setupHsSupportsSubComponentTargets = False
 
 -- TODO: when that changes, adjust this test, e.g.
@@ -4460,7 +4462,19 @@ setupHsHaddockFlags
 setupHsHaddockArgs :: ElaboratedConfiguredPackage -> [String]
 -- TODO: Does the issue #3335 affects test as well
 setupHsHaddockArgs elab =
-  map (showComponentTarget (packageId elab)) (elabHaddockTargets elab)
+  map (showComponentTarget (packageId elab)) targets
+  where
+    -- Setup.hs haddock documents only the module of a module or file target
+    -- with Cabal libraries newer than 3.18 (the in-tree version is 3.19);
+    -- older versions warn and do the whole component.
+    targets
+      | setupCliVersion (elabSetupScriptCliVersion elab) >= mkVersion [3, 19] =
+          elabHaddockTargets elab
+      | otherwise =
+          ordNub
+            [ ComponentTarget cname WholeComponent
+            | ComponentTarget cname _ <- elabHaddockTargets elab
+            ]
 
 ------------------------------------------------------------------------------
 
