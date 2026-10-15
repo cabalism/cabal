@@ -242,10 +242,12 @@ A cabal command target can take any of the following forms:
      - ``benches``, ``benchmarks``.
 
 -  A module target: ``[package:][ctype:]module``, which specifies that the
-   component of which the given module is a part of will be built.
+   component of which the given module is a part of will be built. For
+   ``cabal haddock`` it narrows the run to that module instead.
 
 -  A filepath target: ``[package:][ctype:]filepath``, which specifies that the
-   component of which the given filepath is a part of will be built.
+   component of which the given filepath is a part of will be built. For
+   ``cabal haddock`` it narrows the run to the module at that path instead.
 
 -  A script target: ``path/to/script``, which specifies the path to a script
    file. This is supported by ``build``, ``repl``, ``run``, ``list-bin``, and
@@ -1013,6 +1015,16 @@ the specified packages within the project.
 If a target is not a library :cfg-field:`haddock-benchmarks`,
 :cfg-field:`haddock-executables`, :cfg-field:`haddock-internal`,
 :cfg-field:`haddock-tests` will be implied as necessary.
+
+A module or file target, such as ``cabal haddock Foo.Bar`` or
+``cabal haddock src/Foo/Bar.hs``, runs Haddock on that module only. Its page
+is written in place, in the documentation directory of the component the
+module belongs to, so that its links to the other modules of the package and
+to dependencies keep working. The contents and index pages, the ``.haddock``
+interface file and the quickjump index of the component are left as they
+were, since Haddock would otherwise regenerate them to describe only the one
+module. A module listed under ``other-modules`` can be targeted this way
+without :cfg-field:`haddock-internal`.
 
 cabal haddock-project
 ^^^^^^^^^^^^^^^^^^^^^
