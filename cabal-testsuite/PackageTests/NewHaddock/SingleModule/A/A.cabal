@@ -1,0 +1,11 @@
+cabal-version: 3.6
+name:          A
+synopsis:      A minimal test package for testing haddock on one module.
+version:       0.0.0
+
+library
+  build-depends:    base
+  default-language: Haskell2010
+  exposed-modules:  Foo
+                    Bar
+  hs-source-dirs:   src
