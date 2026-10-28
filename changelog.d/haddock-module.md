@@ -27,7 +27,7 @@ command therefore works for packages with the Simple build type when it was
 installed together with the cabal that built them, and says so otherwise.
 
 The `Cabal` library now exports `HaddockArgs`, `Directory`, `Output`,
-`getHaddockProg`, `getGhcLibDir` and `runHaddock` from
+`getHaddockProg` and `runHaddock` from
 `Distribution.Simple.Haddock`, the pieces `Setup haddock` is built from, for
 callers like this one that run Haddock on something other than a whole
 component.
