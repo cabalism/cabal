@@ -84,6 +84,7 @@ CABAL_COMMANDS := \
 	gen-bounds \
 	get \
 	haddock \
+	haddock-module \
 	haddock-project \
 	hscolour \
 	info \
@@ -143,6 +144,12 @@ cmd-v1-help/%.txt: | cmd-help-build
 cmd-v2-help/%.txt: | cmd-help-build
 	@mkdir -p $(@D)
 	@cabal run -v0 cabal-install:exe:cabal -- $* --help > $@ 2>/dev/null
+
+# haddock-module is an external command, its own executable in cabal-install.
+cmd-v2-help/haddock-module.txt:
+	@mkdir -p $(@D)
+	@cabal build -v0 cabal-install:exe:cabal-haddock-module > /dev/null 2>&1
+	@cabal run -v0 cabal-install:exe:cabal-haddock-module -- --help > $@ 2>/dev/null
 
 # The "You can edit the cabal configuration file..." footer embeds an
 # absolute, machine-specific config path, so strip it for reproducibility.
