@@ -1,0 +1,69 @@
+name:           many-exes
+version:        0.1
+license:        BSD3
+cabal-version:  2.0
+build-type:     Simple
+
+executable exe1
+  main-is: Main.hs
+  build-depends: base, local
+
+executable exe2
+  main-is: Main.hs
+  build-depends: base, local
+
+executable exe3
+  main-is: Main.hs
+  build-depends: base, local
+
+executable exe4
+  main-is: Main.hs
+  build-depends: base, local
+
+executable exe5
+  main-is: Main.hs
+  build-depends: base, local
+
+executable exe6
+  main-is: Main.hs
+  build-depends: base, local
+
+executable exe7
+  main-is: Main.hs
+  build-depends: base, local
+
+executable exe8
+  main-is: Main.hs
+  build-depends: base, local
+
+executable exe9
+  main-is: Main.hs
+  build-depends: base, local
+
+executable exe10
+  main-is: Main.hs
+  build-depends: base, local
+
+executable exe11
+  main-is: Main.hs
+  build-depends: base, local
+
+executable exe12
+  main-is: Main.hs
+  build-depends: base, local
+
+executable exe13
+  main-is: Main.hs
+  build-depends: base, local
+
+executable exe14
+  main-is: Main.hs
+  build-depends: base, local
+
+executable exe15
+  main-is: Main.hs
+  build-depends: base, local
+
+executable exe16
+  main-is: Main.hs
+  build-depends: base, local
