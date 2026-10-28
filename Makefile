@@ -153,9 +153,8 @@ analyse-imports :
 # The 'external-commands-test' goal is used in .github/workflows/quick-jobs.yml.
 EXTERNAL_COMMANDS_PROJECT := --project-file=cabal.external-commands.project --builddir=dist-newstyle-external-commands
 EXTERNAL_COMMANDS_BIN := dist-newstyle-external-commands/bin
-# fmt and gild are in the project too but do not build against Cabal-syntax
-# 3.19 (they import the scrapped Distribution.Compat.Newtype); add them back
-# here when they do.
+# The project lists more tools than this; the ones missing here do not build
+# against the in-tree libraries yet, see the project file for why.
 EXTERNAL_COMMANDS := plan add
 
 # `all` is the in-tree packages; the extra-packages have to be named, and as
