@@ -26,7 +26,7 @@ module Distribution.Simple.Haddock
   , haddockPackagePaths
   , Visibility (..)
 
-    -- * Running haddock on your own terms
+    -- * Invoking haddock
 
     -- | What @Setup haddock@ builds up and runs, for callers that document
     -- something other than a whole component, such as a single module.
