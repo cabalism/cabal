@@ -19,7 +19,8 @@ those of the build. The page goes under `<builddir>/haddock-module/<package>/`
 or the `--output-dir` given, and its links go to the documentation cabal has
 generated for the package and its dependencies, where that exists. Options
 `cabal build` takes, such as `--builddir` and `--project-file`, are accepted
-after the command name and passed on to the build.
+after the command name and passed on to the build. Its help text is kept with
+the other commands' under `doc/`, in a new `cmd-external-help` group.
 
 The saved configuration can only be read by the Cabal library that wrote it,
 which is the one cabal links when it configures a package in process. The
