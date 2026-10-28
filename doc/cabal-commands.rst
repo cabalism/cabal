@@ -1075,8 +1075,12 @@ its dependencies, where that exists.
 This is an :doc:`external command <external-commands>`: ``cabal-install``
 installs the ``cabal-haddock-module`` executable next to ``cabal``, and
 ``cabal`` runs it when it is on the ``PATH``. As with any external command,
-cabal's global flags are not passed on, so ``--builddir``, ``--project-file``
-and the other options ``cabal build`` accepts go after the command name.
+cabal's global flags are not passed on, so ``--builddir`` and
+``--project-file`` go after the command name. Those, ``--project-dir``, the
+``--with-PROG`` options, ``--keep-temp-files`` and the verbosity are the only
+options of ``cabal build`` the command takes, and it passes them on to the
+build it runs; the rest of the build's configuration comes from the project
+files.
 Because the command reads the configuration that cabal saved when it built the
 package, it has to have been installed with the cabal that built it, and it
 cannot document packages with a custom ``Setup``; it says so when either is the
