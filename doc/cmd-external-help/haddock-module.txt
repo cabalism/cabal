@@ -19,15 +19,21 @@ Flags for haddock-module:
  -w PATH or -wPATH, --with-compiler=PATH
                               # Give the path to a particular compiler
  --with-hc-pkg=PATH           # Give the path to the package tool
- --with-PROG=PATH             # Give the path to PROG
  --project-dir=DIR            # Set the path of the project directory
  --project-file=FILE          # Set the path of the cabal.project file
                                 (relative to the project directory when
                                 relative)
  --no-build                   # Do not build the library first; document the
                                 module as last built.
- --output-dir=DIR             # Directory to put the page in (default:
+ --output=DIR                 # Directory to put the page in (default:
                                 <builddir>/haddock-module/<package>).
+ --hackage                    # A short-cut option to link the page to the
+                                documentation on hackage.
+ --html-location=URL          # Location of HTML documentation for
+                                pre-requisite packages
+ --with-haddock=PATH          # Give the path to haddock
+ --haddock-options=OPTS       # Give extra options to haddock (split on
+                                spaces, use "" to prevent splitting)
 
 Examples:
   cabal haddock-module Foo.Bar
