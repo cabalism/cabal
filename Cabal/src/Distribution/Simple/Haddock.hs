@@ -36,7 +36,6 @@ module Distribution.Simple.Haddock
   , Directory (..)
   , Output (..)
   , getHaddockProg
-  , getGhcLibDir
   , runHaddock
   ) where
 

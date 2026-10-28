@@ -106,7 +106,6 @@ import Distribution.Simple.Haddock
   ( Directory (..)
   , HaddockArgs (..)
   , Output (..)
-  , getGhcLibDir
   , getHaddockProg
   , haddockPackagePaths
   , runHaddock
@@ -503,8 +502,8 @@ haddockModuleAction flags@NixStyleFlags{extraFlags = HaddockModuleFlags{..}} tar
             , argVerbose = Any (verbosityLevel verbosity >= Verbose)
             }
     (haddockProg, _) <- getHaddockProg verbosity progdb compiler args (Flag False)
-    libDirArgs <- getGhcLibDir verbosity lbi
-    runHaddock verbosity pkgDir tmpFileOpts compiler platform (haddockProg :: ConfiguredProgram) True (libDirArgs <> args)
+    libDir <- GHC.getLibDir verbosity lbi
+    runHaddock verbosity pkgDir tmpFileOpts compiler platform (haddockProg :: ConfiguredProgram) True args{argGhcLibDir = Flag libDir}
 
   putStr $ withOutputMarker (verbosityFlags verbosity) (outDir </> moduleHtmlFile targetModule ++ "\n")
   where
