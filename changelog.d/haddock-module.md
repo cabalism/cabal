@@ -17,9 +17,10 @@ Haddock has a single home module to process. The run uses the component's saved
 configuration, so extensions, CPP, include directories and package databases are
 those of the build. The page goes under `<builddir>/haddock-module/<package>/`
 or the `--output-dir` given, and its links go to the documentation cabal has
-generated for the package and its dependencies, where that exists. Options
-`cabal build` takes, such as `--builddir` and `--project-file`, are accepted
-after the command name and passed on to the build. Its help text is kept with
+generated for the package and its dependencies, where that exists. The few
+options of `cabal build` it takes, `--builddir`, `--project-file`,
+`--project-dir`, `--with-PROG`, `--keep-temp-files` and the verbosity, go
+after the command name and are passed on to the build. Its help text is kept with
 the other commands' under `doc/`, in a new `cmd-external-help` group.
 
 The saved configuration can only be read by the Cabal library that wrote it,
