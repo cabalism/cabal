@@ -30,6 +30,7 @@ extra-packages:
   , cabal-bounds
   , cabal-hoogle
   , cabal-plan-bounds
+  , hpack-dhall
 
 -- Their bounds stop at the last released Cabal; the in-tree one is newer.
 allow-newer:
@@ -39,6 +40,13 @@ allow-newer:
   , cabal-add:*
   , cabal-hoogle:*
   , cabal-plan-bounds:*
+-- hpack, under hpack-dhall, is the one that links Cabal.
+  , hpack:*
+-- dhall-json-1.7.12 caps aeson below 2.2, and the aeson-2.1 that leaves wants
+-- a th-abstraction that no longer compiles with GHC 9.14.
+  , dhall-json:aeson
+
+constraints: aeson >=2.2
 
 optimization: False
 tests: False

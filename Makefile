@@ -154,8 +154,10 @@ analyse-imports :
 EXTERNAL_COMMANDS_PROJECT := --project-file=cabal.external-commands.project --builddir=dist-newstyle-external-commands
 EXTERNAL_COMMANDS_BIN := dist-newstyle-external-commands/bin
 # The project lists more tools than this; the ones missing here do not build
-# against the in-tree libraries yet, see the project file for why.
-EXTERNAL_COMMANDS := plan add
+# against the in-tree libraries yet, see the project file for why. A package
+# need not share its command's name: hpack-dhall has three cabal-* executables.
+EXTERNAL_COMMANDS := plan add diy-pack dpack ypack
+EXTERNAL_COMMANDS_PACKAGES := cabal-plan cabal-add hpack-dhall
 # doctest's cabal-doctest drives `cabal repl`, linking ghc rather than our
 # libraries, and ghc pins process to the compiler's copy, older than Cabal's
 # lower bound, so it cannot share the project's plan and is installed from
@@ -167,14 +169,19 @@ EXTERNAL_COMMANDS_DOCTEST := cabal-testsuite/PackageTests/ExternalCommandReal/do
 # packages: cabal cannot qualify `exe:cabal-plan` for a non-local package.
 .PHONY: external-commands
 external-commands: ## Build external commands and cabal.
-	cabal build $(EXTERNAL_COMMANDS_PROJECT) exe:cabal $(EXTERNAL_COMMANDS:%=cabal-%)
+	cabal build $(EXTERNAL_COMMANDS_PROJECT) exe:cabal $(EXTERNAL_COMMANDS_PACKAGES)
 
+# The paths come from the plan, with jq, because `cabal list-bin` cannot name
+# an executable of a non-local package by component (#8684), which an
+# executable of hpack-dhall can only be.
 .PHONY: external-commands-bin
 external-commands-bin: external-commands ## Symlink external commands alongside cabal.
 	rm -rf $(EXTERNAL_COMMANDS_BIN)
 	mkdir -p $(EXTERNAL_COMMANDS_BIN)
 	for exe in cabal $(EXTERNAL_COMMANDS:%=cabal-%); do \
-	  ln -sf "$$(cabal list-bin -v0 $(EXTERNAL_COMMANDS_PROJECT) $$exe)" $(EXTERNAL_COMMANDS_BIN)/$$exe; \
+	  ln -sf "$$(jq -r --arg exe "exe:$$exe" \
+	    '."install-plan"[] | select(."component-name" == $$exe) | ."bin-file"' \
+	    dist-newstyle-external-commands/cache/plan.json)" $(EXTERNAL_COMMANDS_BIN)/$$exe; \
 	  test -x $(EXTERNAL_COMMANDS_BIN)/$$exe || { echo "$$exe: not built"; exit 1; }; \
 	done
 	cabal install -v0 --ignore-project doctest --flag cabal-doctest \

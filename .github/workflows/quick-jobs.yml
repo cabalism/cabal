@@ -77,7 +77,7 @@ jobs:
     env:
       cabal_build: >-
         cabal build --builddir=dist-newstyle-external-commands --project-file=cabal.external-commands.project
-        exe:cabal cabal-plan cabal-add
+        exe:cabal cabal-plan cabal-add hpack-dhall
     steps:
       - name: Install primary compiler
         uses: haskell-actions/setup@v2
