@@ -54,6 +54,7 @@ import Distribution.Client.ProjectOrchestration
   )
 import Distribution.Client.ProjectPlanning (configureCompiler)
 import Distribution.Client.RebuildMonad (runRebuild)
+import Distribution.Client.Setup (liftOptions)
 import Distribution.Client.Types.PackageLocation (PackageLocation (..))
 import Distribution.Client.Types.PackageSpecifier (PackageSpecifier (..))
 import Distribution.Solver.Types.SourcePackage (SourcePackage (..))
@@ -84,7 +85,7 @@ import Distribution.Simple.Command
   ( CommandParse (..)
   , CommandUI (..)
   , OptionField (..)
-  , ShowOrParseArgs
+  , ShowOrParseArgs (..)
   , commandParseArgs
   , commandShowOptions
   , option
@@ -95,6 +96,7 @@ import Distribution.Simple.Compiler
   ( Compiler (..)
   , PackageDBX (..)
   , coercePackageDB
+  , compilerInfo
   )
 import Distribution.Simple.Configure
   ( ConfigStateFileError (..)
@@ -110,6 +112,14 @@ import Distribution.Simple.Haddock
   , haddockPackagePaths
   , runHaddock
   )
+import Distribution.Simple.InstallDirs
+  ( InstallDirs (..)
+  , PathTemplateVariable (..)
+  , fromPathTemplate
+  , initialPathTemplateEnv
+  , substPathTemplate
+  , toPathTemplate
+  )
 import Distribution.Simple.LocalBuildInfo
   ( ComponentLocalBuildInfo (..)
   , LocalBuildInfo (..)
@@ -118,11 +128,11 @@ import Distribution.Simple.LocalBuildInfo
   , mbWorkDirLBI
   )
 import qualified Distribution.Simple.PackageIndex as PackageIndex
-import Distribution.Simple.Program (ConfiguredProgram)
+import Distribution.Simple.Program (ConfiguredProgram, addKnownProgram, emptyProgramDb, haddockProgram, reconfigurePrograms)
 import Distribution.Simple.Program.Find (defaultProgramSearchPath, findProgramOnSearchPath)
 import Distribution.Simple.Program.GHC (GhcOptions (..))
 import qualified Distribution.Simple.Program.HcPkg as HcPkg
-import Distribution.Simple.Setup (trueArg)
+import Distribution.Simple.Setup (programDbOptions, programDbPaths', trueArg)
 import Distribution.Simple.Utils
   ( TempFileOptions (..)
   , VerboseException
@@ -144,7 +154,7 @@ import Distribution.Types.ExposedModule (ExposedModule (..))
 import Distribution.Types.LibraryName (LibraryName (..))
 import Distribution.Types.LocalBuildInfo (componentNameCLBIs)
 import Distribution.Types.ModuleRenaming (defaultRenaming)
-import Distribution.Types.UnitId (unsafeMkDefUnitId)
+import Distribution.Types.UnitId (mkLegacyUnitId, unsafeMkDefUnitId)
 import Distribution.Utils.NubList (toNubListR)
 import Distribution.Utils.Path
   ( coerceSymbolicPath
@@ -210,20 +220,36 @@ haddockModuleCommandWith extraOptions extraDefaults =
           ++ " haddock-module pkg/src/Foo/Bar.hs\n"
           ++ "    Document the module in that source file.\n"
     , commandDefaultFlags = defaultNixStyleFlags extraDefaults
-    , commandOptions = filter (wanted . optionName) . nixStyleOptions extraOptions
+    , commandOptions = \showOrParseArgs ->
+        filter (wanted . optionName) (nixStyleOptions (const []) showOrParseArgs)
+          ++ liftOptions extraFlags (\x flags -> flags{extraFlags = x}) (extraOptions showOrParseArgs)
     }
   where
     -- Of everything 'cabal build' takes, only what finds the project and
-    -- the programs, and what the build it runs has to be given to match the
+    -- the compiler, and what the build it runs has to be given to match the
     -- project's configuration. The rest of that configuration is read from
-    -- the project files, by this command and by the build alike.
+    -- the project files, by this command and by the build alike. The
+    -- command's own options are the ones 'cabal haddock-project' has that
+    -- apply to one page.
     wanted name =
-      name `elem` ["v", "verbose", "builddir", "keep-temp-files", "project-dir", "project-file", "no-build", "output-dir"]
-        || "with-" `isPrefixOf` name
+      name
+        `elem` [ "v"
+               , "verbose"
+               , "builddir"
+               , "keep-temp-files"
+               , "project-dir"
+               , "project-file"
+               , "with-compiler"
+               , "with-hc-pkg"
+               ]
 
 data HaddockModuleFlags = HaddockModuleFlags
   { haddockModuleNoBuild :: Flag Bool
-  , haddockModuleOutputDir :: Flag FilePath
+  , haddockModuleOutput :: Flag FilePath
+  , haddockModuleHackage :: Flag Bool
+  , haddockModuleHtmlLocation :: Flag String
+  , haddockModuleProgramPaths :: [(String, FilePath)]
+  , haddockModuleProgramArgs :: [(String, [String])]
   }
   deriving (Eq, Show)
 
@@ -231,7 +257,11 @@ defaultHaddockModuleFlags :: HaddockModuleFlags
 defaultHaddockModuleFlags =
   HaddockModuleFlags
     { haddockModuleNoBuild = mempty
-    , haddockModuleOutputDir = mempty
+    , haddockModuleOutput = mempty
+    , haddockModuleHackage = mempty
+    , haddockModuleHtmlLocation = mempty
+    , haddockModuleProgramPaths = mempty
+    , haddockModuleProgramArgs = mempty
     }
 
 haddockModuleOptions :: ShowOrParseArgs -> [OptionField HaddockModuleFlags]
@@ -245,12 +275,32 @@ haddockModuleOptions _ =
       trueArg
   , option
       []
-      ["output-dir"]
+      ["output"]
       "Directory to put the page in (default: <builddir>/haddock-module/<package>)."
-      haddockModuleOutputDir
-      (\v flags -> flags{haddockModuleOutputDir = v})
+      haddockModuleOutput
+      (\v flags -> flags{haddockModuleOutput = v})
       (reqArg "DIR" (succeedReadE Flag) flagToList)
+  , option
+      []
+      ["hackage"]
+      "A short-cut option to link the page to the documentation on hackage."
+      haddockModuleHackage
+      (\v flags -> flags{haddockModuleHackage = v})
+      trueArg
+  , option
+      []
+      ["html-location"]
+      "Location of HTML documentation for pre-requisite packages"
+      haddockModuleHtmlLocation
+      (\v flags -> flags{haddockModuleHtmlLocation = v})
+      (reqArg "URL" (succeedReadE Flag) flagToList)
   ]
+    -- Always the parse form, so that the help lists the one program there
+    -- is rather than a PROG placeholder.
+    ++ programDbPaths' ("with-" ++) haddockDb ParseArgs haddockModuleProgramPaths (\v flags -> flags{haddockModuleProgramPaths = v})
+    ++ programDbOptions haddockDb ParseArgs haddockModuleProgramArgs (\v flags -> flags{haddockModuleProgramArgs = v})
+  where
+    haddockDb = addKnownProgram haddockProgram emptyProgramDb
 
 -- | A module, qualified by its package when there is any doubt, or the path
 -- of its source file, which settles the package too.
@@ -435,7 +485,7 @@ haddockModuleAction flags@NixStyleFlags{extraFlags = HaddockModuleFlags{..}} tar
         [(_, f)] -> return f
         _ -> dieWithException verbosity (HaddockModuleUnsupported ("no source file for " ++ prettyShow targetModule ++ "."))
 
-  outDir <- case haddockModuleOutputDir of
+  outDir <- case haddockModuleOutput of
     Flag d -> makeAbsolute d
     _ -> return (distDirectory layout </> "haddock-module" </> prettyShow pkg)
 
@@ -493,8 +543,24 @@ haddockModuleAction flags@NixStyleFlags{extraFlags = HaddockModuleFlags{..}} tar
     deps <- case PackageIndex.dependencyClosure (installedPkgs lbi) (map fst (componentPackageDeps clbi)) of
       Left closure -> return (PackageIndex.allPackages closure)
       Right _ -> dieWithException verbosity (HaddockModuleUnsupported "the library's dependencies are inconsistent; rebuild it.")
+    -- Dependency links can go elsewhere, to hackage or to a location of the
+    -- user's, as 'cabal haddock-project' allows; the package's own stay
+    -- local.
+    let htmlLocation
+          | fromFlagOrDefault False haddockModuleHackage = Flag "https://hackage.haskell.org/package/$pkg-$version/docs"
+          | otherwise = haddockModuleHtmlLocation
+        htmlPath = case htmlLocation of
+          Flag template -> Just $ \ipkg ->
+            let pkgid = packageId ipkg
+                env =
+                  (PrefixVar, prefix (installDirTemplates lbi))
+                    : initialPathTemplateEnv pkgid (mkLegacyUnitId pkgid) (compilerInfo compiler) platform
+             in fromPathTemplate (substPathTemplate env (toPathTemplate template))
+          _ -> Nothing
     ownDocs <- or <$> traverse doesFileExist (IPI.haddockInterfaces ipi)
-    (interfaces, missingDocs) <- haddockPackagePaths (deps ++ [ipi | ownDocs]) Nothing
+    (depInterfaces, missingDocs) <- haddockPackagePaths deps htmlPath
+    (ownInterfaces, _) <- haddockPackagePaths [ipi | ownDocs] Nothing
+    let interfaces = depInterfaces ++ ownInterfaces
     for_ missingDocs (warn verbosity)
 
     let args =
@@ -511,7 +577,12 @@ haddockModuleAction flags@NixStyleFlags{extraFlags = HaddockModuleFlags{..}} tar
             , argLinkedSource = Flag False
             , argVerbose = Any (verbosityLevel verbosity >= Verbose)
             }
-    (haddockProg, _) <- getHaddockProg verbosity progdb compiler args (Flag False)
+    -- The haddock to run, and its extra options, come from the project's
+    -- configuration unless given here.
+    haddockDb <-
+      reconfigurePrograms verbosity haddockModuleProgramPaths haddockModuleProgramArgs $
+        addKnownProgram haddockProgram progdb
+    (haddockProg, _) <- getHaddockProg verbosity haddockDb compiler args (Flag False)
     libDir <- GHC.getLibDir verbosity lbi
     runHaddock verbosity pkgDir tmpFileOpts compiler platform (haddockProg :: ConfiguredProgram) True args{argGhcLibDir = Flag libDir}
 
