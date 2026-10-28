@@ -1068,19 +1068,22 @@ The library is built first, so the page shows the source as it is; pass
 built library as a dependency, using the configuration the build saved, so the
 page is rendered with the component's extensions, CPP and include directories.
 The page goes under ``<builddir>/haddock-module/<package>/`` unless
-``--output-dir`` says otherwise, and the command prints its path. Its links
-lead to the documentation ``cabal haddock`` has generated for the package and
-its dependencies, where that exists.
+``--output`` says otherwise, and the command prints its path. Its links lead
+to the documentation ``cabal haddock`` has generated for the package and its
+dependencies, where that exists; with ``--hackage`` they lead to Hackage
+instead, and ``--html-location`` gives a template of your own, as for
+``cabal haddock-project``. Haddock can be pointed at with ``--with-haddock``
+and given extra options with ``--haddock-options``.
 
 This is an :doc:`external command <external-commands>`: ``cabal-install``
 installs the ``cabal-haddock-module`` executable next to ``cabal``, and
 ``cabal`` runs it when it is on the ``PATH``. As with any external command,
 cabal's global flags are not passed on, so ``--builddir`` and
-``--project-file`` go after the command name. Those, ``--project-dir``, the
-``--with-PROG`` options, ``--keep-temp-files`` and the verbosity are the only
-options of ``cabal build`` the command takes, and it passes them on to the
-build it runs; the rest of the build's configuration comes from the project
-files.
+``--project-file`` go after the command name. Those, ``--project-dir``,
+``--with-compiler``, ``--with-hc-pkg``, ``--keep-temp-files`` and the
+verbosity are the only options of ``cabal build`` the command takes, and it
+passes them on to the build it runs; the rest of the build's configuration
+comes from the project files.
 Because the command reads the configuration that cabal saved when it built the
 package, it has to have been installed with the cabal that built it, and it
 cannot document packages with a custom ``Setup``; it says so when either is the
