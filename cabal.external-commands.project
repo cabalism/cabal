@@ -19,18 +19,15 @@ import: project-cabal/constraints.config
 --    (PR #12126).
 --  * cabal-bounds-2.7.0 builds on cabal-lenses-0.15.0, which still passes
 --    CondTree the constraints parameter that PR #11626 removed.
---  * cabal-debian-5.5.1, and simple-cabal-0.2.1 under cabal-rpm-2.3.2, pass
---    a Verbosity where Cabal 3.19 takes VerbosityFlags (PR #11077).
---  * cabal-hoogle-3.16.0.0 hits the same Verbosity change and imports
---    Distribution.Make, decommissioned with build-type: Make (PR #11894).
+--  * cabal-hoogle-3.16.0.0 passes a Verbosity where Cabal 3.19 takes
+--    VerbosityFlags (PR #11077) and imports Distribution.Make, decommissioned
+--    with build-type: Make (PR #11894).
 extra-packages:
     cabal-plan
   , cabal-fmt
   , cabal-gild
   , cabal-add
   , cabal-bounds
-  , cabal-debian
-  , cabal-rpm
   , cabal-hoogle
   , cabal-plan-bounds
 
@@ -40,8 +37,6 @@ allow-newer:
   , cabal-fmt:*
   , cabal-gild:*
   , cabal-add:*
-  , cabal-debian:*
-  , cabal-rpm:*
   , cabal-hoogle:*
   , cabal-plan-bounds:*
 
