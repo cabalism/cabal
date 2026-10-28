@@ -179,7 +179,9 @@ simple problems.
 We check that a few well-known external commands, such as `cabal-plan` and
 `cabal-add`, build against our in-tree libraries. Find these in
 `cabal.external-commands.project`. There are `external-commands*` Makefile rules
-for building and running these.
+for building and running these. They also run `cabal doctest`, from the `doctest`
+package, which links `ghc` rather than our libraries and so is installed from the
+store rather than built by the project.
 
 ## QA Notes
 

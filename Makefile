@@ -156,6 +156,12 @@ EXTERNAL_COMMANDS_BIN := dist-newstyle-external-commands/bin
 # The project lists more tools than this; the ones missing here do not build
 # against the in-tree libraries yet, see the project file for why.
 EXTERNAL_COMMANDS := plan add
+# doctest's cabal-doctest drives `cabal repl`, linking ghc rather than our
+# libraries, and ghc pins process to the compiler's copy, older than Cabal's
+# lower bound, so it cannot share the project's plan and is installed from
+# the store instead. It takes no --help, forwarding its arguments to `cabal
+# path` and `cabal repl`, so it is run for real on a one-doctest package.
+EXTERNAL_COMMANDS_DOCTEST := cabal-testsuite/PackageTests/ExternalCommandReal/doctest
 
 # `all` is the in-tree packages; the extra-packages have to be named, and as
 # packages: cabal cannot qualify `exe:cabal-plan` for a non-local package.
@@ -171,6 +177,8 @@ external-commands-bin: external-commands ## Symlink external commands alongside 
 	  ln -sf "$$(cabal list-bin -v0 $(EXTERNAL_COMMANDS_PROJECT) $$exe)" $(EXTERNAL_COMMANDS_BIN)/$$exe; \
 	  test -x $(EXTERNAL_COMMANDS_BIN)/$$exe || { echo "$$exe: not built"; exit 1; }; \
 	done
+	cabal install -v0 --ignore-project doctest --flag cabal-doctest \
+	  --installdir=$(CURDIR)/$(EXTERNAL_COMMANDS_BIN) --install-method=symlink --overwrite-policy=always
 
 .PHONY: external-commands-test
 external-commands-test: external-commands-bin ## Run each external command.
@@ -178,7 +186,8 @@ external-commands-test: external-commands-bin ## Run each external command.
 	for cmd in $(EXTERNAL_COMMANDS); do \
 	  echo "== cabal $$cmd --help"; cabal $$cmd --help > /dev/null || exit 1; \
 	done; \
-	echo "== cabal plan info"; cabal plan info --builddir=dist-newstyle-external-commands > /dev/null
+	echo "== cabal plan info"; cabal plan info --builddir=dist-newstyle-external-commands > /dev/null; \
+	echo "== cabal doctest"; cd $(EXTERNAL_COMMANDS_DOCTEST) && cabal doctest
 
 # ghcid
 
