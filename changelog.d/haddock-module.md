@@ -5,10 +5,11 @@ issues: 8660
 ---
 
 cabal-install now installs a second executable, `cabal-haddock-module`, which
-cabal runs as the external command `cabal haddock-module [PACKAGE:]MODULE`. It
-renders the Haddock page of one module of a local package's main library in a
-couple of seconds, hidden modules included, where `cabal haddock MODULE`
-documents the whole component.
+cabal runs as the external command `cabal haddock-module [PACKAGE:]MODULE`, or
+`cabal haddock-module FILE` with the module's source file. It renders the
+Haddock page of one module of a local package's main library in a couple of
+seconds, hidden modules included, where `cabal haddock MODULE` documents the
+whole component.
 
 The command builds the library first, unless `--no-build` is given, then runs
 Haddock on the one source file with the built library as a dependency, so
