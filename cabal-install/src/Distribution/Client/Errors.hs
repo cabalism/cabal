@@ -194,6 +194,7 @@ data CabalInstallException
   | HaddockModuleNotBuilt String
   | HaddockModuleCabalVersionMismatch String String
   | HaddockModuleUnsupported String
+  | HaddockModuleFileNotInLibrary FilePath
   deriving (Show)
 
 exceptionCodeCabalInstall :: CabalInstallException -> Int
@@ -359,6 +360,7 @@ exceptionCodeCabalInstall e = case e of
   HaddockModuleNotBuilt{} -> 7174
   HaddockModuleCabalVersionMismatch{} -> 7175
   HaddockModuleUnsupported{} -> 7176
+  HaddockModuleFileNotInLibrary{} -> 7177
 
 exceptionMessageCabalInstall :: CabalInstallException -> String
 exceptionMessageCabalInstall e = case e of
@@ -901,7 +903,8 @@ exceptionMessageCabalInstall e = case e of
       , "or 'optional-packages', but neither was specified."
       ]
   HaddockModuleBadTarget targets ->
-    "Expected exactly one target of the form MODULE or PACKAGE:MODULE"
+    "Expected exactly one target: a module name as MODULE or PACKAGE:MODULE, "
+      ++ "or the path of a source file"
       ++ case targets of
         [] -> "."
         _ -> ", got: " ++ unwords targets
@@ -943,6 +946,12 @@ exceptionMessageCabalInstall e = case e of
       ++ "Use 'cabal haddock MODULE' instead."
   HaddockModuleUnsupported reason ->
     "Cannot document this module: " ++ reason
+  HaddockModuleFileNotInLibrary file ->
+    "The file '"
+      ++ file
+      ++ "' is not a module of a local package's main library: it has to lie "
+      ++ "under one of the library's hs-source-dirs and be listed in its "
+      ++ "exposed-modules or other-modules."
 
 instance Exception (VerboseException CabalInstallException) where
   displayException :: VerboseException CabalInstallException -> [Char]

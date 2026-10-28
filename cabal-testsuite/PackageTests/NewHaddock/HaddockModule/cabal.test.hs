@@ -33,6 +33,14 @@ main = cabalTest $ do
     r <- fails $ cabalHaddockModule (args ++ ["Foo"])
     assertOutputContains "more than one local package" r
 
+    -- The source file settles the package.
+    void $ cabalHaddockModule (args ++ ["B/src/Foo.hs"])
+    assertFileDoesContain (outDir </> "B" </> "Foo.html") "The Foo module of package B."
+
+    -- A file that is no module of a library.
+    r <- fails $ cabalHaddockModule (args ++ ["cabal.project"])
+    assertOutputContains "not a module of a local package" r
+
     -- A module no local package has.
     r <- fails $ cabalHaddockModule (args ++ ["Nope"])
     assertOutputContains "No library of a local package" r

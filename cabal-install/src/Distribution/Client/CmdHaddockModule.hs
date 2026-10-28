@@ -157,9 +157,9 @@ import Distribution.Verbosity (VerbosityLevel (..), normal, verbosityFlags, verb
 
 import Data.List ((\\))
 import Data.Monoid (Any (..))
-import System.Directory (doesDirectoryExist, doesFileExist, makeAbsolute)
+import System.Directory (canonicalizePath, doesDirectoryExist, doesFileExist, makeAbsolute)
 import System.Environment (lookupEnv)
-import System.FilePath (equalFilePath, takeDirectory, (<.>), (</>))
+import System.FilePath (dropExtension, equalFilePath, normalise, splitDirectories, takeDirectory, (<.>), (</>))
 import System.IO (hPutStr, stderr)
 
 -------------------------------------------------------------------------------
@@ -176,7 +176,7 @@ haddockModuleCommandWith extraOptions extraDefaults =
   CommandUI
     { commandName = "haddock-module"
     , commandSynopsis = "Build the Haddock page of one module of a local package."
-    , commandUsage = usageAlternatives "haddock-module" ["[FLAGS] [PACKAGE:]MODULE"]
+    , commandUsage = usageAlternatives "haddock-module" ["[FLAGS] [PACKAGE:]MODULE", "[FLAGS] FILE"]
     , commandDescription = Just $ \_ ->
         "Renders the Haddock page of MODULE on its own, against the library "
           ++ "that cabal has already built, which is much faster than "
@@ -184,7 +184,8 @@ haddockModuleCommandWith extraOptions extraDefaults =
           ++ "The library is built first unless --no-build is given. "
           ++ "MODULE may be any module of a local package's main library, "
           ++ "hidden ones included; name the package when more than one has "
-          ++ "the module.\n\n"
+          ++ "the module, or give the path of the module's source file "
+          ++ "instead.\n\n"
           ++ "The page goes under <builddir>/haddock-module/<package>/ by "
           ++ "default. Links to other modules go to the documentation cabal "
           ++ "has generated for them, if any, so they resolve once 'cabal "
@@ -203,6 +204,10 @@ haddockModuleCommandWith extraOptions extraDefaults =
           ++ pname
           ++ " haddock-module --no-build pkg:Foo.Bar\n"
           ++ "    Document module Foo.Bar of package pkg as last built.\n"
+          ++ "  "
+          ++ pname
+          ++ " haddock-module pkg/src/Foo/Bar.hs\n"
+          ++ "    Document the module in that source file.\n"
     , commandDefaultFlags = defaultNixStyleFlags extraDefaults
     , commandOptions = nixStyleOptions extraOptions
     }
@@ -238,18 +243,38 @@ haddockModuleOptions _ =
       (reqArg "DIR" (succeedReadE Flag) flagToList)
   ]
 
--- | A module, qualified by its package when there is any doubt.
-data HaddockModuleTarget = HaddockModuleTarget
-  { targetPackage :: Maybe PackageName
-  , targetModule :: ModuleName
-  }
+-- | A module, qualified by its package when there is any doubt, or the path
+-- of its source file, which settles the package too.
+data HaddockModuleTarget
+  = HaddockModuleTarget
+      { targetPackage :: Maybe PackageName
+      , targetModule :: ModuleName
+      }
+  | HaddockModuleFile FilePath
   deriving (Eq, Show)
 
-parseHaddockModuleTarget :: String -> Maybe HaddockModuleTarget
-parseHaddockModuleTarget s = case break (== ':') s of
+-- | Anything that is not a module name, qualified or not, is taken for a
+-- file path; whether the file exists is found out later.
+parseHaddockModuleTarget :: String -> HaddockModuleTarget
+parseHaddockModuleTarget s = fromMaybe (HaddockModuleFile s) $ case break (== ':') s of
   (m, "") -> HaddockModuleTarget Nothing <$> simpleParsec m
   (p, ':' : m) -> HaddockModuleTarget . Just <$> simpleParsec p <*> simpleParsec m
   _ -> Nothing
+
+-- | The module a source file defines, if it lies under one of the source
+-- directories of the library and the library lists it.
+moduleOfFile :: FilePath -> FilePath -> Library -> Maybe ModuleName
+moduleOfFile pkgDir file lib =
+  listToMaybe
+    [ m
+    | d <- hsSourceDirs (libBuildInfo lib)
+    , let dir = splitDirectories (normalise (pkgDir </> getSymbolicPath d))
+          path = splitDirectories (normalise file)
+    , dir `isPrefixOf` path
+    , file' : dirs <- [reverse (drop (length dir) path)]
+    , Just m <- [simpleParsec (intercalate "." (reverse (dropExtension file' : dirs)))]
+    , m `elem` explicitLibModules lib
+    ]
 
 -------------------------------------------------------------------------------
 -- Entry point of the executable
@@ -277,8 +302,8 @@ haddockModuleMain args0 =
 
 haddockModuleAction :: NixStyleFlags HaddockModuleFlags -> [String] -> IO ()
 haddockModuleAction flags@NixStyleFlags{extraFlags = HaddockModuleFlags{..}} targetStrings = do
-  HaddockModuleTarget{targetPackage, targetModule} <- case targetStrings of
-    [s] | Just t <- parseHaddockModuleTarget s -> return t
+  target <- case targetStrings of
+    [s] -> return (parseHaddockModuleTarget s)
     _ -> dieWithException verbosity (HaddockModuleBadTarget targetStrings)
 
   -- The project, as cheaply as cabal can establish it: no solving, no plan.
@@ -291,21 +316,32 @@ haddockModuleAction flags@NixStyleFlags{extraFlags = HaddockModuleFlags{..}} tar
   -- anything built, so that the message for a wrong module is the same
   -- whether or not the library has been built.
   let localLibs =
-        [ (packageName pd, lib)
-        | SpecificSourcePackage SourcePackage{srcpkgDescription, srcpkgSource = LocalUnpackedPackage _} <-
+        [ (packageName pd, dir, lib)
+        | SpecificSourcePackage SourcePackage{srcpkgDescription, srcpkgSource = LocalUnpackedPackage dir} <-
             localPackages baseCtx
         , let pd = flattenPackageDescription srcpkgDescription
         , Just lib <- [library pd]
         ]
-      owners = [p | (p, lib) <- localLibs, targetModule `elem` explicitLibModules lib]
-  pkg <- case targetPackage of
-    Just p
-      | p `elem` map fst localLibs -> return p
+  (pkg, targetModule) <- case target of
+    HaddockModuleTarget{targetPackage = Just p, targetModule}
+      | p `elem` [n | (n, _, _) <- localLibs] -> return (p, targetModule)
       | otherwise -> dieWithException verbosity (HaddockModuleNoSuchPackage (prettyShow p))
-    Nothing -> case owners of
-      [p] -> return p
-      [] -> dieWithException verbosity (HaddockModuleNotFound (prettyShow targetModule))
-      ps -> dieWithException verbosity (HaddockModuleAmbiguous (prettyShow targetModule) (map prettyShow ps))
+    HaddockModuleTarget{targetPackage = Nothing, targetModule} ->
+      case [n | (n, _, lib) <- localLibs, targetModule `elem` explicitLibModules lib] of
+        [p] -> return (p, targetModule)
+        [] -> dieWithException verbosity (HaddockModuleNotFound (prettyShow targetModule))
+        ps -> dieWithException verbosity (HaddockModuleAmbiguous (prettyShow targetModule) (map prettyShow ps))
+    HaddockModuleFile file -> do
+      exists <- doesFileExist file
+      unless exists $ dieWithException verbosity (HaddockModuleBadTarget targetStrings)
+      absFile <- canonicalizePath file
+      found <- fmap catMaybes $ for localLibs $ \(n, dir, lib) -> do
+        absDir <- canonicalizePath dir
+        return ((,) n <$> moduleOfFile absDir absFile lib)
+      case found of
+        [pm] -> return pm
+        [] -> dieWithException verbosity (HaddockModuleFileNotInLibrary file)
+        pms -> dieWithException verbosity (HaddockModuleAmbiguous file (map (prettyShow . fst) pms))
 
   -- Build the library, so the page shows the source as it is now. Every
   -- option cabal build also takes goes to it, so the configuration matches.
