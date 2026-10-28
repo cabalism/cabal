@@ -1,0 +1,11 @@
+cabal-version: 3.0
+name:          A
+synopsis:      A package with an exposed module importing a hidden one.
+version:       0.0.0
+
+library
+  build-depends:    base
+  default-language: Haskell2010
+  exposed-modules:  Foo
+  other-modules:    Bar
+  hs-source-dirs:   src
