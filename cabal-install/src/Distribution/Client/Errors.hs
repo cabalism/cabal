@@ -186,6 +186,14 @@ data CabalInstallException
   | CabalFileParseFailure CabalFileParseError
   | ProjectConfigParseFailure ProjectConfigParseError
   | ProjectConfigNoPackages FilePath
+  | HaddockModuleBadTarget [String]
+  | HaddockModuleNotFound String
+  | HaddockModuleAmbiguous String [String]
+  | HaddockModuleNoSuchPackage String
+  | HaddockModuleNoCabal
+  | HaddockModuleNotBuilt String
+  | HaddockModuleCabalVersionMismatch String String
+  | HaddockModuleUnsupported String
   deriving (Show)
 
 exceptionCodeCabalInstall :: CabalInstallException -> Int
@@ -343,6 +351,14 @@ exceptionCodeCabalInstall e = case e of
   CabalFileParseFailure{} -> 7166
   ProjectConfigParseFailure{} -> 7167
   ProjectConfigNoPackages{} -> 7168
+  HaddockModuleBadTarget{} -> 7169
+  HaddockModuleNotFound{} -> 7170
+  HaddockModuleAmbiguous{} -> 7171
+  HaddockModuleNoSuchPackage{} -> 7172
+  HaddockModuleNoCabal{} -> 7173
+  HaddockModuleNotBuilt{} -> 7174
+  HaddockModuleCabalVersionMismatch{} -> 7175
+  HaddockModuleUnsupported{} -> 7176
 
 exceptionMessageCabalInstall :: CabalInstallException -> String
 exceptionMessageCabalInstall e = case e of
@@ -884,6 +900,49 @@ exceptionMessageCabalInstall e = case e of
       , "' requires at least one of the fields 'packages' "
       , "or 'optional-packages', but neither was specified."
       ]
+  HaddockModuleBadTarget targets ->
+    "Expected exactly one target of the form MODULE or PACKAGE:MODULE"
+      ++ case targets of
+        [] -> "."
+        _ -> ", got: " ++ unwords targets
+  HaddockModuleNotFound m ->
+    "No library of a local package has a module '"
+      ++ m
+      ++ "'. Only the modules listed in a package's main library "
+      ++ "can be documented."
+  HaddockModuleAmbiguous m pkgs ->
+    "The module '"
+      ++ m
+      ++ "' is in more than one local package: "
+      ++ intercalate ", " pkgs
+      ++ ". Name the package as PACKAGE:"
+      ++ m
+      ++ "."
+  HaddockModuleNoSuchPackage p ->
+    "No local package '" ++ p ++ "' with a main library in this project."
+  HaddockModuleNoCabal ->
+    "Cannot find the cabal executable to build the library with. "
+      ++ "Run this as 'cabal haddock-module' so that cabal sets "
+      ++ "CABAL_EXTERNAL_CABAL_PATH, put cabal on the PATH, or pass "
+      ++ "--no-build to document what is already built."
+  HaddockModuleNotBuilt p ->
+    "The library of '"
+      ++ p
+      ++ "' has not been built in this build directory. "
+      ++ "Run 'cabal build lib:"
+      ++ p
+      ++ "' first, or drop --no-build."
+  HaddockModuleCabalVersionMismatch old current ->
+    "The library was configured by "
+      ++ old
+      ++ " but this command is built against "
+      ++ current
+      ++ ", so it cannot read the library's configuration. "
+      ++ "This happens with a custom-setup package, or when the cabal that "
+      ++ "built the library is not the one this command was installed with. "
+      ++ "Use 'cabal haddock MODULE' instead."
+  HaddockModuleUnsupported reason ->
+    "Cannot document this module: " ++ reason
 
 instance Exception (VerboseException CabalInstallException) where
   displayException :: VerboseException CabalInstallException -> [Char]

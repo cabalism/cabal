@@ -25,6 +25,19 @@ module Distribution.Simple.Haddock
   , hscolour_setupHooks
   , haddockPackagePaths
   , Visibility (..)
+
+    -- * Running haddock on your own terms
+
+    -- | What @Setup haddock@ builds up and runs, for callers that document
+    -- something other than a whole component, such as a single module.
+    --
+    -- @since 3.20.0.0
+  , HaddockArgs (..)
+  , Directory (..)
+  , Output (..)
+  , getHaddockProg
+  , getGhcLibDir
+  , runHaddock
   ) where
 
 import Distribution.Compat.Prelude

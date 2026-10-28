@@ -109,6 +109,7 @@ library
         Distribution.Client.CmdExec
         Distribution.Client.CmdFreeze
         Distribution.Client.CmdHaddock
+        Distribution.Client.CmdHaddockModule
         Distribution.Client.CmdHaddockProject
         Distribution.Client.CmdInstall
         Distribution.Client.CmdInstall.ClientInstallFlags
@@ -310,6 +311,24 @@ executable cabal
 
     if flag(git-rev)
       cpp-options: -DGIT_REV
+
+    build-depends:
+        cabal-install
+
+-- The external command behind `cabal haddock-module`, found on PATH as
+-- `cabal-haddock-module`. It documents one module of a local package against
+-- the library cabal has already built, without going through the planner.
+executable cabal-haddock-module
+    import: warnings, base-dep
+    main-is: HaddockModule.hs
+    hs-source-dirs: main
+    default-language: GHC2021
+    default-extensions: NoImportQualifiedPost
+
+    ghc-options: -rtsopts -threaded
+
+    if os(aix)
+        extra-libraries: bsd
 
     build-depends:
         cabal-install

@@ -112,7 +112,7 @@ import Distribution.Simple.Bench
 import Distribution.Simple.BuildPaths
 import Distribution.Simple.ConfigureScript (runConfigureScript)
 import Distribution.Simple.Errors
-import Distribution.Simple.Haddock
+import Distribution.Simple.Haddock (haddock_setupHooks, hscolour_setupHooks)
 import Distribution.Simple.Install
 import Distribution.Simple.LocalBuildInfo
 import Distribution.Simple.SetupHooks.Internal
