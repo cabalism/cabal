@@ -83,7 +83,7 @@ import Distribution.Simple.BuildPaths
 import Distribution.Simple.Command
   ( CommandParse (..)
   , CommandUI (..)
-  , OptionField
+  , OptionField (..)
   , ShowOrParseArgs
   , commandParseArgs
   , commandShowOptions
@@ -191,8 +191,10 @@ haddockModuleCommandWith extraOptions extraDefaults =
           ++ "haddock' has run for the package and its dependencies.\n\n"
           ++ "This is an external command: cabal runs the cabal-haddock-module "
           ++ "executable that cabal-install installs next to cabal. Global "
-          ++ "flags are not passed to it; give --builddir, --project-file and "
-          ++ "the like after the command name.\n"
+          ++ "flags are not passed to it; give --builddir and --project-file "
+          ++ "after the command name. They and the other options here go to "
+          ++ "the build it runs; the rest of the build's configuration comes "
+          ++ "from the project files.\n"
     , commandNotes = Just $ \pname ->
         "Examples:\n"
           ++ "  "
@@ -208,8 +210,16 @@ haddockModuleCommandWith extraOptions extraDefaults =
           ++ " haddock-module pkg/src/Foo/Bar.hs\n"
           ++ "    Document the module in that source file.\n"
     , commandDefaultFlags = defaultNixStyleFlags extraDefaults
-    , commandOptions = nixStyleOptions extraOptions
+    , commandOptions = filter (wanted . optionName) . nixStyleOptions extraOptions
     }
+  where
+    -- Of everything 'cabal build' takes, only what finds the project and
+    -- the programs, and what the build it runs has to be given to match the
+    -- project's configuration. The rest of that configuration is read from
+    -- the project files, by this command and by the build alike.
+    wanted name =
+      name `elem` ["v", "verbose", "builddir", "keep-temp-files", "project-dir", "project-file", "no-build", "output-dir"]
+        || "with-" `isPrefixOf` name
 
 data HaddockModuleFlags = HaddockModuleFlags
   { haddockModuleNoBuild :: Flag Bool
