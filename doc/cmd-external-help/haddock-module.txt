@@ -1,8 +1,9 @@
 Build the Haddock page of one module of a local package.
 
 Usage: cabal haddock-module [FLAGS] [PACKAGE:]MODULE
+   or: cabal haddock-module [FLAGS] FILE
 
-Renders the Haddock page of MODULE on its own, against the library that cabal has already built, which is much faster than documenting the whole component as 'cabal haddock MODULE' does. The library is built first unless --no-build is given. MODULE may be any module of a local package's main library, hidden ones included; name the package when more than one has the module.
+Renders the Haddock page of MODULE on its own, against the library that cabal has already built, which is much faster than documenting the whole component as 'cabal haddock MODULE' does. The library is built first unless --no-build is given. MODULE may be any module of a local package's main library, hidden ones included; name the package when more than one has the module, or give the path of the module's source file instead.
 
 The page goes under <builddir>/haddock-module/<package>/ by default. Links to other modules go to the documentation cabal has generated for them, if any, so they resolve once 'cabal haddock' has run for the package and its dependencies.
 
@@ -376,3 +377,5 @@ Examples:
     Document module Foo.Bar of the local package that has it.
   cabal haddock-module --no-build pkg:Foo.Bar
     Document module Foo.Bar of package pkg as last built.
+  cabal haddock-module pkg/src/Foo/Bar.hs
+    Document the module in that source file.
