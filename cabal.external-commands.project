@@ -1,0 +1,32 @@
+-- Third-party cabal external commands, the `cabal-<cmd>` executables that
+-- `cabal <cmd>` runs when it finds them on the PATH, built against the
+-- in-tree libraries so that they can be run and tested here with the in-tree
+-- cabal. See `make external-commands`.
+import: project-cabal/ghc-options.config
+import: project-cabal/ghc-latest.config
+import: project-cabal/pkgs/cabal.config
+import: project-cabal/pkgs/install.config
+-- The tests group only so that `build all --enable-tests --dry-run` resolves,
+-- as every project here must; nothing in it is built by default.
+import: project-cabal/pkgs/tests.config
+import: project-cabal/constraints.config
+
+-- cabal-fmt-0.1.12 and cabal-gild-1.8.4.2 import Distribution.Compat.Newtype,
+-- which Cabal-syntax 3.19 no longer has (PR #12126), so they do not build
+-- against the in-tree libraries and are left out of the Makefile's
+-- EXTERNAL_COMMANDS until a release of theirs catches up.
+extra-packages:
+    cabal-plan
+  , cabal-fmt
+  , cabal-gild
+  , cabal-add
+
+-- Their bounds stop at the last released Cabal; the in-tree one is newer.
+allow-newer:
+    cabal-plan:*
+  , cabal-fmt:*
+  , cabal-gild:*
+  , cabal-add:*
+
+optimization: False
+tests: False

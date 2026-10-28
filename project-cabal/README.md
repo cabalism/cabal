@@ -6,6 +6,7 @@ We have these projects, all in the root:
 $ tree -P '*.project' --prune -L 1
 .
 ├── cabal.bootstrap.project
+├── cabal.external-commands.project
 ├── cabal.meta.project
 ├── cabal.project
 ├── cabal.release.project
@@ -74,13 +75,14 @@ and `validate.libonly` projects import packages from `cabal` and `tests` package
 groups. The `release` project also does this but also imports the `install`
 package group.
 
-| Project          | pkgs | cabal | tests | install |
-|------------------|:---: |:---:  |:---:  |:---:    |
-| default          | ✓    |       |       |         |
-| libonly          |      | ✓     | ✓     |         |
-| release          |      | ✓     | ✓     | ✓       |
-| validate         | ✓    |       |       |         |
-| validate.libonly |      | ✓     | ✓     |         |
+| Project           | pkgs | cabal | tests | install |
+|-------------------|:---: |:---:  |:---:  |:---:    |
+| default           | ✓    |       |       |         |
+| external-commands |      | ✓     | ✓     | ✓       |
+| libonly           |      | ✓     | ✓     |         |
+| release           |      | ✓     | ✓     | ✓       |
+| validate          | ✓    |       |       |         |
+| validate.libonly  |      | ✓     | ✓     |         |
 
 The `meta` project is a one-liner:
 
@@ -89,14 +91,21 @@ $ cat cabal.meta.project
 packages: cabal-dev-scripts
 ```
 
+The `external-commands` project adds published external commands, such as
+`cabal-plan` and `cabal-fmt`, as `extra-packages` on top of the `cabal`,
+`install` and `tests` groups, so that they build against the in-tree libraries
+and run through the in-tree `cabal`; see the `external-commands*` goals of the
+`Makefile`.
+
 ## Extra Config
 
 Additional configuration is imported:
 
-| Project          | ghc-options | ghc-latest | constraints |
-|------------------|:---:        |:---:       |:---:        |
-| default          | ✓           | ✓          | ✓           |
-| libonly          | ✓           |            |             |
-| release          |             |            |             |
-| validate         | ✓           | ✓          | ✓           |
-| validate.libonly | ✓           |            | ✓           |
+| Project           | ghc-options | ghc-latest | constraints |
+|-------------------|:---:        |:---:       |:---:        |
+| default           | ✓           | ✓          | ✓           |
+| external-commands | ✓           | ✓          | ✓           |
+| libonly           | ✓           |            |             |
+| release           |             |            |             |
+| validate          | ✓           | ✓          | ✓           |
+| validate.libonly  | ✓           |            | ✓           |
