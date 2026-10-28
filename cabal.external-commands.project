@@ -14,8 +14,9 @@ import: project-cabal/constraints.config
 -- Not every tool builds against the in-tree libraries. Those that do not are
 -- kept here, to retry when a release of theirs catches up, but left out of the
 -- Makefile's EXTERNAL_COMMANDS:
---  * cabal-fmt-0.1.12 and cabal-gild-1.8.4.2 import Distribution.Compat.Newtype,
---    which Cabal-syntax 3.19 no longer has (PR #12126).
+--  * cabal-fmt-0.1.12, cabal-gild-1.8.4.2 and cabal-plan-bounds-0.1.6.1 import
+--    Distribution.Compat.Newtype, which Cabal-syntax 3.19 no longer has
+--    (PR #12126).
 --  * cabal-bounds-2.7.0 builds on cabal-lenses-0.15.0, which still passes
 --    CondTree the constraints parameter that PR #11626 removed.
 --  * cabal-debian-5.5.1, and simple-cabal-0.2.1 under cabal-rpm-2.3.2, pass
@@ -31,6 +32,7 @@ extra-packages:
   , cabal-debian
   , cabal-rpm
   , cabal-hoogle
+  , cabal-plan-bounds
 
 -- Their bounds stop at the last released Cabal; the in-tree one is newer.
 allow-newer:
@@ -41,6 +43,7 @@ allow-newer:
   , cabal-debian:*
   , cabal-rpm:*
   , cabal-hoogle:*
+  , cabal-plan-bounds:*
 
 optimization: False
 tests: False
