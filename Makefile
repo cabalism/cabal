@@ -148,6 +148,39 @@ doc/buildinfo-fields-reference.rst : \
 analyse-imports :
 	find Cabal-syntax/src Cabal/src cabal-install/src -type f -name '*.hs' | xargs cabal run --builddir=dist-newstyle-meta --project-file=cabal.meta.project analyse-imports --
 
+# external commands: third-party cabal-<cmd> executables that `cabal <cmd>`
+# runs, built with the in-tree libraries by cabal.external-commands.project.
+# The 'external-commands-test' goal is used in .github/workflows/quick-jobs.yml.
+EXTERNAL_COMMANDS_PROJECT := --project-file=cabal.external-commands.project --builddir=dist-newstyle-external-commands
+EXTERNAL_COMMANDS_BIN := dist-newstyle-external-commands/bin
+# fmt and gild are in the project too but do not build against Cabal-syntax
+# 3.19 (they import the scrapped Distribution.Compat.Newtype); add them back
+# here when they do.
+EXTERNAL_COMMANDS := plan add
+
+# `all` is the in-tree packages; the extra-packages have to be named, and as
+# packages: cabal cannot qualify `exe:cabal-plan` for a non-local package.
+.PHONY: external-commands
+external-commands: ## Build external commands and cabal.
+	cabal build $(EXTERNAL_COMMANDS_PROJECT) exe:cabal $(EXTERNAL_COMMANDS:%=cabal-%)
+
+.PHONY: external-commands-bin
+external-commands-bin: external-commands ## Symlink external commands alongside cabal.
+	rm -rf $(EXTERNAL_COMMANDS_BIN)
+	mkdir -p $(EXTERNAL_COMMANDS_BIN)
+	for exe in cabal $(EXTERNAL_COMMANDS:%=cabal-%); do \
+	  ln -sf "$$(cabal list-bin -v0 $(EXTERNAL_COMMANDS_PROJECT) $$exe)" $(EXTERNAL_COMMANDS_BIN)/$$exe; \
+	  test -x $(EXTERNAL_COMMANDS_BIN)/$$exe || { echo "$$exe: not built"; exit 1; }; \
+	done
+
+.PHONY: external-commands-test
+external-commands-test: external-commands-bin ## Run each external command.
+	PATH="$(CURDIR)/$(EXTERNAL_COMMANDS_BIN):$$PATH"; export PATH; \
+	for cmd in $(EXTERNAL_COMMANDS); do \
+	  echo "== cabal $$cmd --help"; cabal $$cmd --help > /dev/null || exit 1; \
+	done; \
+	echo "== cabal plan info"; cabal plan info --builddir=dist-newstyle-external-commands > /dev/null
+
 # ghcid
 
 .PHONY: ghcid-lib
