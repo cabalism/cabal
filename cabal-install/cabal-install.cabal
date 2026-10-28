@@ -109,7 +109,6 @@ library
         Distribution.Client.CmdExec
         Distribution.Client.CmdFreeze
         Distribution.Client.CmdHaddock
-        Distribution.Client.CmdHaddockModule
         Distribution.Client.CmdHaddockProject
         Distribution.Client.CmdInstall
         Distribution.Client.CmdInstall.ClientInstallFlags
@@ -319,8 +318,9 @@ executable cabal
 -- `cabal-haddock-module`. It documents one module of a local package against
 -- the library cabal has already built, without going through the planner.
 executable cabal-haddock-module
-    import: warnings, base-dep
+    import: warnings, base-dep, cabal-dep, cabal-syntax-dep, cabal-install-solver-dep
     main-is: HaddockModule.hs
+    other-modules: Distribution.Client.CmdHaddockModule
     hs-source-dirs: main
     default-language: GHC2021
     default-extensions: NoImportQualifiedPost
@@ -331,7 +331,9 @@ executable cabal-haddock-module
         extra-libraries: bsd
 
     build-depends:
-        cabal-install
+      , cabal-install
+      , directory  >= 1.3.7.0  && < 1.4
+      , filepath   >= 1.4.0.0  && < 1.6
 
 -- Small, fast running tests.
 --
