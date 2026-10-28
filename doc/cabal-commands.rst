@@ -1046,6 +1046,38 @@ you will have access to its quickjump index.
 The generated landing page will contain one tree of all modules per local
 package.
 
+.. _cabal-haddock-module:
+
+cabal haddock-module
+^^^^^^^^^^^^^^^^^^^^
+
+``cabal haddock-module [FLAGS] [PACKAGE:]MODULE`` renders the Haddock page of
+one module of a local package's main library, in a couple of seconds. It is
+the command to use while writing documentation: ``cabal haddock MODULE``
+documents the whole component, which takes as long as the component is large.
+
+The module may be a hidden one. The package is found from the module name and
+only has to be given when more than one local package has the module.
+
+The library is built first, so the page shows the source as it is; pass
+``--no-build`` to skip that. Haddock then runs on the one source file with the
+built library as a dependency, using the configuration the build saved, so the
+page is rendered with the component's extensions, CPP and include directories.
+The page goes under ``<builddir>/haddock-module/<package>/`` unless
+``--output-dir`` says otherwise, and the command prints its path. Its links
+lead to the documentation ``cabal haddock`` has generated for the package and
+its dependencies, where that exists.
+
+This is an :doc:`external command <external-commands>`: ``cabal-install``
+installs the ``cabal-haddock-module`` executable next to ``cabal``, and
+``cabal`` runs it when it is on the ``PATH``. As with any external command,
+cabal's global flags are not passed on, so ``--builddir``, ``--project-file``
+and the other options ``cabal build`` accepts go after the command name.
+Because the command reads the configuration that cabal saved when it built the
+package, it has to have been installed with the cabal that built it, and it
+cannot document packages with a custom ``Setup``; it says so when either is the
+case.
+
 cabal clean
 ^^^^^^^^^^^
 

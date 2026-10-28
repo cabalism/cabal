@@ -25,7 +25,11 @@ you can stay compatible with both versions, depending on which variable is set.
 Mind that if you were implementing external commands previously, you will not need to skip the first argument (the executable name) anymore.
 
 ``cabal-install`` can also display the help message of the external command.
-When ``cabal help <cmd>`` is invoked, then ``cabal-<cmd> <cmd> --help`` will be called so
+When ``cabal help <cmd>`` is invoked, then ``cabal-<cmd> --help`` will be called so
 your external command can display a help message.
+
+``cabal-install`` itself ships one external command, ``cabal haddock-module``,
+as the ``cabal-haddock-module`` executable installed next to ``cabal``; see
+:ref:`cabal haddock-module<cabal-haddock-module>`.
 
 For ideas or existing external commands, visit `this Discourse thread <https://discourse.haskell.org/t/an-external-command-system-for-cabal-what-would-you-do-with-it/7114>`_.
