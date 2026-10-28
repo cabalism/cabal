@@ -174,6 +174,13 @@ fail annoyingly once you push it. `make checks` will do these checks. The list o
 checks is expected to grow over time, to make it easier to avoid CI turnaround on
 simple problems.
 
+### Checks for external commands
+
+We check that a few well-known external commands, such as `cabal-plan` and
+`cabal-add`, build against our in-tree libraries. Find these in
+`cabal.external-commands.project`. There are `external-commands*` Makefile rules
+for building and running these.
+
 ## QA Notes
 
 Manual Quality Assurance (QA) is performed to ensure that the changes impacting
