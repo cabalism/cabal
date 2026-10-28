@@ -1051,13 +1051,17 @@ package.
 cabal haddock-module
 ^^^^^^^^^^^^^^^^^^^^
 
-``cabal haddock-module [FLAGS] [PACKAGE:]MODULE`` renders the Haddock page of
-one module of a local package's main library, in a couple of seconds. It is
-the command to use while writing documentation: ``cabal haddock MODULE``
-documents the whole component, which takes as long as the component is large.
+``cabal haddock-module [FLAGS] [PACKAGE:]MODULE`` and ``cabal haddock-module
+[FLAGS] FILE`` render the Haddock page of one module of a local package's main
+library, in a couple of seconds. It is the command to use while writing
+documentation: ``cabal haddock MODULE`` documents the whole component, which
+takes as long as the component is large.
 
 The module may be a hidden one. The package is found from the module name and
-only has to be given when more than one local package has the module.
+only has to be given when more than one local package has the module. The
+module's source file can be given instead of its name, as in ``cabal
+haddock-module src/Foo/Bar.hs``; it has to lie under one of the library's
+``hs-source-dirs`` and be listed in its modules, and it settles the package.
 
 The library is built first, so the page shows the source as it is; pass
 ``--no-build`` to skip that. Haddock then runs on the one source file with the
