@@ -25,10 +25,13 @@ main = cabalTest $ do
     installs ["t8614:exe:example1"] ["example1"] ["example2"]
     installs ["t8614"] ["example1", "example2"] []
     installs ["all:exes"] ["example1", "example2"] []
-    -- A target selecting only components of a kind that is not installed,
-    -- here the library, must not leave the install without any target. The
-    -- package's executables are installed, as before.
-    installs ["t8614:libs"] ["example1", "example2"] []
+    -- A target selecting no component of the kind being installed is
+    -- rejected. It used to install the package's executables regardless.
+    fails (cabal' "install" ("t8614:libs" : opts))
+      >>= assertOutputContains "does not select any executable"
+    fails (cabal' "install" ("--lib" : "example1" : ("--package-env=" ++ testWorkDir env </> "env") : opts))
+      >>= assertOutputContains "does not select any library"
+    -- Except for the main library, which a bare package name selects too.
     installs ["lib:t8614"] ["example1", "example2"] []
     -- Repository package, outside of a project.
     withRepo "repo" $ do
