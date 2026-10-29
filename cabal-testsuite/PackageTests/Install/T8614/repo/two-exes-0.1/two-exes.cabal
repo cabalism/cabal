@@ -1,0 +1,14 @@
+name: two-exes
+version: 0.1
+build-type: Simple
+cabal-version: >= 1.10
+
+executable first
+  main-is: First.hs
+  build-depends: base
+  default-language: Haskell2010
+
+executable second
+  main-is: Second.hs
+  build-depends: base
+  default-language: Haskell2010
