@@ -10,6 +10,13 @@ and `example2`, installed both. The component chosen by the target was dropped
 when the package was rebuilt for installation. Only the selected executables
 are installed now.
 
+A target that selects no component of the kind being installed, such as
+`pkg:libs` without `--lib` or an executable with `--lib`, is rejected. It used
+to install the package's executables, or nothing, without saying so. The one
+exception is `lib:pkg` without `--lib`, which installs the executables of `pkg`
+as before: a bare `pkg` selects the main library of a package that has one, so
+the two cannot be told apart.
+
 Outside of a project, a repository executable can be named as
 `pkg:exe:exename` as well as `pkg:exename`. A target that is neither of these,
 nor a package name, nor an `http`, `https` or `file` URI of a source tarball,
