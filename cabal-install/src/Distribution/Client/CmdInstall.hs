@@ -190,6 +190,9 @@ import Distribution.System
 import Distribution.Types.InstalledPackageInfo
   ( InstalledPackageInfo (..)
   )
+import Distribution.Types.LibraryName
+  ( LibraryName (..)
+  )
 import Distribution.Types.PackageId
   ( PackageIdentifier (..)
   )
@@ -775,35 +778,72 @@ getSpecsAndTargetSelectors verbosity reducedVerbosity sourcePkgDb targetSelector
 
       localPkgs = sdistize <$> localPackages baseCtx
 
+      -- Is this a component of the kind being installed, executables by
+      -- default or libraries with @--lib@?
+      installable :: ComponentName -> Bool
+      installable cname = maybe True (== componentKind cname) targetFilter
+
+      -- A bare package name selects the main library of a package that has
+      -- one, so @pkg@ cannot be told apart from @lib:pkg@. Without @--lib@,
+      -- such a selector is taken for the package.
+      mainLibrary :: TargetSelector -> Bool
+      mainLibrary (TargetComponent _ (CLibName LMainLibName) _) = True
+      mainLibrary _ = False
+
       -- The targets resolved in the project are rebuilt from sdists in a
       -- dummy project, so they are selected again there, by package name and
       -- component. Selecting whole packages instead would install every
       -- executable of a package when only one was asked for. See #8614.
-      --
-      -- When none of the resolved components is of the kind being installed,
-      -- as for @pkg:libs@ without @--lib@, the package is selected as a whole
-      -- with the kind filter, as it always was. Selecting nothing would leave
-      -- the dummy project without targets.
       gatherTargets :: (UnitId, [(ComponentTarget, NonEmpty TargetSelector)]) -> [TargetSelector]
       gatherTargets (targetId, componentTargets)
-        | null selected = [TargetPackageNamed pkgName targetFilter]
+        | null selected
+        , any (any mainLibrary . snd) componentTargets =
+            [TargetPackageNamed pkgName targetFilter]
         | otherwise = selected
         where
           selected =
             [ TargetComponentUnknown pkgName (Right cname) WholeComponent
             | (ComponentTarget cname _, _) <- componentTargets
-            , maybe True (== componentKind cname) targetFilter
+            , installable cname
             ]
           targetUnit = Map.findWithDefault (error "cannot find target unit") targetId planMap
           PackageIdentifier{..} = packageId targetUnit
 
       localTargets = ordNub $ concatMap gatherTargets (Map.toList targetsMap)
 
+      -- The selectors that picked the components satisfying a predicate.
+      selectorsOf :: (ComponentName -> Bool) -> [TargetSelector]
+      selectorsOf p =
+        ordNub
+          [ ts
+          | componentTargets <- Map.elems targetsMap
+          , (ComponentTarget cname _, tss) <- componentTargets
+          , p cname
+          , ts <- NE.toList tss
+          ]
+
+      -- Selectors none of whose components are of the kind being installed,
+      -- such as @pkg:libs@ without @--lib@ or @exe:foo@ with it. They are
+      -- rejected; dropping them could leave the dummy project without targets.
+      kindMismatches :: [TargetSelector]
+      kindMismatches =
+        [ ts
+        | ts <- selectorsOf (not . installable)
+        , ts `notElem` selectorsOf installable
+        , not (mainLibrary ts)
+        ]
+
       hackagePkgs :: [PackageSpecifier UnresolvedSourcePackage]
       hackagePkgs = [NamedPackage pn [] | pn <- hackageNames]
 
       hackageTargets :: [TargetSelector]
       hackageTargets = [TargetPackageNamed pn targetFilter | pn <- hackageNames]
+
+    unless (null kindMismatches) $
+      dieWithException verbosity $
+        InstallTargetKindMismatch
+          (targetFilter == Just LibKind)
+          (map showTargetSelector kindMismatches)
 
     createDirectoryIfMissing True (distSdistDirectory distDirLayout)
 

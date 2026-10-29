@@ -163,6 +163,7 @@ data CabalInstallException
   | BrokenException String
   | WithoutProject String [String]
   | InstallTargetWithoutProject String
+  | InstallTargetKindMismatch Bool [String]
   | PackagesAlreadyExistInEnvfile FilePath [String]
   | ConfigTests
   | ConfigBenchmarks
@@ -344,6 +345,7 @@ exceptionCodeCabalInstall e = case e of
   ProjectConfigParseFailure{} -> 7167
   ProjectConfigNoPackages{} -> 7168
   InstallTargetWithoutProject{} -> 7169
+  InstallTargetKindMismatch{} -> 7170
 
 exceptionMessageCabalInstall :: CabalInstallException -> String
 exceptionMessageCabalInstall e = case e of
@@ -821,6 +823,20 @@ exceptionMessageCabalInstall e = case e of
       ++ "\". Outside of a project, a target is a package name with an optional"
       ++ " version (pkg, pkg-1.2), an executable of such a package (pkg:exename,"
       ++ " pkg:exe:exename) or the http, https or file URI of a source tarball."
+  InstallTargetKindMismatch installLibs targets ->
+    "The target"
+      ++ (if single then " " else "s ")
+      ++ intercalate ", " (map quoted targets)
+      ++ (if single then " does" else " do")
+      ++ " not select any "
+      ++ (if installLibs then "library" else "executable")
+      ++ ". "
+      ++ if installLibs
+        then "'cabal install --lib' installs libraries; leave out '--lib' to install executables."
+        else "'cabal install' installs executables; use '--lib' to install libraries."
+    where
+      single = length targets == 1
+      quoted t = "'" ++ t ++ "'"
   PackagesAlreadyExistInEnvfile envFile name ->
     "Packages requested to install already exist in environment file at "
       ++ envFile
