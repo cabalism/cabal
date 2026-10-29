@@ -355,6 +355,7 @@ rebuildTargets
     | otherwise = do
         registerLock <- newLock -- serialise registration
         cacheLock <- newLock -- serialise access to setup exe cache
+        unpackLock <- newLock -- serialise unpacking of tarballs built in place
         -- TODO: [code cleanup] eliminate setup exe cache
         info verbosity $
           "Executing install plan "
@@ -411,6 +412,7 @@ rebuildTargets
                       downloadMap
                       registerLock
                       cacheLock
+                      unpackLock
                       sharedPackageConfig
                       installPlan
                       ipiTVar
@@ -602,6 +604,8 @@ rebuildTarget
   -- ^ Serialises package registration
   -> Lock
   -- ^ Serialises access to the setup executable cache
+  -> Lock
+  -- ^ Serialises unpacking of tarballs built in place
   -> ElaboratedSharedConfig
   -> ElaboratedInstallPlan
   -> TVar InstalledPackageIndex
@@ -617,6 +621,7 @@ rebuildTarget
   downloadMap
   registerLock
   cacheLock
+  unpackLock
   sharedPackageConfig
   plan
   ipiTVar
@@ -669,6 +674,7 @@ rebuildTarget
         withTarballLocalDirectory
           verbosity
           distDirLayout
+          unpackLock
           tarball
           (packageId pkg)
           (elabDistDirParams sharedPackageConfig pkg)
@@ -805,9 +811,15 @@ downloadedSourceLocation pkgloc =
 
 -- | Ensure that the package is unpacked in an appropriate directory, either
 -- a temporary one or a persistent one under the shared dist directory.
+--
+-- The persistent directory is shared by every component of the package when
+-- it is built per component, and those components are built in parallel, so
+-- the check for it and the unpacking into it are serialised with the lock.
 withTarballLocalDirectory
   :: Verbosity
   -> DistDirLayout
+  -> Lock
+  -- ^ Serialises unpacking of tarballs built in place
   -> FilePath
   -> PackageId
   -> DistDirParams
@@ -821,6 +833,7 @@ withTarballLocalDirectory
 withTarballLocalDirectory
   verbosity
   distDirLayout@DistDirLayout{..}
+  unpackLock
   tarball
   pkgid
   dparams
@@ -860,23 +873,24 @@ withTarballLocalDirectory
                 makeRelative (normalise srcdir) $
                   distBuildDirectory dparams
         -- TODO: [nice to have] ^^ do this relative stuff better
-        exists <- doesDirectoryExist srcdir
-        -- TODO: [nice to have] use a proper file monitor rather
-        -- than this dir exists test
-        unless exists $ do
-          createDirectoryIfMissingVerbose verbosity True srcrootdir
-          unpackPackageTarball
-            verbosity
-            tarball
-            srcrootdir
-            pkgid
-            pkgTextOverride
-          moveTarballShippedDistDirectory
-            verbosity
-            distDirLayout
-            srcrootdir
-            pkgid
-            dparams
+        criticalSection unpackLock $ do
+          exists <- doesDirectoryExist srcdir
+          -- TODO: [nice to have] use a proper file monitor rather
+          -- than this dir exists test
+          unless exists $ do
+            createDirectoryIfMissingVerbose verbosity True srcrootdir
+            unpackPackageTarball
+              verbosity
+              tarball
+              srcrootdir
+              pkgid
+              pkgTextOverride
+            moveTarballShippedDistDirectory
+              verbosity
+              distDirLayout
+              srcrootdir
+              pkgid
+              dparams
         buildPkg (makeSymbolicPath srcdir) builddir
 
 unpackPackageTarball
