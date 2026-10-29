@@ -779,13 +779,21 @@ getSpecsAndTargetSelectors verbosity reducedVerbosity sourcePkgDb targetSelector
       -- dummy project, so they are selected again there, by package name and
       -- component. Selecting whole packages instead would install every
       -- executable of a package when only one was asked for. See #8614.
+      --
+      -- When none of the resolved components is of the kind being installed,
+      -- as for @pkg:libs@ without @--lib@, the package is selected as a whole
+      -- with the kind filter, as it always was. Selecting nothing would leave
+      -- the dummy project without targets.
       gatherTargets :: (UnitId, [(ComponentTarget, NonEmpty TargetSelector)]) -> [TargetSelector]
-      gatherTargets (targetId, componentTargets) =
-        [ TargetComponentUnknown pkgName (Right cname) WholeComponent
-        | (ComponentTarget cname _, _) <- componentTargets
-        , maybe True (== componentKind cname) targetFilter
-        ]
+      gatherTargets (targetId, componentTargets)
+        | null selected = [TargetPackageNamed pkgName targetFilter]
+        | otherwise = selected
         where
+          selected =
+            [ TargetComponentUnknown pkgName (Right cname) WholeComponent
+            | (ComponentTarget cname _, _) <- componentTargets
+            , maybe True (== componentKind cname) targetFilter
+            ]
           targetUnit = Map.findWithDefault (error "cannot find target unit") targetId planMap
           PackageIdentifier{..} = packageId targetUnit
 
