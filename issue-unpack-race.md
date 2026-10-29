@@ -8,9 +8,11 @@ It takes four things at once. The package is non-local, from a repository or a t
 
 How often it fails depends on the tarball. The double extraction itself happens most of the time, but it only errors when two extractions are writing the same file at the same instant, so a tarball of small files usually gets away with it and one with larger files does not.
 
+The same test, whether the directory exists, is also all that decides whether an unpacked directory is reused by later builds, whatever it holds. An unpack that was interrupted, by the race above or by the user, leaves a directory that is never unpacked again, and every later build fails with missing files until it is removed by hand. A revision of the package's cabal file published after the first build never reaches the directory either: the plan is solved with the revision, the configure step runs against the file from the first unpack, and the two can disagree about dependencies. The comment above the check already says `use a proper file monitor rather than this dir exists test`.
+
 ## To Reproduce
 
-`cabal-testsuite/PackageTests/UnpackRace` on the `test/unpack-race-condition` branch is a minimal reproducer: a local library, and a repository package `many-exes` with sixteen executables that depend on it and no library, so that the executables are independent units that all start at once. It is named in `extra-packages` and built with `-j`. The package has `cabal-version: 2.0`, so it builds per component, and the test pads it with eight 1 MB files so that each file's write is long enough for the extractions to overlap. With `cabal-version: >= 1.2` instead, the package is one unit and nothing races, and with 1000 empty padding files the double extraction happens but never collides. As it is, it failed eight runs out of eight on a 24-core machine, seven on the file lock and one on the missing cabal file. The test asserts that the build succeeds, so it fails until the race is fixed. Run it with:
+`cabal-testsuite/PackageTests/UnpackRace` on the `test/unpack-race-condition` branch is a minimal reproducer: a local library, and a repository package `many-exes` with sixteen executables that depend on it and no library, so that the executables are independent units that all start at once. It is named in `extra-packages` and built with `-j`. The package has `cabal-version: 2.0`, so it builds per component, and the test pads it with eight 1 MB files so that each file's write is long enough for the extractions to overlap. With `cabal-version: >= 1.2` instead, the package is one unit and nothing races, and with 1000 empty padding files the double extraction happens but never collides. As it is, it failed eight runs out of eight on a 24-core machine, seven on the file lock and one on the missing cabal file. The test asserts that the build succeeds, so it fails until the race is fixed. `cabal-testsuite/PackageTests/UnpackMonitor` on the same branch covers the reuse of the directory: it builds a repository package in place, then builds again after deleting a source file and the record of the unpack, after removing the directory, and after revising the cabal file to drop a dependency, as a `<pkg-id>.cabal` file beside the tarball in the file+noindex repository. Run either with:
 
 ```
 cabal run cabal-testsuite:cabal-tests -- --with-cabal="$(cabal list-bin cabal-install:exe:cabal)" cabal-testsuite/PackageTests/UnpackRace/cabal.test.hs
@@ -52,7 +54,7 @@ Failed to build many-exes-0.1-inplace-exe2. The failure occurred during the conf
 
 ## Expected behavior
 
-The tarball is unpacked once per package, however many components the package has and however many jobs are running, and the build succeeds first time.
+The tarball is unpacked once per package, however many components the package has and however many jobs are running, and the build succeeds first time. An unpacked directory is reused only while it is complete and matches the tarball and the revision of the cabal file, and is unpacked again otherwise.
 
 ## System information
 
@@ -66,4 +68,4 @@ The unpack happens in `withTarballLocalDirectory` in `cabal-install/src/Distribu
 
 The `BuildAndInstall` branch does not have the problem, since it unpacks into a fresh temporary directory per unit, which is why the same package builds fine into the store.
 
-The unpack should happen once per package before any of its components build, or the components should take a per-package lock around the check and the extraction. Until then, a rerun or `-j1` works around it.
+The unpack should happen once per package before any of its components build, or the components should take a per-package lock around the check and the extraction. Until then, a rerun or `-j1` works around it. The reuse of the directory should be decided by a file monitor, as the comment says, recording the tarball, the revision text and the directory, and written only once an unpack has completed.
