@@ -1,0 +1,9 @@
+name:           remote
+version:        0.1
+license:        BSD3
+cabal-version:  2.0
+build-type:     Simple
+
+library
+  exposed-modules: Remote
+  build-depends: base, local, dep
