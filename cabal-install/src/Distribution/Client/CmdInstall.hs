@@ -775,13 +775,21 @@ getSpecsAndTargetSelectors verbosity reducedVerbosity sourcePkgDb targetSelector
 
       localPkgs = sdistize <$> localPackages baseCtx
 
-      gatherTargets :: UnitId -> TargetSelector
-      gatherTargets targetId = TargetPackageNamed pkgName targetFilter
+      -- The targets resolved in the project are rebuilt from sdists in a
+      -- dummy project, so they are selected again there, by package name and
+      -- component. Selecting whole packages instead would install every
+      -- executable of a package when only one was asked for. See #8614.
+      gatherTargets :: (UnitId, [(ComponentTarget, NonEmpty TargetSelector)]) -> [TargetSelector]
+      gatherTargets (targetId, componentTargets) =
+        [ TargetComponentUnknown pkgName (Right cname) WholeComponent
+        | (ComponentTarget cname _, _) <- componentTargets
+        , maybe True (== componentKind cname) targetFilter
+        ]
         where
           targetUnit = Map.findWithDefault (error "cannot find target unit") targetId planMap
           PackageIdentifier{..} = packageId targetUnit
 
-      localTargets = map gatherTargets (Map.keys targetsMap)
+      localTargets = ordNub $ concatMap gatherTargets (Map.toList targetsMap)
 
       hackagePkgs :: [PackageSpecifier UnresolvedSourcePackage]
       hackagePkgs = [NamedPackage pn [] | pn <- hackageNames]

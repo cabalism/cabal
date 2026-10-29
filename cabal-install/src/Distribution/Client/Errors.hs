@@ -163,6 +163,7 @@ data CabalInstallException
   | PkgConfParsedFailed String
   | BrokenException String
   | WithoutProject String [String]
+  | InstallTargetWithoutProject String
   | PackagesAlreadyExistInEnvfile FilePath [String]
   | ConfigTests
   | ConfigBenchmarks
@@ -343,6 +344,7 @@ exceptionCodeCabalInstall e = case e of
   CabalFileParseFailure{} -> 7166
   ProjectConfigParseFailure{} -> 7167
   ProjectConfigNoPackages{} -> 7168
+  InstallTargetWithoutProject{} -> 7169
 
 exceptionMessageCabalInstall :: CabalInstallException -> String
 exceptionMessageCabalInstall e = case e of
@@ -815,6 +817,12 @@ exceptionMessageCabalInstall e = case e of
       , "\". "
       ]
         ++ str2
+  InstallTargetWithoutProject input ->
+    "Unknown target \""
+      ++ input
+      ++ "\". Outside of a project, a target is a package name with an optional"
+      ++ " version (pkg, pkg-1.2), an executable of such a package (pkg:exename,"
+      ++ " pkg:exe:exename) or the http, https or file URI of a source tarball."
   PackagesAlreadyExistInEnvfile envFile name ->
     "Packages requested to install already exist in environment file at "
       ++ envFile
