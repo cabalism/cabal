@@ -117,6 +117,9 @@ data DistDirLayout = DistDirLayout
   -- packages, in those cases where it makes sense to keep the build
   -- artifacts to reduce rebuild times.
   , distUnpackedSrcRootDirectory :: FilePath
+  , distUnpackedSrcCacheFile :: PackageId -> FilePath
+  -- ^ The cache file of the file monitor that says whether the unpacked
+  -- sources of a package are up to date with its tarball.
   , distProjectCacheFile :: String -> FilePath
   -- ^ The location for project-wide cache files (e.g. state used in
   -- incremental rebuilds).
@@ -249,6 +252,12 @@ defaultDistDirLayout projectRoot mdistDirectory haddockOutputDir =
     distUnpackedSrcDirectory pkgid =
       distUnpackedSrcRootDirectory
         </> prettyShow pkgid
+
+    distUnpackedSrcCacheFile :: PackageId -> FilePath
+    distUnpackedSrcCacheFile pkgid =
+      distUnpackedSrcRootDirectory
+        </> prettyShow pkgid
+        <.> "unpack"
     -- we shouldn't get name clashes so this should be fine:
     distDownloadSrcDirectory :: FilePath
     distDownloadSrcDirectory = distUnpackedSrcRootDirectory

@@ -20,6 +20,7 @@ import Distribution.Client.Types hiding
   )
 
 import Distribution.InstalledPackageInfo (InstalledPackageInfo)
+import Distribution.Package (PackageId)
 import Distribution.Simple.LocalBuildInfo
   ( ComponentName (..)
   )
@@ -288,3 +289,59 @@ updatePackageRegFileMonitor
 invalidatePackageRegFileMonitor :: PackageFileMonitor -> IO ()
 invalidatePackageRegFileMonitor PackageFileMonitor{pkgFileMonitorReg} =
   removeFileForcibly (fileMonitorCacheFile pkgFileMonitorReg)
+
+-----------------------------------
+-- Unpacked source change detection
+--
+
+-- | The unpacked sources of a tarball package that is built in place are kept
+-- under the shared dist directory, where they are shared by all the components
+-- of the package and reused by later builds. This monitor says whether they
+-- are up to date with the tarball, that is whether the tarball has to be
+-- unpacked (again). It records the tarball, the text of the cabal file that
+-- overrides the one in the tarball, and that the unpacked directory exists.
+-- It is only updated once an unpack has completed, so an unpack that was
+-- interrupted is redone too.
+unpackedSrcFileMonitor
+  :: DistDirLayout
+  -> PackageId
+  -> FileMonitor (Maybe CabalFileText) ()
+unpackedSrcFileMonitor DistDirLayout{distUnpackedSrcCacheFile} pkgid =
+  newFileMonitor (distUnpackedSrcCacheFile pkgid)
+
+-- | Check whether the unpacked sources of a package are up to date with its
+-- tarball, see 'unpackedSrcFileMonitor'.
+checkUnpackedSrcFileMonitorChanged
+  :: DistDirLayout
+  -> PackageId
+  -> Maybe CabalFileText
+  -> IO (MonitorChanged (Maybe CabalFileText) ())
+checkUnpackedSrcFileMonitorChanged distDirLayout pkgid pkgTextOverride =
+  checkFileMonitorChanged
+    (unpackedSrcFileMonitor distDirLayout pkgid)
+    "."
+    pkgTextOverride
+
+-- | Record that the tarball of a package has been unpacked, see
+-- 'unpackedSrcFileMonitor'.
+updateUnpackedSrcFileMonitor
+  :: DistDirLayout
+  -> PackageId
+  -> FilePath
+  -- ^ The tarball
+  -> Maybe CabalFileText
+  -> IO ()
+updateUnpackedSrcFileMonitor
+  distDirLayout@DistDirLayout{distUnpackedSrcDirectory}
+  pkgid
+  tarball
+  pkgTextOverride =
+    updateFileMonitor
+      (unpackedSrcFileMonitor distDirLayout pkgid)
+      "."
+      Nothing
+      [ monitorFileHashed tarball
+      , monitorDirectoryExistence (distUnpackedSrcDirectory pkgid)
+      ]
+      pkgTextOverride
+      ()
