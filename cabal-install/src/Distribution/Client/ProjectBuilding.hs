@@ -49,6 +49,7 @@ import Distribution.Client.Store
 
 import Distribution.Client.DistDirLayout
 import Distribution.Client.FetchUtils
+import Distribution.Client.FileMonitor (MonitorChanged (..))
 import Distribution.Client.GlobalFlags (RepoContext)
 import Distribution.Client.InstallPlan
   ( GenericInstallPlan
@@ -88,7 +89,7 @@ import Control.Exception (assert, handle, try)
 import Data.Either (isLeft)
 import qualified Distribution.Client.IndexUtils as IndexUtils
 import Distribution.Simple.PackageIndex (InstalledPackageIndex)
-import System.Directory (doesDirectoryExist, doesFileExist, renameDirectory)
+import System.Directory (doesDirectoryExist, doesFileExist, removePathForcibly, renameDirectory)
 import System.FilePath (makeRelative, normalise, takeDirectory, takeFileName, (<.>), (</>))
 import System.Semaphore (SemaphoreIdentifier)
 
@@ -212,12 +213,14 @@ rebuildTargetsDryRun distDirLayout@DistDirLayout{..} shared =
       case elabBuildStyle pkg of
         BuildAndInstall -> return (BuildStatusUnpack tarball)
         BuildInplaceOnly{} -> do
-          -- TODO: [nice to have] use a proper file monitor rather
-          -- than this dir exists test
-          exists <- doesDirectoryExist srcdir
-          if exists
-            then dryRunLocalPkg pkg depsBuildStatus srcdir
-            else return (BuildStatusUnpack tarball)
+          unpacked <-
+            checkUnpackedSrcFileMonitorChanged
+              distDirLayout
+              (packageId pkg)
+              (elabPkgDescriptionOverride pkg)
+          case unpacked of
+            MonitorUnchanged () _ -> dryRunLocalPkg pkg depsBuildStatus srcdir
+            MonitorChanged _ -> return (BuildStatusUnpack tarball)
       where
         srcdir :: FilePath
         srcdir = distUnpackedSrcDirectory (packageId pkg)
@@ -814,7 +817,8 @@ downloadedSourceLocation pkgloc =
 --
 -- The persistent directory is shared by every component of the package when
 -- it is built per component, and those components are built in parallel, so
--- the check for it and the unpacking into it are serialised with the lock.
+-- the check of its file monitor and the unpacking into it are serialised with
+-- the lock.
 withTarballLocalDirectory
   :: Verbosity
   -> DistDirLayout
@@ -874,23 +878,27 @@ withTarballLocalDirectory
                   distBuildDirectory dparams
         -- TODO: [nice to have] ^^ do this relative stuff better
         criticalSection unpackLock $ do
-          exists <- doesDirectoryExist srcdir
-          -- TODO: [nice to have] use a proper file monitor rather
-          -- than this dir exists test
-          unless exists $ do
-            createDirectoryIfMissingVerbose verbosity True srcrootdir
-            unpackPackageTarball
-              verbosity
-              tarball
-              srcrootdir
-              pkgid
-              pkgTextOverride
-            moveTarballShippedDistDirectory
-              verbosity
-              distDirLayout
-              srcrootdir
-              pkgid
-              dparams
+          unpacked <- checkUnpackedSrcFileMonitorChanged distDirLayout pkgid pkgTextOverride
+          case unpacked of
+            MonitorUnchanged () _ -> return ()
+            MonitorChanged _ -> do
+              -- Whatever is there is from an unpack that did not complete
+              -- or of another tarball or cabal file text.
+              removePathForcibly srcdir
+              createDirectoryIfMissingVerbose verbosity True srcrootdir
+              unpackPackageTarball
+                verbosity
+                tarball
+                srcrootdir
+                pkgid
+                pkgTextOverride
+              moveTarballShippedDistDirectory
+                verbosity
+                distDirLayout
+                srcrootdir
+                pkgid
+                dparams
+              updateUnpackedSrcFileMonitor distDirLayout pkgid tarball pkgTextOverride
         buildPkg (makeSymbolicPath srcdir) builddir
 
 unpackPackageTarball
