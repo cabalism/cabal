@@ -125,7 +125,6 @@ data CabalInstallException
   | OutdatedAction
   | FreezeFileExistsErr FilePath
   | FinalizePDFailed
-  | ProjectTargetSelector String String
   | PhaseRunSolverErr String
   | HaddockCommandDoesn'tSupport
   | CannotParseURIFragment String String
@@ -283,7 +282,7 @@ exceptionCodeCabalInstall e = case e of
   OutdatedAction{} -> 7103
   FreezeFileExistsErr{} -> 7104
   FinalizePDFailed{} -> 7105
-  ProjectTargetSelector{} -> 7106
+  -- 7106 no longer used, was "Invalid package ID"
   PhaseRunSolverErr{} -> 7107
   HaddockCommandDoesn'tSupport{} -> 7108
   CannotParseURIFragment{} -> 7109
@@ -584,7 +583,6 @@ exceptionMessageCabalInstall e = case e of
       ++ "If it is undesired behaviour, you should not use these flags, otherwise please generate "
       ++ "a freeze file via 'cabal freeze'."
   FinalizePDFailed -> "finalizePD failed"
-  ProjectTargetSelector input err -> "Invalid package ID: " ++ input ++ "\n" ++ err
   PhaseRunSolverErr msg -> msg
   HaddockCommandDoesn'tSupport -> "The haddock command does not support '--only-dependencies'."
   CannotParseURIFragment uriFrag err -> "Cannot parse URI fragment " ++ uriFrag ++ " " ++ err
