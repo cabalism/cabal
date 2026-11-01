@@ -107,7 +107,7 @@ Finally the command prints the configuration needed to use the directory:
 
 ```
 $ cabal vendor
-Vendored 12 packages into /home/me/proj/vendor
+Vendored 12 packages into vendor
 
 To build using the vendored packages, add the following to the project file
 (the 'url' line must stay indented under 'repository'):
