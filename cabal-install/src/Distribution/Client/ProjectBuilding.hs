@@ -40,6 +40,7 @@ module Distribution.Client.ProjectBuilding
 import Distribution.Client.Compat.Prelude
 import Prelude ()
 
+import Distribution.Client.ProjectBuilding.RunningIndex
 import Distribution.Client.ProjectBuilding.Types
 import Distribution.Client.ProjectConfig
 import Distribution.Client.ProjectConfig.Types
@@ -83,11 +84,9 @@ import qualified Data.Set as Set
 
 import qualified Text.PrettyPrint as Disp
 
-import Control.Concurrent.STM (TVar, newTVarIO)
 import Control.Exception (assert, handle, try)
 import Data.Either (isLeft)
 import qualified Distribution.Client.IndexUtils as IndexUtils
-import Distribution.Simple.PackageIndex (InstalledPackageIndex)
 import System.Directory (doesDirectoryExist, doesFileExist, renameDirectory)
 import System.FilePath (makeRelative, normalise, takeDirectory, takeFileName, (<.>), (</>))
 import System.Semaphore (SemaphoreIdentifier)
@@ -367,18 +366,18 @@ rebuildTargets
         createDirectoryIfMissingVerbose verbosity True distTempDirectory
         traverse_ (createPackageDBIfMissing verbosity compiler progdb) packageDBsToUse
 
-        -- Populate the running InstalledPackageIndex by doing a single
-        -- bulk read at startup. This allows us to obtain the
-        -- InstalledPackageInfo of every 'PreExisting' and 'Installed' unit
-        -- in the plan, regardless of how they ended up in the PackageDBs.
-        -- See (ProjIPI1) in Note [Per-project InstalledPackageIndex].
-        initialIPI <-
-          -- NB: 'getInstalledPackages' returns an error when there are no
-          -- PackageDBs, so we handle that case explicitly first.
-          if null packageDBsToUse
-            then return mempty
-            else IndexUtils.getInstalledPackages verbosity compiler packageDBsToUse progdb
-        ipiTVar <- newTVarIO initialIPI
+        -- The running InstalledPackageIndex. It is populated by a single bulk
+        -- read of the package DBs the first time a package is configured, which
+        -- gives us the InstalledPackageInfo of every 'PreExisting' and
+        -- 'Installed' unit in the plan, regardless of how they ended up in the
+        -- PackageDBs. See (ProjIPI1) in Note [Per-project InstalledPackageIndex].
+        runningIPI <-
+          newRunningIndex $
+            -- NB: 'getInstalledPackages' returns an error when there are no
+            -- PackageDBs, so we handle that case explicitly first.
+            if null packageDBsToUse
+              then return mempty
+              else IndexUtils.getInstalledPackages verbosity compiler packageDBsToUse progdb
 
         -- Concurrency control: create the job controller and concurrency limits
         -- for downloading, building and installing.
@@ -413,7 +412,7 @@ rebuildTargets
                       cacheLock
                       sharedPackageConfig
                       installPlan
-                      ipiTVar
+                      runningIPI
                       pkg
                       pkgBuildStatus
 
@@ -483,12 +482,17 @@ We do this to avoid repeatedly querying @ghc-pkg@ on a per-package basis when
 configuring individual packages.
 
   (ProjIPI1)
-    We initialise the index with a single @ghc-pkg dump@ invocation, which
-    queries all the package DBs that the plan touches. This single read
-    replaces the per-package query that 'computePackageInfo' would otherwise
-    perform.
+    We populate the index with a single @ghc-pkg dump@ invocation per package
+    DB that the plan touches. This single read replaces the per-package query
+    that 'computePackageInfo' would otherwise perform.
 
     This robustly handles the case of resuming an interrupted build.
+
+    The read is deferred until the index is first consulted, that is until the
+    first package is configured (ProjIPI3), see 'RunningIndex'. A run that
+    configures nothing, such as an up-to-date @build@ or a @repl@ of configured
+    packages, thus never pays for it: with a large store, the dump and the
+    parsing of its output take seconds.
 
   (ProjIPI2)
     During execution, each time we register a library, we insert its
@@ -604,7 +608,7 @@ rebuildTarget
   -- ^ Serialises access to the setup executable cache
   -> ElaboratedSharedConfig
   -> ElaboratedInstallPlan
-  -> TVar InstalledPackageIndex
+  -> RunningIndex
   -> ElaboratedReadyPackage
   -> BuildStatus
   -> IO BuildResult
@@ -619,7 +623,7 @@ rebuildTarget
   cacheLock
   sharedPackageConfig
   plan
-  ipiTVar
+  runningIPI
   rpkg@(ReadyPackage pkg)
   pkgBuildStatus
     -- Technically, doing the --only-download filtering only in this function is
@@ -712,7 +716,7 @@ rebuildTarget
           sharedPackageConfig
           plan
           rpkg
-          ipiTVar
+          runningIPI
           srcdir
           builddir
 
@@ -729,7 +733,7 @@ rebuildTarget
           sharedPackageConfig
           plan
           rpkg
-          ipiTVar
+          runningIPI
           buildStatus
           srcdir
           builddir
