@@ -795,6 +795,10 @@ Miscellaneous options
     Bytecode libraries currently require GHC 9.15 or later. When used
     with older compilers the flag is ignored and a warning is emitted.
 
+    With this flag, :ref:`setup-repl` also writes bytecode (``.gbc``) and
+    interface files for the loaded component into the build directory and
+    reuses them on later runs, including those produced by ``setup build``.
+
 .. option:: --disable-library-bytecode
 
    Do not build bytecode libraries.
