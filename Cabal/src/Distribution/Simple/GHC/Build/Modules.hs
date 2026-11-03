@@ -135,7 +135,11 @@ buildHaskellModules numJobs ghcProg mbMainFile inputModules buildTargetDir neede
     i = interpretSymbolicPathLBI lbi -- See Note [Symbolic paths] in Distribution.Utils.Path
     neededLibWaysSet = Set.fromList neededLibWays
 
-    withBytecode = withBytecodeLib lbi
+    -- Bytecode objects are only produced for libraries: they are linked into
+    -- the library's .bytecodelib, and nothing consumes them for an
+    -- executable-like component. (The repl writes its own bytecode files for
+    -- any component; see 'linkOrLoadComponent'.)
+    withBytecode = withBytecodeLib lbi && isLib
 
     -- If this component will be loaded into a repl, we don't compile the modules at all.
     forRepl
@@ -243,8 +247,14 @@ buildHaskellModules numJobs ghcProg mbMainFile inputModules buildTargetDir neede
         , ghcOptDynObjSuffix = toFlag (buildWayObjectExtension "o" DynWay)
         , ghcOptHPCDir = hpcdir Hpc.Dyn
         , ghcOptObjectMode = bytecodeToo withBytecode
-        -- Should we pass hcSharedOpts in the -dynamic-too ghc invocation?
-        -- (Note that `baseOtps StaticWay = hcStaticOptions`, not hcSharedOpts)
+        , -- With bytecode, compile with -fPIC so that the interface files'
+          -- recompilation fingerprint (which records whether __PIC__ is
+          -- defined) matches that of a GHCi session: a dynamically linked
+          -- GHCi always turns PIC on, and without this it would recompile
+          -- every module instead of loading the .gbc files written here.
+          ghcOptFPic = if withBytecode then toFlag True else NoFlag
+          -- Should we pass hcSharedOpts in the -dynamic-too ghc invocation?
+          -- (Note that `baseOtps StaticWay = hcStaticOptions`, not hcSharedOpts)
         }
 
     profDynTooOpts =
