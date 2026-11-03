@@ -1442,6 +1442,13 @@ Dynamic linking options
     Profiled bytecode libraries are not currently supported. Bytecode files are always
     produced alongside a vanilla object format.
 
+    ``cabal repl`` honours this option too: GHCi writes bytecode (``.gbc``)
+    and interface files for the loaded component into its build directory
+    and reuses them on later runs, including those produced by ``cabal
+    build``, instead of recompiling the component's modules from source.
+    To also load the bytecode libraries of *dependencies* rather than their
+    native libraries, pass ``--repl-options=-fprefer-byte-code``.
+
     The command line variant of this flag is
     ``--enable-library-bytecode`` and ``--disable-library-bytecode``.
 
