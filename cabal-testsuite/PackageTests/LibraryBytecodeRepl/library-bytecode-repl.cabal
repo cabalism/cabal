@@ -1,0 +1,14 @@
+Cabal-Version: 3.8
+Name: library-bytecode-repl
+Version: 0.1
+Build-Type: Simple
+
+library
+    exposed-modules: Lib
+    hs-source-dirs: src
+    Build-Depends: base
+
+executable exe
+    main-is: Main.hs
+    hs-source-dirs: app
+    Build-Depends: base, library-bytecode-repl
