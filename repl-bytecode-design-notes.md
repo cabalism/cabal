@@ -14,14 +14,34 @@ Three GHC facts, verified in GHC's source and by experiment with GHC 10.0.0.2026
 
 ## The chosen design
 
-All in the `Cabal` library; `cabal-install` needs no change because `withBytecodeLib` already reaches the repl's configure step and is part of the package hash.
+All in the `Cabal` library; `cabal-install` needs no change because `withBytecodeLib` already reaches the repl's configure step and is part of the package hash. The change has two parts of different standing, and they are best reviewed as such.
 
-- `GHC/Build/Link.hs`, repl branch: when `withBytecodeLib` is set, base the GHCi options on `compilerBuildWay` (read from `ghc --info`'s "GHC Dynamic" and "GHC Profiled", which are exactly the ways GHCi forces) instead of always the static way; pass `-fbyte-code -fwrite-interface -fwrite-byte-code` (`GhcByteCode`); pass no `-fPIC`. Without the flag the invocation is byte-for-byte what it was.
-- `GHC/Build/Modules.hs`: bytecode objects are produced for library components only, and the `-dynamic-too` pass passes `-fPIC` when bytecode is on, so the interface fingerprint matches GHCi's.
+### Part 1, the fix proper: choose the repl's base way from the compiler
+
+`GHC/Build/Link.hs`, repl branch: when `withBytecodeLib` is set, base the GHCi options on `compilerBuildWay` (read from `ghc --info`'s "GHC Dynamic" and "GHC Profiled", which are exactly the ways GHCi forces) instead of always the static way; pass `-fbyte-code -fwrite-interface -fwrite-byte-code` (`GhcByteCode`); pass no `-fPIC`. Without the flag the invocation is byte-for-byte what it was.
+
+This is not a workaround. GHCi compiles with the compiler's own ways whatever Cabal passes, so any reuse of files written by a repl has to name files with that way's tag. The static base has only ever appeared to work because GHCi discarded the interfaces and started from source. Keying the new base on `--enable-library-bytecode` is deliberate conservatism so that nobody's repl changes unless they asked for bytecode; the price is two repl behaviours in the code. Making it unconditional is alternative A below and is proposed as a follow-up.
+
+Alongside it, `GHC/Build/Modules.hs` makes build-time bytecode objects library-only, which fixes a spurious "standalone bytecode" error for profiled-only executables (alternative I).
+
+### Part 2, the bridge: `-fPIC` in the build's `-dynamic-too` pass
+
+`GHC/Build/Modules.hs`: when bytecode is on, the `-dynamic-too` pass passes `-fPIC`, so the interface fingerprint written by `build` matches what a dynamically linked GHCi computes (fact 3). This is a workaround for a GHC behaviour and should be understood as temporary. The rule belongs in GHC: GHCi already ignores optimisation-level changes in the fingerprint (`Opt_IgnoreOptimChanges`) and could ignore the PIC preprocessor defines the same way. A GHC issue should be filed with the PR, and this line can be removed once GHC changes. If reviewers do not want a repl concern to touch native code generation, alternative B (a separate repl output directory) is the clean retreat and costs only the build-to-repl case.
 
 Result on a dynamic GHC: build then repl, repl then repl, and build after repl all reuse the files; only a source change recompiles, on whichever side sees it first.
 
 Measured on this repository with GHC 10 (second run of each): `lib:cabal-install` single repl 8.9 s with the 3.18.2.0 release against 2.3 s with the fix; multi-repl of the four libraries 15 s against 2.5 to 6 s.
+
+## Risks
+
+None of these showed up in testing, but they are where a regression would come from.
+
+- With the flag on, the static objects of libraries are now PIC. On x86_64 Linux that is a small code-size and speed cost on the native library, which only matters if binaries are shipped from a bytecode-enabled build. On macOS and aarch64 PIC is already the default, and on Windows the `-dynamic-too` pass does not run.
+- The repl now writes interface files into the build directory. Editing a module in the repl and then building recompiles that module and its dependents once. Not new in kind, since `--repl-options=-fwrite-interface` already did this, but new by default under the flag.
+- With the flag on, the repl picks up `ghc-shared-options` rather than `ghc-static-options`. Few packages set either.
+- HLS drives `cabal repl` through the flag-output path. With bytecode on it now receives `-dynamic`, `-fwrite-interface` and `-fwrite-byte-code`. Not tested against HLS.
+- A profiled GHC host (`GHC Profiled: YES`) is unverified; see the hedge under known limits.
+- CI cannot run the new test, because validate stops at GHC 9.14, so a regression here is invisible until a newer GHC joins the matrix. This is the strongest argument for adding a GHC 10 job soon, and it is an argument about testing rather than about the design.
 
 ## Alternatives considered
 
@@ -68,3 +88,4 @@ Before: every component got `-fbyte-code-and-object-code`, leaving `.gbc` files 
 - A profiled GHC host (`GHC Profiled: YES`) would give `compilerBuildWay = ProfWay`; GHC does not support profiled bytecode, so nothing would be reused there, and the repl base way would be `ProfWay` rather than static. Not verified; profiled GHC installations are rare. Restricting the new base to the static and dynamic ways is a one-line hedge if reviewers want it.
 - On a dynamic GHC with `--disable-shared`, the build's companion way is static (`Mod.hi`, tag `""`), so the first repl cannot reuse the build's `.gbc`; the second repl reuses its own.
 - CI's validate matrix tops out at GHC 9.14, so the new `LibraryBytecodeRepl` test only runs locally with a GHC that has `.gbc` support.
+- Follow-up PRs in order of value: (1) a GHC issue to make GHCi's fingerprint ignore PIC defines, after which Part 2 can be dropped; (2) make the compiler-way base unconditional (alternative A) with its own changelog entry; (3) a repl option on by default (alternative G) once (2) has settled; (4) relative working directories for multi-repl, or a GHC fix, for the include-path spelling.
