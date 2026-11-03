@@ -27,7 +27,8 @@ import Distribution.Simple.Compiler
 import Distribution.Simple.Errors
 import Distribution.Simple.GHC.Build.Modules
 import Distribution.Simple.GHC.Build.Utils
-  ( exeTargetName
+  ( compilerBuildWay
+  , exeTargetName
   , flibBuildName
   , flibTargetName
   , objectFilePath
@@ -154,16 +155,39 @@ linkOrLoadComponent
     case what of
       BuildRepl replFlags -> liftIO $ do
         let
-          -- For repl we use the vanilla (static) ghc options
-          staticOpts = buildOpts StaticWay
+          useBytecode = withBytecodeLib lbi
+          -- For repl we use the vanilla (static) ghc options, unless bytecode
+          -- artifacts are wanted. GHCi's internal interpreter always compiles
+          -- with the ways the compiler itself was built with, and it refuses
+          -- to read an interface file whose way tag differs from those. So
+          -- to have GHCi reuse the .gbc files written by `build` (or by an
+          -- earlier repl) the interface suffix we pass must be that of the
+          -- compiler's own way; see doc/internal/bytecode-libraries.md.
+          replWay
+            | useBytecode = compilerBuildWay (compiler lbi)
+            | otherwise = StaticWay
+          wayOpts = buildOpts replWay
           replOpts =
-            staticOpts
-              { -- Repl options use Static as the base, but doesn't need to pass -static.
-                -- However, it maybe should, for uniformity.
-                ghcOptDynLinkMode = NoFlag
+            wayOpts
+              { ghcOptDynLinkMode = case replWay of
+                  -- Repl options use Static as the base, but doesn't need to pass -static.
+                  -- However, it maybe should, for uniformity.
+                  StaticWay -> NoFlag
+                  _ -> ghcOptDynLinkMode wayOpts
+              , -- -fbyte-code -fwrite-interface -fwrite-byte-code: write the
+                -- interface and bytecode files GHCi needs to skip recompiling
+                -- a module next time. The build's -fbyte-code-and-object-code
+                -- would not write the interface in a repl-only session.
+                ghcOptObjectMode = if useBytecode then toFlag GhcByteCode else NoFlag
+              , -- No explicit -fPIC: a dynamically linked GHCi turns PIC on
+                -- by itself, and PIC is part of GHC's recompilation
+                -- fingerprint (it defines __PIC__ for the preprocessor), so
+                -- `build` passes -fPIC in its -dynamic-too pass to match;
+                -- see 'buildHaskellModules'.
+                ghcOptFPic = NoFlag
               , ghcOptExtra =
                   Internal.filterGhciFlags
-                    (ghcOptExtra staticOpts)
+                    (ghcOptExtra wayOpts)
                     <> replOptionsFlags (replReplOptions replFlags)
               }
               -- For a normal compile we do separate invocations of ghc for
