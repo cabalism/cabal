@@ -24,7 +24,7 @@ Most directives have at least following optional arguments
 
 Added directives
 
-.. rst:directive:: .. cabal::cfg-section
+.. rst:directive:: .. cabal:pkg-section::
 
    Describes a package.cabal section, such as library or executable.
 
@@ -33,18 +33,18 @@ Added directives
 
    You can reset the section disambiguation with `.. pkg-section:: None`.
 
-.. rst::role:: pkg-section
+.. rst:role:: pkg-section
 
    References section added by `.. pkg-section`
 
-.. rst:directive:: .. cabal::pkg-field
+.. rst:directive:: .. cabal:pkg-field::
 
    Describes a package.cabal field.
 
    Can have a :default: field. Will group on reference page under pkg-section
    if set and parent header otherwise.
 
-.. rst::role:: pkg-field
+.. rst:role:: pkg-field
 
    References field added by `.. pkg-field`, fields can be disambiguated
    with section name `:pkg-field:`section:field`.
@@ -52,8 +52,7 @@ Added directives
 
 .. rst:directive:: .. cabal:cfg-section::
 
-   Same as `.. cabal::pkg-section` but does not produce any visible output
-   currently unused.
+   Same as `.. cabal:pkg-section::` but for cabal.project sections.
 
 .. rst:directive:: .. cabal:cfg-field::
 
@@ -65,11 +64,11 @@ Added directives
    Can have a :default: field. Will group on reference page under pkg-section
    if set and parent header otherwise.
 
-.. rst::role:: cfg-field
+.. rst:role:: cfg-field
 
    References field added by `.. cfg-field`.
 
-.. rst::role:: cfg-flag
+.. rst:role:: cfg-flag
 
    References flag added by `.. cfg-field`.
 
@@ -218,8 +217,9 @@ class CabalObject(ObjectDescription):
         '''
         Collect meta data for fields
 
-        Reads optional arguments passed to directive and also
-        tries to find current section title and adds it as section
+        Reads optional arguments passed to the directive and finds the title
+        of the enclosing document section, which groups entries on the
+        reference page.
         '''
         env = self.state.document.settings.env
         # find title of current section, will group references page by it
@@ -265,10 +265,10 @@ class CabalObject(ObjectDescription):
 
     def add_target_and_index(self, name, sig, signode):
         '''
-        As in sphinx.directive.ObjectDescription
+        As in sphinx.directives.ObjectDescription
 
         By default adds 'pair' index as returned by get_index_entry and
-        stores object data into domain data store as returned by get_env_data
+        stores object data into domain data store as returned by get_env_key
         '''
         env = self.state.document.settings.env
 
@@ -404,7 +404,7 @@ class CabalField(CabalObject):
 
 class CabalPackageField(CabalField):
     '''
-    Describes section in package.cabal file
+    Describes a field in a package.cabal file
     '''
     section_key = 'cabal:pkg-section'
     indextemplate = '%s; package.cabal field'
@@ -430,19 +430,19 @@ class CabalFieldXRef(XRefRole):
 
         return title, target
 
+class CabalPackageFieldXRef(CabalFieldXRef):
+    '''
+    Role referencing a package.cabal field
+    '''
+    section_key = 'cabal:pkg-section'
+
 #
 # Directives for config files.
 #
 
-class CabalPackageFieldXRef(CabalFieldXRef):
-    '''
-    Role referencing cabal.project section
-    '''
-    section_key = 'cabal:pkg-section'
-
 class CabalConfigSection(CabalObject):
     """
-    Marks section in package.cabal file
+    Marks a section in a cabal.project file
     """
     indextemplate = '%s; cabal.project section'
     section_key = 'cabal:cfg-section'
@@ -576,9 +576,6 @@ class ConfigFieldIndex(Index):
 
         sort by (document, index)
         group on (document, doc_section)
-
-        TODO: Check how to extract section numbers from (document,doc_section)
-              and add it as annotation to titles
         '''
 
         # (title, section store, fields store)
@@ -606,7 +603,8 @@ class ConfigFieldIndex(Index):
                         (section_title, 1, docname, section_anchor, '', '', ''))
 
                 for entry in entries:
-                    #todo deal with if
+                    # field keys are (section, name) tuples,
+                    # section keys are plain names
                     if isinstance(entry.name, tuple):
                         name = entry.name[1]
                     else:
@@ -710,7 +708,8 @@ class CabalDomain(Domain):
     '''
     Sphinx domain for cabal
 
-    needs Domain.merge_doc for parallel building, just union all dicts
+    Does not implement merge_domaindata, so it is not safe for parallel
+    reading. A union of the data dicts would be enough to add it.
     '''
     name = 'cabal'
     label = 'Cabal'
