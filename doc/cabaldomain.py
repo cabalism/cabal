@@ -110,7 +110,7 @@ To be done:
 import re
 
 from docutils import nodes
-from docutils.parsers.rst import Directive, directives, roles
+from docutils.parsers.rst import directives
 
 import pygments.lexer as lexer
 import pygments.token as token
@@ -120,10 +120,9 @@ from packaging.version import Version
 from sphinx import addnodes
 from sphinx.directives import ObjectDescription
 from sphinx.domains import ObjType, Domain, Index
-from sphinx.domains.std import StandardDomain
 from sphinx.locale import _
 from sphinx.roles import XRefRole
-from sphinx.util.docfields import Field, DocFieldTransformer
+from sphinx.util.docfields import Field
 from sphinx.util.nodes import make_refnode
 
 def parse_deprecated(txt):
@@ -169,14 +168,12 @@ class Meta(object):
                  removed=None,
                  synopsis=None,
                  title=None,
-                 section=None,
                  index=0):
         self.since = since
         self.deprecated = deprecated
         self.removed = removed
         self.synopsis = synopsis
         self.title = title
-        self.section = section
         self.index = index
 
 
@@ -199,81 +196,7 @@ def find_section_title(parent):
         if isinstance(kid, nodes.title):
             return kid.astext(), section_id
 
-    print(section_name, section_id)
     return section_name, section_id
-
-
-class CabalSection(Directive):
-    """
-    Marks section to which following objects belong, used to disambiguate
-    references to fields and flags which can have similar names
-
-    Does not generate any output besides anchor.
-    """
-    has_content = False
-    required_arguments = 1
-    optional_arguments = 0
-    final_argument_whitespace = True
-    option_spec = {
-        'name': lambda x: x,
-        'deprecated': parse_deprecated,
-        'removed': Version,
-        'since' : Version,
-        'synopsis' : lambda x:x,
-    }
-    section_key = 'cabal:pkg-section'
-    target_prefix = 'pkg-section-'
-    indextemplate = ''
-    indextype = 'pair'
-
-    def get_index_entry(self, name):
-        return self.indextemplate % name
-
-    def run(self):
-        env = self.state.document.settings.env
-        section = self.arguments[0].strip()
-
-        if ':' in self.name:
-            self.domain, self.objtype = self.name.split(':', 1)
-        else:
-            self.domain, self.objtype = '', self.name
-
-        if section == 'None':
-            env.ref_context.pop(self.section_key, None)
-            return []
-
-        env.ref_context[self.section_key] = section
-        targetname = self.target_prefix + section
-        node = nodes.target('', '', ids=[targetname])
-        self.state.document.note_explicit_target(node)
-
-        indexentry = self.get_index_entry(section)
-
-        inode = addnodes.index(
-            entries = [
-                (self.indextype, indexentry, targetname, '', None)])
-
-        # find title of parent section node
-        title = find_section_title(self.state.parent)
-
-        data_key = CabalDomain.types[self.objtype]
-
-        # find how many sections in this document were added
-        num = env.domaindata['cabal']['index-num'].get(env.docname, 0)
-        env.domaindata['cabal']['index-num'][env.docname] = num + 1
-
-        meta = Meta(since=self.options.get('since'),
-                    deprecated=self.options.get('deprecated'),
-                    removed=self.options.get('removed'),
-                    synopsis=self.options.get('synopsis'),
-                    index = num,
-                    title = title)
-
-        store = env.domaindata['cabal'][data_key]
-        if not section in store:
-            store[section] = env.docname, targetname, meta
-
-        return [inode, node]
 
 
 class CabalObject(ObjectDescription):
@@ -419,8 +342,6 @@ class CabalPackageSection(CabalObject):
         By default make an object description from name and adding
         either deprecated or since as annotation.
         '''
-        env = self.state.document.settings.env
-
         sig = sig.strip()
         parts = sig.split(' ',1)
         name = parts[0]
@@ -469,8 +390,6 @@ class CabalField(CabalObject):
         By default make an object description from name and adding
         either deprecated or since as annotation.
         '''
-        env = self.state.document.settings.env
-
         sig = sig.strip()
         parts = sig.split(':',1)
         name = parts[0]
@@ -527,7 +446,6 @@ class CabalConfigSection(CabalObject):
     """
     indextemplate = '%s; cabal.project section'
     section_key = 'cabal:cfg-section'
-    target_prefix = 'cfg-section-'
 
     def handle_signature(self, sig, signode):
         '''
@@ -536,8 +454,6 @@ class CabalConfigSection(CabalObject):
         By default make an object description from name and adding
         either deprecated or since as annotation.
         '''
-        env = self.state.document.settings.env
-
         sig = sig.strip()
         parts = sig.split(' ',1)
         name = parts[0]
@@ -790,29 +706,6 @@ def make_title(typ, key, meta):
     else:
         raise ValueError("Unknown type: " + typ)
 
-def make_full_name(typ, key, meta):
-    '''
-    Return an anchor name for object type
-    '''
-    if typ == 'pkg-section':
-        return 'pkg-section-' + key
-
-    elif typ == 'cfg-section':
-        return 'cfg-section-' + key
-
-    elif typ == 'pkg-field':
-        section, name = key
-        if section is not None:
-            return '-'.join(('pkg-field',section, name))
-        else:
-            return 'pkg-field-' + name
-
-    elif typ == 'cfg-field':
-        return 'cfg-field-' + key
-
-    else:
-        raise ValueError('Unknown object type: ' + typ)
-
 class CabalDomain(Domain):
     '''
     Sphinx domain for cabal
@@ -863,7 +756,7 @@ class CabalDomain(Domain):
         for k in ['pkg-sections', 'pkg-fields', 'cfg-sections',
                   'cfg-fields', 'cfg-flags']:
             to_del = []
-            for name, (fn, _, _) in self.data[k].items():
+            for name, (fn, _target, _meta) in self.data[k].items():
                 if fn == docname:
                     to_del.append(name)
             for name in to_del:
