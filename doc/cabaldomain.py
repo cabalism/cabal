@@ -204,7 +204,7 @@ class CabalObject(ObjectDescription):
         'deprecated': parse_deprecated,
         'removed'   : Version,
         'since'     : Version,
-        'synopsis'  : lambda x:x
+        'synopsis'  : directives.unchanged
     }
 
     # node attribute marking which section field belongs to
@@ -328,22 +328,20 @@ class CabalObject(ObjectDescription):
         if meta.removed is not None:
             add_field('Removed', meta.removed)
 
-class CabalPackageSection(CabalObject):
-    """
-    Cabal section in package.cabal file
-    """
-    section_key = 'cabal:pkg-section'
-    indextemplate = '%s; package.cabal section'
+class CabalSectionObject(CabalObject):
+    '''
+    Base for section directives
 
+    The section name is the first word of the signature and the rest is
+    rendered as an annotation. Field directives that follow are
+    disambiguated by the section name until a `.. <section>:: None` resets it.
+    '''
     def handle_signature(self, sig, signode):
         '''
         As in sphinx.directives.ObjectDescription
-
-        By default make an object description from name and adding
-        either deprecated or since as annotation.
         '''
         sig = sig.strip()
-        parts = sig.split(' ',1)
+        parts = sig.split(' ', 1)
         name = parts[0]
         signode += addnodes.desc_name(name, name)
         signode += addnodes.desc_addname(' ', ' ')
@@ -358,27 +356,26 @@ class CabalPackageSection(CabalObject):
         return name, store
 
     def run(self):
-        env = self.state.document.settings.env
-        section = self.arguments[0].strip().split(' ',1)[0]
+        section = self.arguments[0].strip().split(' ', 1)[0]
         if section == 'None':
-            env.ref_context.pop('cabal:pkg-section', None)
+            self.env.ref_context.pop(self.section_key, None)
             return []
-        env.ref_context['cabal:pkg-section'] = section
-        return super(CabalPackageSection, self).run()
+        self.env.ref_context[self.section_key] = section
+        return super(CabalSectionObject, self).run()
+
+
+class CabalPackageSection(CabalSectionObject):
+    """
+    Cabal section in package.cabal file
+    """
+    section_key = 'cabal:pkg-section'
+    indextemplate = '%s; package.cabal section'
 
 
 class CabalField(CabalObject):
     '''
     Base for fields in *.cabal files
     '''
-    option_spec = {
-        'noindex'   : directives.flag,
-        'deprecated': parse_deprecated,
-        'removed'   : Version,
-        'since'     : Version,
-        'synopsis'  : lambda x:x
-    }
-
     doc_field_types = [
         Field('default', label='Default value', names=['default'], has_arg=False)
     ]
@@ -440,43 +437,12 @@ class CabalPackageFieldXRef(CabalFieldXRef):
 # Directives for config files.
 #
 
-class CabalConfigSection(CabalObject):
+class CabalConfigSection(CabalSectionObject):
     """
     Marks a section in a cabal.project file
     """
     indextemplate = '%s; cabal.project section'
     section_key = 'cabal:cfg-section'
-
-    def handle_signature(self, sig, signode):
-        '''
-        As in sphinx.directives.ObjectDescription
-
-        By default make an object description from name and adding
-        either deprecated or since as annotation.
-        '''
-        sig = sig.strip()
-        parts = sig.split(' ',1)
-        name = parts[0]
-        signode += addnodes.desc_name(name, name)
-        signode += addnodes.desc_addname(' ', ' ')
-        if len(parts) > 1:
-            rest = parts[1].strip()
-            signode += addnodes.desc_annotation(rest, rest)
-
-        return name
-
-    def get_env_key(self, env, name):
-        store = CabalDomain.types[self.objtype]
-        return name, store
-
-    def run(self):
-        env = self.state.document.settings.env
-        section = self.arguments[0].strip().split(' ',1)[0]
-        if section == 'None':
-            env.ref_context.pop('cabal:cfg-section', None)
-            return []
-        env.ref_context['cabal:cfg-section'] = section
-        return super(CabalConfigSection, self).run()
 
 class ConfigField(CabalField):
     section_key = 'cabal:cfg-section'
