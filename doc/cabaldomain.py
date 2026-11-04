@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 '''
 Sphinx domain for documenting all things cabal
 
@@ -157,7 +156,7 @@ def parse_flag(env, sig, signode):
     return names[0]
 
 
-class Meta(object):
+class Meta:
     '''
     Meta data associated with object
     '''
@@ -361,7 +360,7 @@ class CabalSectionObject(CabalObject):
             self.env.ref_context.pop(self.section_key, None)
             return []
         self.env.ref_context[self.section_key] = section
-        return super(CabalSectionObject, self).run()
+        return super().run()
 
 
 class CabalPackageSection(CabalSectionObject):
@@ -490,7 +489,7 @@ class ConfigFieldIndex(Index):
     localname = "Cabal Syntax Quicklinks"
     shortname = "Quicklinks"
 
-    class Entry(object):
+    class Entry:
         def __init__(self, typ, name, doc, anchor, meta):
             self.type = typ
             self.name = name
