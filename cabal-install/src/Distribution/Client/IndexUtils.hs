@@ -20,6 +20,7 @@ module Distribution.Client.IndexUtils
   , Configure.getInstalledPackagesMonitorFiles
   , getSourcePackages
   , getSourcePackagesMonitorFiles
+  , getLocalNoIndexMonitorFiles
   , TotalIndexState
   , getSourcePackagesAtIndexState
   , ActiveRepos
@@ -33,6 +34,8 @@ module Distribution.Client.IndexUtils
   , parsePackageIndex
   , updateRepoIndexCache
   , updatePackageIndexCacheFile
+  , NoIndexListing
+  , noIndexListing
   , writeIndexTimestamp
   , currentIndexTimestamp
   , BuildTreeRefType (..)
@@ -128,14 +131,16 @@ import Data.List (stripPrefix)
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 import Distribution.Client.GZipUtils (maybeDecompress)
+import Distribution.Client.Glob (GlobPiece (..), GlobPieces, globFilesInDir, matchGlobPieces)
 import Distribution.Client.Utils
   ( byteStringToFilePath
   , tryReadAddSourcePackageDesc
   )
-import Distribution.Compat.Time (getFileAge, getModTime)
+import Distribution.Compat.Time (ModTime, getFileAge, getModTime)
+import Distribution.Simple.FileMonitor.Types (MonitorFilePath (..), MonitorKindDir (..), MonitorKindFile (..))
 import Distribution.Utils.Generic (fstOf3)
-import Distribution.Utils.Structured (Structured (..), nominalStructure, structuredDecodeFileOrFail, structuredEncodeFile)
-import System.Directory (doesDirectoryExist, doesFileExist, listDirectory)
+import Distribution.Utils.Structured (Structured (..), nominalStructure, structuredDecodeFileOrFail, structuredDecodeOrFailIO, structuredEncodeFile)
+import System.Directory (doesDirectoryExist, doesFileExist, getFileSize, listDirectory, makeAbsolute)
 import System.FilePath
   ( normalise
   , splitDirectories
@@ -550,6 +555,22 @@ getSourcePackagesMonitorFiles repos =
     | repo <- repos
     ]
 
+-- | Monitors for the package files of the @file+noindex@ repositories among
+-- the given ones, to go with 'getSourcePackagesMonitorFiles'. The index of
+-- such a repository is built from the files in its directory, and its cache
+-- file stays as it is when they change, so a monitor on the cache file alone
+-- does not notice.
+--
+-- The files are monitored by modification time, not by content: they are
+-- whole package tarballs.
+getLocalNoIndexMonitorFiles :: [Repo] -> IO [MonitorFilePath]
+getLocalNoIndexMonitorFiles repos =
+  fmap concat . for [localRepoPath local | RepoLocalNoIndex local _ <- repos] $ \dir -> do
+    -- A relative path here is relative to the working directory, where a
+    -- relative monitor would be taken relative to the project root.
+    absDir <- makeAbsolute dir
+    return [MonitorFileGlob FileModTime DirExists (globFilesInDir absDir pieces) | pieces <- noIndexPackageFiles]
+
 -- | It is not necessary to call this, as the cache will be updated when the
 -- index is read normally. However you can do the work earlier if you like.
 updateRepoIndexCache :: Verbosity -> Index -> IO ()
@@ -563,7 +584,7 @@ whenCacheOutOfDate index action = do
     then action
     else
       if localNoIndex index
-        then return () -- TODO: don't update cache for file+noindex repositories
+        then return () -- 'readNoIndexCache' checks this cache against the directory
         else do
           indexTime <- getModTime $ indexFile index
           cacheTime <- getModTime $ cacheFile index
@@ -812,7 +833,10 @@ is01Index (RepoIndex _ repo) = case repo of
 updatePackageIndexCacheFile :: Verbosity -> Index -> IO ()
 updatePackageIndexCacheFile verbosity index = do
   info verbosity ("Updating index cache file " ++ cacheFile index ++ " ...")
-  withIndexEntries verbosity index callback callbackNoIndex
+  -- Take the listing before the files are read, so that a change made while
+  -- the cache is being built shows up as a difference the next time.
+  listing <- maybe (return []) noIndexListing (noIndexRepoDir index)
+  withIndexEntries verbosity index callback (callbackNoIndex listing)
   where
     callback entries = do
       let !maxTs = maximumTimestamp (map cacheEntryTimestamp entries)
@@ -828,8 +852,8 @@ updatePackageIndexCacheFile verbosity index = do
             ++ prettyShow (cacheHeadTs cache)
         )
 
-    callbackNoIndex entries = do
-      writeNoIndexCache verbosity index $ NoIndexCache entries
+    callbackNoIndex listing entries = do
+      writeNoIndexCache verbosity index $ NoIndexCache listing entries
       info verbosity "Index cache updated"
 
 -- | Read the index (for the purpose of building a cache)
@@ -1207,6 +1231,9 @@ readIndexCache verbosity index = do
 -- If a corrupted index cache is detected this function regenerates
 -- the index cache and then reattempts to read the index once (and
 -- 'dieWithException's if it fails again). Throws IOException if any arise.
+--
+-- The cache is also regenerated if the package files in the repository's
+-- directory are no longer the ones it was built from.
 readNoIndexCache :: Verbosity -> Index -> IO NoIndexCache
 readNoIndexCache verbosity index = do
   cacheOrFail <- readNoIndexCache' verbosity index
@@ -1221,15 +1248,27 @@ readNoIndexCache verbosity index = do
           , "). "
           , "Trying to regenerate the index cache..."
           ]
-
-      updatePackageIndexCacheFile verbosity index
-
-      either (dieWithException verbosity . CorruptedIndexCache) return =<< readNoIndexCache' verbosity index
+      regenerate
 
     -- we don't hash cons local repository cache, they are hopefully small
-    Right res -> return res
+    Right res -> do
+      listing <- maybe (return []) noIndexListing (noIndexRepoDir index)
+      if listing == noIndexCacheListing res
+        then return res
+        else do
+          info verbosity $
+            concat
+              [ "The package files of repo \""
+              , unRepoName (repoName repo)
+              , "\" have changed. Regenerating the index cache..."
+              ]
+          regenerate
   where
     RepoIndex _ctxt repo = index
+
+    regenerate = do
+      updatePackageIndexCacheFile verbosity index
+      either (dieWithException verbosity . CorruptedIndexCache) return =<< readNoIndexCache' verbosity index
 
 -- | Read the 'Index' cache from the filesystem. Throws IO exceptions
 -- if any arise and returns Left on invalid input.
@@ -1243,8 +1282,10 @@ readIndexCache' index
 readNoIndexCache' :: Verbosity -> Index -> IO (Either String NoIndexCache)
 readNoIndexCache' verbosity index = do
   exists <- doesFileExist (cacheFile index)
+  -- The file is read strictly, so that it is closed again before the cache is
+  -- regenerated, which writes to the same file.
   if exists
-    then structuredDecodeFileOrFail (cacheFile index)
+    then structuredDecodeOrFailIO . BS.fromStrict =<< BSS.readFile (cacheFile index)
     else updatePackageIndexCacheFile verbosity index >> readNoIndexCache' verbosity index
 
 -- | Write the 'Index' cache to the filesystem
@@ -1343,13 +1384,51 @@ instance NFData Cache where
   rnf = rnf . cacheEntries
 
 -- | Cache format for 'file+noindex' repositories
-newtype NoIndexCache = NoIndexCache
-  { noIndexCacheEntries :: [NoIndexCacheEntry]
+data NoIndexCache = NoIndexCache
+  { noIndexCacheListing :: NoIndexListing
+  -- ^ the package files that the entries were read from
+  , noIndexCacheEntries :: [NoIndexCacheEntry]
   }
   deriving (Show, Generic)
 
 instance NFData NoIndexCache where
-  rnf = rnf . noIndexCacheEntries
+  rnf (NoIndexCache listing entries) =
+    foldr (\(name, mtime, size) r -> rnf name `seq` mtime `seq` size `seq` r) () listing `seq`
+      rnf entries
+
+-- | The package files of a @file+noindex@ repository as they were when its
+-- cache was built: the name, modification time and size of each, in name
+-- order. A cache is good for as long as the directory still lists the same.
+type NoIndexListing = [(FilePath, ModTime, Int64)]
+
+-- | List the files in the directory of a @file+noindex@ repository that its
+-- index is built from: the package tarballs, the @.cabal@ files beside them
+-- and @preferred-versions@. The cache file itself is not one of them.
+noIndexListing :: FilePath -> IO NoIndexListing
+noIndexListing localDir = do
+  names <- filter (\name -> any (`matchGlobPieces` name) noIndexPackageFiles) <$> listDirectory localDir
+  fmap catMaybes . for (sort names) $ \name -> do
+    let path = localDir </> name
+    isFile <- doesFileExist path
+    if isFile
+      then
+        (Just <$> ((,,) name <$> getModTime path <*> (fromInteger <$> getFileSize path)))
+          `catchIO` const (return Nothing)
+      else return Nothing
+
+-- | The names of the files that the index of a @file+noindex@ repository is
+-- built from, as globs: @\*.tar.gz@, @\*.cabal@ and @preferred-versions@.
+noIndexPackageFiles :: [GlobPieces]
+noIndexPackageFiles =
+  [ [WildCard, Literal ".tar.gz"]
+  , [WildCard, Literal ".cabal"]
+  , [Literal preferredVersions]
+  ]
+
+-- | The directory of a @file+noindex@ repository.
+noIndexRepoDir :: Index -> Maybe FilePath
+noIndexRepoDir (RepoIndex _ (RepoLocalNoIndex local _)) = Just (localRepoPath local)
+noIndexRepoDir _ = Nothing
 
 -- | Tar files are block structured with 512 byte blocks. Every header and file
 -- content starts on a block boundary.

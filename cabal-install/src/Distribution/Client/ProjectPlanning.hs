@@ -1153,6 +1153,7 @@ getSourcePackages verbosity withRepoCtx idxState activeRepos = do
   traverse_ needIfExists
     . IndexUtils.getSourcePackagesMonitorFiles
     $ repos
+  monitorFiles =<< liftIO (IndexUtils.getLocalNoIndexMonitorFiles repos)
   return sourcePkgDbWithTIS
 
 getPkgConfigDb :: Verbosity -> ProgramDb -> Rebuild (Maybe PkgConfigDb)

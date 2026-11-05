@@ -91,7 +91,8 @@ import Text.PrettyPrint (cat, colon, comma, empty, hsep, nest, quotes, render, t
 import Prelude ()
 
 import Distribution.Client.Glob
-  ( isTrivialRootedGlob
+  ( globFilesInDir
+  , isTrivialRootedGlob
   )
 import Distribution.Client.JobControl
 import Distribution.Client.ProjectConfig.Legacy
@@ -1372,16 +1373,7 @@ findProjectPackages
 -- For a directory @some/dir/@, this is a glob of the form @some/dir/\*.cabal@.
 -- The directory part can be either absolute or relative.
 globStarDotCabal :: FilePath -> RootedGlob
-globStarDotCabal dir =
-  RootedGlob
-    (if isAbsolute dir then FilePathRoot root else FilePathRelative)
-    ( foldr
-        (\d -> GlobDir [Literal d])
-        (GlobFile [WildCard, Literal ".cabal"])
-        dirComponents
-    )
-  where
-    (root, dirComponents) = fmap splitDirectories (splitDrive dir)
+globStarDotCabal dir = globFilesInDir dir [WildCard, Literal ".cabal"]
 
 -- TODO: [code cleanup] use sufficiently recent transformers package
 mplusMaybeT :: Monad m => m (Maybe a) -> m (Maybe a) -> m (Maybe a)

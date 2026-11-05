@@ -2,6 +2,7 @@ module Distribution.Client.Glob
   ( -- * cabal-install globbing features
     RootedGlob (..)
   , isTrivialRootedGlob
+  , globFilesInDir
   , FilePathRoot (..)
   , getFilePathRootDirectory
 
@@ -28,6 +29,19 @@ import System.Directory
 import System.FilePath
 
 --------------------------------------------------------------------------------
+
+-- | A glob for the files in a directory whose names match the given pieces.
+--
+-- For a directory @some/dir/@ and the pieces of @\*.cabal@, this is a glob of
+-- the form @some/dir/\*.cabal@. The directory part can be either absolute or
+-- relative.
+globFilesInDir :: FilePath -> GlobPieces -> RootedGlob
+globFilesInDir dir pieces =
+  RootedGlob
+    (if isAbsolute dir then FilePathRoot root else FilePathRelative)
+    (foldr (\d -> GlobDir [Literal d]) (GlobFile pieces) dirComponents)
+  where
+    (root, dirComponents) = fmap splitDirectories (splitDrive dir)
 
 -- | Check if a 'RootedGlob' doesn't actually make use of any globbing and
 -- is in fact equivalent to a non-glob 'FilePath'.
