@@ -4,14 +4,17 @@ import Distribution.Client.IndexUtils
 import Distribution.Client.IndexUtils.ActiveRepos
 import qualified Distribution.Compat.NonEmptySet as NES
 import Distribution.Package
-import Distribution.Simple.Utils (toUTF8LBS)
+import Distribution.Simple.Utils (toUTF8LBS, withTempDirectory)
 import Distribution.Solver.Types.PackageIndex (OverrideOrMerge (..))
 import qualified Distribution.Solver.Types.PackageIndex as PackageIndex
 import Distribution.Types.LibraryName
 import Distribution.Version
 
+import Data.Foldable (for_)
 import qualified Data.List as List
 import qualified Data.Map.Strict as Map
+import System.Directory (createDirectory, removeFile)
+import System.FilePath ((</>))
 
 import Test.Tasty
 import Test.Tasty.HUnit
@@ -23,6 +26,7 @@ tests =
   , overrideOrMergeTests
   , deprecationAwareStrategyTests
   , addIndexTests
+  , noIndexListingTests
   ]
 
 -- ---------------------------------------------------------------------------
@@ -378,3 +382,52 @@ addIndexTests =
     v2 = mkVersion [2, 0]
     v3 = mkVersion [3, 0]
     dep name vr = Dependency name vr (NES.singleton LMainLibName)
+
+-- ---------------------------------------------------------------------------
+-- file+noindex listing tests
+-- ---------------------------------------------------------------------------
+
+-- | The listing that a @file+noindex@ cache is checked against: it has the
+-- files the index is built from and no others, and it differs whenever one of
+-- them is added, removed or rewritten.
+noIndexListingTests :: TestTree
+noIndexListingTests =
+  testGroup
+    "noIndexListing"
+    [ testCase "lists the package files and nothing else" $
+        withRepoDir $ \dir -> do
+          for_ ["noindex.cache", "README.md"] $ \name -> writeFile (dir </> name) name
+          createDirectory (dir </> "src")
+          listing <- noIndexListing dir
+          [name | (name, _, _) <- listing] @?= ["foo-1.0.cabal", "foo-1.0.tar.gz", "preferred-versions"]
+    , testCase "is the same when nothing has changed" $
+        withRepoDir $ \dir -> do
+          was <- noIndexListing dir
+          writeFile (dir </> "noindex.cache") "cache"
+          now <- noIndexListing dir
+          now @?= was
+    , testCase "differs when a package file is added" $
+        withRepoDir $ \dir -> do
+          was <- noIndexListing dir
+          writeFile (dir </> "bar-2.0.tar.gz") "bar"
+          now <- noIndexListing dir
+          assertBool "the listing has not changed" (now /= was)
+    , testCase "differs when a package file is removed" $
+        withRepoDir $ \dir -> do
+          was <- noIndexListing dir
+          removeFile (dir </> "foo-1.0.cabal")
+          now <- noIndexListing dir
+          assertBool "the listing has not changed" (now /= was)
+    , testCase "differs when a package file is rewritten" $
+        withRepoDir $ \dir -> do
+          was <- noIndexListing dir
+          writeFile (dir </> "foo-1.0.cabal") "a revision of a different length"
+          now <- noIndexListing dir
+          assertBool "the listing has not changed" (now /= was)
+    ]
+  where
+    withRepoDir action =
+      withTempDirectory "." "noindex-" $ \dir -> do
+        for_ ["foo-1.0.tar.gz", "foo-1.0.cabal", "preferred-versions"] $ \name ->
+          writeFile (dir </> name) name
+        action dir
