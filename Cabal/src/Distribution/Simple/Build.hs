@@ -1026,9 +1026,7 @@ replLib
 replLib verbHandles replFlags pkg_descr lbi lib clbi =
   let verbosity = mkVerbosity verbHandles (fromFlag $ replVerbosity replFlags)
    in case compilerFlavor (compiler lbi) of
-        -- 'cabal repl' doesn't need to support 'ghc --make -j', so we just pass
-        -- NoFlag as the numJobs parameter.
-        GHC -> GHC.replLib verbHandles replFlags NoFlag pkg_descr lbi lib clbi
+        GHC -> GHC.replLib verbHandles replFlags (replParStrat replFlags) pkg_descr lbi lib clbi
         _ -> dieWithException verbosity REPLNotSupported
 
 replExe
@@ -1042,7 +1040,7 @@ replExe
 replExe verbHandles flags pkg_descr lbi exe clbi =
   let verbosity = mkVerbosity verbHandles $ fromFlag $ replVerbosity flags
    in case compilerFlavor (compiler lbi) of
-        GHC -> GHC.replExe verbHandles flags NoFlag pkg_descr lbi exe clbi
+        GHC -> GHC.replExe verbHandles flags (replParStrat flags) pkg_descr lbi exe clbi
         _ -> dieWithException verbosity REPLNotSupported
 
 replFLib
@@ -1056,8 +1054,17 @@ replFLib
 replFLib verbHandles flags pkg_descr lbi exe clbi =
   let verbosity = mkVerbosity verbHandles (fromFlag $ replVerbosity flags)
    in case compilerFlavor (compiler lbi) of
-        GHC -> GHC.replFLib verbHandles flags NoFlag pkg_descr lbi exe clbi
+        GHC -> GHC.replFLib verbHandles flags (replParStrat flags) pkg_descr lbi exe clbi
         _ -> dieWithException verbosity REPLNotSupported
+
+-- | The parallelism GHCi may use to compile the component's modules when it
+-- loads them, from @--jobs@. Unlike 'build', the repl never uses a semaphore:
+-- the interpreter runs for the whole session, so it cannot share slots with
+-- the builds of other packages.
+replParStrat :: ReplFlags -> Flag ParStrat
+replParStrat flags = case replNumJobs flags of
+  Flag n -> Flag (NumJobs n)
+  NoFlag -> NoFlag
 
 -- | Runs 'componentInitialBuildSteps' on every configured component.
 --

@@ -176,6 +176,7 @@ import Distribution.Simple.LocalBuildInfo
   , componentName
   , pkgComponents
   )
+import Distribution.Types.ParStrat (ParStratInstall, ParStratX (..))
 
 import Distribution.Simple.BuildWay
 import Distribution.Simple.PackageIndex (InstalledPackageIndex)
@@ -4367,17 +4368,26 @@ setupHsBenchArgs elab =
   mapMaybe (showBenchComponentTarget (packageId elab)) (elabBenchTargets elab)
 
 setupHsReplFlags
-  :: ElaboratedConfiguredPackage
+  :: ParStratInstall
+  -- ^ The project's jobs setting; GHCi gets it as @-j@ so that it compiles
+  -- the component's modules in parallel, as the multi-repl already does.
+  -> ElaboratedConfiguredPackage
   -> ElaboratedSharedConfig
   -> Cabal.CommonSetupFlags
   -> Cabal.ReplFlags
-setupHsReplFlags _ sharedConfig common =
+setupHsReplFlags parStrat _ sharedConfig common =
   Cabal.ReplFlags
     { replCommonFlags = common
     , replProgramPaths = mempty -- unused, set at configure time
     , replProgramArgs = mempty -- unused, set at configure time
     , replReload = mempty -- only used as callback from repl
     , replReplOptions = pkgConfigReplOptions sharedConfig -- runtime override for repl flags
+    , replNumJobs = case parStrat of
+        Serial -> NoFlag
+        NumJobs n -> Flag n
+        -- A semaphore cannot be shared with an interpreter that runs for
+        -- the whole session, so use its slot count as a plain job count.
+        UseSem n -> Flag (Just n)
     }
 
 setupHsReplArgs :: ElaboratedConfiguredPackage -> [String]
