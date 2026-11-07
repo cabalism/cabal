@@ -422,6 +422,7 @@ buildAndRegisterUnpackedPackage
       replFlags v =
         flip filterReplFlags v $
           setupHsReplFlags
+            (buildSettingNumJobs buildTimeSettings)
             pkg
             pkgshared
             (commonFlags $ replArgs v)

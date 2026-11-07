@@ -93,6 +93,9 @@ data ReplFlags = ReplFlags
   , replProgramArgs :: [(String, [String])]
   , replReload :: Flag Bool
   , replReplOptions :: ReplOptions
+  , replNumJobs :: Flag (Maybe Int)
+  -- ^ How many modules GHCi may compile in parallel when it loads the
+  -- component, as @ghc -j@. 'Flag Nothing' means one job per processor.
   }
   deriving (Show, Generic)
   deriving (Semigroup, Monoid) via Generically ReplFlags
@@ -108,6 +111,7 @@ defaultReplFlags =
     , replProgramArgs = []
     , replReload = Flag False
     , replReplOptions = mempty
+    , replNumJobs = mempty
     }
 
 replCommand :: ProgramDb -> CommandUI ReplFlags
@@ -180,6 +184,10 @@ replCommand progDb =
               showOrParseArgs
               replProgramArgs
               (\v flags -> flags{replProgramArgs = v})
+            ++ [ optionNumJobs
+                  replNumJobs
+                  (\v flags -> flags{replNumJobs = v})
+               ]
             ++ case showOrParseArgs of
               ParseArgs ->
                 [ option

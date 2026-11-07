@@ -1269,6 +1269,11 @@ filterReplFlags flags cabalLibVersion =
           { -- `cabal repl` knew about `--keep-temp-files` before other commands did.
             setupKeepTempFiles = setupKeepTempFiles (replCommonFlags flags)
           }
+    ,
+      replNumJobs =
+        if cabalLibVersion >= mkVersion [3, 19, 0]
+          then replNumJobs flags
+          else NoFlag
     }
 
 -- ------------------------------------------------------------

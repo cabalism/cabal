@@ -760,7 +760,10 @@ runReplOrWriteFlags ghcProg verbHandles lbi rflags ghcOpts pkg_name target =
             BS.pack $
               escapeArgs $
                 extra_opts
-                  ++ renderGhcOptions comp platform (ghcOpts{ghcOptMode = NoFlag})
+                  -- The multi-repl passes the mode and the jobs count on the
+                  -- top-level GHC command line, so neither belongs in a unit's
+                  -- flags.
+                  ++ renderGhcOptions comp platform (ghcOpts{ghcOptMode = NoFlag, ghcOptNumJobs = NoFlag})
                   ++ programOverrideArgs ghcProg
 
 replNoLoad :: Ord a => ReplOptions -> NubListR a -> NubListR a
