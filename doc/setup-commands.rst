@@ -1565,3 +1565,13 @@ Flags for repl:
 .. option:: --repl-options=FLAG
 
     Use the option(s) for the repl.
+
+.. option:: -j[NUM], --jobs[=NUM]
+
+    :default: one job
+
+    Let the interpreter compile up to ``NUM`` of the component's modules in
+    parallel when it loads them, or one module per CPU if ``NUM`` is omitted.
+    This is passed to GHC as ``-j``. Unlike :ref:`setup-build`, there is no
+    ``--semaphore`` variant: the interpreter runs for the whole session, so it
+    cannot share a semaphore with other builds.
