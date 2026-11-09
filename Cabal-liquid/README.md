@@ -70,16 +70,16 @@ sub-library so they are compiled before the modules that need them.
 
 The helper package is built without optimisation because LiquidHaskell cannot
 handle `UNPACK` fields.  It pins a fork of liquidhaskell because the Hackage
-release depends on the Cabal library.  The `version` sub-library is not
-buildable until LiquidHaskell trusts derived `Generic` and `Data` instances
-and can encode `Generic`-default methods, see the comments in the package
-description.
+release depends on the Cabal library.  The `version` and `nonemptyset`
+sub-libraries are not buildable; the comments on them in the package
+description say what each waits for upstream.
 
-A newtype is its representation in the logic, so specifications on a newtype
-apply the representation's operations to the value directly, a constructor
-refinement is checked where values are built but tells LiquidHaskell nothing
-when a value is pattern matched, and a type `invariant` is what makes every
-value carry the property.
+Newtypes are a moving target.  With the pinned release a newtype is its
+representation in the logic, with upstream develop it is a type of its own
+whose field measure is not yet related to the value it was built from, and
+in neither is the constructor refinement checked where a value is built.
+A type `invariant` is what makes functions see the property, and it is an
+assumption until construction is checked.
 
 Check that a module's verification is not vacuous: a `WARNING: Found false`
 line from the plugin means some binder was inferred to be unreachable, and if

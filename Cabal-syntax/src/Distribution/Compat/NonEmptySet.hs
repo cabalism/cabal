@@ -48,11 +48,10 @@ newtype NonEmptySet a = NES (Set.Set a)
 -- The @{-\@ ... \@-}@ comments are LiquidHaskell specifications, checked by
 -- building the Cabal-liquid package, see @cabal.liquid.project@, and inert
 -- otherwise.  The set inside is never empty, so 'toNonEmpty' cannot reach
--- 'panic', and each operation is described by the set it returns.  In the
--- logic a 'NonEmptySet' is the set it wraps, as a newtype is a cast in GHC
--- Core, so the specifications apply set operations to it directly.
-{-@ data NonEmptySet a = NES { nesSet :: {s:Set.Set a | not (Set_emp s)} } @-}
-{-@ invariant {v:NonEmptySet a | not (Set_emp v)} @-}
+-- 'panic', and each operation is described by the set it returns, reached
+-- through the field @nesSet@ in the logic.
+{-@ newtype NonEmptySet a = NES { nesSet :: {s:Set.Set a | not (Set_emp s)} } @-}
+{-@ invariant {v:NonEmptySet a | not (Set_emp (nesSet v))} @-}
 
 -- LiquidHaskell has no specification for 'Set.map'.
 {-@ assume Set.map :: Ord b => (a -> b) -> s:Set.Set a -> {v:Set.Set b | Set_emp v <=> Set_emp s} @-}
@@ -96,7 +95,7 @@ instance F.Foldable NonEmptySet where
 -- Constructors
 -------------------------------------------------------------------------------
 
-{-@ singleton :: x:a -> {v:NonEmptySet a | v == Set_sng x} @-}
+{-@ singleton :: x:a -> {v:NonEmptySet a | nesSet v == Set_sng x} @-}
 singleton :: a -> NonEmptySet a
 singleton = NES . Set.singleton
 
@@ -104,7 +103,7 @@ singleton = NES . Set.singleton
 -- Insertion
 -------------------------------------------------------------------------------
 
-{-@ insert :: Ord a => x:a -> s:NonEmptySet a -> {v:NonEmptySet a | v == Set_cup s (Set_sng x)} @-}
+{-@ insert :: Ord a => x:a -> s:NonEmptySet a -> {v:NonEmptySet a | nesSet v == Set_cup (nesSet s) (Set_sng x)} @-}
 insert :: Ord a => a -> NonEmptySet a -> NonEmptySet a
 insert x (NES xs) = NES (Set.insert x xs)
 
@@ -118,8 +117,8 @@ insert x (NES xs) = NES (Set.insert x xs)
       => x:a
       -> s:NonEmptySet a
       -> {v:Maybe (NonEmptySet a) |
-            (isJust v <=> not (Set_emp (Set_dif s (Set_sng x))))
-              && (isJust v => fromJust v == Set_dif s (Set_sng x))}
+            (isJust v <=> not (Set_emp (Set_dif (nesSet s) (Set_sng x))))
+              && (isJust v => nesSet (fromJust v) == Set_dif (nesSet s) (Set_sng x))}
   @-}
 delete :: Ord a => a -> NonEmptySet a -> Maybe (NonEmptySet a)
 delete x (NES xs)
@@ -130,7 +129,7 @@ delete x (NES xs)
 
 -- Assumed: LiquidHaskell has no specification for 'Set.filter', and one
 -- written here for it would be taken for this module's 'filter'.
-{-@ assume filter :: (a -> Bool) -> s:NonEmptySet a -> {v:Set.Set a | Set_sub v s} @-}
+{-@ assume filter :: (a -> Bool) -> s:NonEmptySet a -> {v:Set.Set a | Set_sub v (nesSet s)} @-}
 filter :: (a -> Bool) -> NonEmptySet a -> Set.Set a
 filter predicate (NES set) = Set.filter predicate set
 
@@ -150,11 +149,11 @@ toNonEmpty (NES s) = case Set.toList s of
 
 -- Going through 'toSet' rather than matching on 'NES' lets LiquidHaskell
 -- relate the list to the set; the pattern match is a cast it sees through.
-{-@ toList :: s:NonEmptySet a -> {xs:[a] | Set.listElts xs == s} @-}
+{-@ toList :: s:NonEmptySet a -> {xs:[a] | Set.listElts xs == nesSet s} @-}
 toList :: NonEmptySet a -> [a]
 toList = Set.toList . toSet
 
-{-@ toSet :: s:NonEmptySet a -> {v:Set.Set a | v == s && not (Set_emp v)} @-}
+{-@ toSet :: s:NonEmptySet a -> {v:Set.Set a | v == nesSet s && not (Set_emp v)} @-}
 toSet :: NonEmptySet a -> Set.Set a
 toSet (NES s) = s
 
@@ -162,7 +161,7 @@ toSet (NES s) = s
 -- Query
 -------------------------------------------------------------------------------
 
-{-@ member :: Ord a => x:a -> s:NonEmptySet a -> {v:Bool | v <=> Set_mem x s} @-}
+{-@ member :: Ord a => x:a -> s:NonEmptySet a -> {v:Bool | v <=> Set_mem x (nesSet s)} @-}
 member :: Ord a => a -> NonEmptySet a -> Bool
 member x (NES xs) = Set.member x xs
 

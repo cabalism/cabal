@@ -50,11 +50,14 @@ library intervals
   other-modules:
     Distribution.Types.VersionInterval
 
--- Not built until LiquidHaskell stops treating the DataType and Constr
--- values of a derived Data instance as unreachable, which makes every
--- specification in the module hold vacuously.  With the Data deriving cut,
--- the module verifies and deliberate bugs are caught.  Flip buildable to try
--- it.
+-- Not built yet.  With the pinned liquidhaskell the derived Data instance
+-- makes every specification in the module hold vacuously (fixed upstream by
+-- liquidhaskell PR 2700, unreleased), and with upstream develop the field of
+-- a newtype cannot be related to the set it was built from (liquidhaskell
+-- issue 2766), so no specification mentioning the set can be proved.  With
+-- the pinned plugin, the Data deriving cut and the specifications written
+-- against the erased newtype, the module verified and deliberate bugs were
+-- caught.  Flip buildable to try it.
 library nonemptyset
   import:         liquid
   buildable:      False
@@ -66,14 +69,14 @@ library nonemptyset
   other-modules:
     Distribution.Compat.NonEmptySet
 
--- Not built until three LiquidHaskell problems are fixed upstream: derived
--- Generic instances are not trusted and cannot be encoded, the auxiliary
--- bindings of derived Data instances are inferred false and make every
--- specification hold vacuously, and the Generic-default methods of the
--- Binary and Structured instances overflow the stack in liquid-fixpoint.
--- With Generic trusted and the Data deriving and those two instances cut,
--- the module verifies and deliberate bugs are caught.  Flip buildable to
--- try it.
+-- Not built until the pinned liquidhaskell includes upstream PR 2700, which
+-- stops checking derived instances and default methods.  Without it, derived
+-- Generic instances cannot be encoded, the auxiliary bindings of derived
+-- Data instances are inferred false and make every specification hold
+-- vacuously, and the Generic-default methods of the Binary and Structured
+-- instances overflow the stack in liquid-fixpoint.  With upstream develop at
+-- 7c809b6 the module verifies as is and deliberate bugs are caught.  Flip
+-- buildable to try it.
 library version
   import:         liquid
   buildable:      False
