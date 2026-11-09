@@ -61,6 +61,11 @@ sub-library so they are compiled before the modules that need them.
   are inverses.  What the bit operations do to the four 16-bit fields is
   assumed.  Not built yet, see the `version` sub-library.
 
+- `Distribution.Compat.NonEmptySet`: the set is never empty, so `panic` is
+  unreachable, and each operation is described by the set it returns.  The
+  specification of `delete` found that it discarded its own result.  Not
+  built yet, see the `nonemptyset` sub-library.
+
 ## Known limitations of the plugin
 
 The helper package is built without optimisation because LiquidHaskell cannot
@@ -69,6 +74,12 @@ release depends on the Cabal library.  The `version` sub-library is not
 buildable until LiquidHaskell trusts derived `Generic` and `Data` instances
 and can encode `Generic`-default methods, see the comments in the package
 description.
+
+A newtype is its representation in the logic, so specifications on a newtype
+apply the representation's operations to the value directly, a constructor
+refinement is checked where values are built but tells LiquidHaskell nothing
+when a value is pattern matched, and a type `invariant` is what makes every
+value carry the property.
 
 Check that a module's verification is not vacuous: a `WARNING: Found false`
 line from the plugin means some binder was inferred to be unreachable, and if

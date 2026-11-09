@@ -50,6 +50,22 @@ library intervals
   other-modules:
     Distribution.Types.VersionInterval
 
+-- Not built until LiquidHaskell stops treating the DataType and Constr
+-- values of a derived Data instance as unreachable, which makes every
+-- specification in the module hold vacuously.  With the Data deriving cut,
+-- the module verifies and deliberate bugs are caught.  Flip buildable to try
+-- it.
+library nonemptyset
+  import:         liquid
+  buildable:      False
+  hs-source-dirs: nonemptyset
+  build-depends:
+    , Cabal-liquid:assumptions
+    , containers
+    , deepseq
+  other-modules:
+    Distribution.Compat.NonEmptySet
+
 -- Not built until three LiquidHaskell problems are fixed upstream: derived
 -- Generic instances are not trusted and cannot be encoded, the auxiliary
 -- bindings of derived Data instances are inferred false and make every
