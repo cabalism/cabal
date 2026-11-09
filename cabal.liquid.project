@@ -23,6 +23,10 @@ tests: False
 -- -Wunused-packages in project-cabal/ghc-options.config.
 package Cabal-liquid
   ghc-options: -Wno-unused-packages
+  -- Verification only, so no need to optimise.  This also keeps UNPACK
+  -- pragmas out of effect, which LiquidHaskell cannot handle, see
+  -- https://github.com/ucsd-progsys/liquidhaskell/issues/2629.
+  optimization: False
 
 -- The liquidhaskell-0.9.14.1.1 release on Hackage depends on the Cabal
 -- library, which pins Cabal-syntax to the 3.16 series and so cannot be in a

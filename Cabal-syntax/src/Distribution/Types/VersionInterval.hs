@@ -95,7 +95,7 @@ data Bound = ExclusiveBound | InclusiveBound deriving (Eq, Show)
       isBounded (UpperBound v b) = True
   @-}
 
--- | The lower bound @L@ is at or before the upper bound @U@: the interval
+-- The lower bound @L@ is at or before the upper bound @U@: the interval
 -- @[L, U]@ is non-empty, see 'nonEmptyVI'.
 {-@ predicate NonEmptyBounds L U =
       not (isBounded U)
@@ -106,7 +106,7 @@ data Bound = ExclusiveBound | InclusiveBound deriving (Eq, Show)
   @-}
 {-@ predicate NonEmptyVI I = NonEmptyBounds (viLower I) (viUpper I) @-}
 
--- | The upper bound @U@ is strictly before the lower bound @L@, see
+-- The upper bound @U@ is strictly before the lower bound @L@, see
 -- 'doesNotTouch'.
 {-@ predicate DoesNotTouch U L =
       isBounded U
@@ -117,14 +117,14 @@ data Bound = ExclusiveBound | InclusiveBound deriving (Eq, Show)
   @-}
 {-@ predicate Separated X Y = DoesNotTouch (viUpper X) (viLower Y) @-}
 
--- | The lower bound @A@ is at or after the lower bound @B@.
+-- The lower bound @A@ is at or after the lower bound @B@.
 {-@ predicate LowerGE A B =
       lbVersion B < lbVersion A
         || (lbVersion B == lbVersion A
               && (lbBound A == lbBound B || lbBound B == InclusiveBound))
   @-}
 
--- | The upper bound @V@ is at or after the upper bound @U@.
+-- The upper bound @V@ is at or after the upper bound @U@.
 {-@ predicate UpperGE V U =
       not (isBounded V)
         || (isBounded U
@@ -135,7 +135,7 @@ data Bound = ExclusiveBound | InclusiveBound deriving (Eq, Show)
 
 {-@ type NonEmptyInterval = {i:VersionInterval | NonEmptyVI i} @-}
 
--- | Non-empty intervals where no interval touches any interval before it.
+-- Non-empty intervals where no interval touches any interval before it.
 {-@ type SeparatedIntervals = [NonEmptyInterval]<{\x y -> Separated x y}> @-}
 
 {-@ zeroLowerBound :: {l:LowerBound | lbVersion l == 0 && lbBound l == InclusiveBound} @-}
@@ -171,7 +171,7 @@ stage1 = cataVersionRange alg
     -- intersection: pairwise intersect. Strip empty intervals. Sort to restore the invariant.
     alg (IntersectVersionRangesF v1 v2) = mapMaybe nonEmptyInterval $ liftA2 intersectInterval (stage2and3 v1) (stage2and3 v2)
 
--- | Check that interval is non-empty
+-- Check that interval is non-empty
 {-@ nonEmptyInterval :: VersionInterval -> Maybe NonEmptyInterval @-}
 nonEmptyInterval :: VersionInterval -> Maybe VersionInterval
 nonEmptyInterval i | nonEmptyVI i = Just i
@@ -199,7 +199,7 @@ lowerboundCmp (VersionInterval (LowerBound v vb) _) (VersionInterval (LowerBound
 -- Postprocess
 -------------------------------------------------------------------------------
 
--- | Post-processing takes a list of ordered version intervals,
+-- Post-processing takes a list of ordered version intervals,
 -- but possibly overlapping, and creates 'VersionIntervals'.
 {-@ postprocess :: [NonEmptyInterval] -> VersionIntervals @-}
 postprocess :: [VersionInterval] -> VersionIntervals

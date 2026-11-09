@@ -33,12 +33,13 @@ Failures are reported as GHC errors pointing at the module's source.
 
 ## Adding a module
 
-Each module under verification is a symbolic link in `src` to the module of
+Each module under verification is a symbolic link, in a sub-library of its
+own, to the module of
 the same name in the library that owns it, and is listed in `other-modules`
 of `Cabal-liquid.cabal`.  Its imports still come from the compiled library.
 
 ```
-ln -s ../../../../Cabal-syntax/src/Distribution/Types/Foo.hs Cabal-liquid/src/Distribution/Types/Foo.hs
+ln -s ../../../../Cabal-syntax/src/Distribution/Types/Foo.hs Cabal-liquid/foo/Distribution/Types/Foo.hs
 ```
 
 Do not put a whole library source directory on `hs-source-dirs`: GHC would
@@ -55,3 +56,21 @@ sub-library so they are compiled before the modules that need them.
 
 - `Distribution.Types.VersionInterval`: the intervals built from a version
   range are non-empty and pairwise separated.
+- `Distribution.Types.Version`: the packed representation is well formed and
+  only used for components that fit it, and `mkVersion` and `versionNumbers`
+  are inverses.  What the bit operations do to the four 16-bit fields is
+  assumed.  Not built yet, see the `version` sub-library.
+
+## Known limitations of the plugin
+
+The helper package is built without optimisation because LiquidHaskell cannot
+handle `UNPACK` fields.  It pins a fork of liquidhaskell because the Hackage
+release depends on the Cabal library.  The `version` sub-library is not
+buildable until LiquidHaskell trusts derived `Generic` and `Data` instances
+and can encode `Generic`-default methods, see the comments in the package
+description.
+
+Check that a module's verification is not vacuous: a `WARNING: Found false`
+line from the plugin means some binder was inferred to be unreachable, and if
+that binder is top level every specification in the module passes trivially.
+Breaking the code on purpose and expecting UNSAFE is the quickest test.

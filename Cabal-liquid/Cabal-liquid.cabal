@@ -25,20 +25,45 @@ common liquid
 
 -- Specifications for library modules that are not verified themselves.
 -- LiquidHaskell finds a module @M_LHAssumptions@ by name when a verified
--- module imports @M@.  These specifications are trusted, not checked.
+-- module imports @M@ and @M@ carries no specifications of its own.  These
+-- specifications are trusted, not checked.
 library assumptions
   import:          liquid
   hs-source-dirs:  assumptions
   exposed-modules:
+    Distribution.Compat.Prelude_LHAssumptions
     Distribution.Types.Version_LHAssumptions
     Distribution.Types.VersionRange.Internal_LHAssumptions
 
--- Each module here is a symbolic link to the module of the same name in the
--- library that owns it.  Listing a module here is what puts it under
+-- Each module under verification is a symbolic link to the module of the same
+-- name in the library that owns it.  Listing a module puts it under
 -- verification; its imports still come from the compiled library.
-library
+--
+-- One sub-library per verified module.  GHC prefers a module found on the
+-- source path over the same module from a package, so two verified modules
+-- sharing a component would see each other's copy instead of the library's,
+-- and the assumptions about the library's copy would no longer apply.
+library intervals
   import:         liquid
-  hs-source-dirs: src
+  hs-source-dirs: intervals
   build-depends:  Cabal-liquid:assumptions
   other-modules:
     Distribution.Types.VersionInterval
+
+-- Not built until three LiquidHaskell problems are fixed upstream: derived
+-- Generic instances are not trusted and cannot be encoded, the auxiliary
+-- bindings of derived Data instances are inferred false and make every
+-- specification hold vacuously, and the Generic-default methods of the
+-- Binary and Structured instances overflow the stack in liquid-fixpoint.
+-- With Generic trusted and the Data deriving and those two instances cut,
+-- the module verifies and deliberate bugs are caught.  Flip buildable to
+-- try it.
+library version
+  import:         liquid
+  buildable:      False
+  hs-source-dirs: version
+  build-depends:
+    , Cabal-liquid:assumptions
+    , pretty
+  other-modules:
+    Distribution.Types.Version
