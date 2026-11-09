@@ -45,6 +45,13 @@ import Distribution.Types.VersionRange.Internal
 --
 -- cabal run Cabal-tests:unit-tests -- -p Distribution.Version
 -- cabal run cabal-benchmarks -- -o bench.html normaliseVersionRange
+--
+-- The @{-\@ ... \@-}@ comments are LiquidHaskell specifications.  They are
+-- checked by building the Cabal-liquid package, see @cabal.liquid.project@,
+-- and are inert otherwise.  They prove, for the list of intervals built by
+-- 'stage2and3', the two clauses of 'invariantVersionIntervals' that do not
+-- depend on the versions being valid: each interval is non-empty and
+-- consecutive intervals do not touch.
 
 -------------------------------------------------------------------------------
 -- Data
@@ -79,9 +86,63 @@ data LowerBound = LowerBound !Version !Bound deriving (Eq, Show)
 data UpperBound = NoUpperBound | UpperBound !Version !Bound deriving (Eq, Show)
 data Bound = ExclusiveBound | InclusiveBound deriving (Eq, Show)
 
+{-@ data VersionInterval = VersionInterval { viLower :: LowerBound, viUpper :: UpperBound } @-}
+{-@ data LowerBound = LowerBound { lbVersion :: Version, lbBound :: Bound } @-}
+{-@ data UpperBound = NoUpperBound | UpperBound { ubVersion :: Version, ubBound :: Bound } @-}
+
+{-@ measure isBounded :: UpperBound -> Bool
+      isBounded NoUpperBound = False
+      isBounded (UpperBound v b) = True
+  @-}
+
+-- | The lower bound @L@ is at or before the upper bound @U@: the interval
+-- @[L, U]@ is non-empty, see 'nonEmptyVI'.
+{-@ predicate NonEmptyBounds L U =
+      not (isBounded U)
+        || lbVersion L < ubVersion U
+        || (lbVersion L == ubVersion U
+              && lbBound L == InclusiveBound
+              && ubBound U == InclusiveBound)
+  @-}
+{-@ predicate NonEmptyVI I = NonEmptyBounds (viLower I) (viUpper I) @-}
+
+-- | The upper bound @U@ is strictly before the lower bound @L@, see
+-- 'doesNotTouch'.
+{-@ predicate DoesNotTouch U L =
+      isBounded U
+        && (ubVersion U < lbVersion L
+              || (ubVersion U == lbVersion L
+                    && ubBound U == ExclusiveBound
+                    && lbBound L == ExclusiveBound))
+  @-}
+{-@ predicate Separated X Y = DoesNotTouch (viUpper X) (viLower Y) @-}
+
+-- | The lower bound @A@ is at or after the lower bound @B@.
+{-@ predicate LowerGE A B =
+      lbVersion B < lbVersion A
+        || (lbVersion B == lbVersion A
+              && (lbBound A == lbBound B || lbBound B == InclusiveBound))
+  @-}
+
+-- | The upper bound @V@ is at or after the upper bound @U@.
+{-@ predicate UpperGE V U =
+      not (isBounded V)
+        || (isBounded U
+              && (ubVersion U < ubVersion V
+                    || (ubVersion U == ubVersion V
+                          && (ubBound U == ubBound V || ubBound V == InclusiveBound))))
+  @-}
+
+{-@ type NonEmptyInterval = {i:VersionInterval | NonEmptyVI i} @-}
+
+-- | Non-empty intervals where no interval touches any interval before it.
+{-@ type SeparatedIntervals = [NonEmptyInterval]<{\x y -> Separated x y}> @-}
+
+{-@ zeroLowerBound :: {l:LowerBound | lbVersion l == 0 && lbBound l == InclusiveBound} @-}
 zeroLowerBound :: LowerBound
 zeroLowerBound = LowerBound version0 InclusiveBound
 
+{-@ isVersion0 :: v:Version -> {b:Bool | b <=> v == 0} @-}
 isVersion0 :: Version -> Bool
 isVersion0 = (==) version0
 
@@ -89,6 +150,9 @@ isVersion0 = (==) version0
 -- Stage1
 -------------------------------------------------------------------------------
 
+-- Every interval built from a leaf is non-empty because the versions in a
+-- 'VersionRange' are valid, an assumption recorded in Cabal-liquid.
+{-@ stage1 :: VersionRange -> [NonEmptyInterval] @-}
 stage1 :: VersionRange -> [VersionInterval]
 stage1 = cataVersionRange alg
   where
@@ -108,6 +172,7 @@ stage1 = cataVersionRange alg
     alg (IntersectVersionRangesF v1 v2) = mapMaybe nonEmptyInterval $ liftA2 intersectInterval (stage2and3 v1) (stage2and3 v2)
 
 -- | Check that interval is non-empty
+{-@ nonEmptyInterval :: VersionInterval -> Maybe NonEmptyInterval @-}
 nonEmptyInterval :: VersionInterval -> Maybe VersionInterval
 nonEmptyInterval i | nonEmptyVI i = Just i
 nonEmptyInterval _ = Nothing
@@ -116,6 +181,7 @@ nonEmptyInterval _ = Nothing
 -- Stage2
 -------------------------------------------------------------------------------
 
+{-@ stage2 :: [NonEmptyInterval] -> [NonEmptyInterval] @-}
 stage2 :: [VersionInterval] -> [VersionInterval]
 stage2 = sortBy lowerboundCmp
 
@@ -135,16 +201,28 @@ lowerboundCmp (VersionInterval (LowerBound v vb) _) (VersionInterval (LowerBound
 
 -- | Post-processing takes a list of ordered version intervals,
 -- but possibly overlapping, and creates 'VersionIntervals'.
+{-@ postprocess :: [NonEmptyInterval] -> VersionIntervals @-}
 postprocess :: [VersionInterval] -> VersionIntervals
 postprocess = checkInvariant . VersionIntervals . stage2and3
 
+{-@ stage2and3 :: [NonEmptyInterval] -> SeparatedIntervals @-}
 stage2and3 :: [VersionInterval] -> [VersionInterval]
 stage2and3 = stage3 . stage2
 
+{-@ stage3 :: [NonEmptyInterval] -> SeparatedIntervals @-}
 stage3 :: [VersionInterval] -> [VersionInterval]
 stage3 [] = []
 stage3 (VersionInterval lb ub : rest) = stage3go lb ub rest
 
+-- The intervals emitted all start at or after @lb@, which is what makes the
+-- interval emitted before them separated from each of them.
+{-@ stage3go
+      :: lb:LowerBound
+      -> ub:{UpperBound | NonEmptyBounds lb ub}
+      -> xs:[NonEmptyInterval]
+      -> {v:[{i:NonEmptyInterval | LowerGE (viLower i) lb}]<{\x y -> Separated x y}> | len v > 0}
+      / [len xs]
+  @-}
 stage3go :: LowerBound -> UpperBound -> [VersionInterval] -> [VersionInterval]
 stage3go !lb NoUpperBound _ = [VersionInterval lb NoUpperBound]
 stage3go !lb !ub [] = [VersionInterval lb ub]
@@ -182,6 +260,7 @@ intersectBound _ _ = ExclusiveBound
 -- Unions
 -------------------------------------------------------------------------------
 
+{-@ unionUpper :: a:UpperBound -> b:UpperBound -> {v:UpperBound | UpperGE v a && UpperGE v b} @-}
 unionUpper :: UpperBound -> UpperBound -> UpperBound
 unionUpper NoUpperBound _ = NoUpperBound
 unionUpper _ NoUpperBound = NoUpperBound
@@ -190,6 +269,7 @@ unionUpper (UpperBound v vb) (UpperBound u ub) = case compare v u of
   LT -> UpperBound u ub
   GT -> UpperBound v vb
 
+{-@ unionBound :: a:Bound -> b:Bound -> {v:Bound | v == InclusiveBound || (v == a && v == b)} @-}
 unionBound :: Bound -> Bound -> Bound
 unionBound ExclusiveBound ExclusiveBound = ExclusiveBound
 unionBound _ _ = InclusiveBound
@@ -232,6 +312,7 @@ asVersionIntervals = unVersionIntervals . toVersionIntervals
 --   ---|      or  ---)     but not  ---]     or  ---)     or  ---]
 --       |---         (---              (---         [---         [---
 -- @
+{-@ doesNotTouch :: u:UpperBound -> l:LowerBound -> {v:Bool | v <=> DoesNotTouch u l} @-}
 doesNotTouch :: UpperBound -> LowerBound -> Bool
 doesNotTouch NoUpperBound _ = False
 doesNotTouch (UpperBound u ub) (LowerBound l lb) =
@@ -258,6 +339,10 @@ invariantVersionIntervals (VersionIntervals intervals) =
       [] -> []
       (_ : tl) -> zip intervals tl
 
+-- LiquidHaskell's specification of 'assert' asks for a proof of its
+-- condition.  The invariant is proven on the list of intervals instead, see
+-- 'stage2and3', so this runtime check is left out of verification.
+{-@ ignore checkInvariant @-}
 checkInvariant :: VersionIntervals -> VersionIntervals
 checkInvariant is = assert (invariantVersionIntervals is) is
 {-# INLINE checkInvariant #-}
@@ -271,6 +356,7 @@ validInterval i@(VersionInterval l u) = validLower l && validUpper u && nonEmpty
 
 -- Check an interval is non-empty
 --
+{-@ nonEmptyVI :: i:VersionInterval -> {v:Bool | v <=> NonEmptyVI i} @-}
 nonEmptyVI :: VersionInterval -> Bool
 nonEmptyVI (VersionInterval _ NoUpperBound) = True
 nonEmptyVI (VersionInterval (LowerBound l lb) (UpperBound u ub)) =

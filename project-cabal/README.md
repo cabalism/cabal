@@ -6,6 +6,7 @@ We have these projects, all in the root:
 $ tree -P '*.project' --prune -L 1
 .
 ├── cabal.bootstrap.project
+├── cabal.liquid.project
 ├── cabal.meta.project
 ├── cabal.project
 ├── cabal.release.project
@@ -81,6 +82,9 @@ package group.
 | release          |      | ✓     | ✓     | ✓       |
 | validate         | ✓    |       |       |         |
 | validate.libonly |      | ✓     | ✓     |         |
+
+The `liquid` project checks LiquidHaskell specifications, see
+`Cabal-liquid/README.md`.  It builds `Cabal-syntax` and `Cabal-liquid` only.
 
 The `meta` project is a one-liner:
 

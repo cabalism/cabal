@@ -1,0 +1,38 @@
+-- Verify refinement type specifications with LiquidHaskell.
+--
+-- The LiquidHaskell plugin supports a single GHC version at a time, so this
+-- project is only expected to build with the GHC that liquidhaskell targets,
+-- currently GHC 9.14.  Keep its build products apart from the day-to-day
+-- build:
+--
+--   cabal build --project-file=cabal.liquid.project --builddir=dist-newstyle-liquid all
+--
+-- or `make liquid`.  Modules are put under verification by listing them in
+-- Cabal-liquid/Cabal-liquid.cabal.
+import: project-cabal/ghc-options.config
+import: project-cabal/ghc-latest.config
+
+packages:
+  Cabal-syntax
+  Cabal-liquid
+
+tests: False
+
+-- The plugin package is not imported by any module of Cabal-liquid.  This has
+-- to be set here rather than in Cabal-liquid.cabal to outrank the
+-- -Wunused-packages in project-cabal/ghc-options.config.
+package Cabal-liquid
+  ghc-options: -Wno-unused-packages
+
+-- The liquidhaskell-0.9.14.1.1 release on Hackage depends on the Cabal
+-- library, which pins Cabal-syntax to the 3.16 series and so cannot be in a
+-- build plan with the Cabal-syntax of this repository.  This branch drops
+-- that dependency.  Point at the Hackage release once one without it is out.
+source-repository-package
+  type: git
+  location: https://github.com/up-do/liquidhaskell.git
+  tag: 438ab1e1c6392ef6e4c7645b21db57874740938b
+  subdir: . liquidhaskell-boot
+
+-- Without this the solver settles on an ancient aeson that does not build.
+constraints: aeson >= 2.2

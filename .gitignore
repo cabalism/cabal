@@ -109,3 +109,6 @@ bench.html
 
 # ignore the downloaded binary files
 scripts/release/binary-downloads/
+
+# LiquidHaskell scratch output written next to verified modules
+.liquid/

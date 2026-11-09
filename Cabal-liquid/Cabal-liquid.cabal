@@ -1,0 +1,44 @@
+cabal-version: 3.0
+name:          Cabal-liquid
+version:       3.19.0.0
+synopsis:      LiquidHaskell verification of invariants in the Cabal libraries
+description:
+  This package is not released.  It compiles selected modules of the Cabal
+  libraries a second time, from their own source files, with the LiquidHaskell
+  plugin enabled so that the refinement type specifications written in those
+  modules are checked.  Build it with @cabal.liquid.project@, see
+  @Cabal-liquid/README.md@.
+category:      Testing
+build-type:    Simple
+
+common liquid
+  default-language:   GHC2021
+  default-extensions: NoImportQualifiedPost
+  ghc-options:
+    -Wall
+    -fplugin=LiquidHaskell
+
+  build-depends:
+    , base
+    , Cabal-syntax   ^>=3.19.0.0
+    , liquidhaskell  ^>=0.9.14.1
+
+-- Specifications for library modules that are not verified themselves.
+-- LiquidHaskell finds a module @M_LHAssumptions@ by name when a verified
+-- module imports @M@.  These specifications are trusted, not checked.
+library assumptions
+  import:          liquid
+  hs-source-dirs:  assumptions
+  exposed-modules:
+    Distribution.Types.Version_LHAssumptions
+    Distribution.Types.VersionRange.Internal_LHAssumptions
+
+-- Each module here is a symbolic link to the module of the same name in the
+-- library that owns it.  Listing a module here is what puts it under
+-- verification; its imports still come from the compiled library.
+library
+  import:         liquid
+  hs-source-dirs: src
+  build-depends:  Cabal-liquid:assumptions
+  other-modules:
+    Distribution.Types.VersionInterval

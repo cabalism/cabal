@@ -92,6 +92,15 @@ lint: ## Run HLint.
 lint-json: ## Run HLint in JSON mode.
 	hlint -j --json -- .
 
+# verification
+
+# Note: the 'liquid' goal is used in .github/workflows/liquid.yml.
+# Any changes to this goal need to be reconciled with this workflow.
+#
+.PHONY: liquid
+liquid: ## Check LiquidHaskell specifications, needs z3 and the GHC that liquidhaskell targets.
+	$(CABALBUILD) --project-file=cabal.liquid.project --builddir=dist-newstyle-liquid all
+
 # local checks
 
 .PHONY: checks

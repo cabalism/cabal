@@ -1,0 +1,69 @@
+name: LiquidHaskell
+
+# See: https://docs.github.com/en/actions/reference/workflow-syntax-for-github-actions#concurrency.
+concurrency:
+  group: ${{ github.ref }}-${{ github.workflow }}
+  cancel-in-progress: true
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+
+env:
+  # The liquidhaskell plugin supports one GHC version at a time.
+  GHC_FOR_LIQUID: 9.14.1
+  # Pin the SMT solver to what liquidhaskell's own CI tests with, see
+  # .github/workflows/cabal.yml in https://github.com/ucsd-progsys/liquidhaskell.
+  # The setup-z3 action builds the download filename from
+  # z3-version-architecture-distribution, so the distribution has to name
+  # the glibc of the runner image as the z3 release does.
+  Z3_FOR_LIQUID: 4.15.1
+  Z3_DISTRIBUTION: glibc-2.39
+
+jobs:
+  liquid:
+    name: Check LiquidHaskell specifications
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install compiler
+        uses: haskell-actions/setup@v2
+        id: setup-haskell
+        with:
+          ghc-version: ${{ env.GHC_FOR_LIQUID }}
+          cabal-version: latest
+      - name: Install SMT solver
+        uses: pavpanchekha/setup-z3@6b2d476d7a9227e0d8d2b94f73cd9fcba91b5e98
+        with:
+          version: ${{ env.Z3_FOR_LIQUID }}
+          distribution: ${{ env.Z3_DISTRIBUTION }}
+      - name: Solver version
+        run: z3 --version
+      - name: Haskell versions
+        run: |
+          ghc --version
+          cabal --version
+      - name: Update Hackage index
+        run: cabal v2-update
+      - uses: actions/checkout@v7
+      - name: Generate build plan for correct cache key
+        run: cabal build --dry-run --project-file=cabal.liquid.project --builddir=dist-newstyle-liquid all
+      - name: Get runner OS/version for cache keys
+        id: get-osver
+        run: echo "osver=$ImageOS" >> "$GITHUB_OUTPUT"
+      - name: Restore cached dependencies
+        uses: actions/cache/restore@v6
+        id: cache
+        with:
+          path: ~/.local/state/cabal
+          key: ${{ steps.get-osver.outputs.osver }}-store-liquid-${{ hashfiles('dist-newstyle-liquid/cache/plan.json') }}
+          restore-keys: ${{ steps.get-osver.outputs.osver }}-store-liquid-
+      - name: Check specifications
+        run: make liquid
+      - name: Cache dependencies
+        uses: actions/cache/save@v6
+        if: always() && steps.cache.outputs.cache-hit != 'true'
+        with:
+          path: ~/.local/state/cabal
+          key: ${{ steps.cache.outputs.cache-primary-key }}
