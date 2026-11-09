@@ -1,0 +1,11 @@
+---
+synopsis: "Read the installed package index only when a package is configured"
+packages: [cabal-install]
+prs:
+---
+
+Executing a build plan started with a bulk `ghc-pkg dump` of every package db
+the plan touches, including the store, before any package was built. Most
+runs never used the result: a `cabal repl` of an already configured component,
+or a `cabal build` after editing a source file, configure nothing. The index is
+now read the first time a package is configured, so those runs skip the dumps.
