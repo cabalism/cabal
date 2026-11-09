@@ -84,7 +84,9 @@ package group.
 | validate.libonly |      | ✓     | ✓     |         |
 
 The `liquid` project checks LiquidHaskell specifications, see
-`Cabal-liquid/README.md`.  It builds `Cabal-syntax` and `Cabal-liquid` only.
+`Cabal-liquid/README.md`.  It builds `Cabal-syntax`, `Cabal` and
+`Cabal-liquid` only, and takes the LiquidHaskell plugin from its upstream
+repository.
 
 The `meta` project is a one-liner:
 

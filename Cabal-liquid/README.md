@@ -59,7 +59,7 @@ sub-library so they are compiled before the modules that need them.
 - `Distribution.Types.Version`: the packed representation is well formed and
   only used for components that fit it, and `mkVersion` and `versionNumbers`
   are inverses.  What the bit operations do to the four 16-bit fields is
-  assumed.  Not built yet, see the `version` sub-library.
+  assumed.
 
 - `Distribution.Compat.NonEmptySet`: the set is never empty, so `panic` is
   unreachable, and each operation is described by the set it returns.  The
@@ -69,10 +69,10 @@ sub-library so they are compiled before the modules that need them.
 ## Known limitations of the plugin
 
 The helper package is built without optimisation because LiquidHaskell cannot
-handle `UNPACK` fields.  It pins a fork of liquidhaskell because the Hackage
-release depends on the Cabal library.  The `version` and `nonemptyset`
-sub-libraries are not buildable; the comments on them in the package
-description say what each waits for upstream.
+handle `UNPACK` fields.  The plugin is taken from the upstream repository
+rather than Hackage because the fixes it needs are not released yet, see
+`cabal.liquid.project`.  The `nonemptyset` sub-library is not buildable; the
+comment on it in the package description says what it waits for upstream.
 
 Newtypes are a moving target.  With the pinned release a newtype is its
 representation in the logic, with upstream develop it is a type of its own

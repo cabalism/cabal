@@ -14,6 +14,7 @@ import: project-cabal/ghc-latest.config
 
 packages:
   Cabal-syntax
+  Cabal
   Cabal-liquid
 
 tests: False
@@ -28,15 +29,25 @@ package Cabal-liquid
   -- https://github.com/ucsd-progsys/liquidhaskell/issues/2629.
   optimization: False
 
--- The liquidhaskell-0.9.14.1.1 release on Hackage depends on the Cabal
--- library, which pins Cabal-syntax to the 3.16 series and so cannot be in a
--- build plan with the Cabal-syntax of this repository.  This branch drops
--- that dependency.  Point at the Hackage release once one without it is out.
+-- The fixes this project needs, liquidhaskell pull request 2700 above all,
+-- are merged upstream but not in a Hackage release yet, so the plugin is
+-- taken from the upstream repository.  liquid-fixpoint comes from the same
+-- clone, as a submodule, because the version develop needs is unreleased
+-- too.  Point at Hackage once a release includes them.
 source-repository-package
   type: git
-  location: https://github.com/up-do/liquidhaskell.git
-  tag: 438ab1e1c6392ef6e4c7645b21db57874740938b
-  subdir: . liquidhaskell-boot
+  location: https://github.com/ucsd-progsys/liquidhaskell.git
+  tag: 7c809b687388dc837c53b9db29b0a70b7165b716
+  subdir: . liquidhaskell-boot liquid-fixpoint
+
+-- liquidhaskell-boot depends on the Cabal library with a bound below the
+-- Cabal of this repository, which is why Cabal is among the packages: no
+-- Hackage Cabal can share a plan with this Cabal-syntax.  This Cabal in turn
+-- asks for a process newer than the one liquidhaskell's ghc dependency pins;
+-- that bound is for a macOS segfault fix, not an API, and this project only
+-- builds on Linux.
+allow-newer: liquidhaskell-boot:Cabal
+allow-older: Cabal:process
 
 -- Without this the solver settles on an ancient aeson that does not build.
 constraints: aeson >= 2.2
