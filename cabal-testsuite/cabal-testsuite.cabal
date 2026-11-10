@@ -44,6 +44,7 @@ library
   exposed-modules:
     Test.Cabal.CheckArMetadata
     Test.Cabal.DecodeShowBuildInfo
+    Test.Cabal.Driver
     Test.Cabal.Monad
     Test.Cabal.NeedleHaystack
     Test.Cabal.OutputNormalizer
@@ -60,6 +61,7 @@ library
     , aeson                 ^>= 1.4.2.0 || ^>=1.5.0.0 || ^>= 2.0.0.0 || ^>= 2.1.0.0 || ^>= 2.2.1.0 || ^>= 2.3.0.0
     , async                 ^>= 2.2.1
     , base16-bytestring     ^>= 0.1.1.5 || ^>= 1.0
+    , clock                 ^>= 0.7.2 || ^>=0.8
     , bytestring            ^>= 0.10.0.2 || ^>= 0.11.0.0 || ^>= 0.12.0.0
     , containers            ^>= 0.5.0.0 || ^>= 0.6.0.1 || ^>= 0.7 || ^>= 0.8
     , cryptohash-sha256     ^>= 0.11.101.0
@@ -74,6 +76,7 @@ library
     , process               ^>= 1.2.1.0 || ^>= 1.4.2.0 || ^>= 1.6.1.0
     , regex-base            ^>= 0.94.0.1
     , regex-tdfa            ^>= 1.2.3.1 || ^>=1.3.1.0
+    , tasty
     , retry                 ^>= 0.9.1.0
     , array                 ^>= 0.4.0.1 || ^>= 0.5.0.0
     , text                  ^>= 1.2.3.1 || ^>= 2.0.1   || ^>= 2.1
@@ -92,35 +95,34 @@ library
 -- package ids from those. The driver runs the test scripts with them.
 --
 -- Because of that, the dependencies of this component are the packages that
--- a test script can use. If you require an external dependency for a test it
--- must be listed here.
+-- a test script can use, and no others. The code of the driver is in the
+-- library, in Test.Cabal.Driver, so that its dependencies are not among them.
+--
+-- If you require an external dependency for a test it must be listed here.
 test-suite cabal-tests
-  import: shared
+  default-language: Haskell2010
   type: exitcode-stdio-1.0
-  main-is: cabal-tests.hs
+  main-is: Main.hs
   hs-source-dirs: main
   ghc-options: -threaded -rtsopts
   code-generators: script-env-gen
   build-tool-depends:
     , cabal-testsuite-gen:script-env-gen
     , cabal-testsuite:setup
+  -- Apart from base and cabal-testsuite that are compile-time dependencies,
+  -- the rest are runtime dependencies
   build-depends:
-    , cabal-testsuite
-    -- constraints inherited via lib:cabal-testsuite component
-    , async
-    , filepath
-    , optparse-applicative
-    , process
-    -- dependencies specific to test:cabal-tests
-    , clock                 ^>= 0.7.2 || ^>=0.8
-    , directory
-    , tasty
-    , containers
-    -- dependencies of the test scripts only
+    , Cabal
     , Cabal-syntax
     , Cabal-hooks
+    , base
     , bytestring
+    , cabal-testsuite
+    , containers
+    , directory
     , exceptions
+    , filepath
+    , process
     , time
     , transformers
 
@@ -128,8 +130,6 @@ test-suite cabal-tests
     build-depends: unix
   else
     build-depends: Win32
-
-  default-extensions: TypeOperators
 
 -- this executable is needed by lib:cabal-testsuite
 executable setup

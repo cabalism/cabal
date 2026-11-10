@@ -175,8 +175,9 @@ Otherwise, here is a walkthrough:
    ```
 
    The dependencies which your test is allowed to use are those listed in the
-   cabal file under the `cabal-tests` test-suite, which include the
-   dependencies of the test driver itself. When that test-suite is built, its
+   cabal file under the `cabal-tests` test-suite. The code of the test driver
+   is in the library, in `Test.Cabal.Driver`, so that what it depends on is
+   not among them. When that test-suite is built, its
    code generator `script-env-gen` records the package databases and the
    versions of each package in a generated module. These are then used when
    `cabal-tests` runs when it invokes `runghc` to run each test.

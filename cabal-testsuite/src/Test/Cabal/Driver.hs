@@ -1,8 +1,16 @@
 {-# LANGUAGE NondecreasingIndentation #-}
+{-# LANGUAGE TypeOperators #-}
+
+-- | The test driver, the @main@ of the @cabal-tests@ test-suite.
+--
+-- It is in the library so that the test-suite depends on no more than the
+-- packages that a test script can use, see 'cabalTestsMain'.
+module Test.Cabal.Driver
+  ( cabalTestsMain
+  ) where
 
 import Test.Cabal.Workdir
 import Test.Cabal.Script
-import Test.Cabal.ScriptEnv0 (scriptPackageDbs, scriptPackageIds)
 import Test.Cabal.Server
 import Test.Cabal.Monad
 import Test.Cabal.TestCode
@@ -56,11 +64,13 @@ These are all distinct from each other and should be specified separately.
 
 Where are these environments specified:
 
-1. The build-depends of the `cabal-tests` test-suite in `cabal-testsuite.cabal`
-2. The same build-depends. When `cabal-tests` is built, its code generator
-   `script-env-gen` generates the module `Test.Cabal.ScriptEnv0` with the
-   package databases and package ids it is built with. `Test.Cabal.Script` uses
-   these to pass the right environment.
+1. The build-depends of the library in `cabal-testsuite.cabal`, which this
+   module is in.
+2. The build-depends of the `cabal-tests` test-suite in `cabal-testsuite.cabal`.
+   When `cabal-tests` is built, its code generator `script-env-gen` generates
+   the module `Test.Cabal.ScriptEnv0` with the package databases and package
+   ids it is built with. `Test.Cabal.Script` uses these to pass the right
+   environment.
    This is the mechanism by which the `./Setup` tests have access to the in-tree
    `Cabal`, `Cabal-syntax` and `Cabal-hooks` libraries.
 3. No specification, only the `GlobalPackageDb` is available (see
@@ -200,8 +210,19 @@ buildCabalLibsIntree root verb mbGhc builddir_rel = do
   let libs = [ "Cabal", "Cabal-syntax", "Cabal-hooks", "hooks-exe" ]
   buildCabalLibsProject ("packages: " ++ unwords ( map ( root </> ) libs ) ) verb mbGhc dir
 
-main :: IO ()
-main = do
+-- | Run the tests.
+--
+-- The package databases and package ids are those that the @cabal-tests@
+-- test-suite was built with, from the module that its code generator
+-- @script-env-gen@ generates. The test scripts are run with these, so the
+-- dependencies of that test-suite are the packages a test script can use.
+cabalTestsMain
+  :: [FilePath]
+  -- ^ The package databases
+  -> [String]
+  -- ^ The package ids
+  -> IO ()
+cabalTestsMain scriptPackageDbs scriptPackageIds = do
     -- By default, stderr is not buffered.  This isn't really necessary
     -- for us, and it causes problems on Windows, see:
     -- https://github.com/appveyor/ci/issues/1364
