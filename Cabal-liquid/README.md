@@ -70,6 +70,12 @@ sub-library so they are compiled before the modules that need them.
   line, `validateUTF8` reports an offset inside its input, and every
   recursion terminates.  Functions written with `foldr` have no
   specification.
+- `Distribution.Types.VersionInterval.Legacy`: the invariant of
+  `VersionIntervals` is the type of its field; conversion from a range, the
+  complement and `relaxHeadInterval` are proved to keep it, the `Ord`
+  instances to implement the documented containment orders, and the two
+  interval merges to return non-empty intervals.  Union, intersection and
+  `relaxLastInterval` are not checked, see the note in the module.
 
 ## Known limitations of the plugin
 
@@ -88,7 +94,25 @@ assumption until construction is checked.
 
 A local group of mutually recursive functions must have a type signature on
 each of them or on none: with a signature on some, the plugin crashes in its
-termination check.
+termination check.  A local function whose inferred type is more general
+than its use, such as a helper on `(a, UpperBound)`, needs a signature too,
+or nothing is known about the component with the type variable.
+
+A refinement on a component of a tuple, `({v:Int | 0 < v}, Bool)`, is not
+related to the measures `fst` and `snd` of a binder of that type, in either
+direction, so properties of pairs must be written on the pair with `fst` and
+`snd`.  An abstract refinement can only be placed on a component, which is
+why the recursions in the Legacy interval module cannot be told, in their
+types, which bound their results lie beyond.
+
+With `{-@ LIQUID "--adt" @-}` the module's data types are declared to the
+solver as data types.  That gives equality of values with equal fields and
+that a value of a two-constructor type which is not one constructor is the
+other; without it neither holds.
+
+An `instance` specification, `{-@ instance Ord T where <= :: ... @-}`, is
+checked for a method the instance defines and must be `assume`d for one it
+takes from the class default.
 
 Check that a module's verification is not vacuous: a `WARNING: Found false`
 line from the plugin means some binder was inferred to be unreachable, and if

@@ -94,3 +94,12 @@ library generic
     , text
   other-modules:
     Distribution.Utils.Generic
+
+-- The sequence operations union, intersection and relaxLastInterval are not
+-- checked, see the note at the top of the module; the rest is.
+library legacy
+  import:         liquid
+  hs-source-dirs: legacy
+  build-depends:  Cabal-liquid:assumptions
+  other-modules:
+    Distribution.Types.VersionInterval.Legacy
