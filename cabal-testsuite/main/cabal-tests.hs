@@ -56,9 +56,10 @@ These are all distinct from each other and should be specified separately.
 Where are these environments specified:
 
 1. The build-depends on `cabal-tests` executable in `cabal-testsuite.cabal`
-2. The build-depends of `test-runtime-deps` executable in `cabal-testsuite.cabal`
-   These dependencies are injected in a special module (`Test.Cabal.ScriptEnv0`) which
-   then is consulted in `Test.Cabal.Monad` in order to pass the right environment.
+2. The build-depends of `test-runtime-deps` test-suite in `cabal-testsuite.cabal`
+   When that component is built, its code generator `script-env-gen` saves the
+   package databases and package ids it is built with. `Test.Cabal.Script` reads
+   these to pass the right environment.
    This is the mechanism by which the `./Setup` tests have access to the in-tree
    `Cabal`, `Cabal-syntax` and `Cabal-hooks` libraries.
 3. No specification, only the `GlobalPackageDb` is available (see
@@ -79,6 +80,7 @@ data MainArgs = MainArgs {
         mainArgVerbose :: Bool,
         mainArgQuiet   :: Bool,
         mainArgDistDir :: Maybe FilePath,
+        mainArgScriptGhc :: Maybe FilePath,
         mainArgCabalSpec :: Maybe CabalLibSpec,
         mainCommonArgs :: CommonArgs,
         mainTastyArgs :: Tasty.OptionSet
@@ -124,6 +126,10 @@ mainArgParser = MainArgs
         ( help "Dist directory we were built with"
        <> long "builddir"
        <> metavar "DIR"))
+    <*> optional (option str
+        ( help "GHC to run test scripts with, the version that built cabal-tests (default: ghc-VERSION or ghc on the search path)"
+       <> long "with-script-ghc"
+       <> metavar "PATH"))
     <*> optional cabalLibSpecParser
     <*> commonArgParser
     <*> tastyArgParser
@@ -233,27 +239,27 @@ main = do
     -- way to get this information is by querying the *host* build
     -- system about the information.
     --
-    -- Fortunately, because we are using a Custom setup, our Setup
-    -- script is bootstrapped against the Cabal library we're testing
-    -- against, so can use our dependency on Cabal to read out the build
-    -- info *for this package*.
-    --
-    -- NB: Currently assumes that per-component build is NOT turned on
-    -- for Custom.
+    -- The build system gives the GHC options for the test-runtime-deps
+    -- component of this package to a code generator, which saves the
+    -- package databases and package ids from those in the dist directory,
+    -- see 'mkScriptEnv'.
     dist_dir <- case mainArgDistDir args of
                   Just dist_dir -> return dist_dir
                   Nothing -> getSymbolicPath <$> guessDistDir
     when (verbosityLevel verbosity >= Verbose) $
         hPutStrLn stderr $ "Using dist dir: " ++ dist_dir
     -- Get ready to go!
-    senv <- mkScriptEnv verbosity
+    senv <- mkScriptEnv verbosity dist_dir (mainArgScriptGhc args)
+    -- Each test script reads this back instead of working it out again.
+    let senv_file = dist_dir </> "cabal-tests-script-env"
+    writeScriptEnv senv_file senv
 
     let runTest :: (Maybe cwd -> [unusedEnv] -> FilePath -> [String] -> IO result)
                 -> FilePath
                 -> IO result
         runTest runner path
             = runner Nothing [] path $
-                ["--builddir", dist_dir, path] ++ ["--extra-package-db=" ++ pkg_db | pkg_db <- pkg_dbs] ++ renderCommonArgs (mainCommonArgs args)
+                ["--builddir", dist_dir, "--script-env", senv_file, path] ++ ["--extra-package-db=" ++ pkg_db | pkg_db <- pkg_dbs] ++ renderCommonArgs (mainCommonArgs args)
 
     case mainArgTestPaths args of
         [path] -> do

@@ -15,8 +15,8 @@ on:
         type: string
         default: "install_bin install_lib update_package_db install_extra"
       # The bootstrap cabal used to build cabal-install and cabal-testsuite.
-      # It must satisfy the setup-depends of cabal-testsuite, so keep it in
-      # sync with the cabal-version used in validate.yml (see PR #10251).
+      # Keep it in sync with the cabal-version used in validate.yml (see PR
+      # #10251).
       cabal:
         type: string
         default: 3.18.1.0

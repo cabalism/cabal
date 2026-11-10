@@ -82,6 +82,7 @@ import Test.Cabal.OutputNormalizer
 import Test.Cabal.Plan
 import Test.Cabal.Script
 import Test.Cabal.TestCode
+import Test.Cabal.Workdir (distExePath)
 
 import Distribution.Pretty (prettyShow)
 import Distribution.Simple.Compiler
@@ -200,6 +201,7 @@ renderCommonArgs args =
 
 data TestArgs = TestArgs
   { testArgDistDir :: FilePath
+  , testArgScriptEnv :: FilePath
   , testArgPackageDb :: [FilePath]
   , testArgScriptPath :: FilePath
   , testCommonArgs :: CommonArgs
@@ -213,6 +215,13 @@ testArgParser = do
       ( help "Build directory of cabal-testsuite"
           <> long "builddir"
           <> metavar "DIR"
+      )
+  testArgScriptEnv <-
+    option
+      str
+      ( help "The script environment saved by cabal-tests"
+          <> long "script-env"
+          <> metavar "FILE"
       )
   testArgPackageDb <-
     many
@@ -380,7 +389,8 @@ runTestM mode m =
 
         -- Canonicalize this so that it is stable across working directory changes
         script_dir <- canonicalizePath script_dir0
-        senv <- mkScriptEnv verbosity
+        senv <- readScriptEnv verbosity (testArgScriptEnv args)
+        setupPath <- distExePath dist_dir "setup"
         -- Add test suite specific programs
         let program_db0 =
               addKnownPrograms
@@ -451,7 +461,7 @@ runTestM mode m =
                 , testVerbosityFlags = verbosityFlags verbosity
                 , testMtimeChangeDelay = 10000
                 , testScriptEnv = senv
-                , testSetupPath = dist_dir </> "build" </> "setup" </> "setup"
+                , testSetupPath = setupPath
                 , testPackageDbPath = case testArgPackageDb args of [] -> Nothing; xs -> Just xs
                 , testSkipSetupTests = argSkipSetupTests (testCommonArgs args)
                 , testHaveCabalShared = runnerWithSharedLib senv

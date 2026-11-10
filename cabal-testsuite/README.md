@@ -3,7 +3,9 @@ frameworks.
 
 # How to run
 
-1. Build `cabal-testsuite` (`cabal build cabal-testsuite:cabal-tests`)
+1. Build `cabal-testsuite` (`cabal build cabal-testsuite:cabal-tests
+   cabal-testsuite:test-runtime-deps`). Building `test-runtime-deps` records
+   the packages that test scripts run with, see below.
 2. Run the `cabal-tests` executable. It will scan for all tests
    in your current directory and subdirectories and run them.
 
@@ -22,6 +24,10 @@ There are a few useful flags:
 
 * `--with-ghc PATH` can be used to specify an alternate version of
   GHC to ask the tests to compile with.
+
+* `--with-script-ghc PATH` can be used to specify the GHC to run the
+  test scripts with. It has to be the version that built `cabal-tests`.
+  By default `ghc-VERSION` and then `ghc` on the search path are tried.
 
 * `--builddir DIR` can be used to manually specify the dist directory
   that was used to build `cabal-tests`; this can be used if
@@ -159,12 +165,12 @@ Otherwise, here is a walkthrough:
    ```
 
    The dependencies which your test is allowed to use are listed in the
-   cabal file under the `test-runtime-deps` executable. At compile-time there is
-   a custom Setup.hs script which inspects this list and records the versions of
-   each package in a generated file. These are then used when `cabal-tests` runs
-   when it invokes `runghc` to run each test.
-   We ensure they are built and available by listing `test-runtime-deps` in the
-   build-tool-depends section of the cabal-tests executable.
+   cabal file under the `test-runtime-deps` test-suite. When that test-suite is
+   built, its code generator `script-env-gen` records the package databases
+   and the versions of each package in a generated file. These are then used
+   when `cabal-tests` runs when it invokes `runghc` to run each test.
+   Rebuild `test-runtime-deps` after changing its dependencies. Building
+   `cabal-tests` does not do this.
 
 
 3. Run your tests using `cabal-tests` (no need to rebuild when
@@ -303,10 +309,11 @@ technical innovations to make this work:
 
 Here is the general outline of how the `cabal-tests` program operates:
 
-1. It first loads the cached `LocalBuildInfo` associated with the
-   host build system (which was responsible for building `cabal-tests`
-   in the first place.)  This information lets us compute the
-   flags that we will use to subsequently invoke GHC.
+1. It first reads the packages recorded when the host build system
+   (which was responsible for building `cabal-tests` in the first place)
+   built `test-runtime-deps`, and finds the GHC that built them.  This
+   information lets us compute the flags that we will use to subsequently
+   invoke GHC.
 
 2. We then recursively scan the current working directory, looking
    for files suffixed `.test.hs`; these are the test scripts we

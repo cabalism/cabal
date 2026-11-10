@@ -6,27 +6,46 @@
 module Test.Cabal.Script
   ( ScriptEnv (..)
   , mkScriptEnv
+  , writeScriptEnv
+  , readScriptEnv
   , runnerGhcArgs
   , runnerCommand
   , runghc
   ) where
 
 import Test.Cabal.Run
-import Test.Cabal.ScriptEnv0
+import Test.Cabal.Workdir (componentDistDir)
 
 import Distribution.Backpack
+import Distribution.Compat.Binary (decodeFileOrFail', encode)
+import Distribution.InstalledPackageInfo qualified as IPI
+import Distribution.Package (packageName)
+import Distribution.Pretty (prettyShow)
+import Distribution.Simple.BuildPaths (mkSharedLibName)
 import Distribution.Simple.Compiler
+import Distribution.Simple.Configure (configCompilerEx, getInstalledPackages)
+import Distribution.Simple.PackageIndex (lookupUnitId)
 import Distribution.Simple.Program
 import Distribution.Simple.Program.Builtin
 import Distribution.Simple.Program.GHC
 import Distribution.Simple.Setup (pattern Flag)
+import Distribution.Simple.Utils (writeFileAtomic)
 import Distribution.System
 import Distribution.Types.ModuleRenaming
+import Distribution.Types.PackageName (mkPackageName)
+import Distribution.Types.UnitId (UnitId, mkUnitId, unsafeMkDefUnitId)
 import Distribution.Utils.NubList
 import Distribution.Utils.Path
 import Distribution.Verbosity
+import Distribution.Version (Version, mkVersion')
 
+import Data.Maybe (catMaybes, fromMaybe)
 import Data.Monoid qualified as M
+import System.Directory (doesFileExist, findExecutable)
+import System.Exit (die)
+import System.FilePath qualified as FilePath
+import System.Info (fullCompilerVersion)
+import Text.Read (readMaybe)
 
 -- | The runner environment, which contains all of the important
 -- parameters for invoking GHC.  Mostly subset of 'LocalBuildInfo'.
@@ -41,33 +60,150 @@ data ScriptEnv = ScriptEnv
   }
   deriving (Show)
 
-{-
-
--- | Convert package database into absolute path, so that
--- if we change working directories in a subprocess we get the correct database.
-canonicalizePackageDB :: PackageDB -> IO PackageDB
-canonicalizePackageDB (SpecificPackageDB path)
-    = SpecificPackageDB `fmap` canonicalizePath path
-canonicalizePackageDB x = return x
-
--}
-
--- | Create a 'ScriptEnv' from a 'LocalBuildInfo' configured with
--- the GHC that we want to use.
-mkScriptEnv :: Verbosity -> IO ScriptEnv
-mkScriptEnv verbosity =
+-- | Create the 'ScriptEnv' for running test scripts with the packages that
+-- the @test-runtime-deps@ component of this package was built with.
+--
+-- The package databases and package ids come from the file that the
+-- @script-env-gen@ code generator wrote when @test-runtime-deps@ was built.
+-- They are of no use with another GHC, so the GHC has to be the version that
+-- built this package, the first of these that is:
+--
+-- * the given path, if any,
+-- * @ghc-VERSION@ on the search path,
+-- * @ghc@ on the search path.
+mkScriptEnv
+  :: Verbosity
+  -> FilePath
+  -- ^ The dist directory of this package
+  -> Maybe FilePath
+  -- ^ The path of the GHC that built this package, if not on the search path
+  -> IO ScriptEnv
+mkScriptEnv verbosity distDir mbGhcPath = do
+  (packageDbs, packageIds) <- readGeneratedScriptEnv distDir
+  ghcPath <- findBuildGhc verbosity mbGhcPath
+  (comp, platform, progDb0) <-
+    configCompilerEx (Just GHC) (Just ghcPath) Nothing defaultProgramDb verbosity
+  progDb <- configureAllKnownPrograms verbosity progDb0
+  let dbStack = GlobalPackageDB : map SpecificPackageDB packageDbs
+      unitIds = map mkUnitId packageIds
+  withSharedLib <- haveCabalShared verbosity comp platform dbStack progDb unitIds
   return $
     ScriptEnv
       { runnerVerbosity = verbosityFlags verbosity
-      , runnerProgramDb = lbiProgramDb
-      , runnerPackageDbStack = lbiPackageDbStack
-      , runnerPlatform = lbiPlatform
-      , runnerCompiler = lbiCompiler
+      , runnerProgramDb = progDb
+      , runnerPackageDbStack = dbStack
+      , runnerPlatform = platform
+      , runnerCompiler = comp
       , -- NB: the set of packages available to test.hs scripts will COINCIDE
-        -- with the dependencies on the cabal-testsuite library
-        runnerPackages = lbiPackages
-      , runnerWithSharedLib = lbiWithSharedLib
+        -- with the dependencies of the test-runtime-deps component
+        runnerPackages =
+          [ (DefiniteUnitId (unsafeMkDefUnitId unitId), defaultRenaming)
+          | unitId <- unitIds
+          ]
+      , runnerWithSharedLib = withSharedLib
       }
+
+-- | Read the package databases and package ids saved by @script-env-gen@.
+readGeneratedScriptEnv :: FilePath -> IO ([FilePath], [String])
+readGeneratedScriptEnv distDir = do
+  genDistDir <- componentDistDir distDir "t" component
+  let file = FilePath.joinPath [genDistDir, "build", component, component ++ "-gen", "script-env"]
+  exists <- doesFileExist file
+  if exists
+    then do
+      contents <- readFile file
+      maybe (die $ "Cannot parse " ++ file) return (readMaybe contents)
+    else
+      die . unlines $
+        [ "Cannot find the packages to run test scripts with, looked for:"
+        , "  " ++ file
+        , "Build cabal-testsuite:test:test-runtime-deps to generate this file,"
+        , "or use --builddir if it was built somewhere else."
+        ]
+  where
+    component = "test-runtime-deps"
+
+-- | Find the GHC of the version that built this package.
+findBuildGhc :: Verbosity -> Maybe FilePath -> IO FilePath
+findBuildGhc verbosity mbGhcPath = do
+  found <- catMaybes <$> traverse findExecutable candidates
+  versions <- traverse (programFindVersion ghcProgram verbosity) found
+  case [path | (path, Just version) <- zip found versions, version == buildGhcVersion] of
+    path : _ -> return path
+    [] ->
+      die . unlines $
+        [ "Cannot find GHC " ++ prettyShow buildGhcVersion ++ " to run test scripts with."
+        , "It has to be the version that built cabal-tests. Tried: " ++ unwords candidates
+        , "Use --with-script-ghc to say where it is."
+        ]
+  where
+    candidates =
+      fromMaybe ["ghc-" ++ prettyShow buildGhcVersion, "ghc"] $
+        pure <$> mbGhcPath
+
+-- | The version of the GHC that built this package.
+buildGhcVersion :: Version
+buildGhcVersion = mkVersion' fullCompilerVersion
+
+-- | Whether the Cabal library that test scripts use has a shared library.
+haveCabalShared
+  :: Verbosity
+  -> Compiler
+  -> Platform
+  -> PackageDBStackCWD
+  -> ProgramDb
+  -> [UnitId]
+  -> IO Bool
+haveCabalShared verbosity comp platform dbStack progDb unitIds = do
+  index <-
+    getInstalledPackages
+      verbosity
+      comp
+      Nothing
+      (fmap (fmap makeSymbolicPath) dbStack)
+      progDb
+  let cabalLibs =
+        [ ipi
+        | Just ipi <- map (lookupUnitId index) unitIds
+        , packageName ipi == mkPackageName "Cabal"
+        ]
+      sharedLibs =
+        [ dir FilePath.</> mkSharedLibName platform (compilerId comp) (IPI.installedUnitId ipi)
+        | ipi <- cabalLibs
+        , dir <- IPI.libraryDynDirs ipi ++ IPI.libraryDirs ipi
+        ]
+  or <$> traverse doesFileExist sharedLibs
+
+-- | Save a 'ScriptEnv' for 'readScriptEnv', so that each test script gets it
+-- without working it out again.
+writeScriptEnv :: FilePath -> ScriptEnv -> IO ()
+writeScriptEnv file senv =
+  writeFileAtomic file . encode $
+    ( runnerProgramDb senv
+    , runnerPackageDbStack senv
+    , runnerPlatform senv
+    , runnerCompiler senv
+    , runnerPackages senv
+    , runnerWithSharedLib senv
+    )
+
+-- | Read the 'ScriptEnv' saved by 'writeScriptEnv'.
+readScriptEnv :: Verbosity -> FilePath -> IO ScriptEnv
+readScriptEnv verbosity file = do
+  decoded <- decodeFileOrFail' file
+  case decoded of
+    Left err -> die $ "Cannot read the script environment " ++ file ++ ": " ++ err
+    Right (progDb, dbStack, platform, comp, packages, withSharedLib) ->
+      return $
+        ScriptEnv
+          { runnerVerbosity = verbosityFlags verbosity
+          , runnerProgramDb = progDb
+          , runnerPackageDbStack = dbStack
+          , runnerPlatform = platform
+          , runnerCompiler = comp
+          , runnerPackages = packages
+          , runnerWithSharedLib = withSharedLib
+          }
 
 -- | Run a script with 'runghc', under the 'ScriptEnv'.
 runghc

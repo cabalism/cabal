@@ -205,7 +205,7 @@ hackage-roundtrip-tests :
 
 .PHONY: cabal-install-test
 cabal-install-test:
-	$(CABALBUILD) -j3 cabal-tests cabal
+	$(CABALBUILD) -j3 cabal-tests test-runtime-deps cabal
 	rm -rf .ghc.environment.*
 	cd cabal-testsuite && `cabal list-bin cabal-tests` --with-cabal=`cabal list-bin cabal` --hide-successes -j3 ${TEST}
 

@@ -1,4 +1,4 @@
-cabal-version: 2.2
+cabal-version: 3.8
 name:          cabal-testsuite
 version:       3
 copyright:     2003-2026, Cabal Development Team (see AUTHORS file)
@@ -12,7 +12,7 @@ synopsis:      Test suite for Cabal and cabal-install
 description:
   This package defines a shared test suite for Cabal and cabal-install.
 category:       Distribution
-build-type:     Custom
+build-type:     Simple
 
 extra-source-files:
   README.md
@@ -55,11 +55,6 @@ library
     Test.Cabal.TestCode
     Test.Cabal.Workdir
 
-  other-modules:
-    Test.Cabal.ScriptEnv0
-  autogen-modules:
-    Test.Cabal.ScriptEnv0
-
   build-depends:
     , Cabal-tests
     , aeson                 ^>= 1.4.2.0 || ^>=1.5.0.0 || ^>= 2.0.0.0 || ^>= 2.1.0.0 || ^>= 2.2.1.0 || ^>= 2.3.0.0
@@ -96,8 +91,6 @@ executable cabal-tests
   main-is: cabal-tests.hs
   hs-source-dirs: main
   ghc-options: -threaded -rtsopts
-  -- Make sure these are built before the executable is run
-  build-tool-depends: cabal-testsuite:test-runtime-deps
   build-depends:
     , cabal-testsuite
     -- constraints inherited via lib:cabal-testsuite component
@@ -117,17 +110,23 @@ executable cabal-tests
 -- this executable is needed by lib:cabal-testsuite
 executable setup
   import: shared
-  main-is: Setup.simple.hs
+  main-is: Setup.hs
 
--- This executable component is used to describe the runtime dependencies of
+-- This test-suite component is used to describe the runtime dependencies of
 -- the tests. The Main.hs file and resulting executable are not useful in any way.
-
--- Ideally this would be an empty library, but because build-type: Custom, we can't
--- have sublibraries.
+--
+-- It is a test-suite because only a test-suite can have code-generators. When
+-- this component is built, the script-env-gen generator is given the GHC
+-- options for it and saves the package databases and package ids from those.
+-- The cabal-tests executable reads them back to run the test scripts with the
+-- same packages, so build this component before running cabal-tests.
 
 -- If you require an external dependency for a test it must be listed here.
-executable test-runtime-deps
+test-suite test-runtime-deps
   default-language: Haskell2010
+  type: exitcode-stdio-1.0
+  code-generators: script-env-gen
+  build-tool-depends: cabal-testsuite-gen:script-env-gen
   -- Apart from base that is a compile-time dependency, the rest are runtime dependencies
   build-depends:
     , Cabal
@@ -148,11 +147,3 @@ executable test-runtime-deps
     build-depends: unix
   else
     build-depends: Win32
-
-custom-setup
-  -- we only depend on even stable releases of lib:Cabal
-  -- and must match the release used in validate.yml (see
-  -- https://github.com/haskell/cabal/pull/10251)
-  setup-depends: Cabal ^>= 3.18.1.0,
-                 Cabal-syntax ^>= 3.18.1.0,
-                 base, filepath, directory

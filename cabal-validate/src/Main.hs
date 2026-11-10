@@ -318,6 +318,7 @@ libSuiteWith opts ghc extraArgs =
     "cabal-testsuite"
     "exe:cabal-tests"
     ( [ "--builddir=" <> cabalTestsuiteBuildDir opts
+      , "--with-script-ghc=" <> compilerExecutable (compiler opts)
       , "--with-ghc=" <> ghc
       , -- This test suite doesn't support `--jobs` _or_ `--num-threads`!
         "-j" <> show (jobs opts)
@@ -398,6 +399,7 @@ cliSuite opts = do
     "cabal-testsuite"
     "exe:cabal-tests"
     ( [ "--builddir=" <> cabalTestsuiteBuildDir opts
+      , "--with-script-ghc=" <> compilerExecutable (compiler opts)
       , "--with-cabal=" <> cabal'
       , "--with-ghc=" <> compilerExecutable (compiler opts)
       , "--intree-cabal-lib=" <> cwd opts

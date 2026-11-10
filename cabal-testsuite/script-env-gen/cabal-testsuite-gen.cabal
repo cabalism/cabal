@@ -1,0 +1,23 @@
+cabal-version: 2.2
+name:          cabal-testsuite-gen
+version:       3
+copyright:     2003-2026, Cabal Development Team (see AUTHORS file)
+license:       BSD-3-Clause
+author:        Cabal Development Team <cabal-devel@haskell.org>
+maintainer:    cabal-devel@haskell.org
+synopsis:      Code generator for cabal-testsuite
+category:      Testing
+description:
+  The code generator of the test-runtime-deps test-suite of cabal-testsuite.
+  It is a package of its own because Cabal does not find a code generator
+  that is in the package using it when each component is built on its own.
+build-type:    Simple
+
+executable script-env-gen
+  default-language: Haskell2010
+  main-is: Main.hs
+  ghc-options: -Wall
+  build-depends:
+    , base
+    , directory
+    , filepath
