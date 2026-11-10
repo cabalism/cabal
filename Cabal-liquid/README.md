@@ -65,6 +65,11 @@ sub-library so they are compiled before the modules that need them.
   unreachable, and each operation is described by the set it returns.  The
   specification of `delete` found that it discarded its own result.  Not
   built yet, see the `nonemptyset` sub-library.
+- `Distribution.Utils.Generic`: the list utilities are described by the
+  length and the elements of their results, `wrapLine` produces no empty
+  line, `validateUTF8` reports an offset inside its input, and every
+  recursion terminates.  Functions written with `foldr` have no
+  specification.
 
 ## Known limitations of the plugin
 
@@ -80,6 +85,10 @@ whose field measure is not yet related to the value it was built from, and
 in neither is the constructor refinement checked where a value is built.
 A type `invariant` is what makes functions see the property, and it is an
 assumption until construction is checked.
+
+A local group of mutually recursive functions must have a type signature on
+each of them or on none: with a signature on some, the plugin crashes in its
+termination check.
 
 Check that a module's verification is not vacuous: a `WARNING: Found false`
 line from the plugin means some binder was inferred to be unreachable, and if

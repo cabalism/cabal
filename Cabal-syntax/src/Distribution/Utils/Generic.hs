@@ -117,6 +117,15 @@ import System.IO
   )
 import System.IO.Error (ioeGetErrorType)
 
+-- The @{-\@ ... \@-}@ comments are LiquidHaskell specifications, checked by
+-- building the Cabal-liquid package, see @cabal.liquid.project@, and inert
+-- otherwise.  They state what the list utilities do to the length and the
+-- elements of their arguments, that 'validateUTF8' reports an offset inside
+-- its input and that every recursion here terminates.  Functions written
+-- with 'foldr', such as 'dropWhileEndLE' and 'ordNubRight', carry no
+-- specification: LiquidHaskell knows nothing about the function 'foldr' is
+-- given, so it cannot relate the result to the input.
+
 -- -----------------------------------------------------------------------------
 -- Helper functions
 
@@ -133,9 +142,19 @@ wrapText =
     . lines
 
 -- | Wraps a list of words to a list of lines of words of a particular width.
+--
+-- No line is empty.
+{-@ wrapLine :: Int -> [String] -> [{l:[String] | len l > 0}] @-}
 wrapLine :: Int -> [String] -> [[String]]
 wrapLine width = wrap 0 []
   where
+    -- A line in progress is empty only at column zero.  Each word either
+    -- joins the line or, if the line is not empty, ends it; a word that
+    -- does not fit on an empty line starts the line anyway.
+    {-@ wrap :: col:Nat
+             -> line:{[String] | col == 0 || len line > 0}
+             -> ws:[String]
+             -> [{l:[String] | len l > 0}] / [len ws, col + len line] @-}
     wrap :: Int -> [String] -> [String] -> [[String]]
     wrap 0 [] (w : ws)
       | length w + 1 > width =
@@ -250,9 +269,23 @@ toUTF8LBS :: String -> LBS.ByteString
 toUTF8LBS = TL.encodeUtf8 . TL.pack
 
 -- | Check that strict 'ByteString' is valid UTF8. Returns 'Just offset' if it's not.
+--
+-- The offset is that of a byte of the input.
+{-@ validateUTF8 :: bs:SBS.ByteString -> Maybe {i:Int | 0 <= i && i < SBS.bslen bs} @-}
 validateUTF8 :: SBS.ByteString -> Maybe Int
 validateUTF8 = go 0
   where
+    -- @off@ is the offset of the first byte of @bs@ in the input.  In
+    -- 'twoBytes' and 'moreBytes' it is the offset of the lead byte, which
+    -- has already been taken from @bs@.  The three functions recurse on
+    -- the bytes left and, within 'moreBytes', on the bytes still expected.
+    --
+    -- Each of the three has a type signature: with a signature on only one
+    -- of them the LiquidHaskell plugin crashes in its termination check.
+    {-@ go :: off:Nat -> bs:SBS.ByteString
+           -> Maybe {i:Int | off <= i && i < off + SBS.bslen bs}
+           / [SBS.bslen bs, 0] @-}
+    go :: Int -> SBS.ByteString -> Maybe Int
     go off bs = case SBS.uncons bs of
       Nothing -> Nothing
       Just (c, bs')
@@ -265,6 +298,10 @@ validateUTF8 = go 0
         | c <= 0xFD -> moreBytes off 6 0x4000000 bs' (fromIntegral $ c .&. 0x1)
         | otherwise -> Just off
 
+    {-@ twoBytes :: off:Nat -> _ -> bs:SBS.ByteString
+                 -> Maybe {i:Int | off <= i && i < off + 1 + SBS.bslen bs}
+                 / [SBS.bslen bs, 0] @-}
+    twoBytes :: Int -> Word8 -> SBS.ByteString -> Maybe Int
     twoBytes off c0 bs = case SBS.uncons bs of
       Nothing -> Just off
       Just (c1, bs')
@@ -276,6 +313,9 @@ validateUTF8 = go 0
         where
           d = (fromIntegral (c0 .&. 0x1F) `shiftL` 6) .|. fromIntegral (c1 .&. 0x3F)
 
+    {-@ moreBytes :: off:Nat -> n:{Int | 1 <= n} -> Int -> bs:SBS.ByteString -> Int
+                  -> Maybe {i:Int | off <= i && i < off + 1 + SBS.bslen bs}
+                  / [SBS.bslen bs, n] @-}
     moreBytes :: Int -> Int -> Int -> SBS.ByteString -> Int -> Maybe Int
     moreBytes off 1 overlong cs' acc
       | overlong <= acc
@@ -291,6 +331,7 @@ validateUTF8 = go 0
       _ -> Just off
 
 -- | Ignore a Unicode byte order mark (BOM) at the beginning of the input
+{-@ ignoreBOM :: s:String -> {v:String | len v <= len s} @-}
 ignoreBOM :: String -> String
 ignoreBOM ('\xFEFF' : string) = string
 ignoreBOM string = string
@@ -318,6 +359,7 @@ writeUTF8File :: FilePath -> String -> IO ()
 writeUTF8File path = writeFileAtomic path . toUTF8LBS
 
 -- | Fix different systems silly line ending conventions
+{-@ normaliseLineEndings :: s:String -> {v:String | len v <= len s} @-}
 normaliseLineEndings :: String -> String
 normaliseLineEndings [] = []
 normaliseLineEndings ('\r' : '\n' : s) = '\n' : normaliseLineEndings s -- windows
@@ -366,14 +408,17 @@ takeWhileEndLE p = fst . foldr go ([], False)
 -- | Like 'Data.List.nub', but has @O(n log n)@ complexity instead of
 -- @O(n^2)@. Code for 'ordNub' and 'listUnion' taken from Niklas Hambüchen's
 -- <http://github.com/nh2/haskell-ordnub ordnub> package.
+{-@ ordNub :: Ord a => xs:[a] -> {v:[a] | len v <= len xs && Set_sub (Set.listElts v) (Set.listElts xs)} @-}
 ordNub :: Ord a => [a] -> [a]
 ordNub = ordNubBy id
 
 -- | Like 'ordNub' and 'Data.List.nubBy'. Selects a key for each element and
 -- takes the nub based on that key.
+{-@ ordNubBy :: Ord b => (a -> b) -> xs:[a] -> {v:[a] | len v <= len xs && Set_sub (Set.listElts v) (Set.listElts xs)} @-}
 ordNubBy :: Ord b => (a -> b) -> [a] -> [a]
 ordNubBy f l = go Set.empty l
   where
+    {-@ go :: Set.Set b -> xs:[a] -> {v:[a] | len v <= len xs && Set_sub (Set.listElts v) (Set.listElts xs)} @-}
     go !_ [] = []
     go !s (x : xs)
       | y `Set.member` s = go s xs
@@ -385,6 +430,7 @@ ordNubBy f l = go Set.empty l
 
 -- | Like "Data.List.union", but has @O(n log n)@ complexity instead of
 -- @O(n^2)@.
+{-@ listUnion :: Ord a => a:[a] -> b:[a] -> {v:[a] | len a <= len v && len v <= len a + len b} @-}
 listUnion :: Ord a => [a] -> [a] -> [a]
 listUnion a b = a ++ ordNub (filter (`Set.notMember` aSet) b)
   where
@@ -408,6 +454,7 @@ ordNubRight = fst . foldr go ([], Set.empty)
         else (x : l, Set.insert x s)
 
 -- | Sort and nub a list
+{-@ sortNub :: Ord a => xs:[a] -> {v:[a] | Set.listElts v == Set.listElts xs} @-}
 sortNub :: Ord a => [a] -> [a]
 sortNub = Set.toList . Set.fromList
 
@@ -428,6 +475,7 @@ listUnionRight a b = ordNubRight (filter (`Set.notMember` bSet) a) ++ b
 -- | A total variant of 'head'.
 --
 -- @since 3.2.0.0
+{-@ safeHead :: xs:[a] -> {v:Maybe a | isJust v <=> len xs > 0} @-}
 safeHead :: [a] -> Maybe a
 safeHead [] = Nothing
 safeHead (x : _) = Just x
@@ -435,6 +483,7 @@ safeHead (x : _) = Just x
 -- | A total variant of 'tail'.
 --
 -- @since 3.2.0.0
+{-@ safeTail :: xs:[a] -> {v:[a] | len v == (if len xs > 0 then len xs - 1 else 0)} @-}
 safeTail :: [a] -> [a]
 safeTail [] = []
 safeTail (_ : xs) = xs
@@ -442,6 +491,7 @@ safeTail (_ : xs) = xs
 -- | A total variant of 'last'.
 --
 -- @since 3.2.0.0
+{-@ safeLast :: xs:[a] -> {v:Maybe a | isJust v <=> len xs > 0} @-}
 safeLast :: [a] -> Maybe a
 safeLast [] = Nothing
 safeLast (x : xs) = Just (foldl (\_ a -> a) x xs)
@@ -449,6 +499,7 @@ safeLast (x : xs) = Just (foldl (\_ a -> a) x xs)
 -- | A total variant of 'init'.
 --
 -- @since 3.2.0.0
+{-@ safeInit :: xs:[a] -> {v:[a] | len v == (if len xs > 0 then len xs - 1 else 0)} @-}
 safeInit :: [a] -> [a]
 safeInit [] = []
 safeInit [_] = []
@@ -500,9 +551,11 @@ unintersperse mark = unfoldr unintersperse1
 -- (["foo","bar"],Nothing)
 --
 -- @since 2.2
+{-@ breakMaybe :: (a -> Maybe b) -> xs:[a] -> ([a], Maybe (b, {rest:[a] | len rest < len xs})) @-}
 breakMaybe :: (a -> Maybe b) -> [a] -> ([a], Maybe (b, [a]))
 breakMaybe f = go id
   where
+    {-@ go :: ([a] -> c) -> xs:[a] -> (c, Maybe (b, {rest:[a] | len rest < len xs})) @-}
     go !acc [] = (acc [], Nothing)
     go !acc (x : xs) = case f x of
       Nothing -> go (acc . (x :)) xs
@@ -517,6 +570,7 @@ breakMaybe f = go id
 -- ([1,2],["foo"])
 --
 -- @since 2.2
+{-@ spanMaybe :: (a -> Maybe b) -> xs:[a] -> (ys::[b], {zs:[a] | len ys + len zs == len xs}) @-}
 spanMaybe :: (a -> Maybe b) -> [a] -> ([b], [a])
 spanMaybe _ xs@[] = ([], xs)
 spanMaybe p xs@(x : xs') = case p x of
@@ -529,6 +583,10 @@ spanMaybe p xs@(x : xs') = case p x of
 -- [3,4,5,6,7]
 --
 -- @since 2.2
+--
+-- Whether this terminates depends on the action, so LiquidHaskell is told
+-- not to ask.
+{-@ lazy unfoldrM @-}
 unfoldrM :: Monad m => (b -> m (Maybe (a, b))) -> b -> m [a]
 unfoldrM f = go
   where
@@ -549,6 +607,7 @@ unfoldrM f = go
 -- Nothing
 --
 -- @since 3.2.0.0
+{-@ unsnoc :: xs:[a] -> {v:Maybe ({ys:[a] | len ys == len xs - 1}, a) | isJust v <=> len xs > 0} @-}
 unsnoc :: [a] -> Maybe ([a], a)
 unsnoc [] = Nothing
 unsnoc (x : xs) = Just (unsnocNE (x :| xs))
@@ -564,9 +623,11 @@ unsnoc (x : xs) = Just (unsnocNE (x :| xs))
 -- ([],1)
 --
 -- @since 3.2.0.0
+{-@ unsnocNE :: xs:NonEmpty a -> ({ys:[a] | len ys == neLen xs - 1}, a) @-}
 unsnocNE :: NonEmpty a -> ([a], a)
 unsnocNE (x :| xs) = go x xs
   where
+    {-@ go :: a -> zs:[a] -> ({ws:[a] | len ws == len zs}, a) @-}
     go y [] = ([], y)
     go y (z : zs) = let ~(ws, w) = go z zs in (y : ws, w)
 

@@ -81,3 +81,16 @@ library version
     , pretty
   other-modules:
     Distribution.Types.Version
+
+library generic
+  import:         liquid
+  hs-source-dirs: generic
+  build-depends:
+    , bytestring
+    , Cabal-liquid:assumptions
+    , containers
+    , directory
+    , filepath
+    , text
+  other-modules:
+    Distribution.Utils.Generic
