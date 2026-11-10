@@ -52,11 +52,11 @@ guessDistDir = do
 -- We call the second of these the dist directory of the package.
 
 -- | The dist directory of the package, given the dist directory of one of its
--- executables, see Note [Dist directories].
+-- executables or test-suites, see Note [Dist directories].
 packageDistDir :: FilePath -> FilePath
 packageDistDir dist =
   case reverse (splitDirectories dist') of
-    _name : "x" : pkg -> joinPath (reverse pkg ++ variant)
+    _name : kind : pkg | kind `elem` ["x", "t"] -> joinPath (reverse pkg ++ variant)
     _ -> dist
   where
     (dist', variant) = splitVariant dist

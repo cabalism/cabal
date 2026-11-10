@@ -2,6 +2,7 @@
 
 import Test.Cabal.Workdir
 import Test.Cabal.Script
+import Test.Cabal.ScriptEnv0 (scriptPackageDbs, scriptPackageIds)
 import Test.Cabal.Server
 import Test.Cabal.Monad
 import Test.Cabal.TestCode
@@ -55,10 +56,10 @@ These are all distinct from each other and should be specified separately.
 
 Where are these environments specified:
 
-1. The build-depends on `cabal-tests` executable in `cabal-testsuite.cabal`
-2. The build-depends of `test-runtime-deps` test-suite in `cabal-testsuite.cabal`
-   When that component is built, its code generator `script-env-gen` saves the
-   package databases and package ids it is built with. `Test.Cabal.Script` reads
+1. The build-depends of the `cabal-tests` test-suite in `cabal-testsuite.cabal`
+2. The same build-depends. When `cabal-tests` is built, its code generator
+   `script-env-gen` generates the module `Test.Cabal.ScriptEnv0` with the
+   package databases and package ids it is built with. `Test.Cabal.Script` uses
    these to pass the right environment.
    This is the mechanism by which the `./Setup` tests have access to the in-tree
    `Cabal`, `Cabal-syntax` and `Cabal-hooks` libraries.
@@ -239,17 +240,16 @@ main = do
     -- way to get this information is by querying the *host* build
     -- system about the information.
     --
-    -- The build system gives the GHC options for the test-runtime-deps
-    -- component of this package to a code generator, which saves the
-    -- package databases and package ids from those in the dist directory,
-    -- see 'mkScriptEnv'.
+    -- The build system gives the GHC options for this component to a code
+    -- generator, which generates the module Test.Cabal.ScriptEnv0 with the
+    -- package databases and package ids from those, see 'mkScriptEnv'.
     dist_dir <- case mainArgDistDir args of
                   Just dist_dir -> return dist_dir
                   Nothing -> getSymbolicPath <$> guessDistDir
     when (verbosityLevel verbosity >= Verbose) $
         hPutStrLn stderr $ "Using dist dir: " ++ dist_dir
     -- Get ready to go!
-    senv <- mkScriptEnv verbosity dist_dir (mainArgScriptGhc args)
+    senv <- mkScriptEnv verbosity scriptPackageDbs scriptPackageIds (mainArgScriptGhc args)
     -- Each test script reads this back instead of working it out again.
     let senv_file = dist_dir </> "cabal-tests-script-env"
     writeScriptEnv senv_file senv

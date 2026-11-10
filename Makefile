@@ -46,7 +46,6 @@ FORMAT_DIRS_TODO := \
 	cabal-dev-scripts \
 	cabal-install-solver \
 	cabal-testsuite/main \
-	cabal-testsuite/static \
 	solver-benchmarks
 
 .PHONY: check
@@ -205,7 +204,7 @@ hackage-roundtrip-tests :
 
 .PHONY: cabal-install-test
 cabal-install-test:
-	$(CABALBUILD) -j3 cabal-tests test-runtime-deps cabal
+	$(CABALBUILD) -j3 cabal-tests cabal
 	rm -rf .ghc.environment.*
 	cd cabal-testsuite && `cabal list-bin cabal-tests` --with-cabal=`cabal list-bin cabal` --hide-successes -j3 ${TEST}
 

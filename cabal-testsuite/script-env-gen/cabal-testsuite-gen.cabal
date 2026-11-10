@@ -8,7 +8,7 @@ maintainer:    cabal-devel@haskell.org
 synopsis:      Code generator for cabal-testsuite
 category:      Testing
 description:
-  The code generator of the test-runtime-deps test-suite of cabal-testsuite.
+  The code generator of the cabal-tests test-suite of cabal-testsuite.
   It is a package of its own because Cabal does not find a code generator
   that is in the package using it when each component is built on its own.
 build-type:    Simple

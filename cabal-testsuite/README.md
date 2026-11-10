@@ -3,10 +3,8 @@ frameworks.
 
 # How to run
 
-1. Build `cabal-testsuite` (`cabal build cabal-testsuite:cabal-tests
-   cabal-testsuite:test-runtime-deps`). Building `test-runtime-deps` records
-   the packages that test scripts run with, see below.
-2. Run the `cabal-tests` executable. It will scan for all tests
+1. Build `cabal-testsuite` (`cabal build cabal-testsuite:cabal-tests`)
+2. Run the `cabal-tests` test-suite. It will scan for all tests
    in your current directory and subdirectories and run them.
 
 There are a few useful flags:
@@ -58,6 +56,18 @@ cabal run cabal-testsuite:cabal-tests -- \
 See [the documentation for Tasty pattern
 syntax](https://hackage.haskell.org/package/tasty#patterns) for more
 information.
+
+As `cabal-tests` is a test-suite, `cabal test` runs it too. Pass its flags
+with `--test-options`. It then runs in the `cabal-testsuite` directory, so
+give paths relative to that:
+
+```
+cabal test cabal-testsuite --test-options='--pattern /TestOptions/'
+```
+
+Without a path or a pattern, `cabal test cabal-testsuite` and `cabal test all`
+run every test of the `Cabal` library, and no `cabal-install` test as there
+is no `--with-cabal`.
 
 ## Which Cabal library version do cabal-install tests use?
 
@@ -164,13 +174,12 @@ Otherwise, here is a walkthrough:
      ...
    ```
 
-   The dependencies which your test is allowed to use are listed in the
-   cabal file under the `test-runtime-deps` test-suite. When that test-suite is
-   built, its code generator `script-env-gen` records the package databases
-   and the versions of each package in a generated file. These are then used
-   when `cabal-tests` runs when it invokes `runghc` to run each test.
-   Rebuild `test-runtime-deps` after changing its dependencies. Building
-   `cabal-tests` does not do this.
+   The dependencies which your test is allowed to use are those listed in the
+   cabal file under the `cabal-tests` test-suite, which include the
+   dependencies of the test driver itself. When that test-suite is built, its
+   code generator `script-env-gen` records the package databases and the
+   versions of each package in a generated module. These are then used when
+   `cabal-tests` runs when it invokes `runghc` to run each test.
 
 
 3. Run your tests using `cabal-tests` (no need to rebuild when
@@ -309,11 +318,10 @@ technical innovations to make this work:
 
 Here is the general outline of how the `cabal-tests` program operates:
 
-1. It first reads the packages recorded when the host build system
+1. It first takes the packages recorded when the host build system
    (which was responsible for building `cabal-tests` in the first place)
-   built `test-runtime-deps`, and finds the GHC that built them.  This
-   information lets us compute the flags that we will use to subsequently
-   invoke GHC.
+   built it, and finds the GHC that built them.  This information lets us
+   compute the flags that we will use to subsequently invoke GHC.
 
 2. We then recursively scan the current working directory, looking
    for files suffixed `.test.hs`; these are the test scripts we

@@ -316,7 +316,7 @@ libSuiteWith opts ghc extraArgs =
   timedCabalBin
     opts
     "cabal-testsuite"
-    "exe:cabal-tests"
+    "test:cabal-tests"
     ( [ "--builddir=" <> cabalTestsuiteBuildDir opts
       , "--with-script-ghc=" <> compilerExecutable (compiler opts)
       , "--with-ghc=" <> ghc
@@ -397,7 +397,7 @@ cliSuite opts = do
   timedCabalBin
     opts
     "cabal-testsuite"
-    "exe:cabal-tests"
+    "test:cabal-tests"
     ( [ "--builddir=" <> cabalTestsuiteBuildDir opts
       , "--with-script-ghc=" <> compilerExecutable (compiler opts)
       , "--with-cabal=" <> cabal'

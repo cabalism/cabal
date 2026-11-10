@@ -14,7 +14,6 @@ module Test.Cabal.Script
   ) where
 
 import Test.Cabal.Run
-import Test.Cabal.Workdir (componentDistDir)
 
 import Distribution.Backpack
 import Distribution.Compat.Binary (decodeFileOrFail', encode)
@@ -45,7 +44,6 @@ import System.Directory (doesFileExist, findExecutable)
 import System.Exit (die)
 import System.FilePath qualified as FilePath
 import System.Info (fullCompilerVersion)
-import Text.Read (readMaybe)
 
 -- | The runner environment, which contains all of the important
 -- parameters for invoking GHC.  Mostly subset of 'LocalBuildInfo'.
@@ -61,25 +59,26 @@ data ScriptEnv = ScriptEnv
   deriving (Show)
 
 -- | Create the 'ScriptEnv' for running test scripts with the packages that
--- the @test-runtime-deps@ component of this package was built with.
+-- the @cabal-tests@ component of this package was built with.
 --
--- The package databases and package ids come from the file that the
--- @script-env-gen@ code generator wrote when @test-runtime-deps@ was built.
--- They are of no use with another GHC, so the GHC has to be the version that
--- built this package, the first of these that is:
+-- The package databases and package ids are those that the @script-env-gen@
+-- code generator found when @cabal-tests@ was built. They are of no use with
+-- another GHC, so the GHC has to be the version that built this package, the
+-- first of these that is:
 --
 -- * the given path, if any,
 -- * @ghc-VERSION@ on the search path,
 -- * @ghc@ on the search path.
 mkScriptEnv
   :: Verbosity
-  -> FilePath
-  -- ^ The dist directory of this package
+  -> [FilePath]
+  -- ^ The package databases that this package was built with
+  -> [String]
+  -- ^ The ids of the packages that test scripts can use
   -> Maybe FilePath
   -- ^ The path of the GHC that built this package, if not on the search path
   -> IO ScriptEnv
-mkScriptEnv verbosity distDir mbGhcPath = do
-  (packageDbs, packageIds) <- readGeneratedScriptEnv distDir
+mkScriptEnv verbosity packageDbs packageIds mbGhcPath = do
   ghcPath <- findBuildGhc verbosity mbGhcPath
   (comp, platform, progDb0) <-
     configCompilerEx (Just GHC) (Just ghcPath) Nothing defaultProgramDb verbosity
@@ -95,33 +94,13 @@ mkScriptEnv verbosity distDir mbGhcPath = do
       , runnerPlatform = platform
       , runnerCompiler = comp
       , -- NB: the set of packages available to test.hs scripts will COINCIDE
-        -- with the dependencies of the test-runtime-deps component
+        -- with the dependencies of the cabal-tests component
         runnerPackages =
           [ (DefiniteUnitId (unsafeMkDefUnitId unitId), defaultRenaming)
           | unitId <- unitIds
           ]
       , runnerWithSharedLib = withSharedLib
       }
-
--- | Read the package databases and package ids saved by @script-env-gen@.
-readGeneratedScriptEnv :: FilePath -> IO ([FilePath], [String])
-readGeneratedScriptEnv distDir = do
-  genDistDir <- componentDistDir distDir "t" component
-  let file = FilePath.joinPath [genDistDir, "build", component, component ++ "-gen", "script-env"]
-  exists <- doesFileExist file
-  if exists
-    then do
-      contents <- readFile file
-      maybe (die $ "Cannot parse " ++ file) return (readMaybe contents)
-    else
-      die . unlines $
-        [ "Cannot find the packages to run test scripts with, looked for:"
-        , "  " ++ file
-        , "Build cabal-testsuite:test:test-runtime-deps to generate this file,"
-        , "or use --builddir if it was built somewhere else."
-        ]
-  where
-    component = "test-runtime-deps"
 
 -- | Find the GHC of the version that built this package.
 findBuildGhc :: Verbosity -> Maybe FilePath -> IO FilePath
