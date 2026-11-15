@@ -89,6 +89,13 @@ tests mtimeChange =
   , testCase "value changed" testValueChanged
   , testCase "value & file changed" $ testValueAndFileChanged mtimeChange
   , testCase "value updated" testValueUpdated
+  , testGroup
+      "keyed entries"
+      [ testCase "keys kept apart" testKeyedEntriesKeptApart
+      , testCase "oldest dropped" $ testKeyedEntriesOldestDropped mtimeChange
+      , testCase "file change seen by every key" $ testKeyedEntriesFileChanged mtimeChange
+      , testCase "replaces single entry" testKeyedEntriesReplaceSingle
+      ]
   ]
   where
     knownBrokenInWindows msg = case buildOS of
@@ -923,6 +930,68 @@ testValueUpdated =
     reason <- expectMonitorChanged root monitor' (Set.fromList [42, 44])
     reason @?= MonitoredValueChanged (Set.fromList [42, 43])
 
+-- A monitor with keyed entries keeps a cache file per key, so alternating
+-- between keys does not evict either one.
+testKeyedEntriesKeptApart :: Assertion
+testKeyedEntriesKeptApart =
+  withKeyedFileMonitor 2 $ \root monitor -> do
+    touchFile root "a"
+    updateMonitor root monitor [monitorFile "a"] (1 :: Int) "one"
+    updateMonitor root monitor [monitorFile "a"] 2 "two"
+    (res1, _) <- expectMonitorUnchanged root monitor 1
+    res1 @?= "one"
+    (res2, _) <- expectMonitorUnchanged root monitor 2
+    res2 @?= "two"
+    reason <- expectMonitorChanged root monitor 3
+    reason @?= MonitorFirstRun
+
+-- Only the given number of entries are kept, the least recently written
+-- being dropped first.
+testKeyedEntriesOldestDropped :: Int -> Assertion
+testKeyedEntriesOldestDropped mtimeChange =
+  withKeyedFileMonitor 2 $ \root monitor -> do
+    updateMonitor root monitor [] (1 :: Int) "one"
+    threadDelay mtimeChange
+    updateMonitor root monitor [] 2 "two"
+    threadDelay mtimeChange
+    updateMonitor root monitor [] 3 "three"
+    reason <- expectMonitorChanged root monitor 1
+    reason @?= MonitorFirstRun
+    (res2, _) <- expectMonitorUnchanged root monitor 2
+    res2 @?= "two"
+    (res3, _) <- expectMonitorUnchanged root monitor 3
+    res3 @?= "three"
+
+-- Each entry records the monitored files as of its own write, so a file
+-- change is reported for every key that monitored it.
+testKeyedEntriesFileChanged :: Int -> Assertion
+testKeyedEntriesFileChanged mtimeChange =
+  withKeyedFileMonitor 2 $ \root monitor -> do
+    touchFile root "a"
+    updateMonitor root monitor [monitorFile "a"] (1 :: Int) "one"
+    updateMonitor root monitor [monitorFile "a"] 2 "two"
+    threadDelay mtimeChange
+    touchFile root "a"
+    reason1 <- expectMonitorChanged root monitor 1
+    reason1 @?= MonitoredFileChanged "a"
+    reason2 <- expectMonitorChanged root monitor 2
+    reason2 @?= MonitoredFileChanged "a"
+
+-- A monitor with keyed entries removes the single cache file a monitor
+-- without them left at the same path.
+testKeyedEntriesReplaceSingle :: Assertion
+testKeyedEntriesReplaceSingle =
+  withKeyedFileMonitor 2 $ \root monitor -> do
+    let single = monitor{fileMonitorKeyedEntries = Nothing}
+    updateMonitor root single [] (1 :: Int) "one"
+    IO.doesFileExist (fileMonitorCacheFile monitor) >>= (@?= True)
+    reason <- expectMonitorChanged root monitor 1
+    reason @?= MonitorFirstRun
+    updateMonitor root monitor [] 1 "one again"
+    IO.doesFileExist (fileMonitorCacheFile monitor) >>= (@?= False)
+    (res, _) <- expectMonitorUnchanged root monitor 1
+    res @?= "one again"
+
 -------------
 -- Utils
 
@@ -1021,6 +1090,14 @@ updateMonitorWithTimestamp
   -> IO ()
 updateMonitorWithTimestamp (RootPath root) monitor timestamp files key result =
   updateFileMonitor monitor root (Just timestamp) files key result
+
+-- The monitor's cache files live inside the temp directory, so the per-key
+-- files are removed with it.
+withKeyedFileMonitor :: Eq a => Int -> (RootPath -> FileMonitor a b -> IO c) -> IO c
+withKeyedFileMonitor n action =
+  withTempDirectory "." "file-status-" $ \root -> do
+    IO.createDirectoryIfMissing True (root </> "cache")
+    action (RootPath root) (newFileMonitorKeyed n (root </> "cache" </> "monitor"))
 
 withFileMonitor :: Eq a => (RootPath -> FileMonitor a b -> IO c) -> IO c
 withFileMonitor action = do

@@ -38,6 +38,8 @@ module Distribution.Client.RebuildMonad
     -- * Using a file monitor
   , FileMonitor (..)
   , newFileMonitor
+  , newFileMonitorKeyed
+  , fileMonitorKeyHash
   , rerunIfChanged
   , rerunConcurrentlyIfChanged
 

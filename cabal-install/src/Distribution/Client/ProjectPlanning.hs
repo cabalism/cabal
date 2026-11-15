@@ -717,60 +717,82 @@ rebuildInstallPlan
     runRebuild distProjectRootDirectory $ do
       progsearchpath <- liftIO getSystemSearchPath
       let projectConfigMonitored = projectConfig{projectConfigBuildOnly = mempty}
+          planKey = (projectConfigMonitored, localPackages, progsearchpath)
 
       -- The overall improved plan is cached
+      result@(_, elaboratedPlan', elaboratedShared', _, _) <-
+        rerunIfChanged
+          verbosity
+          fileMonitorImprovedPlan
+          -- react to changes in the project config,
+          -- the package .cabal files and the path
+          planKey
+          $ do
+            -- And so is the elaborated plan that the improved plan based on
+            (elaboratedPlan, elaboratedShared, totalIndexState, activeRepos) <-
+              rerunIfChanged
+                verbosity
+                fileMonitorElaboratedPlan
+                planKey
+                $ do
+                  compilerEtc <- phaseConfigureCompiler projectConfig
+                  _ <- phaseConfigurePrograms projectConfig compilerEtc
+                  (solverPlan, pkgConfigDB, totalIndexState, activeRepos) <-
+                    phaseRunSolver
+                      projectConfig
+                      compilerEtc
+                      localPackages
+                      (fromMaybe mempty mbInstalledPackages)
+                  ( elaboratedPlan
+                    , elaboratedShared
+                    ) <-
+                    phaseElaboratePlan
+                      projectConfig
+                      compilerEtc
+                      pkgConfigDB
+                      solverPlan
+                      localPackages
+
+                  return (elaboratedPlan, elaboratedShared, totalIndexState, activeRepos)
+
+            -- The improved plan changes each time we install something, whereas
+            -- the underlying elaborated plan only changes when input config
+            -- changes, so it's worth caching them separately.
+            improvedPlan <- phaseImprovePlan elaboratedPlan elaboratedShared
+
+            return (improvedPlan, elaboratedPlan, elaboratedShared, totalIndexState, activeRepos)
+
+      -- plan.json describes the elaborated plan in use. The plan caches keep
+      -- an entry per key, so the plan in use may come from an entry an earlier
+      -- run wrote while a later run with another key wrote plan.json. So
+      -- plan.json is kept under its own monitor, keyed by the hash of the plan
+      -- key, and rewritten when the key in use changes.
       rerunIfChanged
         verbosity
-        fileMonitorImprovedPlan
-        -- react to changes in the project config,
-        -- the package .cabal files and the path
-        (projectConfigMonitored, localPackages, progsearchpath)
-        $ do
-          -- And so is the elaborated plan that the improved plan based on
-          (elaboratedPlan, elaboratedShared, totalIndexState, activeRepos) <-
-            rerunIfChanged
-              verbosity
-              fileMonitorElaboratedPlan
-              ( projectConfigMonitored
-              , localPackages
-              , progsearchpath
-              )
-              $ do
-                compilerEtc <- phaseConfigureCompiler projectConfig
-                _ <- phaseConfigurePrograms projectConfig compilerEtc
-                (solverPlan, pkgConfigDB, totalIndexState, activeRepos) <-
-                  phaseRunSolver
-                    projectConfig
-                    compilerEtc
-                    localPackages
-                    (fromMaybe mempty mbInstalledPackages)
-                ( elaboratedPlan
-                  , elaboratedShared
-                  ) <-
-                  phaseElaboratePlan
-                    projectConfig
-                    compilerEtc
-                    pkgConfigDB
-                    solverPlan
-                    localPackages
+        fileMonitorPlanOutputs
+        (fileMonitorKeyHash planKey)
+        $ phaseMaintainPlanOutputs elaboratedPlan' elaboratedShared'
 
-                phaseMaintainPlanOutputs elaboratedPlan elaboratedShared
-                return (elaboratedPlan, elaboratedShared, totalIndexState, activeRepos)
-
-          -- The improved plan changes each time we install something, whereas
-          -- the underlying elaborated plan only changes when input config
-          -- changes, so it's worth caching them separately.
-          improvedPlan <- phaseImprovePlan elaboratedPlan elaboratedShared
-
-          return (improvedPlan, elaboratedPlan, elaboratedShared, totalIndexState, activeRepos)
+      return result
     where
-      fileMonitorSolverPlan = newFileMonitorInCacheDir "solver-plan"
+      fileMonitorSolverPlan = newKeyedFileMonitorInCacheDir "solver-plan"
       fileMonitorSourceHashes = newFileMonitorInCacheDir "source-hashes"
-      fileMonitorElaboratedPlan = newFileMonitorInCacheDir "elaborated-plan"
-      fileMonitorImprovedPlan = newFileMonitorInCacheDir "improved-plan"
+      fileMonitorElaboratedPlan = newKeyedFileMonitorInCacheDir "elaborated-plan"
+      fileMonitorImprovedPlan = newKeyedFileMonitorInCacheDir "improved-plan"
+      fileMonitorPlanOutputs = newFileMonitorInCacheDir "plan-outputs"
 
       newFileMonitorInCacheDir :: Eq a => FilePath -> FileMonitor a b
       newFileMonitorInCacheDir = newFileMonitor . distProjectCacheFile
+
+      -- The plan caches keep one entry per distinct key, so that commands
+      -- whose keys differ, such as a build and a repl with the constraints
+      -- `--enable-multi-repl` adds, do not evict each other's plan and
+      -- re-solve on every switch (#11623). This many entries are kept.
+      newKeyedFileMonitorInCacheDir :: Eq a => FilePath -> FileMonitor a b
+      newKeyedFileMonitorInCacheDir = newFileMonitorKeyed planCacheEntries . distProjectCacheFile
+
+      planCacheEntries :: Int
+      planCacheEntries = 4
 
       -- Configure the compiler we're using.
       --

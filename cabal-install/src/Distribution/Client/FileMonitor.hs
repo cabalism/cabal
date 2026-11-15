@@ -1,4 +1,3 @@
-{-# LANGUAGE LambdaCase #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
 -- | An abstraction to help with re-running actions when files or other
@@ -10,6 +9,8 @@ module Distribution.Client.FileMonitor
     -- * Creating and checking sets of monitored files
   , FileMonitor (..)
   , newFileMonitor
+  , newFileMonitorKeyed
+  , fileMonitorKeyHash
   , MonitorChanged (..)
   , MonitorChangedReason (..)
   , checkFileMonitorChanged
@@ -29,6 +30,7 @@ import Prelude ()
 
 import Data.Binary.Get (runGetOrFail)
 import qualified Data.ByteString.Lazy as BS
+import Data.Char (isHexDigit)
 import qualified Data.Map.Strict as Map
 
 import Control.Exception
@@ -246,6 +248,13 @@ data FileMonitor a b = FileMonitor
   -- 'MonitoredValueChanged' then we have the guarantee that no files
   -- changed, that the value change was the only change. In the default
   -- mode no such guarantee is provided which is slightly faster.
+  , fileMonitorKeyedEntries :: Maybe Int
+  -- ^ When set, the monitor keeps a separate cache file for each distinct
+  -- key, named by a hash of the key next to 'fileMonitorCacheFile', and keeps
+  -- at most this many of them, dropping the least recently written. Two
+  -- commands that alternate between two keys then both find their cached
+  -- result instead of evicting each other's. The key is still compared with
+  -- 'fileMonitorKeyValid', which should be equality for this to make sense.
   }
 
 -- | Define a new file monitor.
@@ -262,7 +271,55 @@ newFileMonitor
   -- ^ The file to cache the state of the
   -- file monitor. Must be unique.
   -> FileMonitor a b
-newFileMonitor path = FileMonitor path (==) False
+newFileMonitor path = FileMonitor path (==) False Nothing
+
+-- | Define a file monitor that keeps a cache file per distinct key, see
+-- 'fileMonitorKeyedEntries'.
+newFileMonitorKeyed
+  :: Eq a
+  => Int
+  -- ^ How many cache files to keep, at least one.
+  -> FilePath
+  -- ^ The file to cache the state of the file monitor, see 'newFileMonitor'.
+  -- The per-key files are named from it.
+  -> FileMonitor a b
+newFileMonitorKeyed n path = FileMonitor path (==) False (Just (max 1 n))
+
+-- | A hash of a key, as used in the cache file names of a monitor with
+-- 'fileMonitorKeyedEntries'. Encoding the key includes the structure of its
+-- type, so a change of type gives a different hash too.
+fileMonitorKeyHash :: (Binary a, Structured a) => a -> String
+fileMonitorKeyHash = showHashValue . truncateHash 16 . hashValue . structuredEncode
+
+-- | The cache file for a key: 'fileMonitorCacheFile' itself, or the per-key
+-- file when the monitor has 'fileMonitorKeyedEntries'.
+fileMonitorCacheFileFor :: (Binary a, Structured a) => FileMonitor a b -> a -> FilePath
+fileMonitorCacheFileFor FileMonitor{fileMonitorCacheFile, fileMonitorKeyedEntries} key =
+  case fileMonitorKeyedEntries of
+    Nothing -> fileMonitorCacheFile
+    Just _ -> fileMonitorCacheFile ++ "-" ++ fileMonitorKeyHash key
+
+-- | After writing the cache file for a key, drop the oldest per-key files
+-- over the limit, and the single file a monitor without keyed entries would
+-- have left at 'fileMonitorCacheFile' itself.
+pruneKeyedCacheFiles :: FileMonitor a b -> FilePath -> IO ()
+pruneKeyedCacheFiles FileMonitor{fileMonitorCacheFile, fileMonitorKeyedEntries} current =
+  case fileMonitorKeyedEntries of
+    Nothing -> return ()
+    Just n -> do
+      handleDoesNotExist () (removeFile fileMonitorCacheFile)
+      let dir = takeDirectory fileMonitorCacheFile
+          prefix = takeFileName fileMonitorCacheFile ++ "-"
+          isEntry name =
+            take (length prefix) name == prefix
+              && length name == length prefix + 32
+              && all isHexDigit (drop (length prefix) name)
+      names <- handleDoesNotExist [] (listDirectory dir)
+      let others = [dir </> name | name <- names, isEntry name, name /= takeFileName current]
+      stamped <- forM others $ \path -> (,) path <$> getModificationTime path
+      let oldestFirst = map fst (sortBy (comparing snd) stamped)
+      -- The file just written counts as one of the n.
+      mapM_ (handleDoesNotExist () . removeFile) (take (length oldestFirst - (n - 1)) oldestFirst)
 
 -- | The result of 'checkFileMonitorChanged': either the monitored files or
 -- value changed (and it tells us which it was) or nothing changed and we get
@@ -330,11 +387,13 @@ checkFileMonitorChanged
 
     handleDoesNotExist (MonitorChanged MonitorFirstRun) $
       handleErrorCall (MonitorChanged MonitorCorruptCache) $
-        withCacheFile monitor $
+        withCacheFile cacheFile $
           either
             (\_ -> return (MonitorChanged MonitorCorruptCache))
             checkStatusCache
     where
+      cacheFile = fileMonitorCacheFileFor monitor currentKey
+
       checkStatusCache :: (MonitorStateFileSet, a, Either String b) -> IO (MonitorChanged a b)
       checkStatusCache (cachedFileStatus, cachedKey, cachedResult) = do
         change <- checkForChanges
@@ -388,7 +447,7 @@ checkFileMonitorChanged
             whenCacheChanged cacheStatus $
               case cachedResult of
                 Left _ -> pure ()
-                Right cr -> rewriteCacheFile monitor cachedFileStatus' cachedKey cr
+                Right cr -> rewriteCacheFile cacheFile cachedFileStatus' cachedKey cr
 
             return Nothing
 
@@ -424,11 +483,11 @@ structuredDecodeTriple lbs =
 -- This determines the type and format of the binary cache file.
 withCacheFile
   :: (Binary a, Structured a, Binary b, Structured b)
-  => FileMonitor a b
+  => FilePath
   -> (Either String (MonitorStateFileSet, a, Either String b) -> IO r)
   -> IO r
-withCacheFile (FileMonitor{fileMonitorCacheFile}) k =
-  withBinaryFile fileMonitorCacheFile ReadMode $ \hnd -> do
+withCacheFile cacheFile k =
+  withBinaryFile cacheFile ReadMode $ \hnd -> do
     contents <- structuredDecodeTriple <$> BS.hGetContents hnd
     k contents
 
@@ -437,13 +496,13 @@ withCacheFile (FileMonitor{fileMonitorCacheFile}) k =
 -- This determines the type and format of the binary cache file.
 rewriteCacheFile
   :: (Binary a, Structured a, Binary b, Structured b)
-  => FileMonitor a b
+  => FilePath
   -> MonitorStateFileSet
   -> a
   -> b
   -> IO ()
-rewriteCacheFile FileMonitor{fileMonitorCacheFile} fileset key result =
-  writeFileAtomic fileMonitorCacheFile $
+rewriteCacheFile cacheFile fileset key result =
+  writeFileAtomic cacheFile $
     structuredEncode (fileset, key, result)
 
 -- | Probe the file system to see if any of the monitored files have changed.
@@ -886,9 +945,11 @@ updateFileMonitor
   monitorFiles
   cachedKey
   cachedResult = do
-    hashcache <- readCacheFileHashes monitor
+    let cacheFile = fileMonitorCacheFileFor monitor cachedKey
+    hashcache <- readCacheFileHashes monitor cacheFile
     msfs <- buildMonitorStateFileSet startTime hashcache root monitorFiles
-    rewriteCacheFile monitor msfs cachedKey cachedResult
+    rewriteCacheFile cacheFile msfs cachedKey cachedResult
+    pruneKeyedCacheFiles monitor cacheFile
 
 -- | A timestamp to help with the problem of file changes during actions.
 -- See 'updateFileMonitor' for details.
@@ -1166,13 +1227,16 @@ getFileHash hashcache relfile absfile mtime =
 -- that the set of files to monitor can change then it's simpler just to throw
 -- away the structure and use a finite map.
 readCacheFileHashes
-  :: (Binary a, Structured a, Binary b, Structured b)
+  :: forall a b
+   . (Binary a, Structured a, Binary b, Structured b)
   => FileMonitor a b
+  -- ^ only fixes the types @a@ and @b@ the cache file was written with
+  -> FilePath
   -> IO FileHashCache
-readCacheFileHashes monitor =
+readCacheFileHashes _monitor cacheFile =
   handleDoesNotExist Map.empty $
     handleErrorCall Map.empty $
-      withCacheFile monitor $ \case
+      withCacheFile cacheFile $ \(contents :: Either String (MonitorStateFileSet, a, Either String b)) -> case contents of
         Left _ -> return Map.empty
         Right (msfs, _, _) -> return (mkFileHashCache msfs)
   where

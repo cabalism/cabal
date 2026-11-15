@@ -68,6 +68,7 @@ newPackageFileMonitor
             { fileMonitorCacheFile = distPackageCacheFile dparams "config"
             , fileMonitorKeyValid = (==) `on` normaliseConfiguredPackage shared
             , fileMonitorCheckIfOnlyValueChanged = False
+            , fileMonitorKeyedEntries = Nothing
             }
       , pkgFileMonitorBuild =
           FileMonitor
@@ -75,6 +76,7 @@ newPackageFileMonitor
             , fileMonitorKeyValid = \componentsToBuild componentsAlreadyBuilt ->
                 componentsToBuild `Set.isSubsetOf` componentsAlreadyBuilt
             , fileMonitorCheckIfOnlyValueChanged = True
+            , fileMonitorKeyedEntries = Nothing
             }
       , pkgFileMonitorReg =
           newFileMonitor (distPackageCacheFile dparams "registration")
