@@ -40,6 +40,7 @@ module Distribution.Client.RebuildMonad
   , newFileMonitor
   , newFileMonitorKeyed
   , fileMonitorKeyHash
+  , fileMonitorCacheFileFor
   , rerunIfChanged
   , rerunConcurrentlyIfChanged
 

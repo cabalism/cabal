@@ -11,6 +11,7 @@ module Distribution.Client.FileMonitor
   , newFileMonitor
   , newFileMonitorKeyed
   , fileMonitorKeyHash
+  , fileMonitorCacheFileFor
   , MonitorChanged (..)
   , MonitorChangedReason (..)
   , checkFileMonitorChanged

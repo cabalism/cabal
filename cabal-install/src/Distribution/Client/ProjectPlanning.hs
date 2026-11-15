@@ -766,12 +766,15 @@ rebuildInstallPlan
       -- an entry per key, so the plan in use may come from an entry an earlier
       -- run wrote while a later run with another key wrote plan.json. So
       -- plan.json is kept under its own monitor, keyed by the hash of the plan
-      -- key, and rewritten when the key in use changes.
+      -- key and watching the elaborated plan's cache entry, and rewritten when
+      -- either the key in use or the plan under that key changes.
       rerunIfChanged
         verbosity
         fileMonitorPlanOutputs
         (fileMonitorKeyHash planKey)
-        $ phaseMaintainPlanOutputs elaboratedPlan' elaboratedShared'
+        $ do
+          monitorFiles [monitorFile (fileMonitorCacheFileFor fileMonitorElaboratedPlan planKey)]
+          phaseMaintainPlanOutputs elaboratedPlan' elaboratedShared'
 
       return result
     where
