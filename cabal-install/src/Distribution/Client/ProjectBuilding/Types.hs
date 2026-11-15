@@ -6,6 +6,7 @@ module Distribution.Client.ProjectBuilding.Types
     BuildStatusMap
   , BuildStatus (..)
   , buildStatusRequiresBuild
+  , buildStatusRequiresConfigure
   , buildStatusToString
   , BuildStatusRebuild (..)
   , BuildReason (..)
@@ -82,6 +83,18 @@ buildStatusRequiresBuild BuildStatusPreExisting = False
 buildStatusRequiresBuild BuildStatusInstalled = False
 buildStatusRequiresBuild BuildStatusUpToDate{} = False
 buildStatusRequiresBuild _ = True
+
+-- | Whether executing a package with this status runs its configure phase.
+-- Configure is the only phase that reads the per-project installed package
+-- index, see Note [Per-project InstalledPackageIndex].
+buildStatusRequiresConfigure :: BuildStatus -> Bool
+buildStatusRequiresConfigure BuildStatusDownload = True
+buildStatusRequiresConfigure BuildStatusUnpack{} = True
+buildStatusRequiresConfigure (BuildStatusRebuild _ BuildStatusConfigure{}) = True
+buildStatusRequiresConfigure (BuildStatusRebuild _ BuildStatusBuild{}) = False
+buildStatusRequiresConfigure BuildStatusPreExisting = False
+buildStatusRequiresConfigure BuildStatusInstalled = False
+buildStatusRequiresConfigure BuildStatusUpToDate{} = False
 
 -- | This is primarily here for debugging. It's not actually used anywhere.
 buildStatusToString :: BuildStatus -> String

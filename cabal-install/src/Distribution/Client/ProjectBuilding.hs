@@ -368,14 +368,16 @@ rebuildTargets
         traverse_ (createPackageDBIfMissing verbosity compiler progdb) packageDBsToUse
 
         -- Populate the running InstalledPackageIndex by doing a single
-        -- bulk read at startup. This allows us to obtain the
-        -- InstalledPackageInfo of every 'PreExisting' and 'Installed' unit
-        -- in the plan, regardless of how they ended up in the PackageDBs.
+        -- bulk read at startup, when some package in the plan is going to be
+        -- configured. This allows us to obtain the InstalledPackageInfo of
+        -- every 'PreExisting' and 'Installed' unit in the plan, regardless of
+        -- how they ended up in the PackageDBs. Only configure reads the
+        -- index, so when nothing will be configured we skip the read.
         -- See (ProjIPI1) in Note [Per-project InstalledPackageIndex].
         initialIPI <-
           -- NB: 'getInstalledPackages' returns an error when there are no
           -- PackageDBs, so we handle that case explicitly first.
-          if null packageDBsToUse
+          if null packageDBsToUse || not (any buildStatusRequiresConfigure pkgsBuildStatus)
             then return mempty
             else IndexUtils.getInstalledPackages verbosity compiler packageDBsToUse progdb
         ipiTVar <- newTVarIO initialIPI
@@ -489,6 +491,13 @@ configuring individual packages.
     perform.
 
     This robustly handles the case of resuming an interrupted build.
+
+    The read runs only when some package in the plan is going to be
+    configured, which the pre-build statuses tell us before execution starts
+    ('buildStatusRequiresConfigure'). Many runs configure nothing: a
+    @cabal repl@ of an already configured component, or a @cabal build@ after
+    editing a source file. Those would otherwise pay for dumping every package
+    DB, the store in particular, on every run.
 
   (ProjIPI2)
     During execution, each time we register a library, we insert its
