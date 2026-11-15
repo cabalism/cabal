@@ -119,6 +119,13 @@ packageFileMonitorKeyValues elab =
         , elabTestKeepTix = False
         , elabTestTestOptions = []
         , elabBenchmarkOptions = []
+        , -- A repl loads the targets in memory rather than building them on
+          -- disk. That is not a difference in how the package is configured,
+          -- and treating it as one made every build after a repl, and every
+          -- repl after a build, reconfigure the package. See #11623.
+          elabBuildStyle = case elabBuildStyle elab of
+            BuildInplaceOnly InMemory -> BuildInplaceOnly OnDisk
+            style -> style
         }
 
     -- The second part is the value used to guard the build step. So this is

@@ -590,7 +590,12 @@ buildInplaceUnpackedPackage
           PBBuildPhase{runBuild} ->
             whenRebuild $ withFileMonitor runBuild
           PBReplPhase{runRepl} ->
-            withFileMonitor runRepl
+            -- A repl builds nothing on disk, so the build cache is left as the
+            -- last build wrote it. Recording the repl there would say that no
+            -- component is built, which makes the next build run the build
+            -- phase again and, since dependents monitor this file, rebuild
+            -- them too. See #11623.
+            void runRepl
           PBHaddockPhase{runHaddock} -> do
             withFileMonitor runHaddock
             let haddockTarget = elabHaddockForHackage pkg
