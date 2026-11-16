@@ -444,7 +444,7 @@ resolveBuildTimeSettings
         fromFlag projectConfigReportPlanningFailure
       buildSettingProgPathExtra = fromNubList projectConfigProgPathExtra
       buildSettingHaddockOpen = False
-      buildSettingBuildTimings = fromFlagOrDefault False projectConfigBuildTimings
+      buildSettingTimings = fromFlagOrDefault False projectConfigTimings
 
       ProjectConfigBuildOnly{..} =
         defaults

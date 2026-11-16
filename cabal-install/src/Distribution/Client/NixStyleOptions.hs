@@ -231,7 +231,7 @@ installOptionNames =
   , "dependencies-only"
   , "build-summary"
   , "build-log"
-  , "build-timings"
+  , "timings"
   , "remote-build-reporting"
   , "report-planning-failure"
   , "semaphore"

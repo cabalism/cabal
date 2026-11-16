@@ -244,7 +244,8 @@ Flags for exec:
  --keep-going                 # After a build failure, continue to build other
                                 unaffected packages.
  --offline                    # Don't download packages from the Internet.
- --build-timings              # Print elapsed time for each build phase.
+ --timings                    # Print the elapsed time of each planning step
+                                and package phase.
  --haddock-hoogle             # Generate a hoogle database
  --haddock-html               # Generate HTML documentation (the default)
  --haddock-html-location=URL  # Location of HTML documentation for

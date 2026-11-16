@@ -170,9 +170,9 @@ projectConfigClientInstallFlags :: Lens' ProjectConfigBuildOnly ClientInstallFla
 projectConfigClientInstallFlags f s = fmap (\x -> s{T.projectConfigClientInstallFlags = x}) (f (T.projectConfigClientInstallFlags s))
 {-# INLINEABLE projectConfigClientInstallFlags #-}
 
-projectConfigBuildTimings :: Lens' ProjectConfigBuildOnly (Flag Bool)
-projectConfigBuildTimings f s = fmap (\x -> s{T.projectConfigBuildTimings = x}) (f (T.projectConfigBuildTimings s))
-{-# INLINEABLE projectConfigBuildTimings #-}
+projectConfigTimings :: Lens' ProjectConfigBuildOnly (Flag Bool)
+projectConfigTimings f s = fmap (\x -> s{T.projectConfigTimings = x}) (f (T.projectConfigTimings s))
+{-# INLINEABLE projectConfigTimings #-}
 
 projectConfigDistDir :: Lens' ProjectConfigShared (Flag FilePath)
 projectConfigDistDir f s = fmap (\x -> s{T.projectConfigDistDir = x}) (f (T.projectConfigDistDir s))

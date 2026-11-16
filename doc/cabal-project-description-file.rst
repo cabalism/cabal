@@ -344,28 +344,32 @@ Verbosity options
     The command line variant of this field is ``--verbose=2``; a short
     form ``-v2`` is also supported.
 
-.. cfg-field:: build-timings: boolean
-               --build-timings
+.. cfg-field:: timings: boolean
+               --timings
 
-    Log timing information to stdout, one line per unit of work, in the
-    following format::
+    Print the elapsed time of each planning step and package phase, one
+    line per unit of work::
 
-        [build-timings] configure aeson-2.2.3.0 0.042s
-        [build-timings] build     aeson-2.2.3.0 3.284s
-        [build-timings] install   aeson-2.2.3.0 0.123s
+        [timing] plan:configure-compiler - 0.078s
+        [timing] plan:installed-packages - 0.127s (47 packages)
+        [timing] plan:source-packages - 0.774s (155233 packages)
+        [timing] plan:solve - 0.738s (159 packages)
+        [timing] plan:elaborate - 0.267s (185 packages)
+        [timing] plan:improve - 0.013s (185 packages)
+        [timing] pkg:configure aeson-2.2.3.0 0.042s
+        [timing] pkg:build aeson-2.2.3.0 3.284s
+        [timing] pkg:install aeson-2.2.3.0 0.123s
 
-    Planning a build is timed too, one line for each step a run performs.
-    A run that reuses its cached plan performs none of them and prints no
-    planning lines. The steps have no package, so the third field is ``-``
-    and a note at the end says what the step covered::
+    Each line is ``[timing]``, the scope and step joined by a colon, the
+    subject, the elapsed seconds and an optional note. The scope is ``plan``
+    for a planning step and ``pkg`` for a phase of one package, so the lines
+    narrow from the left: ``[timing]`` matches every timed unit of work,
+    ``[timing] pkg:`` every package phase, ``[timing] pkg:build`` every
+    package build, and the subject column picks out one package. The subject
+    of a planning step is ``-``, so the time is always the fourth column.
 
-        [build-timings] configure-compiler - 0.078s
-        [build-timings] installed-packages - 0.127s (47 packages)
-        [build-timings] source-packages - 0.774s (155233 packages)
-        [build-timings] solve - 0.738s (159 packages)
-        [build-timings] elaborate - 0.267s (185 packages)
-        [build-timings] improve - 0.013s (185 packages)
-
+    Planning prints a line for each step a run performs. A run that reuses
+    its cached plan performs none of them and prints no ``plan:`` lines.
     ``installed-packages`` reads the compiler's package databases and
     ``source-packages`` the package index of each repository, which are
     what the solver sees. ``solve`` is the solver run, ``elaborate`` turns
@@ -373,6 +377,8 @@ Verbosity options
     ``improve`` replaces packages already in the store. A step's time is
     the time to produce its result, so a count over a lazily built plan is
     part of it.
+
+    A package phase that fails prints its line with the note ``(failed)``.
 
 Job and concurrency options
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^

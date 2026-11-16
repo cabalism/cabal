@@ -543,7 +543,7 @@ instance Arbitrary ProjectConfigBuildOnly where
       , projectConfigCacheDir = x15
       , projectConfigLogsDir = x16
       , projectConfigClientInstallFlags = x17
-      , projectConfigBuildTimings = x20
+      , projectConfigTimings = x20
       } =
       [ ProjectConfigBuildOnly
         { projectConfigVerbosity = x00'
@@ -565,7 +565,7 @@ instance Arbitrary ProjectConfigBuildOnly where
         , projectConfigCacheDir = x15
         , projectConfigLogsDir = x16
         , projectConfigClientInstallFlags = x17'
-        , projectConfigBuildTimings = x20'
+        , projectConfigTimings = x20'
         }
       | ( (x00', x01', x02', x03', x04')
           , (x05', x06', x07', x09')

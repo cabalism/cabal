@@ -95,7 +95,7 @@ library
         Distribution.Deprecated.ReadP
         Distribution.Deprecated.ViewAsFieldDescr
 
-        Distribution.Client.BuildTimings
+        Distribution.Client.Timings
         Distribution.Client.BuildReports.Anonymous
         Distribution.Client.BuildReports.Lens
         Distribution.Client.BuildReports.Storage

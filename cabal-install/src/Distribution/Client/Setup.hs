@@ -2249,7 +2249,7 @@ data InstallFlags = InstallFlags
   , installKeepGoing :: Flag Bool
   , installRunTests :: Flag Bool
   , installOfflineMode :: Flag Bool
-  , installBuildTimings :: Flag Bool
+  , installTimings :: Flag Bool
   }
   deriving (Eq, Show, Generic)
   deriving (Semigroup, Monoid) via Generically InstallFlags
@@ -2294,7 +2294,7 @@ defaultInstallFlags =
     , installKeepGoing = Flag False
     , installRunTests = mempty
     , installOfflineMode = Flag False
-    , installBuildTimings = Flag False
+    , installTimings = Flag False
     }
   where
     docIndexFile =
@@ -2800,10 +2800,10 @@ installOptions showOrParseArgs =
           (yesNoOpt showOrParseArgs)
        , option
           []
-          ["build-timings"]
-          "Print elapsed time for each build phase."
-          installBuildTimings
-          (\v flags -> flags{installBuildTimings = v})
+          ["timings"]
+          "Print the elapsed time of each planning step and package phase."
+          installTimings
+          (\v flags -> flags{installTimings = v})
           (yesNoOpt showOrParseArgs)
        ]
     ++ case showOrParseArgs of -- TODO: remove when "cabal install"

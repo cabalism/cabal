@@ -38,7 +38,6 @@ import Distribution.Client.ProjectPlanning.Types
 import Distribution.Client.RebuildMonad
 import Distribution.Client.Store
 
-import Distribution.Client.BuildTimings (buildTimingMessage)
 import Distribution.Client.DistDirLayout
 import Distribution.Client.FileMonitor
 import Distribution.Client.JobControl
@@ -58,6 +57,7 @@ import Distribution.Client.SetupWrapper
 import Distribution.Client.SourceFiles
 import Distribution.Client.SrcDist (allPackageSourceFiles)
 import qualified Distribution.Client.Tar as Tar
+import Distribution.Client.Timings (timingMessage)
 import Distribution.Client.Types hiding
   ( BuildFailure (..)
   , BuildOutcome
@@ -192,7 +192,7 @@ buildAndRegisterUnpackedPackage
   maybe_semaphore
   buildTimeSettings@BuildTimeSettings
     { buildSettingKeepTempFiles
-    , buildSettingBuildTimings
+    , buildSettingTimings
     }
   registerLock
   cacheLock
@@ -324,14 +324,14 @@ buildAndRegisterUnpackedPackage
 
       timedDelegate :: forall r. PackageBuildingPhase r -> IO r
       timedDelegate phase
-        | buildSettingBuildTimings = do
+        | buildSettingTimings = do
             t0 <- getMonotonicTime
             let
               printTiming :: String -> IO ()
               printTiming suffix = do
                 t1 <- getMonotonicTime
                 notice verbosity $
-                  buildTimingMessage (buildPhaseName phase) (prettyShow (packageId rpkg)) (t1 - t0) suffix
+                  timingMessage "pkg" (buildPhaseName phase) (prettyShow (packageId rpkg)) (t1 - t0) suffix
             r <- delegate phase `onException` printTiming "(failed)"
             !_ <- evaluate r
             printTiming ""

@@ -62,7 +62,7 @@ projectConfigBuildOnlyFieldGrammar = do
   projectConfigCacheDir <- optionalFieldDefAla "remote-repo-cache" (alaFlag FilePathNT) L.projectConfigCacheDir mempty
   projectConfigLogsDir <- optionalFieldDefAla "logs-dir" (alaFlag FilePathNT) L.projectConfigLogsDir mempty
   projectConfigClientInstallFlags <- blurFieldGrammar L.projectConfigClientInstallFlags clientInstallFlagsGrammar
-  projectConfigBuildTimings <- optionalFieldDef "build-timings" L.projectConfigBuildTimings mempty
+  projectConfigTimings <- optionalFieldDef "timings" L.projectConfigTimings mempty
   pure ProjectConfigBuildOnly{..}
 
 projectConfigSharedFieldGrammar :: ProjectConfigPath -> ParsecFieldGrammar' ProjectConfigShared

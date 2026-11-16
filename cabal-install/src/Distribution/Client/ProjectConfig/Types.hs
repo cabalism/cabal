@@ -184,7 +184,7 @@ data ProjectConfigBuildOnly = ProjectConfigBuildOnly
   , projectConfigCacheDir :: Flag FilePath
   , projectConfigLogsDir :: Flag FilePath
   , projectConfigClientInstallFlags :: ClientInstallFlags
-  , projectConfigBuildTimings :: Flag Bool
+  , projectConfigTimings :: Flag Bool
   }
   deriving (Eq, Show, Generic)
   deriving (Semigroup, Monoid) via Generically ProjectConfigBuildOnly
@@ -498,7 +498,7 @@ data BuildTimeSettings = BuildTimeSettings
   , buildSettingIgnoreExpiry :: Bool
   , buildSettingProgPathExtra :: [FilePath]
   , buildSettingHaddockOpen :: Bool
-  , buildSettingBuildTimings :: Bool
+  , buildSettingTimings :: Bool
   }
   deriving (Generic)
 
@@ -527,7 +527,7 @@ instance NFData BuildTimeSettings where
       , buildSettingIgnoreExpiry
       , buildSettingProgPathExtra
       , buildSettingHaddockOpen
-      , buildSettingBuildTimings
+      , buildSettingTimings
       } =
       rnf
         [ rnf buildSettingDryRun
@@ -550,5 +550,5 @@ instance NFData BuildTimeSettings where
         , rnf buildSettingIgnoreExpiry
         , rnf buildSettingProgPathExtra
         , rnf buildSettingHaddockOpen
-        , rnf buildSettingBuildTimings
+        , rnf buildSettingTimings
         ]

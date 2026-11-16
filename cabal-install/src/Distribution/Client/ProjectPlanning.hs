@@ -113,7 +113,6 @@ import Text.PrettyPrint
   )
 import Prelude ()
 
-import Distribution.Client.BuildTimings (timedPhase)
 import Distribution.Client.Config
 import Distribution.Client.Dependency
 import Distribution.Client.DistDirLayout
@@ -139,6 +138,7 @@ import Distribution.Client.Setup hiding (cabalVersion, packageName)
 import Distribution.Client.SetupWrapper
 import Distribution.Client.Store
 import Distribution.Client.Targets (userToPackageConstraint)
+import Distribution.Client.Timings (timedPhase)
 import Distribution.Client.Types
 import Distribution.Client.Utils (concatMapM, duplicatesBy, incVersion)
 
@@ -580,7 +580,7 @@ configureCompiler
         , packageConfigProgramPathsLocal
         , packageConfigProgramPathExtra
         )
-        $ timedPhase verbosity (buildTimings projectConfig) "configure-compiler" (const "")
+        $ timedPhase verbosity (timingsEnabled projectConfig) "configure-compiler" (const "")
         $ do
           liftIO $ info verbosity "Compiler settings changed, reconfiguring..."
           progdb <- liftIO $ do
@@ -751,7 +751,7 @@ rebuildInstallPlan
                 ( elaboratedPlan
                   , elaboratedShared
                   ) <-
-                  timedPhase verbosity (buildTimings projectConfig) "elaborate" (packages . InstallPlan.toList . fst) $ do
+                  timedPhase verbosity (timingsEnabled projectConfig) "elaborate" (packages . InstallPlan.toList . fst) $ do
                     result <-
                       phaseElaboratePlan
                         projectConfig
@@ -767,7 +767,7 @@ rebuildInstallPlan
           -- the underlying elaborated plan only changes when input config
           -- changes, so it's worth caching them separately.
           improvedPlan <-
-            timedPhase verbosity (buildTimings projectConfig) "improve" (packages . InstallPlan.toList) $
+            timedPhase verbosity (timingsEnabled projectConfig) "improve" (packages . InstallPlan.toList) $
               phaseImprovePlan elaboratedPlan elaboratedShared
 
           return (improvedPlan, elaboratedPlan, elaboratedShared, totalIndexState, activeRepos)
@@ -908,7 +908,7 @@ rebuildInstallPlan
                 projectConfigBuildOnly
 
             solverSettings = resolveSolverSettings projectConfig
-            timings = buildTimings projectConfig
+            timings = timingsEnabled projectConfig
             logMsg message rest = debugNoWrap verbosity message >> rest
             perPkgOption = lookupPerPkgOption (const True) projectConfigAllPackages projectConfigLocalPackages (getMapMappend projectConfigSpecificPackage)
 
@@ -1046,11 +1046,11 @@ rebuildInstallPlan
 
 -- | If a 'PackageSpecifier' refers to a single package, return Just that
 -- package.
--- | Whether the @build-timings@ setting is on, for the planning steps.
-buildTimings :: ProjectConfig -> Bool
-buildTimings = fromFlagOrDefault False . projectConfigBuildTimings . projectConfigBuildOnly
+-- | Whether the @timings@ setting is on, for the planning steps.
+timingsEnabled :: ProjectConfig -> Bool
+timingsEnabled = fromFlagOrDefault False . projectConfigTimings . projectConfigBuildOnly
 
--- | The note on a planning step's build-timings line, the size of what it
+-- | The note on a planning step's timing line, the size of what it
 -- read or produced.
 packages :: [a] -> String
 packages xs = "(" ++ show (length xs) ++ " packages)"

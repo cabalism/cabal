@@ -1,13 +1,17 @@
-synopsis: Add flag for build timings
+synopsis: Add a timings setting
 packages: cabal-install
-prs: #11769
+prs: #11769 #NNNNN
 description:{
-Introduce `--build-timings` flag to `cabal-install`. This flag makes `cabal-install`
-log timing information to stdout, in a format like:
+Introduce the `timings` setting, `--timings` on the command line, which makes `cabal-install`
+print the elapsed time of each unit of work it does, one line each, in the format
+`[timing] <scope>:<step> <subject> <seconds>s [<note>]`:
 
 ```
-[build-timings] configure aeson-2.2.3.0 0.042s
-[build-timings] build     aeson-2.2.3.0 3.284s
-[build-timings] install   aeson-2.2.3.0 0.123s
+[timing] pkg:configure aeson-2.2.3.0 0.042s
+[timing] pkg:build aeson-2.2.3.0 3.284s
+[timing] pkg:install aeson-2.2.3.0 0.123s
 ```
+
+The scope is `pkg` for a phase of one package and `plan` for a planning step, so a grep
+narrows from `[timing]` to `[timing] pkg:` to `[timing] pkg:build` to one package.
 }
