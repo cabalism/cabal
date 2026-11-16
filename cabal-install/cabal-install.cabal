@@ -503,3 +503,5 @@ test-suite long-tests
     , text
     , QuickCheck >= 2.14 && <2.20
     , pretty-show >= 1.6.15
+    , bytestring
+    , zlib

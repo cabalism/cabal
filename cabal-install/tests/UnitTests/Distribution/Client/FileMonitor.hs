@@ -2,9 +2,12 @@ module UnitTests.Distribution.Client.FileMonitor (tests) where
 
 import Distribution.Parsec (simpleParsec)
 
+import qualified Codec.Compression.GZip as GZip
 import Control.Concurrent (threadDelay)
 import Control.Exception
 import Control.Monad
+import Data.Bits (complement)
+import qualified Data.ByteString.Lazy as BS
 import Data.Proxy (Proxy (..))
 import qualified Data.Set as Set
 import qualified System.Directory as IO
@@ -37,6 +40,7 @@ tests mtimeChange =
   , testCase "sanity check dirs" $ testDirChangeSanity mtimeChange
   , testCase "no monitor cache" testNoMonitorCache
   , testCaseSteps "corrupt monitor cache" testCorruptMonitorCache
+  , testCaseSteps "compressed monitor cache" testCompressedMonitorCache
   , testCase "empty monitor" testEmptyMonitor
   , testCase "missing file" testMissingFile
   , testCase "change file" $ testChangedFile mtimeChange
@@ -199,6 +203,44 @@ testCorruptMonitorCache step =
     reason2 @?= MonitorCorruptCache
 
 -- no files to monitor
+-- The cache file is written gzip compressed. One written uncompressed by an
+-- earlier cabal must still be read, and a compressed one that is truncated or
+-- damaged must count as corrupt rather than throw.
+testCompressedMonitorCache :: (String -> IO ()) -> Assertion
+testCompressedMonitorCache step =
+  withFileMonitor $ \root monitor -> do
+    let value = map show [1 .. 5000 :: Int]
+        monitor' = monitor :: FileMonitor () [String]
+        cacheFile = fileMonitorCacheFile monitor'
+    updateMonitor root monitor' [] () value
+    -- Read the whole file now, so the handle is closed before the file is
+    -- rewritten below.
+    compressed <- BS.readFile cacheFile
+    _ <- evaluate (BS.length compressed)
+
+    step "Cache file is gzip"
+    BS.take 2 compressed @?= BS.pack [0x1f, 0x8b]
+    (res, _) <- expectMonitorUnchanged root monitor' ()
+    res @?= value
+
+    step "Uncompressed cache file is read"
+    BS.writeFile cacheFile (GZip.decompress compressed)
+    (res', _) <- expectMonitorUnchanged root monitor' ()
+    res' @?= value
+
+    step "Truncated compressed cache file"
+    let half = BS.length compressed `div` 2
+    BS.writeFile cacheFile (BS.take half compressed)
+    reason <- expectMonitorChanged root monitor' ()
+    reason @?= MonitorCorruptCache
+
+    step "Damaged compressed cache file"
+    let (front, back) = BS.splitAt half compressed
+        damaged = front <> BS.cons (complement (BS.head back)) (BS.tail back)
+    BS.writeFile cacheFile damaged
+    reason' <- expectMonitorChanged root monitor' ()
+    reason' @?= MonitorCorruptCache
+
 testEmptyMonitor :: Assertion
 testEmptyMonitor =
   withFileMonitor $ \root monitor -> do
