@@ -9,12 +9,17 @@ main = cabalTest $ recordMode DoNotRecord $ do
     (\step -> assertOutputContains ("[timing] plan:" ++ step ++ " -") cold)
     ["installed-packages", "source-packages", "solve", "elaborate", "improve"]
   assertOutputContains "[timing] plan:solve - " cold
+  assertOutputContains "[timing] check:status - " cold
+  assertOutputContains "[timing] check:installed-packages - " cold
   assertOutputContains "[timing] pkg:configure timed-0" cold
   assertOutputContains "[timing] pkg:build timed-0" cold
   -- A run that reuses its cached plan reads nothing and solves nothing, and
-  -- has no package phase to time. It may still check the store, which the
-  -- first build changed, so the improve line is allowed.
+  -- has no package phase to time. It still checks what there is to do, and
+  -- having nothing, does not read the installed package index. It may also
+  -- check the store, which the first build changed, so the improve line is
+  -- allowed.
   warm <- cabal' "build" ["--timings"]
+  assertOutputContains "[timing] check:status - " warm
   mapM_
     (\step -> assertOutputDoesNotContain ("[timing] " ++ step) warm)
-    ["plan:installed-packages", "plan:source-packages", "plan:solve", "plan:elaborate", "pkg:configure", "pkg:build"]
+    ["plan:installed-packages", "plan:source-packages", "plan:solve", "plan:elaborate", "check:installed-packages", "pkg:configure", "pkg:build"]

@@ -138,7 +138,7 @@ import Distribution.Client.Setup hiding (cabalVersion, packageName)
 import Distribution.Client.SetupWrapper
 import Distribution.Client.Store
 import Distribution.Client.Targets (userToPackageConstraint)
-import Distribution.Client.Timings (timedPhase)
+import Distribution.Client.Timings (packagesNote, timedPhase)
 import Distribution.Client.Types
 import Distribution.Client.Utils (concatMapM, duplicatesBy, incVersion)
 
@@ -580,7 +580,7 @@ configureCompiler
         , packageConfigProgramPathsLocal
         , packageConfigProgramPathExtra
         )
-        $ timedPhase verbosity (timingsEnabled projectConfig) "configure-compiler" (const "")
+        $ timedPhase verbosity (timingsEnabled projectConfig) "plan" "configure-compiler" (const "")
         $ do
           liftIO $ info verbosity "Compiler settings changed, reconfiguring..."
           progdb <- liftIO $ do
@@ -751,7 +751,7 @@ rebuildInstallPlan
                 ( elaboratedPlan
                   , elaboratedShared
                   ) <-
-                  timedPhase verbosity (timingsEnabled projectConfig) "elaborate" (packages . InstallPlan.toList . fst) $ do
+                  timedPhase verbosity (timingsEnabled projectConfig) "plan" "elaborate" (packagesNote . InstallPlan.toList . fst) $ do
                     result <-
                       phaseElaboratePlan
                         projectConfig
@@ -767,7 +767,7 @@ rebuildInstallPlan
           -- the underlying elaborated plan only changes when input config
           -- changes, so it's worth caching them separately.
           improvedPlan <-
-            timedPhase verbosity (timingsEnabled projectConfig) "improve" (packages . InstallPlan.toList) $
+            timedPhase verbosity (timingsEnabled projectConfig) "plan" "improve" (packagesNote . InstallPlan.toList) $
               phaseImprovePlan elaboratedPlan elaboratedShared
 
           return (improvedPlan, elaboratedPlan, elaboratedShared, totalIndexState, activeRepos)
@@ -854,7 +854,7 @@ rebuildInstallPlan
             )
             $ do
               installedPkgIndex <-
-                timedPhase verbosity timings "installed-packages" (packages . InstalledPackageIndex.allPackages) $
+                timedPhase verbosity timings "plan" "installed-packages" (packagesNote . InstalledPackageIndex.allPackages) $
                   getInstalledPackages
                     verbosity
                     compiler
@@ -862,7 +862,7 @@ rebuildInstallPlan
                     platform
                     corePackageDbs
               (sourcePkgDb, tis, ar) <-
-                timedPhase verbosity timings "source-packages" (\(db, _, _) -> packages (SourcePackageIndex.allPackages (packageIndex db))) $
+                timedPhase verbosity timings "plan" "source-packages" (\(db, _, _) -> packagesNote (SourcePackageIndex.allPackages (packageIndex db))) $
                   getSourcePackages
                     verbosity
                     withRepoCtx
@@ -878,7 +878,7 @@ rebuildInstallPlan
               liftIO $ do
                 notice verbosity "Resolving dependencies..."
                 planOrError <-
-                  timedPhase verbosity timings "solve" (either (const "") (packages . SolverInstallPlan.toList)) $
+                  timedPhase verbosity timings "plan" "solve" (either (const "") (packagesNote . SolverInstallPlan.toList)) $
                     foldProgress logMsg (pure . Left) (pure . Right) $
                       planPackages
                         verbosity
@@ -1049,11 +1049,6 @@ rebuildInstallPlan
 -- | Whether the @timings@ setting is on, for the planning steps.
 timingsEnabled :: ProjectConfig -> Bool
 timingsEnabled = fromFlagOrDefault False . projectConfigTimings . projectConfigBuildOnly
-
--- | The note on a planning step's timing line, the size of what it
--- read or produced.
-packages :: [a] -> String
-packages xs = "(" ++ show (length xs) ++ " packages)"
 
 reportPlanningFailure :: ProjectConfig -> Compiler -> Platform -> [PackageSpecifier UnresolvedSourcePackage] -> IO ()
 reportPlanningFailure projectConfig comp platform pkgSpecifiers =

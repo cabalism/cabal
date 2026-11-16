@@ -356,17 +356,20 @@ Verbosity options
         [timing] plan:solve - 0.738s (159 packages)
         [timing] plan:elaborate - 0.267s (185 packages)
         [timing] plan:improve - 0.013s (185 packages)
+        [timing] check:status - 0.021s (185 packages)
+        [timing] check:installed-packages - 0.842s (3417 packages)
         [timing] pkg:configure aeson-2.2.3.0 0.042s
         [timing] pkg:build aeson-2.2.3.0 3.284s
         [timing] pkg:install aeson-2.2.3.0 0.123s
 
     Each line is ``[timing]``, the scope and step joined by a colon, the
     subject, the elapsed seconds and an optional note. The scope is ``plan``
-    for a planning step and ``pkg`` for a phase of one package, so the lines
-    narrow from the left: ``[timing]`` matches every timed unit of work,
-    ``[timing] pkg:`` every package phase, ``[timing] pkg:build`` every
-    package build, and the subject column picks out one package. The subject
-    of a planning step is ``-``, so the time is always the fourth column.
+    for a planning step, ``check`` for a step that decides what work there
+    is, and ``pkg`` for a phase of one package, so the lines narrow from the
+    left: ``[timing]`` matches every timed unit of work, ``[timing] pkg:``
+    every package phase, ``[timing] pkg:build`` every package build, and
+    the subject column picks out one package. The subject of a step that is
+    not a package phase is ``-``, so the time is always the fourth column.
 
     Planning prints a line for each step a run performs. A run that reuses
     its cached plan performs none of them and prints no ``plan:`` lines.
@@ -377,6 +380,12 @@ Verbosity options
     ``improve`` replaces packages already in the store. A step's time is
     the time to produce its result, so a count over a lazily built plan is
     part of it.
+
+    ``check:status`` is the check of every package in the plan against what
+    the previous run left behind, which every run does, and
+    ``check:installed-packages`` is the read of the installed package index
+    that a run makes before it builds anything, so it is absent from a run
+    with nothing to build.
 
     A package phase that fails prints its line with the note ``(failed)``.
 

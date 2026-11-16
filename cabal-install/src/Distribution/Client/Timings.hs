@@ -5,21 +5,23 @@
 --
 -- > [timing] <scope>:<step> <subject> <seconds>s [<note>]
 --
--- The scope is @plan@ for a planning step and @pkg@ for a phase of one
--- package, and the step is the name within it, so the lines narrow from the
--- left: @[timing]@ is every timed unit of work, @[timing] pkg:@ every package
--- phase, @[timing] pkg:build@ every package build, and the subject column picks
--- out one package. The subject is the package for a package phase and @-@ for
--- a planning step, so the time is always the fourth column. The note at the
--- end is optional: what a planning step covered, or @(failed)@ for a package
--- phase that threw.
+-- The scope is @plan@ for a planning step, @check@ for a step that decides
+-- what work there is, and @pkg@ for a phase of one package, and the step is
+-- the name within it, so the lines narrow from the left: @[timing]@ is every
+-- timed unit of work, @[timing] pkg:@ every package phase, @[timing] pkg:build@
+-- every package build, and the subject column picks out one package. The
+-- subject is the package for a package phase and @-@ otherwise, so the time is
+-- always the fourth column. The note at the end is optional: what a step
+-- covered, or @(failed)@ for a package phase that threw.
 --
 -- The package phases print one for each configure, build, haddock and install
 -- of a package. Planning prints one for each step it performs, which is none
--- on a run that reuses its cached plan.
+-- on a run that reuses its cached plan. The check lines are the status check
+-- of every run and the installed package index read of a run that builds.
 module Distribution.Client.Timings
   ( timingMessage
   , timedPhase
+  , packagesNote
   ) where
 
 import Distribution.Client.Compat.Prelude
@@ -35,7 +37,7 @@ import Text.Printf (printf)
 -- format.
 timingMessage
   :: String
-  -- ^ The scope, @plan@ or @pkg@.
+  -- ^ The scope: @plan@, @check@ or @pkg@.
   -> String
   -- ^ The step within the scope.
   -> String
@@ -55,27 +57,33 @@ timingMessage scope step subject elapsed note =
     ]
       ++ [note | not (null note)]
 
--- | Run an action and, when timings are on, print how long it took as a
--- planning step. The note may depend on the result, so the step can report
--- the size of what it produced. The note is forced before the clock stops,
--- so a count over a lazily built result is part of the time.
+-- | Run an action and, when timings are on, print how long it took as a step
+-- with no package of its own. The note may depend on the result, so the step
+-- can report the size of what it produced. The note is forced before the
+-- clock stops, so a count over a lazily built result is part of the time.
 timedPhase
   :: MonadIO m
   => Verbosity
   -> Bool
   -- ^ Whether timings are on.
   -> String
+  -- ^ The scope, @plan@ or @check@.
+  -> String
   -- ^ The step.
   -> (a -> String)
   -- ^ The note, from the result.
   -> m a
   -> m a
-timedPhase verbosity enabled step note action
+timedPhase verbosity enabled scope step note action
   | not enabled = action
   | otherwise = do
       t0 <- liftIO getMonotonicTime
       r <- action
       let n = note r
       t1 <- length n `seq` liftIO getMonotonicTime
-      liftIO . notice verbosity $ timingMessage "plan" step "-" (t1 - t0) n
+      liftIO . notice verbosity $ timingMessage scope step "-" (t1 - t0) n
       return r
+
+-- | The note for a step that read or produced a number of packages.
+packagesNote :: [a] -> String
+packagesNote xs = "(" ++ show (length xs) ++ " packages)"

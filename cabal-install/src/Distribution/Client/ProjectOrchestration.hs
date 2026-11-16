@@ -132,6 +132,7 @@ import Distribution.Client.TargetSelector
   , readTargetSelectors
   , reportTargetSelectorProblems
   )
+import Distribution.Client.Timings (packagesNote, timedPhase)
 import Distribution.Client.Types
   ( DocsResult (..)
   , GenericReadyPackage (..)
@@ -392,6 +393,7 @@ runProjectPreBuildPhase
     , projectConfig
     , localPackages
     , installedPackages
+    , buildSettings
     }
   selectPlanSubset = do
     -- Take the project configuration and make a plan for how to build
@@ -418,10 +420,11 @@ runProjectPreBuildPhase
     -- This also gives us more accurate reasons for the --dry-run output.
     --
     pkgsBuildStatus <-
-      rebuildTargetsDryRun
-        distDirLayout
-        elaboratedShared
-        elaboratedPlan'
+      timedPhase verbosity (buildSettingTimings buildSettings) "check" "status" (packagesNote . Map.elems) $
+        rebuildTargetsDryRun
+          distDirLayout
+          elaboratedShared
+          elaboratedPlan'
 
     -- Improve the plan by marking up-to-date packages as installed.
     --

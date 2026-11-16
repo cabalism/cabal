@@ -58,6 +58,7 @@ import Distribution.Client.InstallPlan
 import qualified Distribution.Client.InstallPlan as InstallPlan
 import Distribution.Client.JobControl
 import qualified Distribution.Client.Tar as Tar
+import Distribution.Client.Timings (packagesNote, timedPhase)
 import Distribution.Client.Types hiding
   ( BuildFailure (..)
   , BuildOutcome
@@ -88,6 +89,7 @@ import Control.Exception (assert, handle, try)
 import Data.Either (isLeft)
 import qualified Distribution.Client.IndexUtils as IndexUtils
 import Distribution.Simple.PackageIndex (InstalledPackageIndex)
+import qualified Distribution.Simple.PackageIndex as InstalledPackageIndex
 import System.Directory (doesDirectoryExist, doesFileExist, renameDirectory)
 import System.FilePath (makeRelative, normalise, takeDirectory, takeFileName, (<.>), (</>))
 import System.Semaphore (SemaphoreIdentifier)
@@ -350,6 +352,7 @@ rebuildTargets
   buildSettings@BuildTimeSettings
     { buildSettingNumJobs
     , buildSettingKeepGoing
+    , buildSettingTimings
     }
     | fromFlagOrDefault False (projectConfigOfflineMode config) && not (null packagesToDownload) = return offlineError
     | otherwise = do
@@ -377,7 +380,9 @@ rebuildTargets
           -- PackageDBs, so we handle that case explicitly first.
           if null packageDBsToUse
             then return mempty
-            else IndexUtils.getInstalledPackages verbosity compiler packageDBsToUse progdb
+            else
+              timedPhase verbosity buildSettingTimings "check" "installed-packages" (packagesNote . InstalledPackageIndex.allPackages) $
+                IndexUtils.getInstalledPackages verbosity compiler packageDBsToUse progdb
         ipiTVar <- newTVarIO initialIPI
 
         -- Concurrency control: create the job controller and concurrency limits
