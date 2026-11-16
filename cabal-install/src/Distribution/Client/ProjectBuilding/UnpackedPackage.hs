@@ -38,6 +38,7 @@ import Distribution.Client.ProjectPlanning.Types
 import Distribution.Client.RebuildMonad
 import Distribution.Client.Store
 
+import Distribution.Client.BuildTimings (buildTimingMessage)
 import Distribution.Client.DistDirLayout
 import Distribution.Client.FileMonitor
 import Distribution.Client.JobControl
@@ -119,7 +120,6 @@ import System.Directory (canonicalizePath, createDirectoryIfMissing, doesDirecto
 import System.FilePath (dropDrive, normalise, takeDirectory, (<.>), (</>))
 import System.IO (Handle, IOMode (AppendMode), withFile)
 import System.Semaphore (SemaphoreIdentifier)
-import Text.Printf (printf)
 
 import GHC.Stack
 import Web.Browser (openBrowser)
@@ -330,19 +330,8 @@ buildAndRegisterUnpackedPackage
               printTiming :: String -> IO ()
               printTiming suffix = do
                 t1 <- getMonotonicTime
-                let
-                  elapsed = t1 - t0
-                  pkgstr = prettyShow (packageId rpkg)
-                  msg =
-                    unwords
-                      [ "[build-timings]"
-                      , buildPhaseName phase
-                      , pkgstr
-                      , -- Print milliseconds (3 decimal places)
-                        printf "%.3fs" elapsed
-                      , suffix
-                      ]
-                notice verbosity msg
+                notice verbosity $
+                  buildTimingMessage (buildPhaseName phase) (prettyShow (packageId rpkg)) (t1 - t0) suffix
             r <- delegate phase `onException` printTiming "(failed)"
             !_ <- evaluate r
             printTiming ""

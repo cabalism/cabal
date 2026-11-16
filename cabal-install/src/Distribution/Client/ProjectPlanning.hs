@@ -113,6 +113,7 @@ import Text.PrettyPrint
   )
 import Prelude ()
 
+import Distribution.Client.BuildTimings (timedPhase)
 import Distribution.Client.Config
 import Distribution.Client.Dependency
 import Distribution.Client.DistDirLayout
@@ -179,9 +180,11 @@ import Distribution.Simple.LocalBuildInfo
 
 import Distribution.Simple.BuildWay
 import Distribution.Simple.PackageIndex (InstalledPackageIndex)
+import qualified Distribution.Simple.PackageIndex as InstalledPackageIndex
 import Distribution.Simple.Program
 import Distribution.Simple.Program.Db
 import Distribution.Simple.Program.Find
+import qualified Distribution.Solver.Types.PackageIndex as SourcePackageIndex
 import Distribution.System
 
 import Distribution.Types.AnnotatedId
@@ -537,7 +540,7 @@ configureCompiler
   DistDirLayout
     { distProjectCacheFile
     }
-  ProjectConfig
+  projectConfig@ProjectConfig
     { projectConfigShared =
       ProjectConfigShared
         { projectConfigHcFlavor
@@ -577,6 +580,7 @@ configureCompiler
         , packageConfigProgramPathsLocal
         , packageConfigProgramPathExtra
         )
+        $ timedPhase verbosity (buildTimings projectConfig) "configure-compiler" (const "")
         $ do
           liftIO $ info verbosity "Compiler settings changed, reconfiguring..."
           progdb <- liftIO $ do
@@ -747,20 +751,24 @@ rebuildInstallPlan
                 ( elaboratedPlan
                   , elaboratedShared
                   ) <-
-                  phaseElaboratePlan
-                    projectConfig
-                    compilerEtc
-                    pkgConfigDB
-                    solverPlan
-                    localPackages
-
-                phaseMaintainPlanOutputs elaboratedPlan elaboratedShared
+                  timedPhase verbosity (buildTimings projectConfig) "elaborate" (packages . InstallPlan.toList . fst) $ do
+                    result <-
+                      phaseElaboratePlan
+                        projectConfig
+                        compilerEtc
+                        pkgConfigDB
+                        solverPlan
+                        localPackages
+                    uncurry phaseMaintainPlanOutputs result
+                    return result
                 return (elaboratedPlan, elaboratedShared, totalIndexState, activeRepos)
 
           -- The improved plan changes each time we install something, whereas
           -- the underlying elaborated plan only changes when input config
           -- changes, so it's worth caching them separately.
-          improvedPlan <- phaseImprovePlan elaboratedPlan elaboratedShared
+          improvedPlan <-
+            timedPhase verbosity (buildTimings projectConfig) "improve" (packages . InstallPlan.toList) $
+              phaseImprovePlan elaboratedPlan elaboratedShared
 
           return (improvedPlan, elaboratedPlan, elaboratedShared, totalIndexState, activeRepos)
     where
@@ -846,18 +854,20 @@ rebuildInstallPlan
             )
             $ do
               installedPkgIndex <-
-                getInstalledPackages
-                  verbosity
-                  compiler
-                  progdb
-                  platform
-                  corePackageDbs
+                timedPhase verbosity timings "installed-packages" (packages . InstalledPackageIndex.allPackages) $
+                  getInstalledPackages
+                    verbosity
+                    compiler
+                    progdb
+                    platform
+                    corePackageDbs
               (sourcePkgDb, tis, ar) <-
-                getSourcePackages
-                  verbosity
-                  withRepoCtx
-                  (solverSettingIndexState solverSettings)
-                  (solverSettingActiveRepos solverSettings)
+                timedPhase verbosity timings "source-packages" (\(db, _, _) -> packages (SourcePackageIndex.allPackages (packageIndex db))) $
+                  getSourcePackages
+                    verbosity
+                    withRepoCtx
+                    (solverSettingIndexState solverSettings)
+                    (solverSettingActiveRepos solverSettings)
               pkgConfigDB <- getPkgConfigDb verbosity progdb
 
               -- TODO: [code cleanup] it'd be better if the Compiler contained the
@@ -868,17 +878,18 @@ rebuildInstallPlan
               liftIO $ do
                 notice verbosity "Resolving dependencies..."
                 planOrError <-
-                  foldProgress logMsg (pure . Left) (pure . Right) $
-                    planPackages
-                      verbosity
-                      compiler
-                      platform
-                      solverSettings
-                      (installedPackages <> installedPkgIndex)
-                      sourcePkgDb
-                      pkgConfigDB
-                      localPackages
-                      localPackagesEnabledStanzas
+                  timedPhase verbosity timings "solve" (either (const "") (packages . SolverInstallPlan.toList)) $
+                    foldProgress logMsg (pure . Left) (pure . Right) $
+                      planPackages
+                        verbosity
+                        compiler
+                        platform
+                        solverSettings
+                        (installedPackages <> installedPkgIndex)
+                        sourcePkgDb
+                        pkgConfigDB
+                        localPackages
+                        localPackagesEnabledStanzas
                 case planOrError of
                   Left msg -> do
                     reportPlanningFailure projectConfig compiler platform localPackages
@@ -897,6 +908,7 @@ rebuildInstallPlan
                 projectConfigBuildOnly
 
             solverSettings = resolveSolverSettings projectConfig
+            timings = buildTimings projectConfig
             logMsg message rest = debugNoWrap verbosity message >> rest
             perPkgOption = lookupPerPkgOption (const True) projectConfigAllPackages projectConfigLocalPackages (getMapMappend projectConfigSpecificPackage)
 
@@ -1034,6 +1046,15 @@ rebuildInstallPlan
 
 -- | If a 'PackageSpecifier' refers to a single package, return Just that
 -- package.
+-- | Whether the @build-timings@ setting is on, for the planning steps.
+buildTimings :: ProjectConfig -> Bool
+buildTimings = fromFlagOrDefault False . projectConfigBuildTimings . projectConfigBuildOnly
+
+-- | The note on a planning step's build-timings line, the size of what it
+-- read or produced.
+packages :: [a] -> String
+packages xs = "(" ++ show (length xs) ++ " packages)"
+
 reportPlanningFailure :: ProjectConfig -> Compiler -> Platform -> [PackageSpecifier UnresolvedSourcePackage] -> IO ()
 reportPlanningFailure projectConfig comp platform pkgSpecifiers =
   when reportFailure $

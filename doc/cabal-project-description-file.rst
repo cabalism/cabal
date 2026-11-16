@@ -347,11 +347,32 @@ Verbosity options
 .. cfg-field:: build-timings: boolean
                --build-timings
 
-    Log timing information to stdout, in the following format::
+    Log timing information to stdout, one line per unit of work, in the
+    following format::
 
         [build-timings] configure aeson-2.2.3.0 0.042s
         [build-timings] build     aeson-2.2.3.0 3.284s
         [build-timings] install   aeson-2.2.3.0 0.123s
+
+    Planning a build is timed too, one line for each step a run performs.
+    A run that reuses its cached plan performs none of them and prints no
+    planning lines. The steps have no package, so the third field is ``-``
+    and a note at the end says what the step covered::
+
+        [build-timings] configure-compiler - 0.078s
+        [build-timings] installed-packages - 0.127s (47 packages)
+        [build-timings] source-packages - 0.774s (155233 packages)
+        [build-timings] solve - 0.738s (159 packages)
+        [build-timings] elaborate - 0.267s (185 packages)
+        [build-timings] improve - 0.013s (185 packages)
+
+    ``installed-packages`` reads the compiler's package databases and
+    ``source-packages`` the package index of each repository, which are
+    what the solver sees. ``solve`` is the solver run, ``elaborate`` turns
+    its plan into the detailed one and writes ``plan.json``, and
+    ``improve`` replaces packages already in the store. A step's time is
+    the time to produce its result, so a count over a lazily built plan is
+    part of it.
 
 Job and concurrency options
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
