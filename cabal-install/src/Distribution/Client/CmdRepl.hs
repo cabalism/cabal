@@ -80,6 +80,7 @@ import Distribution.Client.Targets
   ( UserConstraint (..)
   , UserConstraintScope (..)
   )
+import Distribution.Client.Timings (packagesNote, timedPhase)
 import Distribution.Client.Types
   ( PackageSpecifier (..)
   , UnresolvedSourcePackage
@@ -482,10 +483,11 @@ targetedRepl
           includeTransitive = fromFlagOrDefault True (envIncludeTransitive replEnvFlags)
 
         pkgsBuildStatus <-
-          rebuildTargetsDryRun
-            distDirLayout
-            elaboratedShared'
-            elaboratedPlan'
+          timedPhase verbosity (buildSettingTimings buildSettings) "check" "status" (packagesNote . Map.elems) $
+            rebuildTargetsDryRun
+              distDirLayout
+              elaboratedShared'
+              elaboratedPlan'
 
         let elaboratedPlan'' =
               improveInstallPlanWithUpToDatePackages

@@ -388,6 +388,8 @@ Verbosity options
     with nothing to build.
 
     A package phase that fails prints its line with the note ``(failed)``.
+    The repl phase of ``cabal repl`` is not timed, since its time is the
+    length of the GHCi session rather than work cabal did.
 
 Job and concurrency options
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^

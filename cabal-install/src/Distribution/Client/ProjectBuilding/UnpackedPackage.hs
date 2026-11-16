@@ -322,9 +322,12 @@ buildAndRegisterUnpackedPackage
     where
       uid = installedUnitId rpkg
 
+      -- The repl phase is not timed: its time is the length of the user's
+      -- GHCi session, not work cabal did.
       timedDelegate :: forall r. PackageBuildingPhase r -> IO r
       timedDelegate phase
-        | buildSettingTimings = do
+        | buildSettingTimings
+        , not (isReplPhase phase) = do
             t0 <- getMonotonicTime
             let
               printTiming :: String -> IO ()
@@ -1046,6 +1049,10 @@ annotateFailure mlogFile annotate action =
 --------------------------------------------------------------------------------
 
 -- | Display name for each build phase, used in timing output.
+isReplPhase :: PackageBuildingPhase r -> Bool
+isReplPhase PBReplPhase{} = True
+isReplPhase _ = False
+
 buildPhaseName :: PackageBuildingPhase r -> String
 buildPhaseName PBConfigurePhase{} = "configure"
 buildPhaseName PBBuildPhase{} = "build"
