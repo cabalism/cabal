@@ -322,10 +322,10 @@ buildAndRegisterUnpackedPackage
     where
       uid = installedUnitId rpkg
 
-      -- A phase prints its time only if the delegate ran it. A delegate skips
-      -- a phase that has nothing to do, such as the build and install phases
-      -- of a package a repl loads in memory, and then there is no work to
-      -- time.
+      -- A delegate skips a phase that has nothing to do, such as the build
+      -- and install phases of a package a repl loads in memory, or a
+      -- configure when the configuration is unchanged. The phase's line
+      -- then says so, with the time of the check that decided to skip it.
       --
       -- The repl phase is not timed: its time is the length of the user's
       -- GHCi session, not work cabal did.
@@ -339,12 +339,12 @@ buildAndRegisterUnpackedPackage
               printTiming :: String -> IO ()
               printTiming suffix = do
                 t1 <- getMonotonicTime
-                didRun <- readIORef ran
-                when didRun . notice verbosity $
+                notice verbosity $
                   timingMessage "pkg" (buildPhaseName phase) (prettyShow (packageId rpkg)) (t1 - t0) suffix
             r <- delegate (markRun ran phase) `onException` printTiming "(failed)"
             !_ <- evaluate r
-            printTiming ""
+            didRun <- readIORef ran
+            printTiming (if didRun then "" else "(skipped)")
             return r
         | otherwise = delegate phase
 
@@ -1061,7 +1061,7 @@ annotateFailure mlogFile annotate action =
 -- | Display name for each build phase, used in timing output.
 -- | The phase with each of its actions setting the flag when it runs, so
 -- that the caller can tell whether the delegate did the phase's work or
--- found nothing to do.
+-- skipped it.
 markRun :: IORef Bool -> PackageBuildingPhase r -> PackageBuildingPhase r
 markRun ran phase = case phase of
   PBConfigurePhase{runConfigure} -> PBConfigurePhase{runConfigure = mark runConfigure}
