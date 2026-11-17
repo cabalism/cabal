@@ -371,7 +371,11 @@ newSessionState = SessionState{lastChosenLanguage = Nothing}
 
 instance Interactive PromptIO where
   getLine = liftIO P.getLine
-  readFile = liftIO <$> P.readFile
+
+  -- Read strictly so that the file is closed before the next one is opened.
+  -- Looking for the modules of a package reads every source file in it, and
+  -- there can be more of them than the limit on open files.
+  readFile = liftIO <$> System.IO.readFile'
   getCurrentDirectory = liftIO P.getCurrentDirectory
   getHomeDirectory = liftIO P.getHomeDirectory
   listDirectory = liftIO <$> P.listDirectory
