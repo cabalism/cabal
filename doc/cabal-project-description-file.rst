@@ -350,11 +350,16 @@ Verbosity options
     Print the elapsed time of each planning step and package phase, one
     line per unit of work::
 
-        [timing] plan:configure-compiler - 0.078s
-        [timing] plan:installed-packages - 0.127s (47 packages)
-        [timing] plan:source-packages - 0.774s (155233 packages)
-        [timing] plan:solve - 0.738s (159 packages)
-        [timing] plan:elaborate - 0.267s (185 packages)
+        [timing] plan:project-config - 0.019s
+        [timing] plan:configure-compiler - 0.094s
+        [timing] plan:local-packages - 0.063s (15 packages)
+        [timing] plan:installed-packages - 0.132s (47 packages)
+        [timing] plan:source-packages - 0.786s (155233 packages)
+        [timing] plan:pkg-config-db - 0.020s (251 packages)
+        [timing] plan:solve - 0.752s (159 packages)
+        [timing] plan:source-hashes - 0.029s (118 packages)
+        [timing] plan:configure-programs - 0.046s (11 programs)
+        [timing] plan:elaborate - 0.191s (185 packages)
         [timing] plan:improve - 0.013s (185 packages)
         [timing] check:status - 0.021s (185 packages)
         [timing] check:installed-packages - 0.842s (3417 packages)
@@ -373,13 +378,20 @@ Verbosity options
 
     Planning prints a line for each step a run performs. A run that reuses
     its cached plan performs none of them and prints no ``plan:`` lines.
-    ``installed-packages`` reads the compiler's package databases and
-    ``source-packages`` the package index of each repository, which are
-    what the solver sees. ``solve`` is the solver run, ``elaborate`` turns
-    its plan into the detailed one and writes ``plan.json``, and
-    ``improve`` replaces packages already in the store. A step's time is
-    the time to produce its result, so a count over a lazily built plan is
-    part of it.
+    ``project-config`` reads the project file and the files it imports,
+    and ``local-packages`` the ``.cabal`` files of the packages it names.
+    ``configure-compiler`` finds the compiler and its tools, when the
+    builddir has no record of them yet. ``installed-packages`` reads the
+    compiler's package databases, ``source-packages`` the package index of
+    each repository and ``pkg-config-db`` the packages ``pkg-config``
+    knows, which together are what the solver sees. ``solve`` is the solver
+    run. ``source-hashes`` gets the hash of each source package in its
+    plan, downloading any the index has no hash for, and
+    ``configure-programs`` finds the remaining known programs, the
+    preprocessors and tools. ``elaborate`` turns the solver's plan into the
+    detailed one and writes ``plan.json``, and ``improve`` replaces packages
+    already in the store. A step's time is the time to produce its result,
+    so a count over a lazily built plan is part of it.
 
     ``check:status`` is the check of every package in the plan against what
     the previous run left behind, which every run does, and

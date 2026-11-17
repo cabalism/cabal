@@ -7,7 +7,7 @@ main = cabalTest $ recordMode DoNotRecord $ do
   cold <- cabal' "build" ["all", "--timings"]
   mapM_
     (\step -> assertOutputContains ("[timing] plan:" ++ step ++ " -") cold)
-    ["installed-packages", "source-packages", "solve", "elaborate", "improve"]
+    planSteps
   assertOutputContains "[timing] plan:solve - " cold
   assertOutputContains "[timing] check:status - " cold
   assertOutputContains "[timing] check:installed-packages - " cold
@@ -24,7 +24,7 @@ main = cabalTest $ recordMode DoNotRecord $ do
   assertOutputContains "[timing] check:status - " warm
   mapM_
     (\step -> assertOutputDoesNotContain ("[timing] " ++ step) warm)
-    ["plan:installed-packages", "plan:source-packages", "plan:solve", "plan:elaborate", "check:installed-packages", "pkg:configure", "pkg:build", "pkg:setup"]
+    (map ("plan:" ++) (filter (/= "improve") planSteps) ++ ["check:installed-packages", "pkg:configure", "pkg:build", "pkg:setup"])
   -- A repl checks its status like any run, and its repl phase is not timed,
   -- since that would be the length of the GHCi session. It loads the package
   -- in memory, so its build and install phases have nothing to do and say so.
@@ -33,3 +33,19 @@ main = cabalTest $ recordMode DoNotRecord $ do
   assertOutputMatches "\\[timing\\] pkg:build timed-0 [0-9.]*s \\(skipped\\)" repl
   assertOutputMatches "\\[timing\\] pkg:install timed-0 [0-9.]*s \\(skipped\\)" repl
   assertOutputDoesNotContain "[timing] pkg:repl" repl
+  where
+    -- The steps of a cold plan, in order. configure-compiler is left out:
+    -- the compiler cache is shared by the whole builddir, so whether a run
+    -- configures the compiler depends on what ran before it.
+    planSteps =
+      [ "project-config"
+      , "local-packages"
+      , "installed-packages"
+      , "source-packages"
+      , "pkg-config-db"
+      , "solve"
+      , "source-hashes"
+      , "configure-programs"
+      , "elaborate"
+      , "improve"
+      ]

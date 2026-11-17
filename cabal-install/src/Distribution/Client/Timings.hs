@@ -22,6 +22,7 @@ module Distribution.Client.Timings
   ( timingMessage
   , timed
   , timedPhase
+  , countNote
   , packagesNote
   ) where
 
@@ -104,6 +105,11 @@ timedPhase
   -> m a
 timedPhase verbosity enabled scope step = timed verbosity enabled scope step "-"
 
--- | The note for a step that read or produced a number of packages.
+-- | The note for a step that read or produced a number of things, named in
+-- the plural: @(47 packages)@.
+countNote :: String -> [a] -> String
+countNote things xs = "(" ++ show (length xs) ++ " " ++ things ++ ")"
+
+-- | 'countNote' for packages, the usual case.
 packagesNote :: [a] -> String
-packagesNote xs = "(" ++ show (length xs) ++ " packages)"
+packagesNote = countNote "packages"

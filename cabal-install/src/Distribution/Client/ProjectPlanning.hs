@@ -138,7 +138,7 @@ import Distribution.Client.Setup hiding (cabalVersion, packageName)
 import Distribution.Client.SetupWrapper
 import Distribution.Client.Store
 import Distribution.Client.Targets (userToPackageConstraint)
-import Distribution.Client.Timings (packagesNote, timedPhase)
+import Distribution.Client.Timings (countNote, packagesNote, timedPhase, timingMessage)
 import Distribution.Client.Types
 import Distribution.Client.Utils (concatMapM, duplicatesBy, incVersion)
 
@@ -239,6 +239,7 @@ import qualified Data.Text as Text
 import Data.Traversable (mapAccumM)
 import Distribution.Client.Errors
 import Distribution.Solver.Types.ProjectConfigPath
+import GHC.Clock (getMonotonicTime)
 import GHC.Stack (HasCallStack)
 import System.Directory (getCurrentDirectory)
 import System.FilePath
@@ -399,7 +400,14 @@ rebuildProjectConfig
           fileMonitorProjectConfigKey -- todo check deps too?
         $ do
           liftIO $ info verbosity "Project settings changed, reconfiguring..."
+          -- The timings setting may be in the project file this step reads,
+          -- so whether to print its time is decided from what it read.
+          t0 <- liftIO getMonotonicTime
           projectConfigSkeleton <- phaseReadProjectConfig
+          let flatConfig = snd (PD.ignoreConditions projectConfigSkeleton) <> cliConfig
+          when (timingsEnabled flatConfig) . liftIO $ do
+            t1 <- getMonotonicTime
+            notice verbosity $ timingMessage "plan" "project-config" "-" (t1 - t0) ""
 
           let fetchCompiler = do
                 -- have to create the cache directory before configuring the compiler
@@ -411,7 +419,9 @@ rebuildProjectConfig
           when (projectConfigDistDir (projectConfigShared projectConfig) /= NoFlag) $
             liftIO $
               warn verbosity "The builddir option is not supported in project and config files. It will be ignored."
-          localPackages <- phaseReadLocalPackages compiler (projectConfig <> cliConfig)
+          localPackages <-
+            timedPhase verbosity (timingsEnabled (projectConfig <> cliConfig)) "plan" "local-packages" packagesNote $
+              phaseReadLocalPackages compiler (projectConfig <> cliConfig)
           return (projectConfig, localPackages)
 
     informAboutConfigFiles projectConfig
@@ -721,6 +731,7 @@ rebuildInstallPlan
     runRebuild distProjectRootDirectory $ do
       progsearchpath <- liftIO getSystemSearchPath
       let projectConfigMonitored = projectConfig{projectConfigBuildOnly = mempty}
+          timings = timingsEnabled projectConfig
 
       -- The overall improved plan is cached
       rerunIfChanged
@@ -741,24 +752,28 @@ rebuildInstallPlan
               )
               $ do
                 compilerEtc <- phaseConfigureCompiler projectConfig
-                _ <- phaseConfigurePrograms projectConfig compilerEtc
                 (solverPlan, pkgConfigDB, totalIndexState, activeRepos) <-
                   phaseRunSolver
                     projectConfig
                     compilerEtc
                     localPackages
                     (fromMaybe mempty mbInstalledPackages)
+                sourcePackageHashes <- phaseSourceHashes projectConfig solverPlan
+                compilerEtc' <-
+                  timedPhase verbosity timings "plan" "configure-programs" (\(_, _, progdb) -> countNote "programs" (configuredPrograms progdb)) $
+                    phaseConfigurePrograms projectConfig compilerEtc
                 ( elaboratedPlan
                   , elaboratedShared
                   ) <-
-                  timedPhase verbosity (timingsEnabled projectConfig) "plan" "elaborate" (packagesNote . InstallPlan.toList . fst) $ do
+                  timedPhase verbosity timings "plan" "elaborate" (packagesNote . InstallPlan.toList . fst) $ do
                     result <-
                       phaseElaboratePlan
                         projectConfig
-                        compilerEtc
+                        compilerEtc'
                         pkgConfigDB
                         solverPlan
                         localPackages
+                        sourcePackageHashes
                     uncurry phaseMaintainPlanOutputs result
                     return result
                 return (elaboratedPlan, elaboratedShared, totalIndexState, activeRepos)
@@ -767,7 +782,7 @@ rebuildInstallPlan
           -- the underlying elaborated plan only changes when input config
           -- changes, so it's worth caching them separately.
           improvedPlan <-
-            timedPhase verbosity (timingsEnabled projectConfig) "plan" "improve" (packagesNote . InstallPlan.toList) $
+            timedPhase verbosity timings "plan" "improve" (packagesNote . InstallPlan.toList) $
               phaseImprovePlan elaboratedPlan elaboratedShared
 
           return (improvedPlan, elaboratedPlan, elaboratedShared, totalIndexState, activeRepos)
@@ -793,10 +808,12 @@ rebuildInstallPlan
       -- Configuring other programs.
       --
       -- Having configured the compiler, now we configure all the remaining
-      -- programs. This is to check we can find them, and to monitor them for
-      -- changes.
+      -- known programs, once for the entire project, to avoid repeatedly
+      -- doing this once per package.
       --
-      -- TODO: [required eventually] we don't actually do this yet.
+      -- TODO: [required eventually] find/configure other programs that the
+      -- user specifies, and all build-tools, noting that some of them may be
+      -- built as part of the plan.
       --
       -- We rely on the fact that the previous phase added the program config for
       -- all local packages, but that all the programs configured so far are the
@@ -805,8 +822,8 @@ rebuildInstallPlan
       phaseConfigurePrograms
         :: ProjectConfig
         -> (Compiler, Platform, ProgramDb)
-        -> Rebuild ()
-      phaseConfigurePrograms projectConfig (_, _, compilerProgDb) = do
+        -> Rebuild (Compiler, Platform, ProgramDb)
+      phaseConfigurePrograms projectConfig (compiler, platform, compilerProgDb) = do
         -- Users are allowed to specify program locations independently for
         -- each package (e.g. to use a particular version of a pre-processor
         -- for some packages). However they cannot do this for the compiler
@@ -815,12 +832,8 @@ rebuildInstallPlan
           checkBadPerPackageCompilerPaths
             (configuredPrograms compilerProgDb)
             (getMapMappend (projectConfigSpecificPackage projectConfig))
-
-      -- TODO: [required eventually] find/configure other programs that the
-      -- user specifies.
-
-      -- TODO: [required eventually] find/configure all build-tools
-      -- but note that some of them may be built as part of the plan.
+        configuredCompilerProgDb <- liftIO $ configureAllKnownPrograms verbosity compilerProgDb
+        return (compiler, platform, configuredCompilerProgDb)
 
       -- Run the solver to get the initial install plan.
       -- This is expensive so we cache it independently.
@@ -868,7 +881,9 @@ rebuildInstallPlan
                     withRepoCtx
                     (solverSettingIndexState solverSettings)
                     (solverSettingActiveRepos solverSettings)
-              pkgConfigDB <- getPkgConfigDb verbosity progdb
+              pkgConfigDB <-
+                timedPhase verbosity timings "plan" "pkg-config-db" (maybe "(no pkg-config)" (\(PkgConfigDb db) -> packagesNote (Map.toList db))) $
+                  getPkgConfigDb verbosity progdb
 
               -- TODO: [code cleanup] it'd be better if the Compiler contained the
               -- ConfiguredPrograms that it needs, rather than relying on the progdb
@@ -925,6 +940,35 @@ rebuildInstallPlan
                         Nothing -> ([False], [False])
                 ]
 
+      -- Get the source hashes of the packages in the solver's plan, which
+      -- elaboration needs for the package ids. This downloads any packages
+      -- whose hash is not in the repository's metadata, so it is cached
+      -- independently.
+      --
+      phaseSourceHashes
+        :: ProjectConfig
+        -> SolverInstallPlan
+        -> Rebuild (Map PackageId PackageSourceHash)
+      phaseSourceHashes
+        projectConfig@ProjectConfig
+          { projectConfigShared
+          , projectConfigBuildOnly
+          }
+        solverPlan =
+          rerunIfChanged
+            verbosity
+            fileMonitorSourceHashes
+            (packageLocationsSignature solverPlan)
+            $ timedPhase verbosity (timingsEnabled projectConfig) "plan" "source-hashes" (packagesNote . Map.toList)
+            $ getPackageSourceHashes verbosity withRepoCtx solverPlan
+          where
+            withRepoCtx :: (RepoContext -> IO a) -> IO a
+            withRepoCtx =
+              projectConfigWithSolverRepoContext
+                verbosity
+                projectConfigShared
+                projectConfigBuildOnly
+
       -- Elaborate the solver's install plan to get a fully detailed plan. This
       -- version of the plan has the final nix-style hashed ids.
       --
@@ -935,6 +979,7 @@ rebuildInstallPlan
         -> Maybe PkgConfigDb
         -> SolverInstallPlan
         -> [PackageSpecifier (SourcePackage (PackageLocation loc))]
+        -> Map PackageId PackageSourceHash
         -> Rebuild
             ( ElaboratedInstallPlan
             , ElaboratedSharedConfig
@@ -945,26 +990,16 @@ rebuildInstallPlan
           , projectConfigAllPackages
           , projectConfigLocalPackages
           , projectConfigSpecificPackage
-          , projectConfigBuildOnly
           }
-        (compiler, platform, compilerProgDb)
+        (compiler, platform, configuredCompilerProgDb)
         pkgConfigDB
         solverPlan
-        localPackages = do
+        localPackages
+        sourcePackageHashes = do
           liftIO $ debug verbosity "Elaborating the install plan..."
-
-          sourcePackageHashes <-
-            rerunIfChanged
-              verbosity
-              fileMonitorSourceHashes
-              (packageLocationsSignature solverPlan)
-              $ getPackageSourceHashes verbosity withRepoCtx solverPlan
 
           defaultInstallDirs <- liftIO $ userInstallDirTemplates compiler
           let installDirs = fmap Cabal.fromFlag $ fmap Flag defaultInstallDirs <> projectConfigInstallDirs projectConfigShared
-          -- Configure the compiler ProgramDb now (once for the entire project),
-          -- to avoid repeatedly doing this once per package.
-          configuredCompilerProgDb <- liftIO $ configureAllKnownPrograms verbosity compilerProgDb
           (elaboratedPlan, elaboratedShared) <-
             liftIO . runLogProgress verbosity $
               elaborateInstallPlan
@@ -991,13 +1026,6 @@ rebuildInstallPlan
                   elaboratedPlan
           liftIO $ debugNoWrap verbosity (showElaboratedInstallPlan instantiatedPlan)
           return (instantiatedPlan, elaboratedShared)
-          where
-            withRepoCtx :: (RepoContext -> IO a) -> IO a
-            withRepoCtx =
-              projectConfigWithSolverRepoContext
-                verbosity
-                projectConfigShared
-                projectConfigBuildOnly
 
       -- Update the files we maintain that reflect our current build environment.
       -- In particular we maintain a JSON representation of the elaborated
