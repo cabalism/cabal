@@ -14,8 +14,8 @@
 -- always the fourth column. The note at the end is optional: what a step
 -- covered, or @(failed)@ for a package phase that threw.
 --
--- The package phases print one for each configure, build, haddock and install
--- of a package. Planning prints one for each step it performs, which is none
+-- The package phases print one for each download, unpack, configure, build,
+-- haddock and install of a package. Planning prints one for each step it performs, which is none
 -- on a run that reuses its cached plan. The check lines are the status check
 -- of every run and the installed package index read of a run that builds.
 module Distribution.Client.Timings

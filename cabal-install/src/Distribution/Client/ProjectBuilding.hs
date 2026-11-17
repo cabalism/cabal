@@ -58,7 +58,7 @@ import Distribution.Client.InstallPlan
 import qualified Distribution.Client.InstallPlan as InstallPlan
 import Distribution.Client.JobControl
 import qualified Distribution.Client.Tar as Tar
-import Distribution.Client.Timings (packagesNote, timedPhase)
+import Distribution.Client.Timings (packagesNote, timed, timedPhase)
 import Distribution.Client.Types hiding
   ( BuildFailure (..)
   , BuildOutcome
@@ -392,6 +392,7 @@ rebuildTargets
           -- will need to be downloaded and start downloading them.
           asyncDownloadPackages
             verbosity
+            buildSettingTimings
             withRepoCtx
             installPlan
             pkgsBuildStatus
@@ -673,6 +674,7 @@ rebuildTarget
       unpackTarballPhase tarball =
         withTarballLocalDirectory
           verbosity
+          (buildSettingTimings buildSettings)
           distDirLayout
           tarball
           (packageId pkg)
@@ -753,16 +755,19 @@ rebuildTarget
 -- lookup the location and use 'waitAsyncPackageDownload' to get the result.
 asyncDownloadPackages
   :: Verbosity
+  -> Bool
+  -- ^ Whether to print the time of each download.
   -> ((RepoContext -> IO a) -> IO a)
   -> ElaboratedInstallPlan
   -> BuildStatusMap
   -> (AsyncFetchMap -> IO a)
   -> IO a
-asyncDownloadPackages verbosity withRepoCtx installPlan pkgsBuildStatus body
+asyncDownloadPackages verbosity timings withRepoCtx installPlan pkgsBuildStatus body
   | null pkgsToDownload = body Map.empty
   | otherwise = withRepoCtx $ \repoctx ->
       asyncFetchPackages
         verbosity
+        timings
         repoctx
         pkgsToDownload
         body
@@ -812,6 +817,8 @@ downloadedSourceLocation pkgloc =
 -- a temporary one or a persistent one under the shared dist directory.
 withTarballLocalDirectory
   :: Verbosity
+  -> Bool
+  -- ^ Whether to print the time of the unpack.
   -> DistDirLayout
   -> FilePath
   -> PackageId
@@ -825,6 +832,7 @@ withTarballLocalDirectory
   -> IO a
 withTarballLocalDirectory
   verbosity
+  timings
   distDirLayout@DistDirLayout{..}
   tarball
   pkgid
@@ -846,12 +854,13 @@ withTarballLocalDirectory
             builddir = relativeSymbolicPath $ makeRelativePathEx "dist"
          in withTempDirectory tmpdir "src" $ \unpackdir -> do
               let srcdir = makeSymbolicPath $ unpackdir </> prettyShow pkgid
-              unpackPackageTarball
-                verbosity
-                tarball
-                unpackdir
-                pkgid
-                pkgTextOverride
+              timedUnpack $
+                unpackPackageTarball
+                  verbosity
+                  tarball
+                  unpackdir
+                  pkgid
+                  pkgTextOverride
               buildPkg srcdir builddir
 
       -- In this case we make sure the tarball has been unpacked to the
@@ -868,7 +877,7 @@ withTarballLocalDirectory
         exists <- doesDirectoryExist srcdir
         -- TODO: [nice to have] use a proper file monitor rather
         -- than this dir exists test
-        unless exists $ do
+        unless exists . timedUnpack $ do
           createDirectoryIfMissingVerbose verbosity True srcrootdir
           unpackPackageTarball
             verbosity
@@ -883,6 +892,9 @@ withTarballLocalDirectory
             pkgid
             dparams
         buildPkg (makeSymbolicPath srcdir) builddir
+    where
+      timedUnpack :: IO () -> IO ()
+      timedUnpack = timed verbosity timings "pkg" "unpack" (prettyShow pkgid) (const "")
 
 unpackPackageTarball
   :: Verbosity

@@ -363,6 +363,8 @@ Verbosity options
         [timing] plan:improve - 0.013s (185 packages)
         [timing] check:status - 0.021s (185 packages)
         [timing] check:installed-packages - 0.842s (3417 packages)
+        [timing] pkg:download aeson-2.2.3.0 0.412s
+        [timing] pkg:unpack aeson-2.2.3.0 0.031s
         [timing] pkg:configure aeson-2.2.3.0 0.042s
         [timing] pkg:build aeson-2.2.3.0 3.284s
         [timing] pkg:install aeson-2.2.3.0 0.123s
@@ -398,6 +400,11 @@ Verbosity options
     ``check:installed-packages`` is the read of the installed package index
     that a run makes before it builds anything, so it is absent from a run
     with nothing to build.
+
+    ``pkg:download`` is the fetch of a package's tarball from its
+    repository, which runs ahead of the builds and so may print among
+    other packages' lines, and ``pkg:unpack`` its extraction. Both are
+    absent for a package already fetched or unpacked.
 
     ``pkg:setup`` is the compile of a package's ``Setup.hs``, for the
     ``Custom`` build type, and ``pkg:setup-hooks`` of its ``SetupHooks.hs``

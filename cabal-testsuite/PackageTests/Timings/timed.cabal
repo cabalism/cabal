@@ -5,5 +5,5 @@ build-type:    Simple
 
 library
   exposed-modules:  Timed
-  build-depends:    base
+  build-depends:    base, remote
   default-language: Haskell2010

@@ -3,7 +3,7 @@ import Test.Cabal.Prelude
 -- timings prints a [timing] line for each planning step a run performs and
 -- for each package phase. The times vary, so this checks the lines rather than
 -- recording the output.
-main = cabalTest $ recordMode DoNotRecord $ do
+main = cabalTest $ recordMode DoNotRecord $ withRepo "repo" $ do
   cold <- cabal' "build" ["all", "--timings"]
   mapM_
     (\step -> assertOutputContains ("[timing] plan:" ++ step ++ " -") cold)
@@ -15,6 +15,10 @@ main = cabalTest $ recordMode DoNotRecord $ do
   assertOutputContains "[timing] pkg:build timed-0" cold
   -- A Custom build type compiles its Setup.hs once, inside its configure.
   assertOutputContains "[timing] pkg:setup custom-0" cold
+  -- A package from a repository is unpacked before its configure. A local
+  -- repository has nothing to download; download.test.hs covers that.
+  assertOutputContains "[timing] pkg:unpack remote-0.1" cold
+  assertOutputDoesNotContain "[timing] pkg:download" cold
   -- A run that reuses its cached plan reads nothing and solves nothing, and
   -- has no package phase to time. It still checks what there is to do, and
   -- having nothing, does not read the installed package index. It may also
@@ -24,7 +28,7 @@ main = cabalTest $ recordMode DoNotRecord $ do
   assertOutputContains "[timing] check:status - " warm
   mapM_
     (\step -> assertOutputDoesNotContain ("[timing] " ++ step) warm)
-    (map ("plan:" ++) (filter (/= "improve") planSteps) ++ ["check:installed-packages", "pkg:configure", "pkg:build", "pkg:setup"])
+    (map ("plan:" ++) (filter (/= "improve") planSteps) ++ ["check:installed-packages", "pkg:unpack", "pkg:configure", "pkg:build", "pkg:setup"])
   -- A repl checks its status like any run, and its repl phase is not timed,
   -- since that would be the length of the GHCi session. It loads the package
   -- in memory, so its build and install phases have nothing to do and say so.

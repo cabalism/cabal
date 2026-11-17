@@ -47,6 +47,7 @@ import Distribution.Client.Types
 import Distribution.Client.GlobalFlags
   ( RepoContext (..)
   )
+import Distribution.Client.Timings (timed)
 import Distribution.Client.Utils
   ( ProgressPhase (..)
   , progressMessage
@@ -324,11 +325,13 @@ type AsyncFetchMap =
 -- via 'waitAsyncFetchPackage'.
 asyncFetchPackages
   :: Verbosity
+  -> Bool
+  -- ^ Whether to print the time of each download.
   -> RepoContext
   -> [UnresolvedPkgLoc]
   -> (AsyncFetchMap -> IO a)
   -> IO a
-asyncFetchPackages verbosity repoCtxt pkglocs body = do
+asyncFetchPackages verbosity timings repoCtxt pkglocs body = do
   -- TODO: [nice to have] use parallel downloads?
 
   asyncDownloadVars <-
@@ -348,7 +351,8 @@ asyncFetchPackages verbosity repoCtxt pkglocs body = do
           -- specifically 'AsyncCancelled' thrown at us from 'concurrently'.
           result <-
             Safe.try $
-              fetchPackage (modifyVerbosityFlags verboseUnmarkOutput verbosity) repoCtxt pkgloc
+              timed verbosity timings "pkg" "download" (fetchSubject pkgloc) (const "") $
+                fetchPackage (modifyVerbosityFlags verboseUnmarkOutput verbosity) repoCtxt pkgloc
           putMVar var result
 
   (_, res) <-
@@ -356,6 +360,13 @@ asyncFetchPackages verbosity repoCtxt pkglocs body = do
       fetchPackages
       (body $ Map.fromList asyncDownloadVars)
   pure res
+
+-- | What the timing line of a download names: the package of a repository
+-- tarball, the URI of a remote one.
+fetchSubject :: UnresolvedPkgLoc -> String
+fetchSubject (RepoTarballPackage _ pkgid _) = prettyShow pkgid
+fetchSubject (RemoteTarballPackage uri _) = show uri
+fetchSubject _ = "-"
 
 -- | Expect to find a download in progress in the given 'AsyncFetchMap'
 -- and wait on it to finish.
