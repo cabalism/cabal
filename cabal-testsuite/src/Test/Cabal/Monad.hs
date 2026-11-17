@@ -76,6 +76,9 @@ module Test.Cabal.Monad
 
     -- * Version Constants
   , cabalVersionLibrary
+
+    -- * Output
+  , getMarkedOutput
   ) where
 
 import Test.Cabal.OutputNormalizer

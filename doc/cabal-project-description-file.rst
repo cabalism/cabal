@@ -411,6 +411,11 @@ Verbosity options
     for ``Hooks``. Either appears only when the script is compiled, which is
     once until it or the Cabal library it is built against changes.
 
+    The lines print at any verbosity, so a silent run prints them and
+    nothing else, which makes a file of nothing but timings::
+
+        cabal build -v0 --timings all > timings.log
+
     A package phase with nothing to do, such as the build and install
     phases of a package that ``cabal repl`` loads in memory, or a
     configure whose configuration is unchanged, prints its line with the

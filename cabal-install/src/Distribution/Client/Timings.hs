@@ -15,11 +15,15 @@
 -- covered, or @(failed)@ for a package phase that threw.
 --
 -- The package phases print one for each download, unpack, configure, build,
--- haddock and install of a package. Planning prints one for each step it performs, which is none
--- on a run that reuses its cached plan. The check lines are the status check
--- of every run and the installed package index read of a run that builds.
+-- haddock and install of a package. Planning prints one for each step it
+-- performs, which is none on a run that reuses its cached plan. The check
+-- lines are the status check of every run and the installed package index
+-- read of a run that builds.
+--
+-- The lines print at any verbosity level, so that @-v0 --timings@ prints the
+-- timings and nothing else.
 module Distribution.Client.Timings
-  ( timingMessage
+  ( printTiming
   , timed
   , timedPhase
   , countNote
@@ -30,15 +34,18 @@ import Distribution.Client.Compat.Prelude
 import Prelude ()
 
 import Distribution.Simple.Utils (notice)
+import Distribution.Verbosity (VerbosityFlags (vLevel), VerbosityLevel (Normal), modifyVerbosityFlags)
 
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import GHC.Clock (getMonotonicTime)
 import Text.Printf (printf)
 
--- | The line for one timed unit of work. See the module header for the
--- format.
-timingMessage
-  :: String
+-- | Print the line for one timed unit of work. See the module header for the
+-- format. The line prints whatever the verbosity level, with the level's
+-- flags kept, so output markers and timestamps still apply to it.
+printTiming
+  :: Verbosity
+  -> String
   -- ^ The scope: @plan@, @check@ or @pkg@.
   -> String
   -- ^ The step within the scope.
@@ -48,7 +55,15 @@ timingMessage
   -- ^ Elapsed seconds.
   -> String
   -- ^ A note, or empty.
-  -> String
+  -> IO ()
+printTiming verbosity scope step subject elapsed note =
+  notice (modifyVerbosityFlags atLeastNormal verbosity) $
+    timingMessage scope step subject elapsed note
+  where
+    atLeastNormal flags = flags{vLevel = max Normal (vLevel flags)}
+
+-- | The line for one timed unit of work.
+timingMessage :: String -> String -> String -> Double -> String -> String
 timingMessage scope step subject elapsed note =
   unwords $
     [ "[timing]"
@@ -85,7 +100,7 @@ timed verbosity enabled scope step subject note action
       r <- action
       let n = note r
       t1 <- length n `seq` liftIO getMonotonicTime
-      liftIO . notice verbosity $ timingMessage scope step subject (t1 - t0) n
+      liftIO $ printTiming verbosity scope step subject (t1 - t0) n
       return r
 
 -- | 'timed' for a step with no package of its own, in the @plan@ or @check@

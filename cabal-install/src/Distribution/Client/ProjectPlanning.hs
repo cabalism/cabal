@@ -138,7 +138,7 @@ import Distribution.Client.Setup hiding (cabalVersion, packageName)
 import Distribution.Client.SetupWrapper
 import Distribution.Client.Store
 import Distribution.Client.Targets (userToPackageConstraint)
-import Distribution.Client.Timings (countNote, packagesNote, timedPhase, timingMessage)
+import Distribution.Client.Timings (countNote, packagesNote, printTiming, timedPhase)
 import Distribution.Client.Types
 import Distribution.Client.Utils (concatMapM, duplicatesBy, incVersion)
 
@@ -407,7 +407,7 @@ rebuildProjectConfig
           let flatConfig = snd (PD.ignoreConditions projectConfigSkeleton) <> cliConfig
           when (timingsEnabled flatConfig) . liftIO $ do
             t1 <- getMonotonicTime
-            notice verbosity $ timingMessage "plan" "project-config" "-" (t1 - t0) ""
+            printTiming verbosity "plan" "project-config" "-" (t1 - t0) ""
 
           let fetchCompiler = do
                 -- have to create the cache directory before configuring the compiler

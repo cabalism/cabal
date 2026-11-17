@@ -1,3 +1,4 @@
+import Data.List (isPrefixOf)
 import Test.Cabal.Prelude
 
 -- timings prints a [timing] line for each planning step a run performs and
@@ -37,6 +38,15 @@ main = cabalTest $ recordMode DoNotRecord $ withRepo "repo" $ do
   assertOutputMatches "\\[timing\\] pkg:build timed-0 [0-9.]*s \\(skipped\\)" repl
   assertOutputMatches "\\[timing\\] pkg:install timed-0 [0-9.]*s \\(skipped\\)" repl
   assertOutputDoesNotContain "[timing] pkg:repl" repl
+  -- The lines print at any verbosity, so a silent run prints them and
+  -- nothing else. The harness's own verbosity is overridden, keeping its
+  -- output markers, and the marked output is what cabal printed.
+  quiet <- cabal' "build" ["all", "--timings", "-vsilent +markoutput +nowrap"]
+  assertOutputContains "[timing] check:status - " quiet
+  assertEqual
+    "lines of a silent run that are not timings"
+    []
+    (filter (not . ("[timing]" `isPrefixOf`)) (lines (getMarkedOutput (resultOutput quiet))))
   where
     -- The steps of a cold plan, in order. configure-compiler is left out:
     -- the compiler cache is shared by the whole builddir, so whether a run

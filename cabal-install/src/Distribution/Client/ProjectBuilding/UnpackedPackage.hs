@@ -57,7 +57,7 @@ import Distribution.Client.SetupWrapper
 import Distribution.Client.SourceFiles
 import Distribution.Client.SrcDist (allPackageSourceFiles)
 import qualified Distribution.Client.Tar as Tar
-import Distribution.Client.Timings (timingMessage)
+import Distribution.Client.Timings (printTiming)
 import Distribution.Client.Types hiding
   ( BuildFailure (..)
   , BuildOutcome
@@ -336,15 +336,14 @@ buildAndRegisterUnpackedPackage
             ran <- newIORef False
             t0 <- getMonotonicTime
             let
-              printTiming :: String -> IO ()
-              printTiming suffix = do
+              printLine :: String -> IO ()
+              printLine note = do
                 t1 <- getMonotonicTime
-                notice verbosity $
-                  timingMessage "pkg" (buildPhaseName phase) (prettyShow (packageId rpkg)) (t1 - t0) suffix
-            r <- delegate (markRun ran phase) `onException` printTiming "(failed)"
+                printTiming verbosity "pkg" (buildPhaseName phase) (prettyShow (packageId rpkg)) (t1 - t0) note
+            r <- delegate (markRun ran phase) `onException` printLine "(failed)"
             !_ <- evaluate r
             didRun <- readIORef ran
-            printTiming (if didRun then "" else "(skipped)")
+            printLine (if didRun then "" else "(skipped)")
             return r
         | otherwise = delegate phase
 
