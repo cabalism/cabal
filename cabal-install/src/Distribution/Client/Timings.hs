@@ -3,16 +3,18 @@
 -- | The lines the @timings@ setting prints: one per unit of work, naming the
 -- work, its subject and how long it took.
 --
--- > [timing] <scope>:<step> <subject> <seconds>s [<note>]
+-- > <seconds>s [timing] <scope>:<step> <subject> [<note>]
 --
--- The scope is @plan@ for a planning step, @check@ for a step that decides
--- what work there is, and @pkg@ for a phase of one package, and the step is
--- the name within it, so the lines narrow from the left: @[timing]@ is every
--- timed unit of work, @[timing] pkg:@ every package phase, @[timing] pkg:build@
--- every package build, and the subject column picks out one package. The
--- subject is the package for a package phase and @-@ otherwise, so the time is
--- always the fourth column. The note at the end is optional: what a step
--- covered, or @(failed)@ for a package phase that threw.
+-- The seconds come first, right-aligned, so the column lines up and the
+-- biggest times stand out, and @sort -n@ ranks the lines. The scope is @plan@
+-- for a planning step, @check@ for a step that decides what work there is,
+-- and @pkg@ for a phase of one package, and the step is the name within it,
+-- so a grep narrows from the left: @[timing]@ is every timed unit of work,
+-- @[timing] pkg:@ every package phase, @[timing] pkg:build@ every package
+-- build, and the subject column picks out one package. The subject is the
+-- package for a package phase and @-@ otherwise. The note at the end is
+-- optional: what a step covered, or @(failed)@ or @(skipped)@ for a package
+-- phase.
 --
 -- The package phases print one for each download, unpack, configure, build,
 -- haddock and install of a package. Planning prints one for each step it
@@ -33,7 +35,7 @@ module Distribution.Client.Timings
 import Distribution.Client.Compat.Prelude
 import Prelude ()
 
-import Distribution.Simple.Utils (notice)
+import Distribution.Simple.Utils (noticeNoWrap)
 import Distribution.Verbosity (VerbosityFlags (vLevel), VerbosityLevel (Normal), modifyVerbosityFlags)
 
 import Control.Monad.IO.Class (MonadIO, liftIO)
@@ -42,7 +44,9 @@ import Text.Printf (printf)
 
 -- | Print the line for one timed unit of work. See the module header for the
 -- format. The line prints whatever the verbosity level, with the level's
--- flags kept, so output markers and timestamps still apply to it.
+-- flags kept, so output markers and timestamps still apply to it. It is not
+-- wrapped, which would trim the padding that aligns the seconds and could
+-- break a line with a long package id.
 printTiming
   :: Verbosity
   -> String
@@ -57,7 +61,7 @@ printTiming
   -- ^ A note, or empty.
   -> IO ()
 printTiming verbosity scope step subject elapsed note =
-  notice (modifyVerbosityFlags atLeastNormal verbosity) $
+  noticeNoWrap (modifyVerbosityFlags atLeastNormal verbosity) $
     timingMessage scope step subject elapsed note
   where
     atLeastNormal flags = flags{vLevel = max Normal (vLevel flags)}
@@ -66,11 +70,12 @@ printTiming verbosity scope step subject elapsed note =
 timingMessage :: String -> String -> String -> Double -> String -> String
 timingMessage scope step subject elapsed note =
   unwords $
-    [ "[timing]"
+    [ -- Milliseconds, right-aligned so that the column lines up for times
+      -- below 10,000 s.
+      printf "%8.3fs" elapsed
+    , "[timing]"
     , scope ++ ":" ++ step
     , subject
-    , -- Print milliseconds (3 decimal places)
-      printf "%.3fs" elapsed
     ]
       ++ [note | not (null note)]
 

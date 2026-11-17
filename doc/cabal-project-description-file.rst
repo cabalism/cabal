@@ -350,33 +350,34 @@ Verbosity options
     Print the elapsed time of each planning step and package phase, one
     line per unit of work::
 
-        [timing] plan:project-config - 0.019s
-        [timing] plan:configure-compiler - 0.094s
-        [timing] plan:local-packages - 0.063s (15 packages)
-        [timing] plan:installed-packages - 0.132s (47 packages)
-        [timing] plan:source-packages - 0.786s (155233 packages)
-        [timing] plan:pkg-config-db - 0.020s (251 packages)
-        [timing] plan:solve - 0.752s (159 packages)
-        [timing] plan:source-hashes - 0.029s (118 packages)
-        [timing] plan:configure-programs - 0.046s (11 programs)
-        [timing] plan:elaborate - 0.191s (185 packages)
-        [timing] plan:improve - 0.013s (185 packages)
-        [timing] check:status - 0.021s (185 packages)
-        [timing] check:installed-packages - 0.842s (3417 packages)
-        [timing] pkg:download aeson-2.2.3.0 0.412s
-        [timing] pkg:unpack aeson-2.2.3.0 0.031s
-        [timing] pkg:configure aeson-2.2.3.0 0.042s
-        [timing] pkg:build aeson-2.2.3.0 3.284s
-        [timing] pkg:install aeson-2.2.3.0 0.123s
+           0.019s [timing] plan:project-config -
+           0.094s [timing] plan:configure-compiler -
+           0.063s [timing] plan:local-packages - (15 packages)
+           0.132s [timing] plan:installed-packages - (47 packages)
+           0.786s [timing] plan:source-packages - (155233 packages)
+           0.020s [timing] plan:pkg-config-db - (251 packages)
+           0.752s [timing] plan:solve - (159 packages)
+           0.029s [timing] plan:source-hashes - (118 packages)
+           0.046s [timing] plan:configure-programs - (11 programs)
+           0.191s [timing] plan:elaborate - (185 packages)
+           0.013s [timing] plan:improve - (185 packages)
+           0.021s [timing] check:status - (185 packages)
+           0.842s [timing] check:installed-packages - (3417 packages)
+           0.412s [timing] pkg:download aeson-2.2.3.0
+           0.031s [timing] pkg:unpack aeson-2.2.3.0
+           0.042s [timing] pkg:configure aeson-2.2.3.0
+           3.284s [timing] pkg:build aeson-2.2.3.0
+           0.123s [timing] pkg:install aeson-2.2.3.0
 
-    Each line is ``[timing]``, the scope and step joined by a colon, the
-    subject, the elapsed seconds and an optional note. The scope is ``plan``
-    for a planning step, ``check`` for a step that decides what work there
-    is, and ``pkg`` for a phase of one package, so the lines narrow from the
-    left: ``[timing]`` matches every timed unit of work, ``[timing] pkg:``
-    every package phase, ``[timing] pkg:build`` every package build, and
-    the subject column picks out one package. The subject of a step that is
-    not a package phase is ``-``, so the time is always the fourth column.
+    Each line is the elapsed seconds, right-aligned so that the column
+    lines up and the biggest times stand out, then ``[timing]``, the scope
+    and step joined by a colon, the subject and an optional note. The scope
+    is ``plan`` for a planning step, ``check`` for a step that decides what
+    work there is, and ``pkg`` for a phase of one package, so a grep
+    narrows from the left: ``[timing]`` matches every timed unit of work,
+    ``[timing] pkg:`` every package phase, ``[timing] pkg:build`` every
+    package build, and the subject column picks out one package. The
+    subject of a step that is not a package phase is ``-``.
 
     Planning prints a line for each step a run performs. A run that reuses
     its cached plan performs none of them and prints no ``plan:`` lines.
@@ -412,9 +413,11 @@ Verbosity options
     once until it or the Cabal library it is built against changes.
 
     The lines print at any verbosity, so a silent run prints them and
-    nothing else, which makes a file of nothing but timings::
+    nothing else, which makes a file of nothing but timings, or ranks the
+    biggest::
 
         cabal build -v0 --timings all > timings.log
+        cabal build -v0 --timings all | sort -rn | head
 
     A package phase with nothing to do, such as the build and install
     phases of a package that ``cabal repl`` loads in memory, or a

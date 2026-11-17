@@ -1,4 +1,4 @@
-import Data.List (isPrefixOf)
+import Data.List (isInfixOf)
 import Test.Cabal.Prelude
 
 -- timings prints a [timing] line for each planning step a run performs and
@@ -9,7 +9,8 @@ main = cabalTest $ recordMode DoNotRecord $ withRepo "repo" $ do
   mapM_
     (\step -> assertOutputContains ("[timing] plan:" ++ step ++ " -") cold)
     planSteps
-  assertOutputContains "[timing] plan:solve - " cold
+  -- The seconds come first, right-aligned, then the tag.
+  assertOutputMatches "^ *[0-9]+\\.[0-9][0-9][0-9]s \\[timing\\] plan:solve - " cold
   assertOutputContains "[timing] check:status - " cold
   assertOutputContains "[timing] check:installed-packages - " cold
   assertOutputContains "[timing] pkg:configure timed-0" cold
@@ -35,18 +36,19 @@ main = cabalTest $ recordMode DoNotRecord $ withRepo "repo" $ do
   -- in memory, so its build and install phases have nothing to do and say so.
   repl <- cabalWithStdin "repl" ["timed", "--timings"] ":quit"
   assertOutputContains "[timing] check:status - " repl
-  assertOutputMatches "\\[timing\\] pkg:build timed-0 [0-9.]*s \\(skipped\\)" repl
-  assertOutputMatches "\\[timing\\] pkg:install timed-0 [0-9.]*s \\(skipped\\)" repl
+  assertOutputContains "[timing] pkg:build timed-0 (skipped)" repl
+  assertOutputContains "[timing] pkg:install timed-0 (skipped)" repl
   assertOutputDoesNotContain "[timing] pkg:repl" repl
   -- The lines print at any verbosity, so a silent run prints them and
   -- nothing else. The harness's own verbosity is overridden, keeping its
-  -- output markers, and the marked output is what cabal printed.
+  -- output markers, and the marked output is what cabal printed. The
+  -- seconds come first, so the check is that each line has the tag.
   quiet <- cabal' "build" ["all", "--timings", "-vsilent +markoutput +nowrap"]
   assertOutputContains "[timing] check:status - " quiet
   assertEqual
     "lines of a silent run that are not timings"
     []
-    (filter (not . ("[timing]" `isPrefixOf`)) (lines (getMarkedOutput (resultOutput quiet))))
+    (filter (not . ("[timing] " `isInfixOf`)) (lines (getMarkedOutput (resultOutput quiet))))
   where
     -- The steps of a cold plan, in order. configure-compiler is left out:
     -- the compiler cache is shared by the whole builddir, so whether a run
