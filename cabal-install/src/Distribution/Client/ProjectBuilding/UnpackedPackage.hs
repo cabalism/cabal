@@ -114,7 +114,7 @@ import qualified Data.List.NonEmpty as NE
 
 import Control.Concurrent.STM (TVar, atomically, modifyTVar)
 import Control.Exception (ErrorCall, Handler (..), SomeAsyncException, assert, catches, onException)
-import Data.IORef (newIORef, readIORef, writeIORef)
+import Data.IORef (IORef, newIORef, readIORef, writeIORef)
 import GHC.Clock (getMonotonicTime)
 import System.Directory (canonicalizePath, createDirectoryIfMissing, doesDirectoryExist, listDirectory)
 import System.FilePath (dropDrive, normalise, takeDirectory, (<.>), (</>))
@@ -322,20 +322,27 @@ buildAndRegisterUnpackedPackage
     where
       uid = installedUnitId rpkg
 
+      -- A phase prints its time only if the delegate ran it. A delegate skips
+      -- a phase that has nothing to do, such as the build and install phases
+      -- of a package a repl loads in memory, and then there is no work to
+      -- time.
+      --
       -- The repl phase is not timed: its time is the length of the user's
       -- GHCi session, not work cabal did.
       timedDelegate :: forall r. PackageBuildingPhase r -> IO r
       timedDelegate phase
         | buildSettingTimings
         , not (isReplPhase phase) = do
+            ran <- newIORef False
             t0 <- getMonotonicTime
             let
               printTiming :: String -> IO ()
               printTiming suffix = do
                 t1 <- getMonotonicTime
-                notice verbosity $
+                didRun <- readIORef ran
+                when didRun . notice verbosity $
                   timingMessage "pkg" (buildPhaseName phase) (prettyShow (packageId rpkg)) (t1 - t0) suffix
-            r <- delegate phase `onException` printTiming "(failed)"
+            r <- delegate (markRun ran phase) `onException` printTiming "(failed)"
             !_ <- evaluate r
             printTiming ""
             return r
@@ -1052,6 +1059,27 @@ annotateFailure mlogFile annotate action =
 --------------------------------------------------------------------------------
 
 -- | Display name for each build phase, used in timing output.
+-- | The phase with each of its actions setting the flag when it runs, so
+-- that the caller can tell whether the delegate did the phase's work or
+-- found nothing to do.
+markRun :: IORef Bool -> PackageBuildingPhase r -> PackageBuildingPhase r
+markRun ran phase = case phase of
+  PBConfigurePhase{runConfigure} -> PBConfigurePhase{runConfigure = mark runConfigure}
+  PBBuildPhase{runBuild} -> PBBuildPhase{runBuild = mark runBuild}
+  PBHaddockPhase{runHaddock} -> PBHaddockPhase{runHaddock = mark runHaddock}
+  PBReplPhase{runRepl} -> PBReplPhase{runRepl = mark runRepl}
+  PBInstallPhase{runCopy, runRegister, getInstalledPackageInfo} ->
+    PBInstallPhase
+      { runCopy = mark . runCopy
+      , runRegister = \dbs opts -> mark (runRegister dbs opts)
+      , getInstalledPackageInfo = mark getInstalledPackageInfo
+      }
+  PBTestPhase{runTest} -> PBTestPhase{runTest = mark runTest}
+  PBBenchPhase{runBench} -> PBBenchPhase{runBench = mark runBench}
+  where
+    mark :: IO a -> IO a
+    mark action = writeIORef ran True >> action
+
 isReplPhase :: PackageBuildingPhase r -> Bool
 isReplPhase PBReplPhase{} = True
 isReplPhase _ = False

@@ -392,9 +392,12 @@ Verbosity options
     for ``Hooks``. Either appears only when the script is compiled, which is
     once until it or the Cabal library it is built against changes.
 
-    A package phase that fails prints its line with the note ``(failed)``.
-    The repl phase of ``cabal repl`` is not timed, since its time is the
-    length of the GHCi session rather than work cabal did.
+    A package phase prints a line only when it runs. A phase with nothing
+    to do, such as the build and install phases of a package that
+    ``cabal repl`` loads in memory, prints none. A phase that fails prints
+    its line with the note ``(failed)``. The repl phase of ``cabal repl``
+    is not timed, since its time is the length of the GHCi session rather
+    than work cabal did.
 
 Job and concurrency options
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^

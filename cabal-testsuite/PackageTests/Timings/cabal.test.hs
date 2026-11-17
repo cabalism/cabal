@@ -26,7 +26,11 @@ main = cabalTest $ recordMode DoNotRecord $ do
     (\step -> assertOutputDoesNotContain ("[timing] " ++ step) warm)
     ["plan:installed-packages", "plan:source-packages", "plan:solve", "plan:elaborate", "check:installed-packages", "pkg:configure", "pkg:build", "pkg:setup"]
   -- A repl checks its status like any run, and its repl phase is not timed,
-  -- since that would be the length of the GHCi session.
+  -- since that would be the length of the GHCi session. It loads the package
+  -- in memory, so its build and install phases have nothing to do and print
+  -- no line.
   repl <- cabalWithStdin "repl" ["timed", "--timings"] ":quit"
   assertOutputContains "[timing] check:status - " repl
-  assertOutputDoesNotContain "[timing] pkg:repl" repl
+  mapM_
+    (\step -> assertOutputDoesNotContain ("[timing] " ++ step) repl)
+    ["pkg:build timed-0", "pkg:install timed-0", "pkg:repl"]
