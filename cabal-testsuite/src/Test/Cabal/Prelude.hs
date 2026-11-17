@@ -1310,19 +1310,6 @@ flakyIfWindows ticket m = flakyIf isWindows ticket m
 normalizeWindowsOutput :: String -> String
 normalizeWindowsOutput = if isWindows then map (\x -> case x of '/' -> '\\'; _ -> x) else id
 
-getOpenFilesLimit :: TestM (Maybe Integer)
-#ifdef mingw32_HOST_OS
--- No MS-specified limit, was determined experimentally on Windows 10 Pro x64,
--- matches other online reports from other versions of Windows.
-getOpenFilesLimit = return (Just 2048)
-#else
-getOpenFilesLimit = liftIO $ do
-    ResourceLimits { softLimit } <- getResourceLimit ResourceOpenFiles
-    case softLimit of
-        ResourceLimit n | n >= 0 && n <= 4096 -> return (Just n)
-        _                                     -> return Nothing
-#endif
-
 -- | Run a test action with a given limit on open files. The test's own
 -- process and the processes the action starts run under the limit.
 -- The previous limit is restored however the action finishes.
