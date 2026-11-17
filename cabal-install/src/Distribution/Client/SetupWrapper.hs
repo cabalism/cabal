@@ -108,6 +108,7 @@ import Distribution.Client.JobControl
   ( Lock
   , criticalSection
   )
+import Distribution.Client.Timings (timed)
 import Distribution.Client.Types
 import Distribution.Client.Utils
   ( existsAndIsMoreRecentThan
@@ -385,6 +386,9 @@ data SetupScriptOptions = SetupScriptOptions
     -- and Configure build types we always compile the setup script anew.
     setupCacheLock :: Maybe Lock
   , isInteractive :: Bool
+  , useTimings :: Bool
+  -- ^ Whether the @timings@ setting is on, in which case compiling a setup
+  -- script prints a @[timing] pkg:setup@ line.
   -- ^ Is the task we are going to run an interactive foreground task,
   -- or an non-interactive background task? Based on this flag we
   -- decide whether or not to delegate ctrl+c to the spawned task
@@ -416,6 +420,7 @@ defaultSetupScriptOptions =
     , useWin32CleanHack = False
     , setupCacheLock = Nothing
     , isInteractive = False
+    , useTimings = False
     , isMainLibOrExeComponent = True
     }
 
@@ -1272,7 +1277,7 @@ compileSetupX
       or <$> for inPaths (\ inPath -> i inPath `moreRecentFile` i outPath)
     cabalVersionNewer <- i (setupVersionFile options') `moreRecentFile` i outPath
     let outOfDate = setupXHsNewer || cabalVersionNewer
-    when (outOfDate || forceCompile) $ do
+    when (outOfDate || forceCompile) $ timed verbosity (useTimings options') "pkg" step (prettyShow pkgId) (const "") $ do
       debug verbosity $ what ++ " executable needs to be updated, compiling..."
       (compiler, progdb, options'') <- configureCompiler verbosity options'
       pkgDbs <- traverse (traverse (makeRelativeToDirS mbWorkDir)) (coercePackageDBStack (usePackageDB options''))
@@ -1370,6 +1375,10 @@ compileSetupX
     -- See Note [Symbolic paths] in Distribution.Utils.Path
     i :: SymbolicPathX allowAbs Pkg to -> FilePath
     i = interpretSymbolicPath mbWorkDir
+    -- The timing step: setup for Setup.hs, setup-hooks for SetupHooks.hs.
+    step = case what of
+      "SetupHooks" -> "setup-hooks"
+      _ -> "setup"
 
 isCabalPkgId, isBasePkgId :: PackageIdentifier -> Bool
 isCabalPkgId (PackageIdentifier pname _) = pname == mkPackageName "Cabal"

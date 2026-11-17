@@ -387,6 +387,11 @@ Verbosity options
     that a run makes before it builds anything, so it is absent from a run
     with nothing to build.
 
+    ``pkg:setup`` is the compile of a package's ``Setup.hs``, for the
+    ``Custom`` build type, and ``pkg:setup-hooks`` of its ``SetupHooks.hs``
+    for ``Hooks``. Either appears only when the script is compiled, which is
+    once until it or the Cabal library it is built against changes.
+
     A package phase that fails prints its line with the note ``(failed)``.
     The repl phase of ``cabal repl`` is not timed, since its time is the
     length of the GHCi session rather than work cabal did.

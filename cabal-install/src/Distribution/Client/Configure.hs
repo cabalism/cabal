@@ -300,6 +300,7 @@ configureSetupScript
             _ -> ImplicitSetupDeps (fromMaybe [] explicitSetupDeps)
       , useVersionMacros = not defaultSetupDeps && isJust explicitSetupDeps
       , isInteractive = False
+      , useTimings = False
       , isMainLibOrExeComponent = True
       }
     where

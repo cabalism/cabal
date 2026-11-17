@@ -432,14 +432,17 @@ buildAndRegisterUnpackedPackage
           setupHsHaddockArgs pkg
 
       scriptOptions =
-        setupHsScriptOptions
-          rpkg
-          plan
-          pkgshared
-          distDirLayout
-          srcdir
-          builddir
-          cacheLock
+        ( setupHsScriptOptions
+            rpkg
+            plan
+            pkgshared
+            distDirLayout
+            srcdir
+            builddir
+            cacheLock
+        )
+          { useTimings = buildSettingTimings
+          }
 
       setup
         :: (HasCallStack, RightFlagsForPhase flags setupSpec)

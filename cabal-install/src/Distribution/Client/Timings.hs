@@ -20,6 +20,7 @@
 -- of every run and the installed package index read of a run that builds.
 module Distribution.Client.Timings
   ( timingMessage
+  , timed
   , timedPhase
   , packagesNote
   ) where
@@ -57,10 +58,37 @@ timingMessage scope step subject elapsed note =
     ]
       ++ [note | not (null note)]
 
--- | Run an action and, when timings are on, print how long it took as a step
--- with no package of its own. The note may depend on the result, so the step
--- can report the size of what it produced. The note is forced before the
--- clock stops, so a count over a lazily built result is part of the time.
+-- | Run an action and, when timings are on, print how long it took. The note
+-- may depend on the result, so a step can report the size of what it
+-- produced. The note is forced before the clock stops, so a count over a
+-- lazily built result is part of the time.
+timed
+  :: MonadIO m
+  => Verbosity
+  -> Bool
+  -- ^ Whether timings are on.
+  -> String
+  -- ^ The scope.
+  -> String
+  -- ^ The step.
+  -> String
+  -- ^ The subject, a package id or @-@.
+  -> (a -> String)
+  -- ^ The note, from the result.
+  -> m a
+  -> m a
+timed verbosity enabled scope step subject note action
+  | not enabled = action
+  | otherwise = do
+      t0 <- liftIO getMonotonicTime
+      r <- action
+      let n = note r
+      t1 <- length n `seq` liftIO getMonotonicTime
+      liftIO . notice verbosity $ timingMessage scope step subject (t1 - t0) n
+      return r
+
+-- | 'timed' for a step with no package of its own, in the @plan@ or @check@
+-- scope.
 timedPhase
   :: MonadIO m
   => Verbosity
@@ -74,15 +102,7 @@ timedPhase
   -- ^ The note, from the result.
   -> m a
   -> m a
-timedPhase verbosity enabled scope step note action
-  | not enabled = action
-  | otherwise = do
-      t0 <- liftIO getMonotonicTime
-      r <- action
-      let n = note r
-      t1 <- length n `seq` liftIO getMonotonicTime
-      liftIO . notice verbosity $ timingMessage scope step "-" (t1 - t0) n
-      return r
+timedPhase verbosity enabled scope step = timed verbosity enabled scope step "-"
 
 -- | The note for a step that read or produced a number of packages.
 packagesNote :: [a] -> String

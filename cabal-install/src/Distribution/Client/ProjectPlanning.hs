@@ -4043,6 +4043,7 @@ setupHsScriptOptions
       , useWin32CleanHack = False -- TODO: [required eventually]
       , setupCacheLock = Just cacheLock
       , isInteractive = False
+      , useTimings = False
       , isMainLibOrExeComponent = case elabPkgOrComp of
           -- if it's a package, it's all together, so we have to assume it's
           -- at least a library or executable.

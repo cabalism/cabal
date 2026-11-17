@@ -4,7 +4,7 @@ import Test.Cabal.Prelude
 -- for each package phase. The times vary, so this checks the lines rather than
 -- recording the output.
 main = cabalTest $ recordMode DoNotRecord $ do
-  cold <- cabal' "build" ["--timings"]
+  cold <- cabal' "build" ["all", "--timings"]
   mapM_
     (\step -> assertOutputContains ("[timing] plan:" ++ step ++ " -") cold)
     ["installed-packages", "source-packages", "solve", "elaborate", "improve"]
@@ -13,18 +13,20 @@ main = cabalTest $ recordMode DoNotRecord $ do
   assertOutputContains "[timing] check:installed-packages - " cold
   assertOutputContains "[timing] pkg:configure timed-0" cold
   assertOutputContains "[timing] pkg:build timed-0" cold
+  -- A Custom build type compiles its Setup.hs once, inside its configure.
+  assertOutputContains "[timing] pkg:setup custom-0" cold
   -- A run that reuses its cached plan reads nothing and solves nothing, and
   -- has no package phase to time. It still checks what there is to do, and
   -- having nothing, does not read the installed package index. It may also
   -- check the store, which the first build changed, so the improve line is
   -- allowed.
-  warm <- cabal' "build" ["--timings"]
+  warm <- cabal' "build" ["all", "--timings"]
   assertOutputContains "[timing] check:status - " warm
   mapM_
     (\step -> assertOutputDoesNotContain ("[timing] " ++ step) warm)
-    ["plan:installed-packages", "plan:source-packages", "plan:solve", "plan:elaborate", "check:installed-packages", "pkg:configure", "pkg:build"]
+    ["plan:installed-packages", "plan:source-packages", "plan:solve", "plan:elaborate", "check:installed-packages", "pkg:configure", "pkg:build", "pkg:setup"]
   -- A repl checks its status like any run, and its repl phase is not timed,
   -- since that would be the length of the GHCi session.
-  repl <- cabalWithStdin "repl" ["--timings"] ":quit"
+  repl <- cabalWithStdin "repl" ["timed", "--timings"] ":quit"
   assertOutputContains "[timing] check:status - " repl
   assertOutputDoesNotContain "[timing] pkg:repl" repl
