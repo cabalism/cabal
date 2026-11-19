@@ -233,7 +233,7 @@ directory, in a subdirectory named after the repository and a hash of its path.
     against the directory. After changing the contents of the directory, run
     ``cabal update`` or delete ``noindex.cache`` so that the cache is rebuilt.
 
-.. note::
+.. warning::
     The :cfg-field:`index-state` field is ignored for a local no-index
     repository. ``cabal`` warns that it is ignored and uses every package in
     the directory.
