@@ -234,9 +234,11 @@ directory, in a subdirectory named after the repository and a hash of its path.
     ``cabal update`` or delete ``noindex.cache`` so that the cache is rebuilt.
 
 .. warning::
-    The :cfg-field:`index-state` field is ignored for a local no-index
-    repository. ``cabal`` warns that it is ignored and uses every package in
-    the directory.
+    An :cfg-field:`index-state` cannot cap a local no-index repository. The
+    directory has no index of timestamped entries to cut off, so ``cabal``
+    always uses every package in it. A project that sets ``index-state`` for
+    all of its repositories gets a warning that the index state is ignored for
+    this one.
 
 .. note::
     The URI scheme ``file:`` is interpreted as a remote repository,
