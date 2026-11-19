@@ -192,7 +192,7 @@ https://github.com/haskell/hackage-security.
 Local no-index repositories
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-It's possible to use a directory of `.tar.gz` package files as a local package
+It's possible to use a directory of ``.tar.gz`` package files as a local package
 repository.
 
 ::
@@ -223,23 +223,29 @@ then ``cabal`` will create an index with two packages:
 - ``bar-0.2.0.0`` using the source inside ``bar-0.2.0.0.tar.gz``
   and ``bar-0.2.0.0.cabal``
 
-The index is cached inside the given directory. If the directory is not
-writable, you can append ``#shared-cache`` fragment to the URI,
-then the cache will be stored inside the :cfg-field:`remote-repo-cache` directory.
-The part of the path will be used to determine the cache key part.
+The index is cached in a ``noindex.cache`` file inside the given directory. If
+the directory is not writable, you can append ``#shared-cache`` fragment to the
+URI, then the cache will be stored inside the :cfg-field:`remote-repo-cache`
+directory, in a subdirectory named after the repository and a hash of its path.
 
 .. note::
-    ``cabal-install`` creates a ``.cache`` file, and will aggressively use
-    its contents if it exists. Therefore if you change the contents of
-    the directory, remember to wipe the cache too.
+    ``cabal`` uses ``noindex.cache`` whenever it exists and does not check it
+    against the directory. After changing the contents of the directory, run
+    ``cabal update`` or delete ``noindex.cache`` so that the cache is rebuilt.
+
+.. note::
+    The :cfg-field:`index-state` field is ignored for a local no-index
+    repository. ``cabal`` warns that it is ignored and uses every package in
+    the directory.
 
 .. note::
     The URI scheme ``file:`` is interpreted as a remote repository,
     as described in the previous sections, thus requiring manual construction
     of ``01-index.tar`` file.
 
-It is possible to define ``preferred-versions``, containing additional version constraints
-for deprecating or preferring certain package versions, in the given directory.
+It is possible to add a ``preferred-versions`` file to the given directory,
+containing version preferences for deprecating or preferring certain package
+versions.
 
 For example, if ``/absolute/path/to/directory`` looks like
 ::
@@ -251,21 +257,28 @@ For example, if ``/absolute/path/to/directory`` looks like
 
 then package deprecations and preferences will be taken into account by the solver.
 
-The contents of ``preferred-versions`` is a list of package version constraints, e.g.
+The contents of ``preferred-versions`` is a list of package version ranges, one
+line for each package, in the same syntax as a ``build-depends`` field, e.g.
 ::
 
     binary < 0.8.0.0 || > 0.8.0.0
     text == 1.2.0.0
 
-thus, looks similar to a ``package-name.cabal``'s ``build-depends`` section.
+A line starting with ``--`` is a comment. A line that does not parse is skipped
+with a warning.
+
+These are preferences, not constraints. The solver picks a version inside a
+package's range when it can. It can still pick a version outside the range, for
+instance when a constraint requires that version.
 
 .. note::
-    The ``preferred-versions`` file can be used to restrict the package set from Hackage, by preferring
-    certain versions or marking a specific version as deprecated. To achieve this, add a
-    local no-index repository to your :ref:`configuration file <config-file-discovery>`,
-    where the directory contains your custom
-    ``preferred-versions``. After running ``cabal update``, all ``cabal`` operations will honour the
-    configuration.
+    The ``preferred-versions`` file also applies to packages from other
+    repositories, so it can be used to prefer certain versions of packages from
+    Hackage or to mark a specific version as deprecated. To achieve this, add a
+    local no-index repository to your :ref:`configuration file
+    <config-file-discovery>`, where the directory contains your custom
+    ``preferred-versions``. After running ``cabal update``, all ``cabal``
+    operations will take the preferences into account.
 
 Legacy repositories
 ^^^^^^^^^^^^^^^^^^^
