@@ -1,0 +1,18 @@
+# cabal v2-build
+Resolving dependencies...
+Build profile: -w ghc-<GHCVER> -O1
+In order, the following would be built:
+ - dep-1.0 (lib) (requires build)
+ - app-0 (lib) (first run)
+# cabal v2-build
+Resolving dependencies...
+Build profile: -w ghc-<GHCVER> -O1
+In order, the following would be built:
+ - dep-1.0 (lib) (requires build)
+ - app-0 (lib) (first run)
+# cabal v2-build
+Resolving dependencies...
+Build profile: -w ghc-<GHCVER> -O1
+In order, the following would be built:
+ - dep-1.0 (lib) (requires build)
+ - app-0 (lib) (first run)
