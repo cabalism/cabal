@@ -193,7 +193,8 @@ Local no-index repositories
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 A directory of ``.tar.gz`` package files can be used as a local package
-repository. ``cabal`` constructs the index for it.
+repository. The ``+noindex`` in the URL's scheme says that the directory has no
+index file, so ``cabal`` constructs the index itself.
 
 ::
 
@@ -278,9 +279,9 @@ ranges are combined as if joined with ``&&``.
     - a comment after the version range, as in ``text == 1.2.0.0 -- preferred``
 
 .. note::
-    The ``+noindex`` in the scheme says that the directory has no index file.
-    Without it, ``cabal`` expects to find an index file at a ``file:`` URL, the
-    same as it would at an ``http:`` one. See `Secure local repositories`_.
+    Without ``+noindex``, ``cabal`` expects to find an index file at a
+    ``file:`` URL, the same as it would at an ``http:`` one. See `Secure local
+    repositories`_.
 
 Legacy repositories
 ^^^^^^^^^^^^^^^^^^^
