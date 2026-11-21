@@ -198,19 +198,24 @@ repository. ``cabal`` constructs the index for it.
 ::
 
     repository my-local-repository
-      url: file+noindex:///absolute/path/to/directory
+      url: file+noindex:PATH
 
-On Windows systems, the URL must start directly with the absolute path, as in
-``url: file+noindex:C:/absolute/path/to/directory``. The scheme has to be
-``file+noindex:``. A URL with the scheme ``file:`` is interpreted as a remote
-repository, as described in the previous sections, and needs an
-``01-index.tar`` file that you construct yourself.
+``PATH`` should be an absolute path to the directory, as in
+``file+noindex:/srv/packages`` or, on Windows systems,
+``file+noindex:C:/packages``. Other than on Windows, the form with three
+slashes, ``file+noindex:///srv/packages``, works too. While a relative path is
+accepted, ``cabal`` warns that it is fragile because it is relative to the
+directory ``cabal`` is run from.
+
+The scheme has to be ``file+noindex:``. A URL with the scheme ``file:`` is
+interpreted as a remote repository, as described in the previous sections, and
+needs an ``01-index.tar`` file that you construct yourself.
 
 The directory can hold these files:
 
 .. code-block:: text
 
-    /absolute/path/to/directory/
+    PATH/
         foo-0.1.0.0.tar.gz
         bar-0.2.0.0.tar.gz
         bar-0.2.0.0.cabal
