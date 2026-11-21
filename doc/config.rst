@@ -259,15 +259,24 @@ For example, if ``/absolute/path/to/directory`` looks like
 
 then package deprecations and preferences will be taken into account by the solver.
 
-The contents of ``preferred-versions`` is a list of package version ranges, one
-line for each package, in the same syntax as a ``build-depends`` field, e.g.
-::
+Each line of ``preferred-versions`` is a comment or a package name followed by
+a version range. When more than one line names the same package, their version
+ranges are combined as if joined with ``&&``.
 
+.. code-block:: text
+
+    -- Deprecate binary-0.8.0.0.
     binary < 0.8.0.0 || > 0.8.0.0
+    -- Prefer text-1.2.0.0.
     text == 1.2.0.0
 
-A line starting with ``--`` is a comment. A line that does not parse is skipped
-with a warning.
+.. warning::
+    A line that does not parse is skipped with a warning, and its preference is
+    not applied. Each of these fails to parse:
+
+    - a blank line
+    - an indented comment, with spaces before the ``--``
+    - a comment after the version range, as in ``text == 1.2.0.0 -- preferred``
 
 These are preferences, not constraints. The solver picks a version inside a
 package's range when it can. It can still pick a version outside the range, for
