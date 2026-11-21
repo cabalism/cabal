@@ -194,8 +194,8 @@ https://github.com/haskell/hackage-security.
 
 .. _local-no-index-repositories:
 
-Local no-index repositories
-^^^^^^^^^^^^^^^^^^^^^^^^^^^
+No-index repositories
+^^^^^^^^^^^^^^^^^^^^^
 
 A directory of ``.tar.gz`` package files can be used as a local package
 repository. The ``+noindex`` in the URL's scheme says that the directory has no
@@ -224,10 +224,10 @@ was added, so ``cabal`` ignores an :cfg-field:`index-state` for this
 repository, with a warning, and uses every package in the directory.
 
 As :ref:`preferred versions <index-preferred-versions>` apply to packages from
-every repository, a local no-index repository with only a
-``preferred-versions`` file in it can be used to prefer or deprecate versions
-of packages from Hackage. Add the repository to your :ref:`configuration file
-<config-file-discovery>` to have the preferences apply to every project.
+every repository, a no-index repository with only a ``preferred-versions`` file
+in it can be used to prefer or deprecate versions of packages from Hackage. Add
+the repository to your :ref:`configuration file <config-file-discovery>` to
+have the preferences apply to every project.
 
 .. note::
     Without ``+noindex``, ``cabal`` expects to find an index file at a

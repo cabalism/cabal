@@ -92,16 +92,16 @@ The file that holds the index depends on the kind of repository.
       - ``01-index.tar``, a log
     * - Legacy, not secure
       - ``00-index.tar.gz``, not a log
-    * - :ref:`Local no-index <no-index-layout>`, with a ``file+noindex:`` URL
+    * - :ref:`No-index <no-index-layout>`, with a ``file+noindex:`` URL
       - None. ``cabal`` constructs the index from the files in the directory.
 
 .. _no-index-layout:
 
-Local no-index repositories
----------------------------
+No-index repositories
+---------------------
 
-A :ref:`local no-index repository <local-no-index-repositories>` is a directory
-that can hold these files:
+A :ref:`no-index repository <local-no-index-repositories>` is a local
+directory that can hold these files:
 
 .. code-block:: text
 
