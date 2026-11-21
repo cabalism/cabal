@@ -127,8 +127,8 @@ You can run ``cabal path`` to see a list of the directories that
 
 .. _repository-specification:
 
-Repository specification
-------------------------
+Repositories
+------------
 
 An important part of the configuration is the specification of the
 repository. When ``cabal`` creates a default config file, it configures
@@ -146,6 +146,9 @@ you can change the prefix by changing the value of
 :cfg-field:`remote-repo-cache`). If you want, you can configure multiple
 repositories, and ``cabal`` will combine them and be able to download
 packages from any of them.
+
+See :ref:`package-repositories` for what a repository's index is and how it is
+laid out.
 
 Using secure repositories
 ^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -189,12 +192,15 @@ scope of ``cabal`` proper.
 More information about the security infrastructure can be found at
 https://github.com/haskell/hackage-security.
 
+.. _local-no-index-repositories:
+
 Local no-index repositories
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 A directory of ``.tar.gz`` package files can be used as a local package
 repository. The ``+noindex`` in the URL's scheme says that the directory has no
-index file, so ``cabal`` constructs the index itself.
+index file, so ``cabal`` constructs :ref:`the index <the-package-index>` itself.
+See :ref:`no-index-layout` for the files the directory can hold.
 
 ::
 
@@ -208,96 +214,25 @@ slashes, ``file+noindex:///srv/packages``, works too. While a relative path is
 accepted, ``cabal`` warns that it is fragile because it is relative to the
 directory ``cabal`` is run from.
 
-The directory can hold these files:
+``cabal`` keeps a :ref:`cache <no-index-cache>` of the index in the directory.
+If the directory is not writable, append a ``#shared-cache`` fragment to the
+URL. The cache is then stored inside the :cfg-field:`remote-repo-cache`
+directory, in a subdirectory named after the repository and a hash of its path.
 
-.. code-block:: text
+With no index file, there is no :ref:`log <the-index-log>` of when each package
+was added, so ``cabal`` ignores an :cfg-field:`index-state` for this
+repository, with a warning, and uses every package in the directory.
 
-    PATH/
-        PKG-VERSION.tar.gz
-        PKG-VERSION.cabal
-        preferred-versions
-        noindex.cache
-
-With no index file, there is no log of when each package was added, so
-``cabal`` ignores an :cfg-field:`index-state` for this repository, with a
-warning, and uses every package in the directory.
+As :ref:`preferred versions <index-preferred-versions>` apply to packages from
+every repository, a local no-index repository with only a
+``preferred-versions`` file in it can be used to prefer or deprecate versions
+of packages from Hackage. Add the repository to your :ref:`configuration file
+<config-file-discovery>` to have the preferences apply to every project.
 
 .. note::
     Without ``+noindex``, ``cabal`` expects to find an index file at a
     ``file:`` URL, the same as it would at an ``http:`` one. See `Secure local
     repositories`_.
-
-Unrevised packages
-""""""""""""""""""
-
-Each ``PKG-VERSION.tar.gz`` file is a package. On its own, ``cabal`` uses the
-source and the ``.cabal`` file inside it.
-
-.. code-block:: text
-
-    PATH/
-        foo-0.1.0.0.tar.gz
-
-Revised packages
-""""""""""""""""
-
-A ``PKG-VERSION.cabal`` file beside a ``.tar.gz`` file of the same name revises
-that package. ``cabal`` uses it in place of the ``.cabal`` file inside the
-``.tar.gz`` file. Here ``bar-0.2.0.0`` uses the source inside
-``bar-0.2.0.0.tar.gz`` and the package description in ``bar-0.2.0.0.cabal``.
-
-.. code-block:: text
-
-    PATH/
-        bar-0.2.0.0.tar.gz
-        bar-0.2.0.0.cabal
-
-The cache
-"""""""""
-
-``cabal`` writes the index it constructs to a ``noindex.cache`` file in the
-directory. If the directory is not writable, append a ``#shared-cache``
-fragment to the URL. The cache is then stored inside the
-:cfg-field:`remote-repo-cache` directory, in a subdirectory named after the
-repository and a hash of its path.
-
-.. note::
-    ``cabal`` uses ``noindex.cache`` whenever it exists and does not check it
-    against the directory. After changing the contents of the directory, run
-    ``cabal update`` or delete ``noindex.cache`` so that the cache is rebuilt.
-
-Preferred versions
-""""""""""""""""""
-
-The optional ``preferred-versions`` file prefers or deprecates versions of
-packages. These are preferences, not constraints. The solver picks a version
-inside a package's range when it can. It can still pick a version outside the
-range, for instance when a constraint requires that version.
-
-The preferences also apply to packages from other repositories. A local
-no-index repository with only a ``preferred-versions`` file in it can be used
-to prefer or deprecate versions of packages from Hackage. Add the repository to
-your :ref:`configuration file <config-file-discovery>` to have the preferences
-apply to every project.
-
-Each line of ``preferred-versions`` is a comment or a package name followed by
-a version range. When more than one line names the same package, their version
-ranges are combined as if joined with ``&&``.
-
-.. code-block:: text
-
-    -- Deprecate binary-0.8.0.0.
-    binary < 0.8.0.0 || > 0.8.0.0
-    -- Prefer text-1.2.0.0.
-    text == 1.2.0.0
-
-.. warning::
-    A line that does not parse is skipped with a warning, and its preference is
-    not applied. Each of these fails to parse:
-
-    - a blank line
-    - an indented comment, with spaces before the ``--``
-    - a comment after the version range, as in ``text == 1.2.0.0 -- preferred``
 
 Legacy repositories
 ^^^^^^^^^^^^^^^^^^^

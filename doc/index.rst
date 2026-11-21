@@ -32,6 +32,7 @@ Welcome to the Cabal User Guide
    version-control-fields
    cabal-config-and-commands
    external-commands
+   package-repositories
    setup-commands
    file-format-changelog
    buildinfo-fields-reference
