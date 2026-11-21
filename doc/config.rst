@@ -213,45 +213,66 @@ The directory can hold these files:
 .. code-block:: text
 
     PATH/
-        foo-0.1.0.0.tar.gz
-        bar-0.2.0.0.tar.gz
-        bar-0.2.0.0.cabal
+        PKG-VERSION.tar.gz
+        PKG-VERSION.cabal
         preferred-versions
         noindex.cache
 
-``package-name-version.tar.gz``
-    A package. Here ``foo-0.1.0.0`` uses the source and the ``.cabal`` file
-    inside ``foo-0.1.0.0.tar.gz``.
+With no index file, there is no log of when each package was added, so
+``cabal`` ignores an :cfg-field:`index-state` for this repository, with a
+warning, and uses every package in the directory.
 
-``package-name-version.cabal``
-    Optional. A package description that is used in place of the one inside
-    the ``.tar.gz`` file of the same name. Here ``bar-0.2.0.0`` uses the source
-    inside ``bar-0.2.0.0.tar.gz`` and ``bar-0.2.0.0.cabal``.
+.. note::
+    Without ``+noindex``, ``cabal`` expects to find an index file at a
+    ``file:`` URL, the same as it would at an ``http:`` one. See `Secure local
+    repositories`_.
 
-``preferred-versions``
-    Optional. Version preferences, described below.
+Unrevised packages
+""""""""""""""""""
 
-``noindex.cache``
-    Written by ``cabal``. The cache of the index it constructs from the other
-    files.
+Each ``PKG-VERSION.tar.gz`` file is a package. On its own, ``cabal`` uses the
+source and the ``.cabal`` file inside it.
 
-If the directory is not writable, append a ``#shared-cache`` fragment to the
-URL. The cache is then stored inside the :cfg-field:`remote-repo-cache`
-directory, in a subdirectory named after the repository and a hash of its path.
+.. code-block:: text
+
+    PATH/
+        foo-0.1.0.0.tar.gz
+
+Revised packages
+""""""""""""""""
+
+A ``PKG-VERSION.cabal`` file beside a ``.tar.gz`` file of the same name revises
+that package. ``cabal`` uses it in place of the ``.cabal`` file inside the
+``.tar.gz`` file. Here ``bar-0.2.0.0`` uses the source inside
+``bar-0.2.0.0.tar.gz`` and the package description in ``bar-0.2.0.0.cabal``.
+
+.. code-block:: text
+
+    PATH/
+        bar-0.2.0.0.tar.gz
+        bar-0.2.0.0.cabal
+
+The cache
+"""""""""
+
+``cabal`` writes the index it constructs to a ``noindex.cache`` file in the
+directory. If the directory is not writable, append a ``#shared-cache``
+fragment to the URL. The cache is then stored inside the
+:cfg-field:`remote-repo-cache` directory, in a subdirectory named after the
+repository and a hash of its path.
 
 .. note::
     ``cabal`` uses ``noindex.cache`` whenever it exists and does not check it
     against the directory. After changing the contents of the directory, run
     ``cabal update`` or delete ``noindex.cache`` so that the cache is rebuilt.
 
-With no index file, there is no log of when each package was added, so
-``cabal`` ignores an :cfg-field:`index-state` for this repository, with a
-warning, and uses every package in the directory.
+Preferred versions
+""""""""""""""""""
 
-The ``preferred-versions`` file prefers or deprecates versions of packages.
-These are preferences, not constraints. The solver picks a version inside a
-package's range when it can. It can still pick a version outside the range, for
-instance when a constraint requires that version.
+The optional ``preferred-versions`` file prefers or deprecates versions of
+packages. These are preferences, not constraints. The solver picks a version
+inside a package's range when it can. It can still pick a version outside the
+range, for instance when a constraint requires that version.
 
 The preferences also apply to packages from other repositories. A local
 no-index repository with only a ``preferred-versions`` file in it can be used
@@ -277,11 +298,6 @@ ranges are combined as if joined with ``&&``.
     - a blank line
     - an indented comment, with spaces before the ``--``
     - a comment after the version range, as in ``text == 1.2.0.0 -- preferred``
-
-.. note::
-    Without ``+noindex``, ``cabal`` expects to find an index file at a
-    ``file:`` URL, the same as it would at an ``http:`` one. See `Secure local
-    repositories`_.
 
 Legacy repositories
 ^^^^^^^^^^^^^^^^^^^
