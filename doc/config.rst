@@ -244,11 +244,9 @@ directory, in a subdirectory named after the repository and a hash of its path.
     against the directory. After changing the contents of the directory, run
     ``cabal update`` or delete ``noindex.cache`` so that the cache is rebuilt.
 
-A local no-index repository is a directory of files, not a log of timestamped
-entries, so there is no earlier state for an :cfg-field:`index-state` to
-select. ``cabal`` always uses every package in the directory. An
-``index-state`` that is unscoped, or scoped to this repository, is ignored for
-it with a warning.
+With no index file, there is no log of when each package was added, so
+``cabal`` ignores an :cfg-field:`index-state` for this repository, with a
+warning, and uses every package in the directory.
 
 The ``preferred-versions`` file prefers or deprecates versions of packages.
 These are preferences, not constraints. The solver picks a version inside a
