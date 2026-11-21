@@ -224,9 +224,8 @@ The directory can hold these files:
 
 ``package-name-version.cabal``
     Optional. A package description that is used in place of the one inside
-    the ``.tar.gz`` file of the same name, as a new revision. Here
-    ``bar-0.2.0.0`` uses the source inside ``bar-0.2.0.0.tar.gz`` and
-    ``bar-0.2.0.0.cabal``.
+    the ``.tar.gz`` file of the same name. Here ``bar-0.2.0.0`` uses the source
+    inside ``bar-0.2.0.0.tar.gz`` and ``bar-0.2.0.0.cabal``.
 
 ``preferred-versions``
     Optional. Version preferences, described below.
