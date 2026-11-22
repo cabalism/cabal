@@ -235,8 +235,8 @@ from other repositories.
 Secure local repositories
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 
-If you want to use repositories on your local file system, it is
-recommended instead to use a *secure* local repository:
+A repository on your local file system can be a secure one, with an index file
+and signatures the same as a secure repository reached over ``http:``:
 
 ::
 
