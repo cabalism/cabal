@@ -150,8 +150,10 @@ packages from any of them.
 See :ref:`package-repositories` for what a repository's index is and how it is
 laid out.
 
-Using secure repositories
-^^^^^^^^^^^^^^^^^^^^^^^^^
+.. _using-secure-repositories:
+
+Secure repositories
+^^^^^^^^^^^^^^^^^^^
 
 When interacting with ``hackage.haskell.org``, Cabal always runs in secure mode
 with standard root keys, so it is not necessary to specify ``secure`` or
@@ -188,6 +190,22 @@ was not tampered with). Of course, adding ``root-keys`` and
 problem, because now you somehow need to make sure that the key IDs you
 received were the right ones. How that is done is however outside the
 scope of ``cabal`` proper.
+
+.. _secure-local-repositories:
+
+A secure repository can also be on your local file system, at a ``file:`` URL:
+
+::
+
+    repository my-local-repo
+      url: file:PATH
+      secure: True
+      root-keys: <root-key-IDs>
+      key-threshold: <key-threshold>
+
+Its layout matches that of a secure repository reached over ``http:`` exactly.
+The :hackage-pkg:`hackage-repo-tool` can be used to create and manage such
+repositories.
 
 More information about the security infrastructure can be found at
 https://github.com/haskell/hackage-security.
@@ -229,32 +247,16 @@ from other repositories.
 
 .. note::
     Without ``+noindex``, ``cabal`` expects to find an index file at a
-    ``file:`` URL, the same as it would at an ``http:`` one. See `Secure local
-    repositories`_.
+    ``file:`` URL, the same as it would at an ``http:`` one. See
+    :ref:`secure repositories on the local file system
+    <secure-local-repositories>`.
 
-Secure local repositories
-^^^^^^^^^^^^^^^^^^^^^^^^^
+.. _legacy-repositories:
 
-A repository on your local file system can be a secure one, with an index file
-and signatures the same as a secure repository reached over ``http:``:
+The remote-repo field
+^^^^^^^^^^^^^^^^^^^^^
 
-::
-
-    repository my-local-repo
-      url: file:/path/to/local/repo
-      secure: True
-      root-keys: <root-key-IDs>
-      key-threshold: <key-threshold>
-
-The layout of these secure local repos matches the layout of remote
-repositories exactly; the :hackage-pkg:`hackage-repo-tool`
-can be used to create and manage such repositories.
-
-Legacy repositories
-^^^^^^^^^^^^^^^^^^^
-
-Currently ``cabal`` supports single kind of “legacy” repositories.
-It is specified using
+The ``remote-repo`` field is an older way of specifying a repository:
 
 ::
 
