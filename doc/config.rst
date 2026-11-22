@@ -147,6 +147,13 @@ you can change the prefix by changing the value of
 repositories, and ``cabal`` will combine them and be able to download
 packages from any of them.
 
+.. _legacy-repositories:
+
+.. note::
+    The ``remote-repo`` field is an older way of specifying a repository.
+    ``remote-repo: NAME:URL`` is the same as a ``repository NAME`` section with
+    that ``url``.
+
 See :ref:`package-repositories` for what a repository's index is and how it is
 laid out.
 
@@ -250,28 +257,6 @@ from other repositories.
     ``file:`` URL, the same as it would at an ``http:`` one. See
     :ref:`secure repositories on the local file system
     <secure-local-repositories>`.
-
-.. _legacy-repositories:
-
-The remote-repo field
-^^^^^^^^^^^^^^^^^^^^^
-
-The ``remote-repo`` field is an older way of specifying a repository:
-
-::
-
-    remote-repo: hackage.haskell.org:http://hackage.haskell.org/packages/archive
-
-This is just syntactic sugar for
-
-::
-
-    repository hackage.haskell.org
-      url: http://hackage.haskell.org/packages/archive
-
-although, in (and only in) the specific case of Hackage, the URL
-``http://hackage.haskell.org/packages/archive`` will be silently
-translated to ``http://hackage.haskell.org/``.
 
 .. _program_options:
 
