@@ -223,11 +223,9 @@ With no index file, there is no :ref:`log <the-index-log>` of when each package
 was added, so ``cabal`` ignores an :cfg-field:`index-state` for this
 repository, with a warning, and uses every package in the directory.
 
-As :ref:`preferred versions <index-preferred-versions>` apply to packages from
-every repository, a no-index repository with only a ``preferred-versions`` file
-in it can be used to prefer or deprecate versions of packages from Hackage. Add
-the repository to your :ref:`configuration file <config-file-discovery>` to
-have the preferences apply to every project.
+A no-index repository with only a ``preferred-versions`` file in it is one way
+of :ref:`setting preferred versions <setting-preferred-versions>` of packages
+from other repositories.
 
 .. note::
     Without ``+noindex``, ``cabal`` expects to find an index file at a

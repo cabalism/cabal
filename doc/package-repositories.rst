@@ -61,9 +61,8 @@ downloads only what was added since the last update when it can.
 Preferred versions
 ------------------
 
-A repository can prefer some versions of a package to others. A deprecated
-version is one left out of the preferred range. The last entry above deprecates
-``megaparsec-9.8.0``, along with a version that was deprecated already:
+A repository can prefer some versions of a package and deprecate others by
+leaving them out of the preferred range:
 
 .. code-block:: text
 
@@ -77,6 +76,47 @@ Preferences are not tied to the repository they come from. When more than one
 repository has preferred versions for a package, the ranges are combined as if
 joined with ``&&``, and they apply to that package whichever repository it
 comes from.
+
+.. _setting-preferred-versions:
+
+Setting preferred versions
+--------------------------
+
+You can set preferred versions of your own in a project, in the configuration
+file or with a repository.
+
+The :cfg-field:`preferences` field sets them for a project:
+
+::
+
+    preferences: megaparsec <9.8.0 || >9.8.0
+
+In the :ref:`configuration file <config-file-discovery>` the field is named
+``preference`` and sets them for every project. Neither file recognises the
+other's name for the field.
+
+A :ref:`no-index repository <local-no-index-repositories>` sets them with its
+:ref:`preferred-versions file <no-index-preferred-versions>`, and that file can
+be the only one in the directory:
+
+.. code-block:: text
+
+    PATH/
+        preferred-versions
+
+::
+
+    repository my-preferences
+      url: file+noindex:PATH
+
+Add the repository to the configuration file to have it apply to every project,
+and run ``cabal update`` after changing the file.
+
+``cabal list`` and ``cabal info`` take account of preferred versions that come
+from a repository but not those set with the ``preferences`` or ``preference``
+field. ``cabal list`` gives the latest preferred version as the default
+available version and ``cabal info`` puts versions outside the preferred range
+in brackets.
 
 Index files
 -----------
@@ -148,6 +188,8 @@ directory, or elsewhere when the URL has a ``#shared-cache`` fragment.
     ``cabal`` uses ``noindex.cache`` whenever it exists and does not check it
     against the directory. After changing the contents of the directory, run
     ``cabal update`` or delete ``noindex.cache`` so that the cache is rebuilt.
+
+.. _no-index-preferred-versions:
 
 The preferred-versions file
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^

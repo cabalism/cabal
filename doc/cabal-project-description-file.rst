@@ -614,6 +614,9 @@ The following settings control the behavior of the dependency solver:
     ``--preference="pkg >= 2.0"``; to specify multiple preferences, pass
     the flag multiple times.
 
+    See :ref:`setting-preferred-versions` for other ways of setting
+    preferences.
+
 .. cfg-field:: allow-newer: none, all or list of scoped package names (space or comma separated)
                --allow-newer, --allow-newer=[none,all,[scope:][^]pkg]
     :synopsis: Lift dependencies upper bound constraints.
