@@ -234,6 +234,24 @@ have the preferences apply to every project.
     ``file:`` URL, the same as it would at an ``http:`` one. See `Secure local
     repositories`_.
 
+Secure local repositories
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+If you want to use repositories on your local file system, it is
+recommended instead to use a *secure* local repository:
+
+::
+
+    repository my-local-repo
+      url: file:/path/to/local/repo
+      secure: True
+      root-keys: <root-key-IDs>
+      key-threshold: <key-threshold>
+
+The layout of these secure local repos matches the layout of remote
+repositories exactly; the :hackage-pkg:`hackage-repo-tool`
+can be used to create and manage such repositories.
+
 Legacy repositories
 ^^^^^^^^^^^^^^^^^^^
 
@@ -254,24 +272,6 @@ This is just syntactic sugar for
 although, in (and only in) the specific case of Hackage, the URL
 ``http://hackage.haskell.org/packages/archive`` will be silently
 translated to ``http://hackage.haskell.org/``.
-
-Secure local repositories
-^^^^^^^^^^^^^^^^^^^^^^^^^
-
-If you want to use repositories on your local file system, it is
-recommended instead to use a *secure* local repository:
-
-::
-
-    repository my-local-repo
-      url: file:/path/to/local/repo
-      secure: True
-      root-keys: <root-key-IDs>
-      key-threshold: <key-threshold>
-
-The layout of these secure local repos matches the layout of remote
-repositories exactly; the :hackage-pkg:`hackage-repo-tool`
-can be used to create and manage such repositories.
 
 .. _program_options:
 
