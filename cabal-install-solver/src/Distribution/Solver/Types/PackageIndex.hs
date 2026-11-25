@@ -59,7 +59,7 @@ import Distribution.Package
          , Package(..), packageName, packageVersion )
 import Distribution.Version
          ( VersionRange, withinRange )
-import Distribution.Simple.Utils
+import Distribution.Utils.Generic
          ( lowercase )
 
 import qualified Prelude (foldr1)

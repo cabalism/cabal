@@ -10,7 +10,6 @@ import qualified Data.List as L (foldl')
 import qualified Data.Map.Strict as M
 import qualified Data.Set as S
 
-import Distribution.Simple.Setup (asBool)
 
 import Distribution.Solver.Modular.Assignment
 import Distribution.Solver.Modular.Dependency
@@ -26,7 +25,7 @@ import Distribution.Solver.Modular.Version
 import qualified Distribution.Solver.Modular.WeightedPSQ as W
 import Distribution.Solver.Types.PackagePath
 import Distribution.Solver.Types.Settings
-         (CountConflicts(..), EnableBackjumping(..), FineGrainedConflicts(..))
+         (Setting(..), CountConflicts(..), EnableBackjumping(..), FineGrainedConflicts(..))
 import Distribution.Types.VersionRange (anyVersion)
 
 -- | This function takes the variable we're currently considering, a
@@ -86,7 +85,7 @@ backjump mbj enableBj fineGrainedConflicts couldResolveConflicts
             -> (ConflictSet -> Maybe ConflictSet -> ExploreState -> ConflictSetLog a)
             ->  ConflictSet -> Maybe ConflictSet -> ExploreState -> ConflictSetLog a
     combine (k, x) f csAcc mPreviousCS es =
-        case (asBool fineGrainedConflicts, mPreviousCS) of
+        case (enabled fineGrainedConflicts, mPreviousCS) of
           (True, Just previousCS) ->
               case CS.lookup var previousCS of
                 Just conflicts ->
@@ -97,7 +96,7 @@ backjump mbj enableBj fineGrainedConflicts couldResolveConflicts
           _                       -> retryNoSolution (x es) next
       where
         next :: ConflictSet -> ExploreState -> ConflictSetLog a
-        next !cs es' = if asBool enableBj && not (var `CS.member` cs)
+        next !cs es' = if enabled enableBj && not (var `CS.member` cs)
                        then skipLoggingBackjump cs es'
                        else f (csAcc `CS.union` cs) (Just cs) es'
 
@@ -208,7 +207,7 @@ exploreLog mbj enableBj fineGrainedConflicts (CountConflicts countConflicts) idx
   where
     getBestGoal' :: P.PSQ (Goal QPN) a -> ConflictMap -> (Goal QPN, a)
     getBestGoal'
-      | asBool countConflicts = \ ts cm -> getBestGoal cm ts
+      | enabled countConflicts = \ ts cm -> getBestGoal cm ts
       | otherwise             = \ ts _  -> getFirstGoal ts
 
     go :: TreeF Assignment QGoalReason

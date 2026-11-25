@@ -1,5 +1,3 @@
--- to suppress WARNING in "Distribution.Compat.Prelude.Internal"
-{-# OPTIONS_GHC -Wno-deprecations #-}
 
 -- | This module does two things:
 --
@@ -11,9 +9,9 @@
 -- this module re-exports)
 --
 module Distribution.Solver.Compat.Prelude
-  ( module Distribution.Compat.Prelude.Internal
+  ( module Distribution.Compat.Prelude
   , Prelude.IO
   ) where
 
 import Prelude (IO)
-import Distribution.Compat.Prelude.Internal hiding (IO)
+import Distribution.Compat.Prelude hiding (IO)

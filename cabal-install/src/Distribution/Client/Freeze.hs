@@ -47,6 +47,7 @@ import qualified Distribution.Client.SolverInstallPlan as SolverInstallPlan
 import Distribution.Client.Targets
 import Distribution.Client.Types
 
+import Distribution.Client.PkgConfigDb (readPkgConfigDb)
 import Distribution.Solver.Types.ConstraintSource
 import Distribution.Solver.Types.LabeledPackageConstraint
 import Distribution.Solver.Types.OptionalStanza

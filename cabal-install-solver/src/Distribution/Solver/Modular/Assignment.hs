@@ -27,7 +27,7 @@ import Distribution.Solver.Modular.Dependency
 import Distribution.Solver.Modular.Flag
 import Distribution.Solver.Modular.LabeledGraph
 import Distribution.Solver.Modular.Package
-import Distribution.Simple.Utils (ordNub)
+import Distribution.Utils.Generic (ordNub)
 
 -- | A (partial) package assignment. Qualified package names
 -- are associated with instances.

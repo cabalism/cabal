@@ -114,12 +114,10 @@ import Distribution.PackageDescription.Configuration
 import qualified Distribution.PackageDescription.Configuration as PD
 import Distribution.Simple.PackageIndex (InstalledPackageIndex)
 import qualified Distribution.Simple.PackageIndex as InstalledPackageIndex
-import Distribution.Simple.Setup
-  ( asBool
-  )
 import Distribution.Solver.Modular
   ( PruneAfterFirstSuccess (..)
   , SolverConfig (..)
+  , VerboseLog (..)
   , modularResolver
   )
 import Distribution.Solver.Modular.Message
@@ -145,6 +143,7 @@ import Distribution.Solver.Types.ComponentDeps (ComponentDeps)
 import qualified Distribution.Solver.Types.ComponentDeps as CD
 import Distribution.Solver.Types.ConstraintSource
 import Distribution.Solver.Types.DependencyResolver
+import Distribution.Solver.Types.InstalledIndex (InstalledIndex, mkInstalledIndex)
 import Distribution.Solver.Types.InstalledPreference as Preference
 import Distribution.Solver.Types.LabeledPackageConstraint
 import Distribution.Solver.Types.OptionalStanza
@@ -229,23 +228,23 @@ showDepResolverParams p =
     ++ "\nstrategy: "
     ++ show (depResolverPreferenceDefault p)
     ++ "\nreorder goals: "
-    ++ show (asBool (depResolverReorderGoals p))
+    ++ show (enabled (depResolverReorderGoals p))
     ++ "\ncount conflicts: "
-    ++ show (asBool (depResolverCountConflicts p))
+    ++ show (enabled (depResolverCountConflicts p))
     ++ "\nfine grained conflicts: "
-    ++ show (asBool (depResolverFineGrainedConflicts p))
+    ++ show (enabled (depResolverFineGrainedConflicts p))
     ++ "\nminimize conflict set: "
-    ++ show (asBool (depResolverMinimizeConflictSet p))
+    ++ show (enabled (depResolverMinimizeConflictSet p))
     ++ "\nindependent goals: "
-    ++ show (asBool (depResolverIndependentGoals p))
+    ++ show (enabled (depResolverIndependentGoals p))
     ++ "\navoid reinstalls: "
-    ++ show (asBool (depResolverAvoidReinstalls p))
+    ++ show (enabled (depResolverAvoidReinstalls p))
     ++ "\nshadow packages: "
-    ++ show (asBool (depResolverShadowPkgs p))
+    ++ show (enabled (depResolverShadowPkgs p))
     ++ "\nstrong flags: "
-    ++ show (asBool (depResolverStrongFlags p))
+    ++ show (enabled (depResolverStrongFlags p))
     ++ "\nallow boot library installs: "
-    ++ show (asBool (depResolverAllowBootLibInstalls p))
+    ++ show (enabled (depResolverAllowBootLibInstalls p))
     ++ "\nonly constrained packages: "
     ++ show (depResolverOnlyConstrained p)
     ++ "\nmax backjumps: "
@@ -850,6 +849,13 @@ standardInstallPolicy installedPkgIndex sourcePkgDb pkgSpecifiers =
 
 -- ------------------------------------------------------------
 
+-- | The installed packages, in the form the solver takes them.
+solverInstalledIndex :: InstalledPackageIndex -> InstalledIndex
+solverInstalledIndex =
+  mkInstalledIndex
+    . map snd
+    . InstalledPackageIndex.allPackagesBySourcePackageIdAndLibName
+
 runSolver :: SolverConfig -> DependencyResolver UnresolvedPkgLoc
 runSolver = modularResolver
 
@@ -883,12 +889,12 @@ resolveDependencies platform comp pkgConfigDB params = do
             enableBj
             solveExes
             order
-            verbosity
+            (VerboseLog (verbosity >= Verbose))
             (PruneAfterFirstSuccess False)
         )
         platform
         comp
-        installedPkgIndex
+        (solverInstalledIndex installedPkgIndex)
         sourcePkgIndex
         pkgConfigDB
         preferences
@@ -919,7 +925,7 @@ resolveDependencies platform comp pkgConfigDB params = do
                     order
                     verbosity
                   ) =
-        if isJust (compilerInfoWiredInUnitIds comp) || asBool (depResolverAllowBootLibInstalls params)
+        if isJust (compilerInfoWiredInUnitIds comp) || enabled (depResolverAllowBootLibInstalls params)
           then dependOnWiredIns comp params
           else dontInstallNonReinstallablePackages params
 

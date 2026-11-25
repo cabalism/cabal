@@ -182,6 +182,7 @@ library
         Distribution.Client.ProjectBuilding.Types
         Distribution.Client.ProjectConfig
         Distribution.Client.ProjectConfig.FieldGrammar
+        Distribution.Client.PkgConfigDb
         Distribution.Client.ProjectConfig.Import
         Distribution.Client.ProjectConfig.Legacy
         Distribution.Client.ProjectConfig.Lens

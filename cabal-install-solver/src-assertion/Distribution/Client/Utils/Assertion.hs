@@ -5,7 +5,7 @@ module Distribution.Client.Utils.Assertion (expensiveAssert) where
 #ifdef DEBUG_EXPENSIVE_ASSERTIONS
 import Prelude (Bool)
 import Control.Exception (assert)
-import Distribution.Compat.Stack
+import GHC.Stack (HasCallStack)
 #else
 import Prelude (Bool, id)
 #endif
@@ -14,7 +14,7 @@ import Prelude (Bool, id)
 -- function can be used for expensive assertions that should only be turned on
 -- during testing or debugging.
 #ifdef DEBUG_EXPENSIVE_ASSERTIONS
-expensiveAssert :: WithCallStack (Bool -> a -> a)
+expensiveAssert :: HasCallStack => Bool -> a -> a
 expensiveAssert = assert
 #else
 expensiveAssert :: Bool -> a -> a

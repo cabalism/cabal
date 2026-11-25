@@ -22,17 +22,17 @@ module Distribution.Solver.Types.ProjectConfigPath
     , isCyclicConfigPath
     , isTopLevelConfigPath
     , isUntrimmedUriConfigPath
-    , canonicalizeConfigPath
+    , makeRelativeConfigPath
+    , isURI
     ) where
 
 import Distribution.Solver.Compat.Prelude hiding (toList, (<>))
 import qualified Distribution.Solver.Compat.Prelude as P ((<>))
-import Prelude (sequence)
+import Prelude ()
 
 import Data.Coerce (coerce)
 import Data.List.NonEmpty ((<|))
 import Network.URI (parseURI, parseAbsoluteURI)
-import System.Directory
 import System.FilePath hiding (splitPath)
 import qualified System.FilePath as FP (splitPath)
 import qualified System.FilePath.Posix as Posix
@@ -246,106 +246,5 @@ makeRelativeConfigPath dir (ProjectConfigPath p) =
     $ (\segment@(trim -> trimSegment) -> (if isURI trimSegment then trimSegment else makeRelative dir segment))
     <$> p
 
--- | Normalizes and canonicalizes a path removing '.' and '..' indirections.
--- Makes the path relative to the given directory (typically the project root)
--- instead of relative to the file it was imported from.
---
--- It converts paths like this:
---
--- >   hops-0.project
--- >   └─ hops/hops-1.config
--- >      └─ ../hops-2.config
--- >         └─ hops/hops-3.config
--- >            └─ ../hops-4.config
--- >               └─ hops/hops-5.config
--- >                  └─ ../hops-6.config
--- >                     └─ hops/hops-7.config
--- >                        └─ ../hops-8.config
--- >                           └─ hops/hops-9.config
---
--- Into paths like this:
---
--- >   hops-0.project
--- >   └─ hops/hops-1.config
--- >      └─ hops-2.config
--- >         └─ hops/hops-3.config
--- >            └─ hops-4.config
--- >               └─ hops/hops-5.config
--- >                  └─ hops-6.config
--- >                     └─ hops/hops-7.config
--- >                        └─ hops-8.config
--- >                           └─ hops/hops-9.config
---
--- That way we have @hops-8.config@ instead of
--- @./hops/../hops/../hops/../hops/../hops-8.config@.
---
--- Let's see how @canonicalizePath@ works that is used in the implementation
--- then we'll see how @canonicalizeConfigPath@ works.
---
--- >>> let d = testDir
--- >>> makeRelative d <$> canonicalizePath (d </> "hops/../hops/../hops/../hops/../hops-8.config")
--- "hops-8.config"
---
--- >>> let d = testDir
--- >>> p <- canonicalizeConfigPath d (ProjectConfigPath $ (d </> "hops/../hops/../hops/../hops/../hops-8.config") :| [])
--- >>> render $ docProjectConfigPath p
--- "hops-8.config"
---
--- >>> :{
---   do
---     let expected = unlines
---           [ "hops/hops-9.config"
---           , "  imported by: hops-8.config"
---           , "  imported by: hops/hops-7.config"
---           , "  imported by: hops-6.config"
---           , "  imported by: hops/hops-5.config"
---           , "  imported by: hops-4.config"
---           , "  imported by: hops/hops-3.config"
---           , "  imported by: hops-2.config"
---           , "  imported by: hops/hops-1.config"
---           , "  imported by: hops-0.project"
---           ]
---     let d = testDir
---     let configPath = ProjectConfigPath ("hops/hops-9.config" :|
---           [ "../hops-8.config"
---           , "hops/hops-7.config"
---           , "../hops-6.config"
---           , "hops/hops-5.config"
---           , "../hops-4.config"
---           , "hops/hops-3.config"
---           , "../hops-2.config"
---           , "hops/hops-1.config"
---           , d </> "hops-0.project"])
---     p <- canonicalizeConfigPath d configPath
---     return $ expected == render (docProjectConfigPath p) ++ "\n"
--- :}
--- True
---
--- "A string is a valid URL potentially surrounded by spaces if, after stripping leading and trailing whitespace from it, it is a valid URL."
--- [W3C/HTML5/URLs](https://www.w3.org/TR/2010/WD-html5-20100624/urls.html)
---
--- Trailing spaces for @ProjectConfigPath@ URLs are trimmed.
---
--- >>> p <- canonicalizeConfigPath "" (ProjectConfigPath $ ("https://www.stackage.org/nightly-2024-12-05/cabal.config ") :| [])
--- >>> render $ docProjectConfigPath p
--- "https://www.stackage.org/nightly-2024-12-05/cabal.config"
---
--- >>> let d = testDir
--- >>> p <- canonicalizeConfigPath d (ProjectConfigPath $ ("https://www.stackage.org/nightly-2024-12-05/cabal.config ") :| [d </> "cabal.project"])
--- >>> render $ docProjectConfigPath p
--- "https://www.stackage.org/nightly-2024-12-05/cabal.config\n  imported by: cabal.project"
-canonicalizeConfigPath :: FilePath -> ProjectConfigPath -> IO ProjectConfigPath
-canonicalizeConfigPath d (ProjectConfigPath p) = do
-    xs <- sequence $ NE.scanr (\importee@(trim -> trimImportee) -> (>>= \importer@(trim -> trimImporter) ->
-            if isURI trimImportee || isURI trimImporter
-                then pure trimImportee
-                else canonicalizePath $ d </> takeDirectory importer </> importee))
-            (pure ".") p
-    return . makeRelativeConfigPath d . ProjectConfigPath . NE.fromList $ NE.init xs
-
 isURI :: FilePath -> Bool
 isURI = isJust . parseURI
-
--- $setup
--- >>> import Data.List
--- >>> testDir <- makeAbsolute =<< canonicalizePath "../cabal-testsuite/PackageTests/ConditionalAndImport"

@@ -109,6 +109,7 @@ library
     Distribution.Parsec.Warning
     Distribution.Parsec.Source
     Distribution.Pretty
+    Distribution.Simple.BuildToolDepends
     Distribution.SPDX
     Distribution.SPDX.License
     Distribution.SPDX.LicenseExceptionId

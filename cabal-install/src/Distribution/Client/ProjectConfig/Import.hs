@@ -16,8 +16,9 @@ module Distribution.Client.ProjectConfig.Import
   , cyclicalImportMsg
   , untrimmedUriImportMsg
 
-    -- * Checks
+    -- * Checks and Normalization
   , reportDuplicateImports
+  , canonicalizeConfigPath
   ) where
 
 import Control.Arrow (Kleisli (..), arr, second, (>>>))
@@ -26,6 +27,7 @@ import Data.Coerce (coerce)
 import Data.Function ((&))
 import Data.Functor ((<&>))
 import Data.List ((\\))
+import qualified Data.List.NonEmpty as NE
 import qualified Data.Map as Map
 import Distribution.Client.Compat.Prelude hiding (empty, (<>))
 import qualified Distribution.Client.Compat.Prelude as Prelude ((<>))
@@ -38,8 +40,8 @@ import Distribution.Solver.Types.ProjectConfigPath
 import Distribution.Types.CondTree (CondTree (..), traverseCondTreeA)
 import Distribution.Utils.String (trim)
 import Network.URI (URI (..), parseURI)
-import System.Directory (createDirectoryIfMissing)
-import System.FilePath (isAbsolute, isPathSeparator, makeValid, (</>))
+import System.Directory (canonicalizePath, createDirectoryIfMissing)
+import System.FilePath (isAbsolute, isPathSeparator, makeValid, takeDirectory, (</>))
 import Text.PrettyPrint (Doc, empty, int, nest, semi, text, vcat, (<>))
 
 -- | ProjectConfigSkeleton is a tree of conditional blocks and imports wrapping
@@ -297,5 +299,111 @@ dupesMsg (duplicate, ds@(take 1 . sort -> dupes)) =
     ((text "Warning:" <+> int (length ds) <+> text "imports of" <+> text duplicate) <> semi)
       : ((\Dupes{..} -> duplicateImportMsg empty dupesImport (sort $ dupesImports \\ [dupesImport])) <$> dupes)
 
+-- | Normalizes and canonicalizes a path removing '.' and '..' indirections.
+-- Makes the path relative to the given directory (typically the project root)
+-- instead of relative to the file it was imported from.
+--
+-- It converts paths like this:
+--
+-- >   hops-0.project
+-- >   └─ hops/hops-1.config
+-- >      └─ ../hops-2.config
+-- >         └─ hops/hops-3.config
+-- >            └─ ../hops-4.config
+-- >               └─ hops/hops-5.config
+-- >                  └─ ../hops-6.config
+-- >                     └─ hops/hops-7.config
+-- >                        └─ ../hops-8.config
+-- >                           └─ hops/hops-9.config
+--
+-- Into paths like this:
+--
+-- >   hops-0.project
+-- >   └─ hops/hops-1.config
+-- >      └─ hops-2.config
+-- >         └─ hops/hops-3.config
+-- >            └─ hops-4.config
+-- >               └─ hops/hops-5.config
+-- >                  └─ hops-6.config
+-- >                     └─ hops/hops-7.config
+-- >                        └─ hops-8.config
+-- >                           └─ hops/hops-9.config
+--
+-- That way we have @hops-8.config@ instead of
+-- @./hops/../hops/../hops/../hops/../hops-8.config@.
+--
+-- Let's see how @canonicalizePath@ works that is used in the implementation
+-- then we'll see how @canonicalizeConfigPath@ works.
+--
+-- >>> let d = testDir
+-- >>> (d </> "hops-8.config" ==) <$> canonicalizePath (d </> "hops/../hops/../hops/../hops/../hops-8.config")
+-- True
+--
+-- >>> let d = testDir
+-- >>> p <- canonicalizeConfigPath d (ProjectConfigPath $ (d </> "hops/../hops/../hops/../hops/../hops-8.config") :| [])
+-- >>> render $ docProjectConfigPath p
+-- "hops-8.config"
+--
+-- >>> :{
+--   do
+--     let expected = unlines
+--           [ "hops/hops-9.config"
+--           , "  imported by: hops-8.config"
+--           , "  imported by: hops/hops-7.config"
+--           , "  imported by: hops-6.config"
+--           , "  imported by: hops/hops-5.config"
+--           , "  imported by: hops-4.config"
+--           , "  imported by: hops/hops-3.config"
+--           , "  imported by: hops-2.config"
+--           , "  imported by: hops/hops-1.config"
+--           , "  imported by: hops-0.project"
+--           ]
+--     let d = testDir
+--     let configPath = ProjectConfigPath ("hops/hops-9.config" :|
+--           [ "../hops-8.config"
+--           , "hops/hops-7.config"
+--           , "../hops-6.config"
+--           , "hops/hops-5.config"
+--           , "../hops-4.config"
+--           , "hops/hops-3.config"
+--           , "../hops-2.config"
+--           , "hops/hops-1.config"
+--           , d </> "hops-0.project"])
+--     p <- canonicalizeConfigPath d configPath
+--     return $ expected == render (docProjectConfigPath p) ++ "\n"
+-- :}
+-- True
+--
+-- "A string is a valid URL potentially surrounded by spaces if, after stripping leading and trailing whitespace from it, it is a valid URL."
+-- [W3C/HTML5/URLs](https://www.w3.org/TR/2010/WD-html5-20100624/urls.html)
+--
+-- Trailing spaces for @ProjectConfigPath@ URLs are trimmed.
+--
+-- >>> p <- canonicalizeConfigPath "" (ProjectConfigPath $ ("https://www.stackage.org/nightly-2024-12-05/cabal.config ") :| [])
+-- >>> render $ docProjectConfigPath p
+-- "https://www.stackage.org/nightly-2024-12-05/cabal.config"
+--
+-- >>> let d = testDir
+-- >>> p <- canonicalizeConfigPath d (ProjectConfigPath $ ("https://www.stackage.org/nightly-2024-12-05/cabal.config ") :| [d </> "cabal.project"])
+-- >>> render $ docProjectConfigPath p
+-- "https://www.stackage.org/nightly-2024-12-05/cabal.config\n  imported by: cabal.project"
+canonicalizeConfigPath :: FilePath -> ProjectConfigPath -> IO ProjectConfigPath
+canonicalizeConfigPath d (ProjectConfigPath p) = do
+  xs <-
+    sequenceA $
+      NE.scanr
+        ( \importee@(trim -> trimImportee) ->
+            ( >>=
+                \importer@(trim -> trimImporter) ->
+                  if isURI trimImportee || isURI trimImporter
+                    then pure trimImportee
+                    else canonicalizePath $ d </> takeDirectory importer </> importee
+            )
+        )
+        (pure ".")
+        p
+  return . makeRelativeConfigPath d . ProjectConfigPath . NE.fromList $ NE.init xs
+
 -- $setup
 -- >>> import Text.PrettyPrint (render)
+-- >>> testDir <- canonicalizePath "../cabal-testsuite/PackageTests/ConditionalAndImport"

@@ -5,6 +5,7 @@
 #endif
 module Distribution.Solver.Modular.Solver
     ( SolverConfig(..)
+    , VerboseLog(..)
     , solve
     , PruneAfterFirstSuccess(..)
     ) where
@@ -15,7 +16,6 @@ import Prelude ()
 import qualified Data.Map as M
 import qualified Data.List as L
 import qualified Data.Set as S
-import Distribution.Verbosity
 
 import Distribution.Compiler (CompilerInfo)
 
@@ -45,7 +45,6 @@ import Distribution.Solver.Modular.Tree
 import qualified Distribution.Solver.Modular.PSQ as PSQ
 import Distribution.Solver.Types.PackageConstraint
 
-import Distribution.Simple.Setup (BooleanFlag(..))
 
 #ifdef DEBUG_TRACETREE
 import qualified Distribution.Solver.Modular.ConflictSet as CS
@@ -73,9 +72,14 @@ data SolverConfig = SolverConfig {
   enableBackjumping      :: EnableBackjumping,
   solveExecutables       :: SolveExecutables,
   goalOrder              :: Maybe (Variable QPN -> Variable QPN -> Ordering),
-  solverVerbosity        :: VerbosityLevel,
+  verboseLog             :: VerboseLog,
   pruneAfterFirstSuccess :: PruneAfterFirstSuccess
 }
+
+-- | Whether to keep the full solver log and show how often each goal was in a
+-- conflict set when reporting a failure.
+newtype VerboseLog = VerboseLog Bool
+  deriving Setting
 
 -- | Whether to remove all choices after the first successful choice at each
 -- level in the search tree.
@@ -140,7 +144,7 @@ solve sc cinfo idx pkgConfigDB userPrefs userConstraints userGoals =
     validationCata   = P.enforceSingleInstanceRestriction .
                        validateLinking idx .
                        validateTree cinfo idx pkgConfigDB
-    prunePhase       = (if asBool (avoidReinstalls sc) then P.avoidReinstalls (const True) else id) .
+    prunePhase       = (if enabled (avoidReinstalls sc) then P.avoidReinstalls (const True) else id) .
                        (case onlyConstrained sc of
                           OnlyConstrainedAll ->
                             P.onlyConstrained (`S.member` versionConstrainedOrGoals)
@@ -164,7 +168,7 @@ solve sc cinfo idx pkgConfigDB userPrefs userConstraints userGoals =
     -- Otherwise, we simply choose the first remaining goal.
     --
     goalChoiceHeuristics
-      | asBool (reorderGoals sc) = P.preferReallyEasyGoalChoices
+      | enabled (reorderGoals sc) = P.preferReallyEasyGoalChoices
       | otherwise                = id {- P.firstGoal -}
 
 -- | Keep package names of constraints that satisfy the predicate.

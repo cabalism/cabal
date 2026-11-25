@@ -8,7 +8,7 @@ import qualified Data.Map as M
 import qualified Data.Set as S
 
 import qualified Distribution.Compat.Graph as G
-import Distribution.Simple.Utils (ordNub)
+import Distribution.Utils.Generic (ordNub)
 import Distribution.Solver.Modular.Dependency
 import Distribution.Solver.Modular.Flag
 import Distribution.Solver.Modular.Tree

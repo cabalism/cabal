@@ -186,7 +186,6 @@ import Distribution.Simple.InstallDirs
 import Distribution.Simple.Program (ProgramDb, defaultProgramDb)
 import Distribution.Simple.Setup
   ( BenchmarkFlags (benchmarkCommonFlags)
-  , BooleanFlag (..)
   , BuildFlags (..)
   , CleanFlags (..)
   , CommonSetupFlags (..)
@@ -2651,7 +2650,7 @@ installOptions showOrParseArgs =
           []
           ["avoid-reinstalls"]
           "Do not select versions that would destructively overwrite installed packages."
-          (fmap asBool . installAvoidReinstalls)
+          (fmap enabled . installAvoidReinstalls)
           (\v flags -> flags{installAvoidReinstalls = fmap AvoidReinstalls v})
           (yesNoOpt showOrParseArgs)
        , option
@@ -3647,21 +3646,21 @@ optionSolverFlags
         []
         ["reorder-goals"]
         "Try to reorder goals according to certain heuristics. Slows things down on average, but may make backtracking faster for some packages."
-        (fmap asBool . getrg)
+        (fmap enabled . getrg)
         (setrg . fmap ReorderGoals)
         (yesNoOpt showOrParseArgs)
     , option
         []
         ["count-conflicts"]
         "Try to speed up solving by preferring goals that are involved in a lot of conflicts (default)."
-        (fmap asBool . getcc)
+        (fmap enabled . getcc)
         (setcc . fmap CountConflicts)
         (yesNoOpt showOrParseArgs)
     , option
         []
         ["fine-grained-conflicts"]
         "Skip a version of a package if it does not resolve the conflicts encountered in the last version, as a solver optimization (default)."
-        (fmap asBool . getfgc)
+        (fmap enabled . getfgc)
         (setfgc . fmap FineGrainedConflicts)
         (yesNoOpt showOrParseArgs)
     , option
@@ -3671,14 +3670,14 @@ optionSolverFlags
             ++ "a minimal conflict set (default: false). May increase run time "
             ++ "significantly."
         )
-        (fmap asBool . getmc)
+        (fmap enabled . getmc)
         (setmc . fmap MinimizeConflictSet)
         (yesNoOpt showOrParseArgs)
     , option
         []
         ["independent-goals"]
         "Treat several goals on the command line as independent. If several goals depend on the same package, different versions can be chosen."
-        (fmap asBool . getig)
+        (fmap enabled . getig)
         (setig . fmap IndependentGoals)
         (yesNoOpt showOrParseArgs)
     , option
@@ -3706,21 +3705,21 @@ optionSolverFlags
         []
         ["shadow-installed-packages"]
         "If multiple package instances of the same version are installed, treat all but one as shadowed."
-        (fmap asBool . getsip)
+        (fmap enabled . getsip)
         (setsip . fmap ShadowPkgs)
         (yesNoOpt showOrParseArgs)
     , option
         []
         ["strong-flags"]
         "Do not defer flag choices (this used to be the default in cabal-install <= 1.20)."
-        (fmap asBool . getstrfl)
+        (fmap enabled . getstrfl)
         (setstrfl . fmap StrongFlags)
         (yesNoOpt showOrParseArgs)
     , option
         []
         ["allow-boot-library-installs"]
         "Allow cabal to install base, ghc-prim, integer-simple, integer-gmp, and template-haskell."
-        (fmap asBool . getib)
+        (fmap enabled . getib)
         (setib . fmap AllowBootLibInstalls)
         (yesNoOpt showOrParseArgs)
     , option

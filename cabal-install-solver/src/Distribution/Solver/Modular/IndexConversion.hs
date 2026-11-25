@@ -12,17 +12,17 @@ import qualified Data.Set as S
 
 import qualified Distribution.InstalledPackageInfo as IPI
 import Distribution.Compiler
-import Distribution.Package                          -- from Cabal
-import Distribution.Simple.BuildToolDepends          -- from Cabal
-import Distribution.Types.ExeDependency              -- from Cabal
-import Distribution.Types.PkgconfigDependency        -- from Cabal
-import Distribution.Types.ComponentName              -- from Cabal
-import Distribution.Types.CondTree                   -- from Cabal
-import Distribution.Types.MungedPackageId            -- from Cabal
-import Distribution.Types.MungedPackageName          -- from Cabal
-import Distribution.PackageDescription               -- from Cabal
+import Distribution.Package
+import Distribution.Simple.BuildToolDepends
+import Distribution.Types.ExeDependency
+import Distribution.Types.PkgconfigDependency
+import Distribution.Types.ComponentName
+import Distribution.Types.CondTree
+import Distribution.Types.MungedPackageId
+import Distribution.Types.MungedPackageName
+import Distribution.PackageDescription
 import Distribution.PackageDescription.Configuration
-import qualified Distribution.Simple.PackageIndex as SI
+import qualified Distribution.Solver.Types.InstalledIndex as SI
 import Distribution.System
 
 import           Distribution.Solver.Types.ComponentDeps
@@ -58,7 +58,7 @@ import qualified Distribution.Types.BuildInfo.Lens as L
 -- explicitly requested.
 convPIs :: OS -> Arch -> CompilerInfo -> Map PN [LabeledPackageConstraint]
         -> ShadowPkgs -> StrongFlags -> SolveExecutables
-        -> SI.InstalledPackageIndex -> CI.PackageIndex (SourcePackage loc)
+        -> SI.InstalledIndex -> CI.PackageIndex (SourcePackage loc)
         -> Index
 convPIs os arch comp constraints sip strfl solveExes iidx sidx =
   mkIndex $
@@ -66,14 +66,14 @@ convPIs os arch comp constraints sip strfl solveExes iidx sidx =
 
 -- | Convert a Cabal installed package index to the simpler,
 -- more uniform index format of the solver.
-convIPI' :: ShadowPkgs -> SI.InstalledPackageIndex -> [(PN, I, PInfo)]
+convIPI' :: ShadowPkgs -> SI.InstalledIndex -> [(PN, I, PInfo)]
 convIPI' (ShadowPkgs sip) idx =
     -- apply shadowing whenever there are multiple installed packages with
     -- the same version
     [ maybeShadow (convIP idx pkg)
     -- IMPORTANT to get internal libraries. See
     -- Note [Index conversion with internal libraries]
-    | (_, pkgs) <- SI.allPackagesBySourcePackageIdAndLibName idx
+    | pkgs <- SI.installedGroups idx
     , (maybeShadow, pkg) <- zip (id : repeat shadow) pkgs ]
   where
 
@@ -90,7 +90,7 @@ convId ipi = (pn, I ver $ Inst $ IPI.installedUnitId ipi)
         pn = encodeCompatPackageName mpn
 
 -- | Convert a single installed package into the solver-specific format.
-convIP :: SI.InstalledPackageIndex -> IPI.InstalledPackageInfo -> (PN, I, PInfo)
+convIP :: SI.InstalledIndex -> IPI.InstalledPackageInfo -> (PN, I, PInfo)
 convIP idx ipi =
   case traverse (convIPId (DependencyReason pn M.empty S.empty) comp idx) (IPI.depends ipi) of
         Left u    -> (pn, i, PInfo [] M.empty M.empty (Just (Broken u)))
@@ -144,7 +144,7 @@ convIP idx ipi =
 -- May return Nothing if the package can't be found in the index. That
 -- indicates that the original package having this dependency is broken
 -- and should be ignored.
-convIPId :: DependencyReason PN -> Component -> SI.InstalledPackageIndex -> UnitId -> Either UnitId (FlaggedDep PN)
+convIPId :: DependencyReason PN -> Component -> SI.InstalledIndex -> UnitId -> Either UnitId (FlaggedDep PN)
 convIPId dr comp idx ipid =
   case SI.lookupUnitId idx ipid of
     Nothing  -> Left ipid

@@ -55,6 +55,7 @@ import Distribution.Client.Targets
   )
 import Distribution.Client.Types as Source
 
+import Distribution.Client.PkgConfigDb (readPkgConfigDb)
 import qualified Distribution.Solver.Types.ComponentDeps as CD
 import Distribution.Solver.Types.ConstraintSource
 import Distribution.Solver.Types.LabeledPackageConstraint
@@ -65,7 +66,6 @@ import Distribution.Solver.Types.PackageIndex
   )
 import Distribution.Solver.Types.PkgConfigDb
   ( PkgConfigDb
-  , readPkgConfigDb
   )
 import Distribution.Solver.Types.Settings
 import Distribution.Solver.Types.SourcePackage

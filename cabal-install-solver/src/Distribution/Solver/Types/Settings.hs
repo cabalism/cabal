@@ -1,5 +1,6 @@
 module Distribution.Solver.Types.Settings
-    ( ReorderGoals(..)
+    ( Setting(..)
+    , ReorderGoals(..)
     , IndependentGoals(..)
     , PreferVersion(..)
     , MinimizeConflictSet(..)
@@ -17,27 +18,34 @@ module Distribution.Solver.Types.Settings
 import Distribution.Solver.Compat.Prelude
 import Prelude ()
 
-import Distribution.Simple.Setup ( BooleanFlag(..) )
 import Distribution.Pretty ( Pretty(pretty) )
 import Distribution.Parsec ( Parsec(parsec) )
 
 import qualified Distribution.Compat.CharParsing as P
 import qualified Text.PrettyPrint as PP
 
+-- | A solver setting that is either on or off.
+class Setting a where
+  -- | Whether the setting is on.
+  enabled :: a -> Bool
+
+instance Setting Bool where
+  enabled = id
+
 newtype ReorderGoals = ReorderGoals Bool
-  deriving (BooleanFlag, Eq, Generic, Show)
+  deriving (Setting, Eq, Generic, Show)
 
 newtype CountConflicts = CountConflicts Bool
-  deriving (BooleanFlag, Eq, Generic, Show)
+  deriving (Setting, Eq, Generic, Show)
 
 newtype FineGrainedConflicts = FineGrainedConflicts Bool
-  deriving (BooleanFlag, Eq, Generic, Show)
+  deriving (Setting, Eq, Generic, Show)
 
 newtype MinimizeConflictSet = MinimizeConflictSet Bool
-  deriving (BooleanFlag, Eq, Generic, Show)
+  deriving (Setting, Eq, Generic, Show)
 
 newtype IndependentGoals = IndependentGoals Bool
-  deriving (BooleanFlag, Eq, Generic, Show)
+  deriving (Setting, Eq, Generic, Show)
 
 data PreferVersion =
   PreferOldest
@@ -46,16 +54,16 @@ data PreferVersion =
   deriving (Eq, Generic, Show)
 
 newtype AvoidReinstalls = AvoidReinstalls Bool
-  deriving (BooleanFlag, Eq, Generic, Show)
+  deriving (Setting, Eq, Generic, Show)
 
 newtype ShadowPkgs = ShadowPkgs Bool
-  deriving (BooleanFlag, Eq, Generic, Show)
+  deriving (Setting, Eq, Generic, Show)
 
 newtype StrongFlags = StrongFlags Bool
-  deriving (BooleanFlag, Eq, Generic, Show)
+  deriving (Setting, Eq, Generic, Show)
 
 newtype AllowBootLibInstalls = AllowBootLibInstalls Bool
-  deriving (BooleanFlag, Eq, Generic, Show)
+  deriving (Setting, Eq, Generic, Show)
 
 -- | Should we consider all packages we know about, or only those that
 -- have constraints explicitly placed on them or which are goals?
@@ -65,10 +73,10 @@ data OnlyConstrained
   deriving (Eq, Generic, Show)
 
 newtype EnableBackjumping = EnableBackjumping Bool
-  deriving (BooleanFlag, Eq, Generic, Show)
+  deriving (Setting, Eq, Generic, Show)
 
 newtype SolveExecutables = SolveExecutables Bool
-  deriving (BooleanFlag, Eq, Generic, Show)
+  deriving (Setting, Eq, Generic, Show)
 
 instance Binary ReorderGoals
 instance Binary CountConflicts

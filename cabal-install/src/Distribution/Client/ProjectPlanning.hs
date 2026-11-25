@@ -156,6 +156,7 @@ import Distribution.Utils.Path hiding
 
 import qualified Hackage.Security.Client as Sec
 
+import Distribution.Client.PkgConfigDb (getPkgConfigDbDirs, readPkgConfigDb)
 import Distribution.Solver.Types.ConstraintSource
 import Distribution.Solver.Types.InstSolverPackage
 import Distribution.Solver.Types.LabeledPackageConstraint

@@ -1,7 +1,7 @@
 {-# LANGUAGE LambdaCase #-}
 
 module Distribution.Solver.Modular
-         ( modularResolver, SolverConfig(..), PruneAfterFirstSuccess(..) ) where
+         ( modularResolver, SolverConfig(..), VerboseLog(..), PruneAfterFirstSuccess(..) ) where
 
 -- Here, we try to map between the external cabal-install solver
 -- interface and the internal interface that the solver actually
@@ -48,7 +48,7 @@ import Distribution.Solver.Modular.RetryLog
       failWith,
       continueWith )
 import Distribution.Solver.Modular.Solver
-         ( SolverConfig(..), PruneAfterFirstSuccess(..), solve )
+         ( SolverConfig(..), VerboseLog(..), PruneAfterFirstSuccess(..), solve )
 import Distribution.Solver.Types.DependencyResolver
     ( DependencyResolver )
 import Distribution.Solver.Types.LabeledPackageConstraint
@@ -64,14 +64,12 @@ import Distribution.Solver.Types.Progress
     ( Progress(..), foldProgress )
 import Distribution.Solver.Types.SummarizedMessage
     ( SummarizedMessage(StringMsg) )
+import Distribution.Solver.Types.Settings ( Setting(..) )
 import Distribution.Solver.Types.Variable ( Variable(..) )
 import Distribution.System
          ( Platform(..) )
-import Distribution.Simple.Setup
-         ( BooleanFlag(..) )
-import Distribution.Simple.Utils
+import Distribution.Utils.Generic
     ( ordNubBy )
-import Distribution.Verbosity
 import Distribution.Solver.Modular.Message ( renderSummarizedMessage )
 
 -- | Ties the two worlds together: classic cabal-install vs. the modular
@@ -151,7 +149,7 @@ solve' sc cinfo idx pkgConfigDB pprefs gcs pns =
     createErrorMsg :: SolverFailure
                    -> RetryLog SummarizedMessage String (Assignment, RevDepMap)
     createErrorMsg failure@(ExhaustiveSearch cs cm) =
-      if asBool $ minimizeConflictSet sc
+      if enabled $ minimizeConflictSet sc
       then continueWith (mkStringMsg $ "Found no solution after exhaustively searching the "
                           ++ "dependency tree. Rerunning the dependency solver "
                           ++ "to minimize the conflict set ({"
@@ -201,7 +199,7 @@ solve' sc cinfo idx pkgConfigDB pprefs gcs pns =
 
       in unlines ("Could not resolve dependencies:" : map renderSummarizedMessage (messages (toProgress (runSolver True sc'))))
 
-    printFullLog = solverVerbosity sc >= Verbose
+    printFullLog = enabled (verboseLog sc)
 
     messages :: Progress step fail done -> [step]
     messages = foldProgress (:) (const []) (const [])
@@ -342,13 +340,13 @@ finalErrorMsg sc failure =
           ++ showCS cm cs
           ++ flagSuggestion
         where
-          showCS = if solverVerbosity sc > Normal
+          showCS = if enabled (verboseLog sc)
                    then CS.showCSWithFrequency
                    else CS.showCSSortedByFrequency
           flagSuggestion =
               -- Don't suggest --minimize-conflict-set if the conflict set is
               -- already small, because it is unlikely to be reduced further.
-              if CS.size cs > 3 && not (asBool (minimizeConflictSet sc))
+              if CS.size cs > 3 && not (enabled (minimizeConflictSet sc))
               then "\nTry running with --minimize-conflict-set to improve the "
                     ++ "error message."
               else ""

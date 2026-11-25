@@ -15,7 +15,7 @@ import qualified Distribution.Solver.Types.ComponentDeps as CD
 
 import Distribution.Compat.Graph (IsNode(..))
 import Distribution.Package (Package(..), HasUnitId(..))
-import Distribution.Simple.Utils (ordNub)
+import Distribution.Utils.Generic (ordNub)
 import Data.Foldable (fold)
 
 -- | The dependency resolver picks either pre-existing installed packages
