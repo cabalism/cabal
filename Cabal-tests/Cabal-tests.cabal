@@ -135,17 +135,27 @@ test-suite custom-setup-tests
 
   default-language: GHC2021
 
--- A test suite using the detailed-0.9 interface, compiled against the in-tree
--- Cabal so that changes to Distribution.TestSuite that break such test suites
--- are caught. It is Haskell2010 with no extensions on purpose.
+-- The test suite examples of the user guide, which includes their source files
+-- from tests/user-guide. Building them here, against the in-tree Cabal, keeps
+-- the examples compiling. For detailed-0.9 it also catches changes to
+-- Distribution.TestSuite that break test suites using that interface. They are
+-- Haskell2010 with no extensions on purpose.
 test-suite detailed-tests
   type:             detailed-0.9
-  hs-source-dirs:   tests/detailed
+  hs-source-dirs:   tests/user-guide
   test-module:      DetailedTests
   build-depends:
     , base
     , Cabal
 
+  ghc-options:      -Wall
+  default-language: Haskell2010
+
+test-suite exitcode-tests
+  type:             exitcode-stdio-1.0
+  hs-source-dirs:   tests/user-guide
+  main-is:          ExitcodeTests.hs
+  build-depends:    base
   ghc-options:      -Wall
   default-language: Haskell2010
 

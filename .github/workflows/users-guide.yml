@@ -18,6 +18,7 @@ on:
     - 'doc/*.py'
     - 'doc/*.rst'
     - 'doc/**/*.json'
+    - 'Cabal-tests/tests/user-guide/**'
     - '.github/workflows/users-guide.yml'
   pull_request:
     paths:
@@ -27,6 +28,7 @@ on:
     - 'doc/*.py'
     - 'doc/*.rst'
     - 'doc/**/*.json'
+    - 'Cabal-tests/tests/user-guide/**'
     - '.github/workflows/users-guide.yml'
   release:
     types:

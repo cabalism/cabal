@@ -1133,6 +1133,14 @@ the :pkg-field:`test-module` field.
 
     The module exporting the ``tests`` symbol.
 
+.. tip::
+
+    The two interfaces differ in who writes ``main``. With
+    ``exitcode-stdio-1.0`` you write it, in a module named ``Main`` in the
+    :pkg-field:`main-is` file. With ``detailed-0.9`` you export ``tests``
+    from the :pkg-field:`test-module` and Cabal generates the ``Main`` module
+    that runs them.
+
 .. pkg-field:: code-generators
 
     An optional list of preprocessors which can generate new modules
@@ -1159,83 +1167,73 @@ The example package description and executable source file below
 demonstrate the use of the ``exitcode-stdio-1.0`` interface.
 
 .. code-block:: cabal
-    :caption: foo.cabal
+    :caption: exitcode-example.cabal
 
     Cabal-Version:  3.0
-    Name:           foo
+    Name:           exitcode-example
     Version:        1.0
     License:        BSD-3-Clause
     Build-Type:     Simple
 
-    Test-Suite test-foo
+    Test-Suite exitcode-tests
         type:             exitcode-stdio-1.0
-        main-is:          test-foo.hs
+        main-is:          ExitcodeTests.hs
         build-depends:    base >= 4 && < 5
         default-language: Haskell2010
 
-.. code-block:: haskell
-    :caption: test-foo.hs
-
-    module Main where
-
-    import System.Exit (exitFailure)
-
-    main = do
-        putStrLn "This test always fails!"
-        exitFailure
+.. literalinclude:: ../Cabal-tests/tests/user-guide/ExitcodeTests.hs
+    :language: haskell
+    :caption: ExitcodeTests.hs
 
 Example: Package using ``detailed-0.9`` interface
 """""""""""""""""""""""""""""""""""""""""""""""""
 
 The example package description and test module source file below
 demonstrate the use of the ``detailed-0.9`` interface. The test module
-also develops a simple implementation of the interface set by
-``Distribution.TestSuite``, but in actual usage the implementation would
-be provided by the library that provides the testing facility.
+writes its ``TestInstance`` values by hand to show the interface set by
+``Distribution.TestSuite``, but in actual usage they would be provided by
+the library that provides the testing facility.
 
 .. code-block:: cabal
-    :caption: bar.cabal
+    :caption: detailed-example.cabal
 
     Cabal-Version:  3.0
-    Name:           bar
+    Name:           detailed-example
     Version:        1.0
     License:        BSD-3-Clause
     Build-Type:     Simple
 
-    Test-Suite test-bar
+    Test-Suite detailed-tests
         type:             detailed-0.9
-        test-module:      Bar
-        -- To keep this (untested) example working, we rely on the test type
-        -- version rather than an upper bound on Cabal. In real code, PVP
-        -- compliance may require including the upper bound.
+        test-module:      DetailedTests
+        -- This example relies on the test type version rather than an upper
+        -- bound on Cabal. In real code, PVP compliance may require including
+        -- the upper bound.
         build-depends:    base >= 4 && < 5, Cabal >= 1.9.2
         default-language: Haskell2010
 
 
-.. code-block:: haskell
-    :caption: Bar.hs
+.. literalinclude:: ../Cabal-tests/tests/user-guide/DetailedTests.hs
+    :language: haskell
+    :caption: DetailedTests.hs
 
-    module Bar ( tests ) where
+The module shows these parts of the interface:
 
-    import Distribution.TestSuite
+- ``check`` makes a test that finishes with ``Pass`` or with ``Fail`` and a
+  reason. A test can also finish with ``Error`` when it could not be run.
+- ``testGroup`` names a group of tests that are safe to run in parallel. The
+  ``Group`` constructor sets ``concurrently`` itself, here to keep its tests
+  from running at the same time as each other.
+- ``triangular`` returns a ``Progress`` step before it finishes and describes
+  an option with ``OptionDescr``. Its ``setOption`` returns the test to run
+  with the option set, or an error message when it rejects the option or its
+  value.
 
-    tests :: IO [Test]
-    tests = return [ Test succeeds, Test fails ]
-      where
-        succeeds = TestInstance
-            { run = return $ Finished Pass
-            , name = "succeeds"
-            , tags = []
-            , options = []
-            , setOption = \_ _ -> Right succeeds
-            }
-        fails = TestInstance
-            { run = return $ Finished $ Fail "Always fails!"
-            , name = "fails"
-            , tags = []
-            , options = []
-            , setOption = \_ _ -> Right fails
-            }
+.. note::
+
+    When Cabal runs a ``detailed-0.9`` test suite it runs each test as it is,
+    without calling ``setOption``, and records the default of each option in
+    the test log.
 
 Benchmarks
 ^^^^^^^^^^
